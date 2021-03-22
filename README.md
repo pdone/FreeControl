@@ -22,7 +22,7 @@
 - 无线访问需要先连接数据线，使用"adb tcpip 5555"手动设置端口号才可用，不确定是不是应为手机升级Android 10造成的，升级前默认端口号5555是可以直接访问的
 
 ## 下载地址
-> [https://www.lanzoux.com/iAfCfn772yd](https://www.lanzoux.com/iAfCfn772yd) 密码:pdone
+> [https://pdone.lanzoui.com/iMKlCn77d3i](https://pdone.lanzoui.com/iMKlCn77d3i) 密码:pdone
 
 ## 快捷键
  | 动作 | 快捷键
