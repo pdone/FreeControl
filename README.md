@@ -1,9 +1,7 @@
 # FreeControl
 
 ## 介绍
-基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，使用C#简单封装了一下。
-
-同类的开源项目也有不少，如[**QtScrcpy**](https://github.com/barry-ran/QtScrcpy)在scrcpy的基础上增加了更多功能。
+基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，使用C#简单封装。
 
 做本程序的目的主要是学习，另外就是自己用着方便些。
 
@@ -11,12 +9,20 @@
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/3.gif)
 
 ## 版本说明
+### v1.2.0
+- 基于scrcpy v1.17
+- 修复了一些bug
+
+### v1.1.0
+- 基于scrcpy v1.16
+- 增加了设置端口号功能
+
 ### v1.0.0
 - 基于scrcpy v1.14
 - 无线访问需要先连接数据线，使用"adb tcpip 5555"手动设置端口号才可用，不确定是不是应为手机升级Android 10造成的，升级前默认端口号5555是可以直接访问的
 
 ## 下载地址
-> [https://www.lanzoux.com/ivoy7gnbenc](https://www.lanzoux.com/ivoy7gnbenc) 密码:pdone
+> [https://www.lanzoux.com/iAfCfn772yd](https://www.lanzoux.com/iAfCfn772yd) 密码:pdone
 
 ## 快捷键
  | 动作 | 快捷键

@@ -38,6 +38,7 @@
             this.uiProgressIndicator1.Font = new System.Drawing.Font("微软雅黑", 12F);
             this.uiProgressIndicator1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.uiProgressIndicator1.Location = new System.Drawing.Point(0, 0);
+            this.uiProgressIndicator1.MinimumSize = new System.Drawing.Size(1, 1);
             this.uiProgressIndicator1.Name = "uiProgressIndicator1";
             this.uiProgressIndicator1.Size = new System.Drawing.Size(100, 100);
             this.uiProgressIndicator1.Style = Sunny.UI.UIStyle.Gray;
@@ -49,6 +50,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(100, 100);
             this.Controls.Add(this.uiProgressIndicator1);
             this.Cursor = System.Windows.Forms.Cursors.WaitCursor;
@@ -58,9 +60,13 @@
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "加载中";
+            this.Text = "Loading";
             this.TopMost = true;
+            this.Load += new System.EventHandler(this.Loading_Load);
             this.ResumeLayout(false);
+
+            this.BackColor = System.Drawing.Color.Silver;//将窗体背景设置成红色
+            this.TransparencyKey = System.Drawing.Color.Silver; //将红色设置成透明色
 
         }
 

@@ -121,11 +121,14 @@
   <data name="ICSharpCode_SharpZipLib" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\DLL\ICSharpCode.SharpZipLib.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="Newtonsoft_Json" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\DLL\Newtonsoft.Json.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="pcm" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\pcm.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="scrcpy_win32_v1_14" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\scrcpy-win32-v1.14.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="scrcpy_win32_v1_17" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\scrcpy-win32-v1.17.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="shortcut_en" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\shortcut_en.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>

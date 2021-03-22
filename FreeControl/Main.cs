@@ -24,7 +24,7 @@ namespace FreeControl
         /// <summary>
         /// 用户数据目录
         /// </summary>
-        public string UserDataPath
+        public static string UserDataPath
         {
             get
             {
@@ -48,8 +48,9 @@ namespace FreeControl
                 reader.Close();
                 return tempData;
             }
-            catch
+            catch (Exception ex)
             {
+                LogHelper.Error(ex);
                 return new Setting();
             }
         }
@@ -62,17 +63,28 @@ namespace FreeControl
                 Directory.CreateDirectory(UserDataPath);
                 File.WriteAllText(fullPath, JsonHelper.json(userData));
             }
-            catch
+            catch (Exception ex)
             {
-
+                LogHelper.Error(ex);
             }
         }
 
         Setting setting = new Setting();
         ProcessStartInfo AdbProcessInfo = null;
 
+        /// <summary>
+        /// scrcpy版本
+        /// </summary>
+        public static string scrcpyVersion = "scrcpy_win32_v1_17";
+
+        /// <summary>
+        /// scrcpy路径
+        /// </summary>
+        public static string scrcpyPath = Path.Combine(UserDataPath, scrcpyVersion + "\\");
+
         public void InitPdone()
         {
+
             setting = GetUserData();
 
             Application.ApplicationExit += (sender, e) =>
@@ -163,6 +175,8 @@ namespace FreeControl
             switchDarkMode.Active = setting.DarkMode;
             tbxAddress.Text = setting.IPAddress;
             tbxPort.Text = setting.Port;
+            tbxAddress.Enabled = !setting.UseWireless;
+            tbxPort.Enabled = !setting.UseWireless;
 
             #region 复选框默认值   
             cbxUseWireless.Checked = setting.UseWireless;
@@ -204,12 +218,11 @@ namespace FreeControl
             #endregion
 
             #region 启动前
-            string scrcpyPath = Path.Combine(UserDataPath, "scrcpy/");
             string tempFileName = "temp.zip";
             if (!Directory.Exists(scrcpyPath))
             {
                 Directory.CreateDirectory(scrcpyPath);
-                File.WriteAllBytes(scrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v1_14);
+                File.WriteAllBytes(scrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v1_17);
                 if (SharpZip.UnpackFiles(scrcpyPath + tempFileName, scrcpyPath))
                 {
                     File.Delete(scrcpyPath + tempFileName);
@@ -219,18 +232,25 @@ namespace FreeControl
 
             Process scrcpy = null;
 
-            //设置端口号命令 adb tcpip 5566
+            //设置端口号命令 adb tcpip 5555
             #region 启动按钮
             btnStart.Click += (sender, e) =>
             {
+  
                 if (setting.UseWireless &&
                 (string.IsNullOrWhiteSpace(setting.IPAddress) || string.IsNullOrWhiteSpace(setting.Port)))
                 {
                     UIMessageTip.ShowWarning(sender as Control, "IP地址或者端口号没有填写，无法启动 -.-!", 1500);
                     return;
                 }
-                LogHelper.Info("starting...");//--window-title \"{ledTitle.Text}\"
-                var paramlist = $" {setting.BitRate} {setting.PX} {setting.MaxFPS} {setting.OtherParam} --window-height 600";
+                LogHelper.Info("starting...");
+                var paramlist = $" {setting.BitRate} {setting.PX} {setting.MaxFPS} {setting.OtherParam} ";
+                //设置屏幕高度 800
+                paramlist += "--window-height 800 ";
+                //设置快捷键 左Crtl
+                paramlist += "--shortcut-mod=lctrl ";
+                //设置标题
+                paramlist += $"--window-title \"{ledTitle.Text}\" ";
 
                 AdbProcessInfo = new ProcessStartInfo($@"{scrcpyPath}adb.exe",
                     $"connect {setting.IPAddress}:{setting.Port}")
@@ -242,24 +262,33 @@ namespace FreeControl
 
                 if (setting.UseWireless)
                 {
+                    //启动ABD
                     Process adb = Process.Start(AdbProcessInfo);
                     LogHelper.Info(adb.StandardOutput.ReadToEnd());
                     adb.WaitForExit();
                     paramlist = $"-s {setting.IPAddress}:{setting.Port} " + paramlist;
                 }
 
-                //this.Hide();
-                //this.ShowInfoDialog(paramlist);
-                scrcpy = Process.Start(new ProcessStartInfo($@"{scrcpyPath}scrcpy-noconsole.exe",//
-                    paramlist));
+                scrcpy = Process.Start(new ProcessStartInfo($@"{scrcpyPath}scrcpy.exe",
+                    paramlist)
+                {
+                    CreateNoWindow = true,//设置不在新窗口中启动新的进程        
+                    UseShellExecute = false,//不使用操作系统使用的shell启动进程 
+                    RedirectStandardOutput = true,//将输出信息重定向
+                });
+ 
+                this.Hide();
                 LogHelper.Info("scrcpy running...");
-                scrcpy.WaitForExit();
+                LogHelper.Info(scrcpy.StandardOutput.ReadToEnd());
 
-                //this.Show();
-                UIMessageTip.Show(this, "已退出", null, 1000);
+                scrcpy.WaitForExit();
+                UIMessageTip.Show(this, "已退出", null, 1500);
+                this.Show();
+
             };
             #endregion
         }
+
 
         private void CbxUseLog_ValueChanged(object sender, bool value)
         {
@@ -270,6 +299,8 @@ namespace FreeControl
         private void CbxUseWireless_ValueChanged(object sender, bool value)
         {
             setting.UseWireless = value;
+            tbxAddress.Enabled = !value;
+            tbxPort.Enabled = !value;
         }
 
         private void TbxAddress_TextChanged(object sender, EventArgs e)
@@ -465,6 +496,23 @@ namespace FreeControl
             };
             shortcut.Controls.Add(pictureBox);
             shortcut.ShowDialog();
+        }
+
+        private void uiLinkLabel2_Click(object sender, EventArgs e)
+        {
+            if (UIMessageBox.Show("1、使用数据线将手机连接电脑\n2、手机开启调试模式\n3、程序将使用adb tcpip 5555命令修改无线调试端口号\n4、点击确定后若看到一只狗头，则表示设置端口号成功", "请确认", setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
+            {
+                var batPath = scrcpyPath + "SetProt.bat";
+                if (!File.Exists(batPath))
+                {
+                    //提取嵌入资源
+                    FileHelper.ExtractResFile("FreeControl.SetProt.bat", batPath);
+                }
+                if (File.Exists(batPath))
+                {
+                    System.Diagnostics.Process.Start(batPath, scrcpyVersion);
+                }
+            }
         }
     }
 

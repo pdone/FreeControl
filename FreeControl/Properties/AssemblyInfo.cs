@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Pdone Technology Ltd.")]
 [assembly: AssemblyProduct("Free Control")]
-[assembly: AssemblyCopyright("Copyright © 2020 Pdoner.cn")]
+[assembly: AssemblyCopyright("Copyright © 2021 Pdoner.cn")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 //通过使用 "*"，如下所示:
 // [assembly: AssemblyVersion("1.0.*")]
 //[assembly: AssemblyVersion("1.0.0")]
-[assembly: AssemblyFileVersion("1.0.0")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.2.0")]
+[assembly: AssemblyVersion("1.2")]
