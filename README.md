@@ -3,6 +3,8 @@
 ## 介绍
 基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，使用C#简单封装。
 
+程序UI基于开源项目[**SunnyUI**](https://gitee.com/yhuse/SunnyUI)。
+
 做本程序的目的主要是学习，另外就是自己用着方便些。
 
 ## 截图
