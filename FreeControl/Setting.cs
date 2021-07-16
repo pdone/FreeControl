@@ -33,24 +33,31 @@ namespace FreeControl
         public int MaxFPSIndex { get; set; } = 0;
 
         /// <summary>
+        /// 快捷键设置
+        /// </summary>
+        [Description("--shortcut-mod")]
+        public string Shortcuts { get; set; } = "";
+        public int ShortcutsIndex { get; set; } = 0;
+
+        /// <summary>
         /// 关闭屏幕
         /// </summary>
-        [Description("-S")]
+        [Description("--turn-screen-off")]
         public bool CloseScreen { get; set; } = false;
         /// <summary>
         /// 保持唤醒
         /// </summary>
-        [Description("-w")]
+        [Description("--stay-awake")]
         public bool KeepAwake { get; set; } = false;
         /// <summary>
-        /// 全帧渲染
+        /// 弃用 - 全帧渲染
         /// </summary>
         [Description("--render-expired-frames")]
         public bool AllFPS { get; set; } = false;
         /// <summary>
         /// 镜像模式（只读）
         /// </summary>
-        [Description("-n")]
+        [Description("--no-control")]
         public bool ReadOnly { get; set; } = false;
 
         /// <summary>
@@ -95,5 +102,20 @@ namespace FreeControl
         /// </summary>
         [Description("--always-on-top")]
         public bool TopMost { get; set; } = false;
+
+        /// <summary>
+        /// 显示触摸点
+        /// </summary>
+        [Description("--show-touches")]
+        public bool ShowTouches { get; set; } = false;
+
+        /// <summary>
+        /// 窗口高度
+        /// </summary>
+        public int WindowHeight { get; set; } = 0;
+        /// <summary>
+        /// 窗口宽度
+        /// </summary>
+        public int WindowWidth { get; set; } = 0;
     }
 }

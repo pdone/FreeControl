@@ -3,12 +3,19 @@
 ## 介绍
 基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，使用C#简单封装。
 
+程序UI基于开源项目[**SunnyUI**](https://gitee.com/yhuse/SunnyUI)。
+
 做本程序的目的主要是学习，另外就是自己用着方便些。
 
 ## 截图
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/3.gif)
+![截图非最新版本，仅供参考](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/3.gif)
 
 ## 版本说明
+### v1.3.0
+- 基于scrcpy v1.18
+- 增加了一些设置项
+- 修复了一些bug
+
 ### v1.2.0
 - 基于scrcpy v1.17
 - 修复了一些bug
@@ -19,35 +26,17 @@
 
 ### v1.0.0
 - 基于scrcpy v1.14
-- 无线访问需要先连接数据线，使用"adb tcpip 5555"手动设置端口号才可用，不确定是不是应为手机升级Android 10造成的，升级前默认端口号5555是可以直接访问的
+
+### 无线连接
+1. 将设备和电脑连接至同一 Wi-Fi。
+2. 打开 设置 → 关于手机 → 状态信息，获取设备的 IP 地址，也可以执行以下的命令：
+```
+adb shell ip route | awk '{print $9}'
+```
+3. 点击设置端口号，正常情况下窗口中会出现一只狗头。
+4. 断开设备的 USB 连接。
+5. 填写IP和端口号。
+6. 点击启动。
 
 ## 下载地址
-> [https://www.lanzoux.com/iAfCfn772yd](https://www.lanzoux.com/iAfCfn772yd) 密码:pdone
-
-## 快捷键
- | 动作 | 快捷键
- | ------------------------------------------------- |:-----------------------------
- | 全屏显示| <kbd>Ctrl</kbd>+<kbd>f</kbd>
- | 左旋屏幕| <kbd>Ctrl</kbd>+<kbd>←</kbd> _(左)_
- | 右旋屏幕| <kbd>Ctrl</kbd>+<kbd>→</kbd> _(右)_
- | 缩放窗口 1:1 (像素) | <kbd>Ctrl</kbd>+<kbd>g</kbd>
- | 缩放窗口到没有黑边框为止| <kbd>Ctrl</kbd>+<kbd>w</kbd> \ _双击黑边_
- | 按下`主页` 键| <kbd>Ctrl</kbd>+<kbd>h</kbd> \ _中键_
- | 按下`返回` 键| <kbd>Ctrl</kbd>+<kbd>b</kbd> \ _右键_
- | 按下`切换APP` 键| <kbd>Ctrl</kbd>+<kbd>s</kbd>
- | 按下`菜单` 键(或解锁屏幕) | <kbd>Ctrl</kbd>+<kbd>m</kbd>
- | 按下`音量+` 键| <kbd>Ctrl</kbd>+<kbd>↑</kbd> _(上)_
- | 按下`音量-` 键| <kbd>Ctrl</kbd>+<kbd>↓</kbd> _(下)_
- | 按下`电源` 键| <kbd>Ctrl</kbd>+<kbd>p</kbd>
- | 唤醒| _右键_
- | 关闭屏幕 (保持投屏) | <kbd>Ctrl</kbd>+<kbd>o</kbd>
- | 开启屏幕 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>o</kbd>
- | 旋转屏幕 | <kbd>Ctrl</kbd>+<kbd>r</kbd>
- | 下拉通知栏 | <kbd>Ctrl</kbd>+<kbd>n</kbd>
- | 关闭通知栏 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>n</kbd>
- | 复制到剪贴板 | <kbd>Ctrl</kbd>+<kbd>c</kbd>
- | 剪切到剪贴板 | <kbd>Ctrl</kbd>+<kbd>x</kbd>
- | 同步剪贴板并粘贴 | <kbd>Ctrl</kbd>+<kbd>v</kbd>
- | 注入计算机剪贴板文本 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>v</kbd>
- | 启用/禁用FPS计数器 | <kbd>Ctrl</kbd>+<kbd>i</kbd>
- | 双指捏住缩放 | <kbd>Ctrl</kbd>+单击并移动
+> [https://pdone.lanzoui.com/iJWO0rhslve](https://pdone.lanzoui.com/iJWO0rhslve)

@@ -151,7 +151,7 @@
     <EmbeddedResource Include="SetProt.bat" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\scrcpy-win32-v1.17.zip" />
+    <None Include="Resources\scrcpy-win32-v1.18.zip" />
     <None Include="Resources\Setting.png" />
   </ItemGroup>
   <ItemGroup>
@@ -163,6 +163,8 @@
   <ItemGroup>
     <Content Include="DLL\ICSharpCode.SharpZipLib.dll" />
     <Content Include="Resources\Home_Dark.png" />
+    <None Include="Resources\SunnyUI.Common.dll" />
+    <None Include="Resources\SunnyUI.dll" />
     <None Include="DLL\Newtonsoft.Json.dll" />
     <Content Include="Resources\Setting_Dark.png" />
     <None Include="Resources\shortcut_zh.jpg" />

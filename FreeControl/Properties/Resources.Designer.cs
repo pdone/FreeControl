@@ -93,9 +93,9 @@ namespace FreeControl.Properties {
         /// <summary>
         ///   查找 System.Byte[] 类型的本地化资源。
         /// </summary>
-        internal static byte[] scrcpy_win32_v1_17 {
+        internal static byte[] scrcpy_win32_v1_18 {
             get {
-                object obj = ResourceManager.GetObject("scrcpy_win32_v1_17", resourceCulture);
+                object obj = ResourceManager.GetObject("scrcpy_win32_v1_18", resourceCulture);
                 return ((byte[])(obj));
             }
         }
@@ -126,6 +126,16 @@ namespace FreeControl.Properties {
         internal static byte[] SunnyUI {
             get {
                 object obj = ResourceManager.GetObject("SunnyUI", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   查找 System.Byte[] 类型的本地化资源。
+        /// </summary>
+        internal static byte[] SunnyUI_Common {
+            get {
+                object obj = ResourceManager.GetObject("SunnyUI_Common", resourceCulture);
                 return ((byte[])(obj));
             }
         }

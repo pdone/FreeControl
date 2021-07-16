@@ -127,8 +127,8 @@
   <data name="pcm" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\pcm.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="scrcpy_win32_v1_17" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\scrcpy-win32-v1.17.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  <data name="scrcpy_win32_v1_18" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\scrcpy-win32-v1.18.zip;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="shortcut_en" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\shortcut_en.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -137,6 +137,9 @@
     <value>..\Resources\shortcut_zh.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="SunnyUI" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\DLL\SunnyUI.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\SunnyUI.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="SunnyUI_Common" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\SunnyUI.Common.dll;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
 </root>

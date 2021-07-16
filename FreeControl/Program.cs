@@ -29,6 +29,9 @@ namespace FreeControl
                 case "SunnyUI":
                     assembly = Assembly.Load(Properties.Resources.SunnyUI);
                     break;
+                case "SunnyUI.Common":
+                    assembly = Assembly.Load(Properties.Resources.SunnyUI_Common);
+                    break;
                 case "ICSharpCode.SharpZipLib":
                     assembly = Assembly.Load(Properties.Resources.ICSharpCode_SharpZipLib);
                     break;
