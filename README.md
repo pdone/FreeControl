@@ -8,6 +8,11 @@
 做本程序的目的主要是学习，另外就是自己用着方便些。
 
 ## 截图
+
+![主界面](https://i.loli.net/2021/07/20/CGl36Nd8UvyDFw9.png)
+
+![设置界面](https://i.loli.net/2021/07/20/rynFU1BcXjdsmZR.png)
+
 ![截图非最新版本，仅供参考](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/3.gif)
 
 ## 版本说明
@@ -39,4 +44,21 @@ adb shell ip route | awk '{print $9}'
 6. 点击启动。
 
 ## 下载地址
-> [https://pdone.lanzoui.com/iJWO0rhslve](https://pdone.lanzoui.com/iJWO0rhslve)
+**[https://pdone.lanzoui.com/iJWO0rhslve](https://pdone.lanzoui.com/iJWO0rhslve)**
+
+## FAQ
+### Q1 输入法问题
+使用 **搜狗输入法** 和 **QQ输入法** 可以用电脑键盘进行 **中文输入** ，这个需要输入法APP适配，目前我只发现这个两个输入法可以跨屏输入中文，有更好的输入法请留言推荐。
+
+### Q2 无线连接问题
+1. 首次无线访问前必须先连接数据线；
+2. 开启手机USB调试；
+3. 在手机上点击信任此电脑（图1）；
+4. 确保有线可以启动成功；
+5. 开启手机无线调试（图2，在手机开发者模式中有无线调试的开关，小米10、小米MIX2S的MIUI系统均有此功能开关，其他手机系统以实际情况为准）；
+6. 点击无线调试，跳转到（图3）所示页面，此时会看到一个无线调试的IP和端口号；
+7. 将上一步获取到的IP和端口号填进去，然后点击启动按钮（电脑和手机需要在同一局域网下，并且路由器未开启AP隔离功能）。
+
+![图1](https://i.loli.net/2021/07/20/BRXoMihKUdLrZtC.png)
+![图2](https://i.loli.net/2021/07/20/I1j3PmcHsYapVKT.png)
+![图3](https://i.loli.net/2021/07/20/ZXxGBdfAaF9Djoy.png)
