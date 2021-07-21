@@ -408,26 +408,41 @@ namespace FreeControl
             {
                 case "关闭屏幕":
                     setting.CloseScreen = value;
-                    //关闭屏幕与镜像模式不可同时启用
-                    setting.ReadOnly = !value;
+                    if (value)
+                    {
+                        //关闭屏幕与只读模式不可同时启用
+                        setting.ReadOnly = false;
+                        cbxReadOnly.Checked = false;
+                        //UIMessageTip.ShowWarning(this, "勾选关闭屏幕后，将取消只读模式！", 1500);
+                    }
                     command = setting.GetDesc("CloseScreen") + " ";
                     break;
                 case "保持唤醒":
                     command = setting.GetDesc("KeepAwake") + " ";
                     setting.KeepAwake = value;
-                    //保持唤醒与镜像模式不可同时启用
-                    setting.ReadOnly = !value;
-                    cbxReadOnly.Checked = !value;
+                    if (value)
+                    {
+                        //保持唤醒与只读模式不可同时启用
+                        setting.ReadOnly = false;
+                        cbxReadOnly.Checked = false;
+                        //UIMessageTip.ShowWarning(this, "勾选保持唤醒后，将取消只读模式！", 1500);
+                    }
                     break;
                 case "全帧渲染":
                     command = setting.GetDesc("AllFPS") + " ";
                     setting.AllFPS = value;
                     break;
-                case "镜像模式":
+                case "只读模式":
                     command = setting.GetDesc("ReadOnly") + " ";
                     setting.ReadOnly = value;
-                    setting.CloseScreen = !value;
-                    setting.KeepAwake = !value;
+                    if (value)
+                    {
+                        setting.CloseScreen = false;
+                        cbxCloseScreen.Checked = false;
+                        setting.KeepAwake = false;
+                        cbxKeepAwake.Checked = false;
+                        //UIMessageTip.ShowWarning(this, "勾选只读模式后，将取消关闭屏幕和保持唤醒！", 1500);
+                    }
                     break;
                 case "隐藏边框":
                     command = setting.GetDesc("HideBorder") + " ";

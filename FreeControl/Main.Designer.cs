@@ -295,7 +295,6 @@
             this.tabSetting.BackColor = System.Drawing.Color.Transparent;
             this.tabSetting.Controls.Add(this.rbtnShortcuts);
             this.tabSetting.Controls.Add(this.uiGroupBox1);
-            this.tabSetting.Controls.Add(this.cbxReadOnly);
             this.tabSetting.Controls.Add(this.cbxOtherSetting);
             this.tabSetting.Controls.Add(this.rbtnPx);
             this.tabSetting.Controls.Add(this.uDarkMode);
@@ -428,20 +427,20 @@
             // 
             this.cbxReadOnly.Cursor = System.Windows.Forms.Cursors.Hand;
             this.cbxReadOnly.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxReadOnly.Location = new System.Drawing.Point(314, 368);
+            this.cbxReadOnly.Location = new System.Drawing.Point(207, 67);
             this.cbxReadOnly.MinimumSize = new System.Drawing.Size(1, 1);
             this.cbxReadOnly.Name = "cbxReadOnly";
             this.cbxReadOnly.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
             this.cbxReadOnly.Size = new System.Drawing.Size(92, 29);
             this.cbxReadOnly.Style = Sunny.UI.UIStyle.Custom;
             this.cbxReadOnly.TabIndex = 7;
-            this.cbxReadOnly.Text = "镜像模式";
-            this.cbxReadOnly.Visible = false;
+            this.cbxReadOnly.Text = "只读模式";
             // 
             // cbxOtherSetting
             // 
             this.cbxOtherSetting.Controls.Add(this.cbxShowTouches);
             this.cbxOtherSetting.Controls.Add(this.cbxTopMost);
+            this.cbxOtherSetting.Controls.Add(this.cbxReadOnly);
             this.cbxOtherSetting.Controls.Add(this.cbxFullScreen);
             this.cbxOtherSetting.Controls.Add(this.cbxHideBorder);
             this.cbxOtherSetting.Controls.Add(this.cbxUseLog);
