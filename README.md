@@ -11,8 +11,6 @@
 
 ![2](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
 
-![3](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_3.png)
-
 ![4](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
 
 ![5](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
