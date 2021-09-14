@@ -11,7 +11,7 @@
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_3.png)
+
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
 
