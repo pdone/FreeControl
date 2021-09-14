@@ -9,18 +9,61 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace FreeControl
 {
     public partial class Main : UIForm
     {
+        #region 全局变量
+        /// <summary>
+        /// 全局配置数据
+        /// </summary>
+        public static Setting _Setting = new Setting();
+        /// <summary>
+        /// scrcpy版本
+        /// </summary>
+        public static readonly string ScrcpyVersion = "scrcpy_win32_v1_19";
+        /// <summary>
+        /// scrcpy路径
+        /// </summary>
+        public static readonly string ScrcpyPath = Path.Combine(UserDataPath, ScrcpyVersion + "\\");
+        /// <summary>
+        /// 用户桌面路径
+        /// </summary>
+        public static readonly string DesktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        /// <summary>
+        /// 截图保存路径
+        /// </summary>
+        public static readonly string ScreenshotSavePath = Path.Combine(DesktopPath, "FreeControl Screenshots");
+        /// <summary>
+        /// 时间格式字符串
+        /// </summary>
+        public static readonly string DatetimeFormat = "yyyyMMddHHmmss";
+        /// <summary>
+        /// 控制器
+        /// </summary>
+        private static UIForm _Controller = null;
+        /// <summary>
+        /// 启动参数
+        /// </summary>
+        private string StartParameters = string.Empty;
+        #endregion
+
+        #region 构造函数
+        /// <summary>
+        /// 构造函数
+        /// </summary>
         public Main()
         {
             InitializeComponent();
             InitPdone();
         }
+        #endregion
 
+        #region 配置文件
         /// <summary>
         /// 用户数据目录
         /// </summary>
@@ -31,8 +74,11 @@ namespace FreeControl
                 return Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Free Control");
             }
         }
-
-        public Setting GetUserData()
+        /// <summary>
+        /// 获取用户配置
+        /// </summary>
+        /// <returns></returns>
+        public static Setting GetUserData()
         {
             try
             {
@@ -50,12 +96,15 @@ namespace FreeControl
             }
             catch (Exception ex)
             {
-                LogHelper.Error(ex);
+                Logger.Error(ex);
                 return new Setting();
             }
         }
-
-        public void SetUserData(Setting userData)
+        /// <summary>
+        /// 写入用户配置
+        /// </summary>
+        /// <param name="userData"></param>
+        public static void SetUserData(Setting userData)
         {
             try
             {
@@ -65,183 +114,61 @@ namespace FreeControl
             }
             catch (Exception ex)
             {
-                LogHelper.Error(ex);
+                Logger.Error(ex);
             }
         }
+        #endregion
 
-        Setting setting = new Setting();
-        ProcessStartInfo AdbProcessInfo = null;
-
+        #region 业务逻辑
         /// <summary>
-        /// scrcpy版本
+        /// 初始化
         /// </summary>
-        public static string scrcpyVersion = "scrcpy_win32_v1_18";
-
-        /// <summary>
-        /// scrcpy路径
-        /// </summary>
-        public static string scrcpyPath = Path.Combine(UserDataPath, scrcpyVersion + "\\");
-
         public void InitPdone()
         {
+            //获取用户配置数据
+            _Setting = GetUserData();
+            //adb路径
+            ADB.ADBPath = $@"{ScrcpyPath}";
+            //增加adb执行文件系统变量
+            ADB.AddEnvironmentPath(ScrcpyPath);
+            //提取资源
+            ExtractResource();
 
-            setting = GetUserData();
-            Size = new Size(658, 340);
-
+            #region 事件绑定
+            //退出时保存用户配置数据
             Application.ApplicationExit += (sender, e) =>
             {
-                SetUserData(setting);
+                SetUserData(_Setting);
+                ADB.Execute("kill-server");
             };
-
-            this.FormClosed += (sender, e) =>
-            {
-                if (AdbProcessInfo != null)
-                {
-                    //退出前关闭adb
-                    AdbProcessInfo.Arguments = "kill-server";
-                    Process.Start(AdbProcessInfo);
-                    LogHelper.Info("kill adb server");
-                }
-                Application.Exit();
-            };
-            #region 设置标题
-            Assembly asm = Assembly.GetExecutingAssembly();
-            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
-            //Text = $"Free Control v{fvi.ProductVersion}";
-            //ledTitle.Enabled = false;
-            //ledTitle.Visible = false;
-            ledTitle.Text = $"Free Control v{fvi.ProductVersion}";
-            ledTitle.CharCount = 19;
+            FormClosed += (sender, e) => Application.Exit();
+            //窗口拖动
+            MouseDown += (sender, e) => DragWindow();
             ledTitle.MouseDown += (sender, e) => DragWindow();
-            this.Icon = Properties.Resources.pcm;
-            #endregion
-
-            #region 设置主题颜色
-            UIStyles.SetStyle(UIStyle.Gray);
-
-            //设置默认导航条颜色
-            navTab.TabSelectedForeColor = Color.FromArgb(140, 140, 140);
-            navTab.TabSelectedHighColor = Color.FromArgb(140, 140, 140);
-            //设置默认导航条图标
-            tabHome.ImageIndex = 0;
-            tabSetting.ImageIndex = 2;
-            #endregion
-            #region 设置深色模式
-            switchDarkMode.ValueChanged += (object sender, bool value) =>
-            {
-                var tabBackColor = Color.Transparent;
-                var foreColor = Color.Transparent;
-                if (value)
-                {
-                    tabBackColor = Color.FromArgb(24, 24, 24);
-                    foreColor = Color.FromArgb(192, 192, 192);
-                    UIStyles.SetStyle(UIStyle.Black);
-                    tabHome.BackColor = tabBackColor;
-                    tabSetting.BackColor = tabBackColor;
-                    navTab.MenuStyle = UIMenuStyle.Black;
-
-                    btnStart.SetStyle(UIStyle.Black);
-
-                    tabHome.ImageIndex = 1;
-                    tabSetting.ImageIndex = 3;
-                }
-                else
-                {
-                    tabBackColor = Color.FromArgb(242, 242, 244);
-                    foreColor = Color.FromArgb(48, 48, 48);
-                    UIStyles.SetStyle(UIStyle.Gray);
-                    tabHome.BackColor = tabBackColor;
-                    tabSetting.BackColor = tabBackColor;
-                    navTab.MenuStyle = UIMenuStyle.White;
-
-                    btnStart.SetStyle(UIStyle.Gray);
-
-                    tabHome.ImageIndex = 0;
-                    tabSetting.ImageIndex = 2;
-
-                    navTab.TabSelectedColor = tabBackColor;
-                    navTab.TabSelectedForeColor = Color.FromArgb(140, 140, 140);
-                    navTab.TabSelectedHighColor = Color.FromArgb(140, 140, 140);
-                    navTab.TabBackColor = Color.FromArgb(222, 222, 222);
-
-                }
-
-                tbxAddress.FillDisableColor = tabBackColor;
-                tbxPort.FillDisableColor = tabBackColor;
-                tbxAddress.ForeDisableColor = foreColor;
-                tbxPort.ForeDisableColor = foreColor;
-
-                tbxAddress.FillColor = tabBackColor;
-                tbxPort.FillColor = tabBackColor;
-                tbxAddress.ForeColor = foreColor;
-                tbxPort.ForeColor = foreColor;
-
-            };
-            #endregion
-
-            #region 切换tab事件
-            navTab.SelectedIndexChanged += (object sender, EventArgs e) =>
-            {
-                switch (navTab.SelectedIndex)
-                {
-                    case 0:
-                        Size = new Size(658, 340);
-                        break;
-                    case 1:
-                        Size = new Size(658, 470);
-                        break;
-                    default:
-                        break;
-                }
-            };
-            navTab.SelectTab(0);
-            #endregion
-
-            #region 设置默认值
-            rbtnPx.SelectedIndex = setting.PXIndex;
-            rbtnMbps.SelectedIndex = setting.BitRateIndex;
-            rbtnMaxFPS.SelectedIndex = setting.MaxFPSIndex;
-            rbtnShortcuts.SelectedIndex = setting.ShortcutsIndex;
-            switchDarkMode.Active = setting.DarkMode;
-            tbxAddress.Text = setting.IPAddress;
-            tbxPort.Text = setting.Port;
-            //tbxAddress.Enabled = !setting.UseWireless;
-            //tbxPort.Enabled = !setting.UseWireless;
-            updownHeight.Value = setting.WindowHeight;
-            updownWidth.Value = setting.WindowWidth;
-
-            #region 复选框默认值   
-            cbxUseWireless.Checked = setting.UseWireless;
-            cbxUseLog.Checked = setting.UseLog;
-            LogHelper.enable = setting.UseLog;
-
-            cbxCloseScreen.Checked = setting.CloseScreen;
-            cbxKeepAwake.Checked = setting.KeepAwake;
-            cbxAllFPS.Checked = setting.AllFPS;
-
-            cbxHideBorder.Checked = setting.HideBorder;
-            cbxFullScreen.Checked = setting.FullScreen;
-            cbxTopMost.Checked = setting.TopMost;
-            cbxShowTouches.Checked = setting.ShowTouches;
-            cbxReadOnly.Checked = setting.ReadOnly;
-            #endregion
-
-            #region 参数设置事件
-            rbtnPx.ValueChanged += RbtnPx_ValueChanged;
-            rbtnMbps.ValueChanged += RbtnMbps_ValueChanged;
-            rbtnMaxFPS.ValueChanged += RbtnMaxFPS_ValueChanged;
+            tabHome.MouseDown += (sender, e) => DragWindow();
+            tabSetting.MouseDown += (sender, e) => DragWindow();
+            //关闭按钮和最小化按钮
+            btnClose.Click += (sender, e) => Close();
+            btnMini.Click += (sender, e) => WindowState = FormWindowState.Minimized;
+            //启动按钮
+            btnStart.Click += StartButtonClick;
+            //深色模式切换
+            switchDarkMode.ValueChanged += SwitchDarkMode_ValueChanged;
+            //窗口大小设置
+            updownHeight.ValueChanged += (sender, e) => _Setting.WindowHeight = updownHeight.Value;
+            updownWidth.ValueChanged += (sender, e) => _Setting.WindowWidth = updownWidth.Value;
             rbtnShortcuts.ValueChanged += RbtnShortcuts_ValueChanged;
-
-            cbxUseWireless.ValueChanged += CbxUseWireless_ValueChanged;
-            cbxUseLog.ValueChanged += CbxUseLog_ValueChanged; ;
-
-            switchDarkMode.ValueChanged += (sender, e) =>
-            {
-                setting.DarkMode = switchDarkMode.Active;
-            };
+            //下拉框
+            comboPx.SelectedValueChanged += ComboPx_SelectedValueChanged;
+            comboMbps.SelectedValueChanged += ComboMbps_SelectedValueChanged;
+            comboMaxFPS.SelectedValueChanged += ComboMaxFPS_SelectedValueChanged;
+            //文本框
             tbxAddress.TextChanged += TbxAddress_TextChanged;
             tbxPort.TextChanged += TbxPort_TextChanged;
-
+            //CheckBox
+            cbxUseWireless.ValueChanged += CbxUseWireless_ValueChanged;
+            cbxUseLog.ValueChanged += CbxUseLog_ValueChanged;
+            cbxControllerEnabled.ValueChanged += CbxControllerEnabled_ValueChanged;
             cbxCloseScreen.ValueChanged += CommonCbx_ValueChanged;
             cbxKeepAwake.ValueChanged += CommonCbx_ValueChanged;
             cbxAllFPS.ValueChanged += CommonCbx_ValueChanged;
@@ -250,106 +177,424 @@ namespace FreeControl
             cbxTopMost.ValueChanged += CommonCbx_ValueChanged;
             cbxShowTouches.ValueChanged += CommonCbx_ValueChanged;
             cbxReadOnly.ValueChanged += CommonCbx_ValueChanged;
-
-            updownHeight.ValueChanged += (sender, e) =>
-            {
-                setting.WindowHeight = updownHeight.Value;
-            };
-            updownWidth.ValueChanged += (sender, e) =>
-            {
-                setting.WindowWidth = updownWidth.Value;
-            };
             #endregion
 
+            #region 设置标题和图标
+            Assembly asm = Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
+            Text = $"Free Control v{fvi.ProductVersion}";
+            lbTitle.Visible = false;
+            lbTitle.Text = Text;
+            lbTitle.ForeColor = Color.FromArgb(250, 240, 230);
+            ledTitle.Text = Text;
+            ledTitle.CharCount = 19;
+            Icon = Properties.Resources.pcm;
             #endregion
 
-            #region 启动前
+            #region 设置主题颜色
+            UIStyles.SetStyle(UIStyle.Gray);
+            //设置默认导航条颜色
+            navTab.TabSelectedForeColor = Color.FromArgb(140, 140, 140);
+            navTab.TabSelectedHighColor = Color.FromArgb(140, 140, 140);
+            //设置默认导航条图标
+            tabHome.ImageIndex = 0;
+            tabSetting.ImageIndex = 2;
+            #endregion
+
+            #region 切换tab事件
+            //navTab.SelectTab(0);
+            #endregion
+
+            #region 配置项默认值
+            comboPx.SelectedIndex = _Setting.PXIndex;
+            comboMbps.SelectedIndex = _Setting.BitRateIndex;
+            comboMaxFPS.SelectedIndex = _Setting.MaxFPSIndex;
+            rbtnShortcuts.SelectedIndex = _Setting.ShortcutsIndex;
+            switchDarkMode.Active = _Setting.DarkMode;
+            tbxAddress.Text = _Setting.IPAddress;
+            tbxPort.Text = _Setting.Port;
+            updownHeight.Value = _Setting.WindowHeight;
+            updownWidth.Value = _Setting.WindowWidth;
+            Logger.enable = _Setting.UseLog;
+            cbxUseWireless.Checked = _Setting.UseWireless;
+            cbxUseLog.Checked = _Setting.UseLog;
+            cbxControllerEnabled.Checked = _Setting.ControllerEnabled;
+            cbxCloseScreen.Checked = _Setting.CloseScreen;
+            cbxKeepAwake.Checked = _Setting.KeepAwake;
+            cbxAllFPS.Checked = _Setting.AllFPS;
+            cbxHideBorder.Checked = _Setting.HideBorder;
+            cbxFullScreen.Checked = _Setting.FullScreen;
+            cbxTopMost.Checked = _Setting.TopMost;
+            cbxShowTouches.Checked = _Setting.ShowTouches;
+            cbxReadOnly.Checked = _Setting.ReadOnly;
+            #endregion      
+        }
+
+        /// <summary>
+        /// 提取内置资源
+        /// </summary>
+        private void ExtractResource()
+        {
             string tempFileName = "temp.zip";
-            if (!Directory.Exists(scrcpyPath))
+            if (!Directory.Exists(ScrcpyPath))
             {
-                Directory.CreateDirectory(scrcpyPath);
-                File.WriteAllBytes(scrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v1_18);
-                if (SharpZip.UnpackFiles(scrcpyPath + tempFileName, scrcpyPath))
+                Directory.CreateDirectory(ScrcpyPath);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v1_19);
+                if (SharpZip.UnpackFiles(ScrcpyPath + tempFileName, ScrcpyPath))
                 {
-                    File.Delete(scrcpyPath + tempFileName);
+                    File.Delete(ScrcpyPath + tempFileName);
                 }
             }
-            #endregion
+        }
 
-            Process scrcpy = null;
-
-            //设置端口号命令 adb tcpip 5555
-            #region 启动按钮
-            btnStart.Click += (sender, e) =>
+        /// <summary>
+        /// 启动按钮
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void StartButtonClick(object sender, EventArgs e)
+        {
+            try
             {
+                Task.Run(() => ButtonHandle(true));
 
-                if (setting.UseWireless &&
-                (string.IsNullOrWhiteSpace(setting.IPAddress) || string.IsNullOrWhiteSpace(setting.Port)))
+                if (_Setting.UseWireless &&
+                (string.IsNullOrWhiteSpace(_Setting.IPAddress) || string.IsNullOrWhiteSpace(_Setting.Port)))
                 {
-                    UIMessageTip.ShowWarning(sender as Control, "IP地址或者端口号没有填写，无法启动 -.-!", 1500);
+                    ShowMessage("IP地址或者端口号没有填写，无法启动 -.-!");
                     return;
                 }
-                LogHelper.Info("starting...");
-                var paramlist = $" {setting.BitRate} {setting.PX} {setting.MaxFPS} {setting.Shortcuts} {setting.OtherParam} ";
+
+                Logger.Info("starting...");
+                StartParameters = $" {_Setting.BitRate} {_Setting.PX} {_Setting.MaxFPS} {_Setting.Shortcuts} {_Setting.OtherParam} ";
                 //设置屏幕高度 800
-                if (setting.WindowHeight > 0)
+                if (_Setting.WindowHeight > 0)
                 {
-                    paramlist += $"--window-height {setting.WindowHeight} ";
+                    StartParameters += $"--window-height {_Setting.WindowHeight} ";
                 }
-                if (setting.WindowWidth > 0)
+                if (_Setting.WindowWidth > 0)
                 {
-                    paramlist += $"--window-width {setting.WindowWidth} ";
+                    StartParameters += $"--window-width {_Setting.WindowWidth} ";
                 }
 
                 //设置标题
-                paramlist += $"--window-title \"{ledTitle.Text}\" ";
-
-                AdbProcessInfo = new ProcessStartInfo($@"{scrcpyPath}adb.exe",
-                    $"connect {setting.IPAddress}:{setting.Port}")
+                StartParameters += $"--window-title \"{ledTitle.Text}\" ";
+                //无线访问
+                if (_Setting.UseWireless)
                 {
-                    CreateNoWindow = true,//设置不在新窗口中启动新的进程        
-                    UseShellExecute = false,//不使用操作系统使用的shell启动进程 
-                    RedirectStandardOutput = true,//将输出信息重定向
-                };
-
-                if (setting.UseWireless)
-                {
-                    //启动ABD
-                    Process adb = Process.Start(AdbProcessInfo);
-                    LogHelper.Info(adb.StandardOutput.ReadToEnd());
-                    adb.WaitForExit();
-                    paramlist = $"-s {setting.IPAddress}:{setting.Port} " + paramlist;
+                    StartParameters = $"-s {_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
+                    ADBConnectFunc.BeginInvoke(ADBConnectCallback, ADBConnectFunc);
                 }
-
-                scrcpy = Process.Start(new ProcessStartInfo($@"{scrcpyPath}scrcpy.exe",
-                    paramlist)
+                else
                 {
-                    CreateNoWindow = true,//设置不在新窗口中启动新的进程        
-                    UseShellExecute = false,//不使用操作系统使用的shell启动进程 
-                    RedirectStandardOutput = true,//将输出信息重定向
-                });
+                    RunScrcpy();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+            }
+        }
 
-                this.Hide();
-                LogHelper.Info("scrcpy running...");
-                LogHelper.Info(scrcpy.StandardOutput.ReadToEnd());
+        /// <summary>
+        /// ADB连接委托
+        /// </summary>
+        private readonly Func<string> ADBConnectFunc = () =>
+        {
+            return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
+        };
 
-                scrcpy.WaitForExit();
-                UIMessageTip.Show(this, "已退出", null, 1500);
-                this.Show();
+        /// <summary>
+        /// ADB连接回调
+        /// </summary>
+        /// <param name="ar"></param>
+        private void ADBConnectCallback(IAsyncResult ar)
+        {
+            Func<string> tempFunc = ar.AsyncState as Func<string>;
+            string result = tempFunc.EndInvoke(ar);
+            //ADB连接返回消息不为空
+            if (!result.IsNullOrWhiteSpace() && result.Contains("cannot connect"))
+            {
+                ButtonHandle(false);
+                ShowMessage(result);
+                return;
+            }
+            RunScrcpy();
+        }
 
+        /// <summary>
+        /// 运行Scrcpy
+        /// </summary>
+        private void RunScrcpy()
+        {
+            Logger.Info("scrcpy running...");
+            var processStartInfo = new ProcessStartInfo($@"{ScrcpyPath}scrcpy.exe")
+            {
+                Arguments = StartParameters,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = true,
             };
-            #endregion
+            Process scrcpy = Process.Start(processStartInfo);
+            scrcpy.EnableRaisingEvents = true;
+
+            var tempOutput = "";
+            scrcpy.OutputDataReceived += (ss, ee) =>
+            {
+                if (!ee.Data.IsNullOrWhiteSpace())
+                {
+                    Logger.Info($"{ee.Data}", "scrcpy");
+                    tempOutput = ee.Data;
+                    if (tempOutput.Contains("INFO: Device:"))
+                    {
+                        FromHandle(true);
+                    }
+                }
+            };
+            scrcpy.ErrorDataReceived += (ss, ee) =>
+            {
+                if (!ee.Data.IsNullOrWhiteSpace())
+                {
+                    Logger.Info($"{ee.Data}", "scrcpy");
+                }
+            };
+            scrcpy.Exited += (ss, ee) =>
+            {
+                FromHandle(false);
+                ButtonHandle(false);
+                ShowMessage("已退出");
+            };
+            scrcpy.BeginErrorReadLine();
+            scrcpy.BeginOutputReadLine();
+        }
+
+        /// <summary>
+        /// 显示提示消息
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="delay"></param>
+        /// <param name="isFloat"></param>
+        private void ShowMessage(string content, int delay = 1500, bool isFloat = true)
+        {
+            Action action = () =>
+            {
+                UIMessageTip.Show(this, content, null, delay, isFloat);
+            };
+            Invoke(action);
+        }
+
+        /// <summary>
+        /// 按钮可用性控制
+        /// </summary>
+        /// <param name="isStart"></param>
+        private void ButtonHandle(bool isStart)
+        {
+            Action action = () =>
+            {
+                if (isStart)
+                {
+                    btnStart.Enabled = false;
+                    btnStart.Text = "正在启动...";
+                }
+                else
+                {
+                    btnStart.Enabled = true;
+                    btnStart.Text = "启动";
+                }
+            };
+            Invoke(action);
+        }
+
+        /// <summary>
+        /// 控制器可用性控制
+        /// </summary>
+        /// <param name="isStart"></param>
+        private void FromHandle(bool isStart)
+        {
+            Action action = () =>
+            {
+                if (isStart)
+                {
+                    Hide();
+                    //是否启用控制器
+                    if (_Setting.ControllerEnabled)
+                    {
+                        _Controller = new Controller();
+                        _Controller.Show();
+                    }
+                }
+                else
+                {
+                    _Controller?.Dispose();
+                    Show();
+                }
+            };
+            Invoke(action);
+        }
+        #endregion
+
+        #region 配置项改变事件
+        /// <summary>
+        /// 主题模式切换
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="value"></param>
+        private void SwitchDarkMode_ValueChanged(object sender, bool value)
+        {
+            var tabBackColor = Color.Transparent;
+            var foreColor = Color.Transparent;
+            if (value)
+            {
+                tabBackColor = Color.FromArgb(24, 24, 24);
+                foreColor = Color.FromArgb(192, 192, 192);
+                UIStyles.SetStyle(UIStyle.Black);
+                tabHome.BackColor = tabBackColor;
+                tabSetting.BackColor = tabBackColor;
+                navTab.MenuStyle = UIMenuStyle.Black;
+
+                btnStart.SetStyle(UIStyle.Black);
+
+                tabHome.ImageIndex = 1;
+                tabSetting.ImageIndex = 3;
+            }
+            else
+            {
+                tabBackColor = Color.FromArgb(242, 242, 244);
+                foreColor = Color.FromArgb(48, 48, 48);
+                UIStyles.SetStyle(UIStyle.Gray);
+                tabHome.BackColor = tabBackColor;
+                tabSetting.BackColor = tabBackColor;
+                navTab.MenuStyle = UIMenuStyle.White;
+
+                btnStart.SetStyle(UIStyle.Gray);
+
+                tabHome.ImageIndex = 0;
+                tabSetting.ImageIndex = 2;
+
+                navTab.TabSelectedColor = tabBackColor;
+                navTab.TabSelectedForeColor = Color.FromArgb(140, 140, 140);
+                navTab.TabSelectedHighColor = Color.FromArgb(140, 140, 140);
+                navTab.TabBackColor = Color.FromArgb(222, 222, 222);
+            }
+
+            tbxAddress.FillColor = tabBackColor;
+            tbxPort.FillColor = tabBackColor;
+            tbxAddress.ForeColor = foreColor;
+            tbxPort.ForeColor = foreColor;
+
+            comboPx.FillColor = tabBackColor;
+            comboMbps.FillColor = tabBackColor;
+            comboMaxFPS.FillColor = tabBackColor;
+            comboPx.ForeColor = foreColor;
+            comboMbps.ForeColor = foreColor;
+            comboMaxFPS.ForeColor = foreColor;
+
+            BackColor = Color.FromArgb(140, 140, 140);
+            btnClose.Style = UIStyle.Gray;
+            btnClose.ForeColor = Color.FromArgb(250, 240, 230);
+            btnMini.Style = UIStyle.Gray;
+            btnMini.ForeColor = Color.FromArgb(250, 240, 230);
+
+            _Setting.DarkMode = switchDarkMode.Active;
+        }
+
+        private void ComboMaxFPS_SelectedValueChanged(object sender, EventArgs e)
+        {
+            int index = comboMaxFPS.SelectedIndex;
+            switch (index)
+            {
+                case 1:
+                    _Setting.MaxFPS = "--max-fps 140";
+                    break;
+                case 2:
+                    _Setting.MaxFPS = "--max-fps 120";
+                    break;
+                case 3:
+                    _Setting.MaxFPS = "--max-fps 90";
+                    break;
+                case 4:
+                    _Setting.MaxFPS = "--max-fps 60";
+                    break;
+                case 5:
+                    _Setting.MaxFPS = "--max-fps 30";
+                    break;
+                default:
+                    _Setting.MaxFPS = "";
+                    break;
+            }
+            _Setting.MaxFPSIndex = index;
+        }
+
+        private void ComboMbps_SelectedValueChanged(object sender, EventArgs e)
+        {
+            int index = comboMbps.SelectedIndex;
+            switch (index)
+            {
+                case 1:
+                    _Setting.BitRate = "-b 64M";
+                    break;
+                case 2:
+                    _Setting.BitRate = "-b 32M";
+                    break;
+                case 3:
+                    _Setting.BitRate = "-b 16M";
+                    break;
+                case 4:
+                    _Setting.BitRate = "-b 8M";
+                    break;
+                case 5:
+                    _Setting.BitRate = "-b 4M";
+                    break;
+                default:
+                    _Setting.BitRate = "";
+                    break;
+            }
+            _Setting.BitRateIndex = index;
+        }
+
+        private void ComboPx_SelectedValueChanged(object sender, EventArgs e)
+        {
+            int index = comboPx.SelectedIndex;
+            switch (index)
+            {
+                case 1:
+                    _Setting.PX = "-m 1920";
+                    break;
+                case 2:
+                    _Setting.PX = "-m 1440";
+                    break;
+                case 3:
+                    _Setting.PX = "-m 1280";
+                    break;
+                case 4:
+                    _Setting.PX = "-m 960";
+                    break;
+                case 5:
+                    _Setting.PX = "-m 640";
+                    break;
+                default:
+                    _Setting.PX = "";
+                    break;
+            }
+            _Setting.PXIndex = index;
+        }
+
+        private void CbxControllerEnabled_ValueChanged(object sender, bool value)
+        {
+            _Setting.ControllerEnabled = value;
         }
 
         private void CbxUseLog_ValueChanged(object sender, bool value)
         {
-            setting.UseLog = value;
-            LogHelper.enable = value;
+            _Setting.UseLog = value;
+            Logger.enable = value;
         }
 
         private void CbxUseWireless_ValueChanged(object sender, bool value)
         {
-            setting.UseWireless = value;
+            _Setting.UseWireless = value;
             //tbxAddress.Enabled = !value;
             //tbxPort.Enabled = !value;
 
@@ -357,7 +602,7 @@ namespace FreeControl
             var tabBackColor = Color.Transparent;
 
             var tempColor = Color.Transparent;
-            if (setting.DarkMode)
+            if (_Setting.DarkMode)
             {
                 tabBackColor = Color.FromArgb(24, 24, 24);
                 foreColor = Color.FromArgb(192, 192, 192);
@@ -368,7 +613,7 @@ namespace FreeControl
                 foreColor = Color.FromArgb(48, 48, 48);
             }
 
-            if (setting.UseWireless)
+            if (_Setting.UseWireless)
             {
                 tbxAddress.FillDisableColor = tabBackColor;
                 tbxPort.FillDisableColor = tabBackColor;
@@ -386,20 +631,14 @@ namespace FreeControl
 
         private void TbxAddress_TextChanged(object sender, EventArgs e)
         {
-            //if (!tbxAddress.Text.IsNullOrWhiteSpace())
-            //{
-            setting.IPAddress = tbxAddress.Text.Trim();
-            //}
-        }
-        private void TbxPort_TextChanged(object sender, EventArgs e)
-        {
-            //if (!tbxPort.Text.IsNullOrWhiteSpace())
-            //{
-            setting.Port = tbxPort.Text.Trim();
-            //}
+            _Setting.IPAddress = tbxAddress.Text.Trim();
         }
 
-        #region 参数设置事件
+        private void TbxPort_TextChanged(object sender, EventArgs e)
+        {
+            _Setting.Port = tbxPort.Text.Trim();
+        }
+
         private void CommonCbx_ValueChanged(object sender, bool value)
         {
             string command = "";
@@ -407,68 +646,68 @@ namespace FreeControl
             switch (temp.Text)
             {
                 case "关闭屏幕":
-                    setting.CloseScreen = value;
+                    _Setting.CloseScreen = value;
                     if (value)
                     {
                         //关闭屏幕与只读模式不可同时启用
-                        setting.ReadOnly = false;
+                        _Setting.ReadOnly = false;
                         cbxReadOnly.Checked = false;
                         //UIMessageTip.ShowWarning(this, "勾选关闭屏幕后，将取消只读模式！", 1500);
                     }
-                    command = setting.GetDesc("CloseScreen") + " ";
+                    command = _Setting.GetDesc("CloseScreen") + " ";
                     break;
                 case "保持唤醒":
-                    command = setting.GetDesc("KeepAwake") + " ";
-                    setting.KeepAwake = value;
+                    command = _Setting.GetDesc("KeepAwake") + " ";
+                    _Setting.KeepAwake = value;
                     if (value)
                     {
                         //保持唤醒与只读模式不可同时启用
-                        setting.ReadOnly = false;
+                        _Setting.ReadOnly = false;
                         cbxReadOnly.Checked = false;
                         //UIMessageTip.ShowWarning(this, "勾选保持唤醒后，将取消只读模式！", 1500);
                     }
                     break;
                 case "全帧渲染":
-                    command = setting.GetDesc("AllFPS") + " ";
-                    setting.AllFPS = value;
+                    command = _Setting.GetDesc("AllFPS") + " ";
+                    _Setting.AllFPS = value;
                     break;
                 case "只读模式":
-                    command = setting.GetDesc("ReadOnly") + " ";
-                    setting.ReadOnly = value;
+                    command = _Setting.GetDesc("ReadOnly") + " ";
+                    _Setting.ReadOnly = value;
                     if (value)
                     {
-                        setting.CloseScreen = false;
+                        _Setting.CloseScreen = false;
                         cbxCloseScreen.Checked = false;
-                        setting.KeepAwake = false;
+                        _Setting.KeepAwake = false;
                         cbxKeepAwake.Checked = false;
                         //UIMessageTip.ShowWarning(this, "勾选只读模式后，将取消关闭屏幕和保持唤醒！", 1500);
                     }
                     break;
                 case "隐藏边框":
-                    command = setting.GetDesc("HideBorder") + " ";
-                    setting.HideBorder = value;
+                    command = _Setting.GetDesc("HideBorder") + " ";
+                    _Setting.HideBorder = value;
                     break;
                 case "全屏显示":
-                    command = setting.GetDesc("FullScreen") + " ";
-                    setting.FullScreen = value;
+                    command = _Setting.GetDesc("FullScreen") + " ";
+                    _Setting.FullScreen = value;
                     break;
                 case "窗口置顶":
-                    command = setting.GetDesc("TopMost") + " ";
-                    setting.TopMost = value;
+                    command = _Setting.GetDesc("TopMost") + " ";
+                    _Setting.TopMost = value;
                     break;
                 case "显示触摸":
-                    command = setting.GetDesc("ShowTouches") + " ";
-                    setting.ShowTouches = value;
+                    command = _Setting.GetDesc("ShowTouches") + " ";
+                    _Setting.ShowTouches = value;
                     break;
             }
-            LogHelper.Info(temp.Text + ":" + value);
+            Logger.Info(temp.Text + ":" + value);
             if (value)
             {
-                setting.OtherParam += command;
+                _Setting.OtherParam += command;
             }
             else
             {
-                setting.OtherParam = setting.OtherParam.Replace(command, "");
+                _Setting.OtherParam = _Setting.OtherParam.Replace(command, "");
             }
         }
 
@@ -477,95 +716,17 @@ namespace FreeControl
             switch (index)
             {
                 case 1:
-                    setting.Shortcuts = "lctrl+lalt";
+                    _Setting.Shortcuts = "lctrl+lalt";
                     break;
                 case 2:
-                    setting.Shortcuts = "lalt";
+                    _Setting.Shortcuts = "lalt";
                     break;
                 default:
-                    setting.Shortcuts = "lctrl";
+                    _Setting.Shortcuts = "lctrl";
                     break;
             }
-            setting.Shortcuts = $"{setting.GetDesc("Shortcuts")}={setting.Shortcuts}";
-            setting.ShortcutsIndex = index;
-        }
-
-        private void RbtnMaxFPS_ValueChanged(object sender, int index, string text)
-        {
-            switch (index)
-            {
-                case 1:
-                    setting.MaxFPS = "--max-fps 140";
-                    break;
-                case 2:
-                    setting.MaxFPS = "--max-fps 120";
-                    break;
-                case 3:
-                    setting.MaxFPS = "--max-fps 90";
-                    break;
-                case 4:
-                    setting.MaxFPS = "--max-fps 60";
-                    break;
-                case 5:
-                    setting.MaxFPS = "--max-fps 30";
-                    break;
-                default:
-                    setting.MaxFPS = "";
-                    break;
-            }
-            setting.MaxFPSIndex = index;
-        }
-
-        private void RbtnPx_ValueChanged(object sender, int index, string text)
-        {
-            switch (index)
-            {
-                case 1:
-                    setting.PX = "-m 1920";
-                    break;
-                case 2:
-                    setting.PX = "-m 1440";
-                    break;
-                case 3:
-                    setting.PX = "-m 1280";
-                    break;
-                case 4:
-                    setting.PX = "-m 960";
-                    break;
-                case 5:
-                    setting.PX = "-m 640";
-                    break;
-                default:
-                    setting.PX = "";
-                    break;
-            }
-            setting.PXIndex = index;
-        }
-
-        private void RbtnMbps_ValueChanged(object sender, int index, string text)
-        {
-            switch (index)
-            {
-                case 1:
-                    setting.BitRate = "-b 64M";
-                    break;
-                case 2:
-                    setting.BitRate = "-b 32M";
-                    break;
-                case 3:
-                    setting.BitRate = "-b 16M";
-                    break;
-                case 4:
-                    setting.BitRate = "-b 8M";
-                    break;
-                case 5:
-                    setting.BitRate = "-b 4M";
-                    break;
-                default:
-                    setting.BitRate = "";
-                    break;
-            }
-            setting.BitRateIndex = index;
+            _Setting.Shortcuts = $"{_Setting.GetDesc("Shortcuts")}={_Setting.Shortcuts}";
+            _Setting.ShortcutsIndex = index;
         }
         #endregion
 
@@ -588,7 +749,35 @@ namespace FreeControl
         }
         #endregion
 
-        private void uiLabel2_Click(object sender, EventArgs e)
+        #region 文本跳转链接设置
+        private void linkEnabledADB_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://baike.baidu.com/item/USB%E8%B0%83%E8%AF%95%E6%A8%A1%E5%BC%8F/5035286#2");
+        }
+
+        private void linkSetPort_Click(object sender, EventArgs e)
+        {
+            if (UIMessageBox.Show("1、使用数据线将手机连接电脑\n2、手机开启调试模式\n3、程序将使用adb tcpip 5555命令修改无线调试端口号\n4、点击确定后若看到一只狗头，则表示设置端口号成功", "请确认", _Setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
+            {
+                var batPath = ScrcpyPath + "SetProt.bat";
+                if (!File.Exists(batPath))
+                {
+                    //提取嵌入资源
+                    FileHelper.ExtractResFile("FreeControl.SetProt.bat", batPath);
+                }
+                if (File.Exists(batPath))
+                {
+                    System.Diagnostics.Process.Start(batPath, ScrcpyVersion);
+                }
+            }
+        }
+
+        private void linkIssues_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://github.com/pdone/FreeControl/issues");
+        }
+
+        private void lbAllShortcut_Click(object sender, EventArgs e)
         {
             Form shortcut = new Form()
             {
@@ -613,73 +802,7 @@ namespace FreeControl
             shortcut.Controls.Add(pictureBox);
             shortcut.ShowDialog();
         }
-
-        private void uiLinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://baike.baidu.com/item/USB%E8%B0%83%E8%AF%95%E6%A8%A1%E5%BC%8F/5035286#2");
-        }
-
-        private void uiLinkLabel2_Click(object sender, EventArgs e)
-        {
-            if (UIMessageBox.Show("1、使用数据线将手机连接电脑\n2、手机开启调试模式\n3、程序将使用adb tcpip 5555命令修改无线调试端口号\n4、点击确定后若看到一只狗头，则表示设置端口号成功", "请确认", setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
-            {
-                var batPath = scrcpyPath + "SetProt.bat";
-                if (!File.Exists(batPath))
-                {
-                    //提取嵌入资源
-                    FileHelper.ExtractResFile("FreeControl.SetProt.bat", batPath);
-                }
-                if (File.Exists(batPath))
-                {
-                    System.Diagnostics.Process.Start(batPath, scrcpyVersion);
-                }
-            }
-        }
-
-        private void uiLinkLabel3_LinkClicked(object sender, EventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://github.com/pdone/FreeControl/issues");
-        }
+        #endregion
     }
 
-    public static class Utilitys
-    {
-        public static bool IsNullOrWhiteSpace(this string s)
-        {
-            return string.IsNullOrWhiteSpace(s);
-        }
-
-        public static string GetDesc<T>(this T obj, string name)
-        {
-            T ent = obj;
-            var res = "";
-            foreach (var item in ent.GetType().GetProperties())
-            {
-                if (item.Name != name)
-                {
-                    continue;
-                }
-                var v = (DescriptionAttribute[])item.GetCustomAttributes(typeof(DescriptionAttribute), false);
-                if (v != null && v.Count() > 0)
-                {
-                    res = v[0].Description;
-                    return res;
-                }
-            }
-            return res;
-        }
-
-        public static string GetEnumDesc<T>(this T obj)
-        {
-            var type = obj.GetType();
-            FieldInfo field = type.GetField(Enum.GetName(type, obj));
-            DescriptionAttribute descAttr = Attribute.GetCustomAttribute(field, typeof(DescriptionAttribute)) as DescriptionAttribute;
-            if (descAttr == null)
-            {
-                return string.Empty;
-            }
-
-            return descAttr.Description;
-        }
-    }
 }

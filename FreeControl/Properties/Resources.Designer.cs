@@ -93,9 +93,9 @@ namespace FreeControl.Properties {
         /// <summary>
         ///   查找 System.Byte[] 类型的本地化资源。
         /// </summary>
-        internal static byte[] scrcpy_win32_v1_18 {
+        internal static byte[] scrcpy_win32_v1_19 {
             get {
-                object obj = ResourceManager.GetObject("scrcpy_win32_v1_18", resourceCulture);
+                object obj = ResourceManager.GetObject("scrcpy_win32_v1_19", resourceCulture);
                 return ((byte[])(obj));
             }
         }

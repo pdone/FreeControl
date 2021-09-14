@@ -1,9 +1,13 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Text;
 
 namespace FreeControl.Utils
 {
-    class FileHelper
+    public class FileHelper
     {
         /// <summary>
         /// 从资源文件中抽取资源文件

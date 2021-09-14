@@ -18,8 +18,8 @@ namespace FreeControl
         public Trusteeship()
         {
             InitializeComponent();
-           
             UIForm main = new Main();
+            //UIForm main = new Controller();
             main.Show();
         }
     }

@@ -8,7 +8,7 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>FreeControl</RootNamespace>
     <AssemblyName>FreeControl</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <IsWebBootstrapper>false</IsWebBootstrapper>
@@ -26,17 +26,19 @@
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -46,6 +48,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>Resources\pcm.ico</ApplicationIcon>
@@ -94,6 +97,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Controller.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Controller.Designer.cs">
+      <DependentUpon>Controller.cs</DependentUpon>
+    </Compile>
     <Compile Include="Loading.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -115,11 +124,15 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Setting.cs" />
+    <Compile Include="Utils\ADB.cs" />
     <Compile Include="Utils\FileHelper.cs" />
     <Compile Include="Utils\JsonHelper.cs" />
-    <Compile Include="Utils\LogHelper.cs" />
-    <Compile Include="Utils\MailHelper.cs" />
+    <Compile Include="Utils\Logger.cs" />
+    <Compile Include="Utils\SysEnvironment.cs" />
     <Compile Include="Utils\ZipHelper.cs" />
+    <EmbeddedResource Include="Controller.resx">
+      <DependentUpon>Controller.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Loading.resx">
       <DependentUpon>Loading.cs</DependentUpon>
     </EmbeddedResource>
@@ -151,7 +164,7 @@
     <EmbeddedResource Include="SetProt.bat" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\scrcpy-win32-v1.18.zip" />
+    <None Include="Resources\scrcpy-win32-v1.19.zip" />
     <None Include="Resources\Setting.png" />
   </ItemGroup>
   <ItemGroup>

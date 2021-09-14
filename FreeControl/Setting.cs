@@ -117,5 +117,48 @@ namespace FreeControl
         /// 窗口宽度
         /// </summary>
         public int WindowWidth { get; set; } = 0;
+
+        /// <summary>
+        /// 控制器是否启用
+        /// </summary>
+        public bool ControllerEnabled { get; set; } = false;
+        /// <summary>
+        /// 控制器窗体启动时X坐标
+        /// </summary>
+        public int ControllerStartPointX { get; set; } = 0;
+        /// <summary>
+        /// 控制器窗体启动时Y坐标
+        /// </summary>
+        public int ControllerStartPointY { get; set; } = 0;
+        /// <summary>
+        /// 控制器窗体启动时宽度
+        /// </summary>
+        public int ControllerStartWidth { get; set; } = 0;
+        /// <summary>
+        /// 控制器窗体启动时高度
+        /// </summary>
+        public int ControllerStartHeight { get; set; } = 0;
+
+        /// <summary>
+        /// 已启用的按钮名称 修改位置可进行控制器按钮排序
+        /// </summary>
+        public List<string> ControllerButton
+        {
+            get
+            {
+                return new List<string>()
+                {
+                    "btnHome",
+                    "btnBack",
+                    "btnMenu",
+                    "btnScreenshot",
+                    "btnVolumeUp",
+                    "btnVolumeDown",
+                    "btnMute",
+                    "btnPower",
+                    //"btnBrowser",
+                };
+            }
+        }
     }
 }
