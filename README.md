@@ -7,15 +7,15 @@
 
 ## 截图
 
-![1](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_1.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_1.png)
 
-![2](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
 
-![3](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_3.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_3.png)
 
-![4](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
 
-![5](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
 ## 版本说明
 ### v1.4.0
@@ -121,9 +121,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
    如果还是不行的话，通过 `adb kill-server` 重新启动 adb 然后从头再来一次试试。
 
 #### 无线连接（无需借助 USB 线）
-此方式**需要设备root**，此处不做详细说明，有需要的朋友可参考下方链接中内容。
-
->  [无线连接（无需借助 USB 线）](https://github.com/mzlogin/awesome-adb#%E6%97%A0%E7%BA%BF%E8%BF%9E%E6%8E%A5%E6%97%A0%E9%9C%80%E5%80%9F%E5%8A%A9-usb-%E7%BA%BF)
+此方式**需要设备root**，此处不做详细说明，有需要的朋友可[参考此处](https://github.com/mzlogin/awesome-adb#%E6%97%A0%E7%BA%BF%E8%BF%9E%E6%8E%A5%E6%97%A0%E9%9C%80%E5%80%9F%E5%8A%A9-usb-%E7%BA%BF)。
 
 ### Q3 保持唤醒功能
 
