@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FreeControl.Utils;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -18,7 +19,19 @@ namespace FreeControl
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Trusteeship());
+            try
+            {
+                Application.Run(new Trusteeship());
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+                DialogResult dr = MessageBox.Show("启动失败！是否要向开发者反馈此问题？", "提示", MessageBoxButtons.OKCancel);
+                if (dr == DialogResult.OK)
+                {
+                    System.Diagnostics.Process.Start("https://github.com/pdone/FreeControl/issues");
+                }
+            }
         }
         private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
         {

@@ -77,6 +77,10 @@ namespace FreeControl.Utils
         {
             string pathlist;
             pathlist = GetSysEnvironmentByName("PATH");
+            if (string.IsNullOrWhiteSpace(pathlist))
+            {
+                return;
+            }
             //检测是否以;结尾
             if (pathlist.Substring(pathlist.Length - 1, 1) != ";")
             {
