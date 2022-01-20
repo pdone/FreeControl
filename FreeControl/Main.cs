@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -25,7 +26,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy_win32_v1_19";
+        public static readonly string ScrcpyVersion = "scrcpy_win64_v1_21";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -239,11 +240,12 @@ namespace FreeControl
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v1_19);
-                if (SharpZip.UnpackFiles(ScrcpyPath + tempFileName, ScrcpyPath))
-                {
-                    File.Delete(ScrcpyPath + tempFileName);
-                }
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v1_21);
+                //解压缩
+                ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, ScrcpyPath);
+                //解压完成删除压缩包
+                File.Delete(ScrcpyPath + tempFileName);
+
             }
         }
 
@@ -282,7 +284,8 @@ namespace FreeControl
                 //无线访问
                 if (_Setting.UseWireless)
                 {
-                    StartParameters = $"-s {_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
+                    //StartParameters = $"-s {_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
+                    StartParameters = $"--tcpip={_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
                     ADBConnectFunc.BeginInvoke(ADBConnectCallback, ADBConnectFunc);
                 }
                 else
@@ -301,7 +304,8 @@ namespace FreeControl
         /// </summary>
         private readonly Func<string> ADBConnectFunc = () =>
         {
-            return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
+            //return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
+            return string.Empty;
         };
 
         /// <summary>

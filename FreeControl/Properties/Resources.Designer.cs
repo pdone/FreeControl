@@ -61,26 +61,6 @@ namespace FreeControl.Properties {
         }
         
         /// <summary>
-        ///   查找 System.Byte[] 类型的本地化资源。
-        /// </summary>
-        internal static byte[] ICSharpCode_SharpZipLib {
-            get {
-                object obj = ResourceManager.GetObject("ICSharpCode_SharpZipLib", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   查找 System.Byte[] 类型的本地化资源。
-        /// </summary>
-        internal static byte[] Newtonsoft_Json {
-            get {
-                object obj = ResourceManager.GetObject("Newtonsoft_Json", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
         ///   查找类似于 (图标) 的 System.Drawing.Icon 类型的本地化资源。
         /// </summary>
         internal static System.Drawing.Icon pcm {
@@ -93,9 +73,9 @@ namespace FreeControl.Properties {
         /// <summary>
         ///   查找 System.Byte[] 类型的本地化资源。
         /// </summary>
-        internal static byte[] scrcpy_win32_v1_19 {
+        internal static byte[] scrcpy_win64_v1_21 {
             get {
-                object obj = ResourceManager.GetObject("scrcpy_win32_v1_19", resourceCulture);
+                object obj = ResourceManager.GetObject("scrcpy_win64_v1_21", resourceCulture);
                 return ((byte[])(obj));
             }
         }

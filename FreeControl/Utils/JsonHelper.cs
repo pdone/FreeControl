@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+﻿//using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,11 +17,15 @@ namespace FreeControl.Utils
         /// <returns></returns>  
         public static T jsonDes<T>(string input)
         {
-            return JsonConvert.DeserializeObject<T>(input);
+            //return JsonConvert.DeserializeObject<T>(input);
+            JavaScriptSerializer javaScriptSerializer = new JavaScriptSerializer();
+            return javaScriptSerializer.Deserialize<T>(input);
         }
         public static string json(object obj)
         {
-            return JsonConvert.SerializeObject(obj, Formatting.Indented);
+            //return JsonConvert.SerializeObject(obj, Formatting.Indented);
+            JavaScriptSerializer javaScriptSerializer = new JavaScriptSerializer();
+            return javaScriptSerializer.Serialize(obj);
         }
     }
 }

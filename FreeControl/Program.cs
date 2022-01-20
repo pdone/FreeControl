@@ -45,12 +45,12 @@ namespace FreeControl
                 case "SunnyUI.Common":
                     assembly = Assembly.Load(Properties.Resources.SunnyUI_Common);
                     break;
-                case "ICSharpCode.SharpZipLib":
-                    assembly = Assembly.Load(Properties.Resources.ICSharpCode_SharpZipLib);
-                    break;
-                case "Newtonsoft.Json":
-                    assembly = Assembly.Load(Properties.Resources.Newtonsoft_Json);
-                    break;
+                //case "ICSharpCode.SharpZipLib":
+                //    assembly = Assembly.Load(Properties.Resources.ICSharpCode_SharpZipLib);
+                //    break;
+                //case "Newtonsoft.Json":
+                //    assembly = Assembly.Load(Properties.Resources.Newtonsoft_Json);
+                //    break;
                 default:
                     break;
             }
