@@ -18,6 +18,13 @@
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
 ## 版本说明
+### v1.5.0
+- 基于scrcpy v1.21
+- 优化了代码
+
+### v1.4.1
+- 修复了一些bug
+
 ### v1.4.0
 - 基于scrcpy v1.19
 - 增加虚拟按键（常用功能，记忆启动时位置和大小）
