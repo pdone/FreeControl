@@ -26,7 +26,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy_win64_v1_21";
+        public static readonly string ScrcpyVersion = "scrcpy-win64-v1.25";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -240,9 +240,9 @@ namespace FreeControl
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v1_21);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v1_25);
                 //解压缩
-                ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, ScrcpyPath);
+                ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 //解压完成删除压缩包
                 File.Delete(ScrcpyPath + tempFileName);
 
@@ -281,6 +281,7 @@ namespace FreeControl
 
                 //设置标题
                 StartParameters += $"--window-title \"{ledTitle.Text}\" ";
+
                 //无线访问
                 if (_Setting.UseWireless)
                 {

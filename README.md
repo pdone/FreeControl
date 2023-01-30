@@ -18,6 +18,9 @@
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
 ## 版本说明
+### v1.5.1
+- 基于scrcpy v1.25
+ 
 ### v1.5.0
 - 基于scrcpy v1.21
 - 优化了代码
@@ -48,7 +51,7 @@
 
 ## 下载地址
 ### 蓝奏云
-[https://pdone.lanzoui.com/ifgw3tzkaba](https://pdone.lanzoui.com/ifgw3tzkaba)
+[https://pdone.lanzouf.com/b018hod6f?password=5555](https://pdone.lanzouf.com/b018hod6f?password=5555)
 
 ### Github
 [https://github.com/pdone/FreeControl/releases](https://github.com/pdone/FreeControl/releases)
