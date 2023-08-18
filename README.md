@@ -1,4 +1,6 @@
 # FreeControl
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpdone%2FFreeControl.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpdone%2FFreeControl?ref=badge_shield)
+
 
 ## 介绍
 基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，提供简洁的交互界面。
@@ -140,3 +142,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 ### Q3 保持唤醒功能
 
 保持唤醒功能**仅在手机充电时**有效。
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpdone%2FFreeControl.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpdone%2FFreeControl?ref=badge_large)
