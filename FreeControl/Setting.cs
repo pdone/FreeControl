@@ -160,5 +160,10 @@ namespace FreeControl
                 };
             }
         }
+
+        /// <summary>
+        /// 程序版本号
+        /// </summary>
+        public string Version { get; set; } = "1.0.0";
     }
 }

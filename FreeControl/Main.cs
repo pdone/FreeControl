@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.Design;
 
 namespace FreeControl
 {
@@ -26,7 +27,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy-win64-v1.25";
+        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.1.1";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -72,7 +73,7 @@ namespace FreeControl
         {
             get
             {
-                return Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Free Control");
+                return Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FreeControl");
             }
         }
         /// <summary>
@@ -126,14 +127,24 @@ namespace FreeControl
         /// </summary>
         public void InitPdone()
         {
+            //获取程序集信息
+            Assembly asm = Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
             //获取用户配置数据
             _Setting = GetUserData();
             //adb路径
             ADB.ADBPath = $@"{ScrcpyPath}";
             //增加adb执行文件系统变量
             ADB.AddEnvironmentPath(ScrcpyPath);
+            //是否重新加载资源包
+            bool reload = false;
+            if (_Setting.Version != fvi.ProductVersion)
+            {
+                reload = true;
+                _Setting.Version = fvi.ProductVersion;
+            }
             //提取资源
-            ExtractResource();
+            ExtractResource(reload);
 
             #region 事件绑定
             //退出时保存用户配置数据
@@ -181,8 +192,6 @@ namespace FreeControl
             #endregion
 
             #region 设置标题和图标
-            Assembly asm = Assembly.GetExecutingAssembly();
-            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
             Text = $"Free Control v{fvi.ProductVersion}";
             lbTitle.Visible = false;
             lbTitle.Text = Text;
@@ -234,18 +243,21 @@ namespace FreeControl
         /// <summary>
         /// 提取内置资源
         /// </summary>
-        private void ExtractResource()
+        private void ExtractResource(bool reload = false)
         {
             string tempFileName = "temp.zip";
+            if (reload)
+            {
+                Directory.Delete(ScrcpyPath, true);
+            }
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v1_25);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_1_1);
                 //解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 //解压完成删除压缩包
                 File.Delete(ScrcpyPath + tempFileName);
-
             }
         }
 

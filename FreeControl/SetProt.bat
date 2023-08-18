@@ -1,5 +1,5 @@
 @echo off
-set scrcpy_path=%APPDATA%\Free Control\%1
+set scrcpy_path=%APPDATA%\FreeControl\%1
 color 0E
 if not exist "%scrcpy_path%\adb.exe" (echo No found adb.exe
 echo Press any key to exit&&pause>nul&&exit
@@ -11,7 +11,7 @@ adb devices
 echo Setting port
 adb tcpip 5555
 set res="%ERRORLEVEL%"
-if %res%=="0" (echo Success
+if %res%=="0" (
 echo "          .,:,,,                                        .::,,,::."
 echo "        .::::,,;;,                                  .,;;:,,....:i:"
 echo "        :i,.::::,;i:.      ....,,:::::::::,....   .;i:,.  ......;i."
@@ -48,7 +48,8 @@ echo "              .,issr;,... ...........................,is1s;."
 echo "                 .,is1si;:,....................,:;ir1sr;,"
 echo "                    ..:isssssrrii;::::::;;iirsssssr;:.."
 echo "                         .,::iiirsssssssssrri;;:."
-echo Press any key to exit&&pause>nul&&exit
+color 2
+echo Success! Press any key to exit&&pause>nul&&exit
 )
-echo Faild
-echo Press any key to exit&&pause>nul&&exit
+color 4
+echo Faild! Press any key to exit&&pause>nul&&exit

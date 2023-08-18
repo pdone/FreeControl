@@ -1,9 +1,11 @@
 # FreeControl
 
 ## 介绍
-基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，使用C#简单封装。
+基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，提供简洁的交互界面。
 
-做本程序的目的主要是学习，另外就是自己用着方便些。
+- 编码语言 `C#`
+- 开发工具 `Visual Studio 2022`
+- 运行环境 `.NET Framework 4.7.2`
 
 ## 截图
 
@@ -11,13 +13,15 @@
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
 
-
-
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
 ## 版本说明
+### v1.6.0
+- 基于scrcpy v2.1.1
+- 修复了一些bug
+
 ### v1.5.1
 - 基于scrcpy v1.25
  
@@ -50,11 +54,11 @@
 - 基于scrcpy v1.14
 
 ## 下载地址
-### 蓝奏云
-[https://pdone.lanzouf.com/b018hod6f?password=5555](https://pdone.lanzouf.com/b018hod6f?password=5555)
 
 ### Github
 [https://github.com/pdone/FreeControl/releases](https://github.com/pdone/FreeControl/releases)
+
+> 如果使用GitHub下载速度太慢，可尝试此链接 [ghproxy代理加速](https://ghproxy.com/https://github.com/pdone/FreeControl/releases/download/v1.6.0/FreeControl.exe)
 
 ## 代码仓库地址
 #### [https://github.com/pdone/FreeControl](https://github.com/pdone/FreeControl)
