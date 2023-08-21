@@ -117,4 +117,5 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 - 对于 `Android 10` 或更早版本，无法捕获音频并自动禁用。
 
 ## 更新日志
-<iframe src="https://awaw.cc/assets/timeline/freecontrol.html" width="350" height="1600" frameborder="0" ></iframe>
+
+[点击查看](https://awaw.cc/assets/timeline/freecontrol.html)
