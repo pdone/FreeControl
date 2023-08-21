@@ -9,59 +9,26 @@
 
 ## 截图
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_1.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.1_1.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_2.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.1_2.png)
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
-## 版本说明
-### v1.6.0
-- 基于scrcpy v2.1.1
-- 修复了一些bug
+## 下载
+### GitHub Release
 
-### v1.5.1
-- 基于scrcpy v1.25
- 
-### v1.5.0
-- 基于scrcpy v1.21
-- 优化了代码
+[https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
 
-### v1.4.1
-- 修复了一些bug
+### ghproxy代理加速
 
-### v1.4.0
-- 基于scrcpy v1.19
-- 增加虚拟按键（常用功能，记忆启动时位置和大小）
-- 优化了代码
-  
-### v1.3.0
-- 基于scrcpy v1.18
-- 增加了一些设置项
-- 修复了一些bug
+[https://ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
 
-### v1.2.0
-- 基于scrcpy v1.17
-- 修复了一些bug
+## 代码
 
-### v1.1.0
-- 基于scrcpy v1.16
-- 增加了设置端口号功能
-
-### v1.0.0
-- 基于scrcpy v1.14
-
-## 下载地址
-
-### Github
-[https://github.com/pdone/FreeControl/releases](https://github.com/pdone/FreeControl/releases)
-
-> 如果使用GitHub下载速度太慢，可尝试此链接 [ghproxy代理加速](https://ghproxy.com/https://github.com/pdone/FreeControl/releases/download/v1.6.0/FreeControl.exe)
-
-## 代码仓库地址
-#### [https://github.com/pdone/FreeControl](https://github.com/pdone/FreeControl)
+[https://github.com/pdone/FreeControl](https://github.com/pdone/FreeControl)
 
 ## FAQ
 
@@ -140,3 +107,14 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 ### Q3 保持唤醒功能
 
 保持唤醒功能**仅在手机充电时**有效。
+
+### Q4 音频转发功能
+
+使用 `Android 11` 或更高版本的设备支持音频转发，并且默认情况下启用:
+
+- 对于 `Android 12` 或更高版本，它开箱即用。
+- 对于 `Android 11` ，您需要确保在启动scrcpy时设备屏幕已解锁。假的弹出窗口将短暂出现，使系统认为shell应用程序处于前台。没有这个，音频捕获将失败。
+- 对于 `Android 10` 或更早版本，无法捕获音频并自动禁用。
+
+## 更新日志
+<iframe src="https://awaw.cc/assets/timeline/freecontrol.html" width="350" height="1600" frameborder="0" ></iframe>

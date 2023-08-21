@@ -57,6 +57,7 @@
             this.updownWidth = new Sunny.UI.UIIntegerUpDown();
             this.updownHeight = new Sunny.UI.UIIntegerUpDown();
             this.cbxOtherSetting = new Sunny.UI.UIGroupBox();
+            this.cbxControllerEnabled = new Sunny.UI.UICheckBox();
             this.cbxShowTouches = new Sunny.UI.UICheckBox();
             this.cbxTopMost = new Sunny.UI.UICheckBox();
             this.cbxReadOnly = new Sunny.UI.UICheckBox();
@@ -71,7 +72,7 @@
             this.lbTitle = new System.Windows.Forms.Label();
             this.btnClose = new Sunny.UI.UIButton();
             this.btnMini = new Sunny.UI.UIButton();
-            this.cbxControllerEnabled = new Sunny.UI.UICheckBox();
+            this.cbxAudioEnabled = new Sunny.UI.UICheckBox();
             this.navTab.SuspendLayout();
             this.tabHome.SuspendLayout();
             this.tabSetting.SuspendLayout();
@@ -536,6 +537,7 @@
             // 
             // cbxOtherSetting
             // 
+            this.cbxOtherSetting.Controls.Add(this.cbxAudioEnabled);
             this.cbxOtherSetting.Controls.Add(this.cbxControllerEnabled);
             this.cbxOtherSetting.Controls.Add(this.cbxShowTouches);
             this.cbxOtherSetting.Controls.Add(this.cbxTopMost);
@@ -558,6 +560,19 @@
             this.cbxOtherSetting.TabIndex = 3;
             this.cbxOtherSetting.Text = "其他设置";
             this.cbxOtherSetting.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // cbxControllerEnabled
+            // 
+            this.cbxControllerEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.cbxControllerEnabled.Font = new System.Drawing.Font("微软雅黑", 11F);
+            this.cbxControllerEnabled.Location = new System.Drawing.Point(335, 70);
+            this.cbxControllerEnabled.MinimumSize = new System.Drawing.Size(1, 1);
+            this.cbxControllerEnabled.Name = "cbxControllerEnabled";
+            this.cbxControllerEnabled.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
+            this.cbxControllerEnabled.Size = new System.Drawing.Size(102, 29);
+            this.cbxControllerEnabled.Style = Sunny.UI.UIStyle.Custom;
+            this.cbxControllerEnabled.TabIndex = 9;
+            this.cbxControllerEnabled.Text = "启用控制器";
             // 
             // cbxShowTouches
             // 
@@ -736,18 +751,19 @@
             this.btnMini.TabIndex = 10;
             this.btnMini.Text = "-";
             // 
-            // cbxControllerEnabled
+            // cbxAudioEnabled
             // 
-            this.cbxControllerEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.cbxControllerEnabled.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxControllerEnabled.Location = new System.Drawing.Point(335, 70);
-            this.cbxControllerEnabled.MinimumSize = new System.Drawing.Size(1, 1);
-            this.cbxControllerEnabled.Name = "cbxControllerEnabled";
-            this.cbxControllerEnabled.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
-            this.cbxControllerEnabled.Size = new System.Drawing.Size(102, 29);
-            this.cbxControllerEnabled.Style = Sunny.UI.UIStyle.Custom;
-            this.cbxControllerEnabled.TabIndex = 9;
-            this.cbxControllerEnabled.Text = "启用控制器";
+            this.cbxAudioEnabled.Checked = true;
+            this.cbxAudioEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.cbxAudioEnabled.Font = new System.Drawing.Font("微软雅黑", 11F);
+            this.cbxAudioEnabled.Location = new System.Drawing.Point(443, 70);
+            this.cbxAudioEnabled.MinimumSize = new System.Drawing.Size(1, 1);
+            this.cbxAudioEnabled.Name = "cbxAudioEnabled";
+            this.cbxAudioEnabled.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
+            this.cbxAudioEnabled.Size = new System.Drawing.Size(102, 29);
+            this.cbxAudioEnabled.Style = Sunny.UI.UIStyle.Custom;
+            this.cbxAudioEnabled.TabIndex = 10;
+            this.cbxAudioEnabled.Text = "启用音频";
             // 
             // Main
             // 
@@ -829,6 +845,7 @@
         private Sunny.UI.UILabel uiLabel6;
         private Sunny.UI.UIComboBox comboPx;
         private Sunny.UI.UICheckBox cbxControllerEnabled;
+        private Sunny.UI.UICheckBox cbxAudioEnabled;
     }
 }
 

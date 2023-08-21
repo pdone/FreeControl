@@ -9,11 +9,6 @@ namespace FreeControl
     public class Setting
     {
         /// <summary>
-        /// 其他参数
-        /// </summary>
-        public string OtherParam { get; set; } = "";
-
-        /// <summary>
         /// 比特率参数
         /// </summary>
         [Description("--bit-rate")]
@@ -108,6 +103,11 @@ namespace FreeControl
         /// </summary>
         [Description("--show-touches")]
         public bool ShowTouches { get; set; } = false;
+
+        /// <summary>
+        /// 启用音频
+        /// </summary>
+        public bool AudioEnabled { get; set; } = true;
 
         /// <summary>
         /// 窗口高度

@@ -51,7 +51,7 @@ namespace FreeControl
         /// <summary>
         /// 启动参数
         /// </summary>
-        private string StartParameters = string.Empty;
+        private List<string> StartParameters = new List<string>();
         #endregion
 
         #region 构造函数
@@ -127,57 +127,57 @@ namespace FreeControl
         /// </summary>
         public void InitPdone()
         {
-            //获取程序集信息
+            // 获取程序集信息
             Assembly asm = Assembly.GetExecutingAssembly();
             FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
-            //获取用户配置数据
+            // 获取用户配置数据
             _Setting = GetUserData();
-            //adb路径
+            // adb路径
             ADB.ADBPath = $@"{ScrcpyPath}";
-            //增加adb执行文件系统变量
+            // 增加adb执行文件系统变量
             ADB.AddEnvironmentPath(ScrcpyPath);
-            //是否重新加载资源包
+            // 是否重新加载资源包
             bool reload = false;
             if (_Setting.Version != fvi.ProductVersion)
             {
                 reload = true;
                 _Setting.Version = fvi.ProductVersion;
             }
-            //提取资源
+            // 提取资源
             ExtractResource(reload);
 
             #region 事件绑定
-            //退出时保存用户配置数据
+            // 退出时保存用户配置数据
             Application.ApplicationExit += (sender, e) =>
             {
                 SetUserData(_Setting);
                 ADB.Execute("kill-server");
             };
             FormClosed += (sender, e) => Application.Exit();
-            //窗口拖动
+            // 窗口拖动
             MouseDown += (sender, e) => DragWindow();
             ledTitle.MouseDown += (sender, e) => DragWindow();
             tabHome.MouseDown += (sender, e) => DragWindow();
             tabSetting.MouseDown += (sender, e) => DragWindow();
-            //关闭按钮和最小化按钮
+            // 关闭按钮和最小化按钮
             btnClose.Click += (sender, e) => Close();
             btnMini.Click += (sender, e) => WindowState = FormWindowState.Minimized;
-            //启动按钮
+            // 启动按钮
             btnStart.Click += StartButtonClick;
-            //深色模式切换
+            // 深色模式切换
             switchDarkMode.ValueChanged += SwitchDarkMode_ValueChanged;
-            //窗口大小设置
+            // 窗口大小设置
             updownHeight.ValueChanged += (sender, e) => _Setting.WindowHeight = updownHeight.Value;
             updownWidth.ValueChanged += (sender, e) => _Setting.WindowWidth = updownWidth.Value;
             rbtnShortcuts.ValueChanged += RbtnShortcuts_ValueChanged;
-            //下拉框
+            // 下拉框
             comboPx.SelectedValueChanged += ComboPx_SelectedValueChanged;
             comboMbps.SelectedValueChanged += ComboMbps_SelectedValueChanged;
             comboMaxFPS.SelectedValueChanged += ComboMaxFPS_SelectedValueChanged;
-            //文本框
+            // 文本框
             tbxAddress.TextChanged += TbxAddress_TextChanged;
             tbxPort.TextChanged += TbxPort_TextChanged;
-            //CheckBox
+            // CheckBox
             cbxUseWireless.ValueChanged += CbxUseWireless_ValueChanged;
             cbxUseLog.ValueChanged += CbxUseLog_ValueChanged;
             cbxControllerEnabled.ValueChanged += CbxControllerEnabled_ValueChanged;
@@ -189,6 +189,7 @@ namespace FreeControl
             cbxTopMost.ValueChanged += CommonCbx_ValueChanged;
             cbxShowTouches.ValueChanged += CommonCbx_ValueChanged;
             cbxReadOnly.ValueChanged += CommonCbx_ValueChanged;
+            cbxAudioEnabled.ValueChanged += cbxAudioEnabled_ValueChanged;
             #endregion
 
             #region 设置标题和图标
@@ -203,16 +204,16 @@ namespace FreeControl
 
             #region 设置主题颜色
             UIStyles.SetStyle(UIStyle.Gray);
-            //设置默认导航条颜色
+            // 设置默认导航条颜色
             navTab.TabSelectedForeColor = Color.FromArgb(140, 140, 140);
             navTab.TabSelectedHighColor = Color.FromArgb(140, 140, 140);
-            //设置默认导航条图标
+            // 设置默认导航条图标
             tabHome.ImageIndex = 0;
             tabSetting.ImageIndex = 2;
             #endregion
 
             #region 切换tab事件
-            //navTab.SelectTab(0);
+            // navTab.SelectTab(0);
             #endregion
 
             #region 配置项默认值
@@ -237,7 +238,8 @@ namespace FreeControl
             cbxTopMost.Checked = _Setting.TopMost;
             cbxShowTouches.Checked = _Setting.ShowTouches;
             cbxReadOnly.Checked = _Setting.ReadOnly;
-            #endregion      
+            cbxAudioEnabled.Checked = _Setting.AudioEnabled;
+            #endregion
         }
 
         /// <summary>
@@ -254,9 +256,9 @@ namespace FreeControl
             {
                 Directory.CreateDirectory(ScrcpyPath);
                 File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_1_1);
-                //解压缩
+                // 解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
-                //解压完成删除压缩包
+                // 解压完成删除压缩包
                 File.Delete(ScrcpyPath + tempFileName);
             }
         }
@@ -280,29 +282,70 @@ namespace FreeControl
                 }
 
                 Logger.Info("starting...");
-                StartParameters = $" {_Setting.BitRate} {_Setting.PX} {_Setting.MaxFPS} {_Setting.Shortcuts} {_Setting.OtherParam} ";
-                //设置屏幕高度 800
+                StartParameters.Clear();
+                StartParameters.Add(_Setting.BitRate);
+                StartParameters.Add(_Setting.MaxFPS);
+                StartParameters.Add(_Setting.Shortcuts);
+                // 设置屏幕高度 800
                 if (_Setting.WindowHeight > 0)
                 {
-                    StartParameters += $"--window-height {_Setting.WindowHeight} ";
+                    StartParameters.Add($"--window-height {_Setting.WindowHeight}");
                 }
                 if (_Setting.WindowWidth > 0)
                 {
-                    StartParameters += $"--window-width {_Setting.WindowWidth} ";
+                    StartParameters.Add($"--window-width {_Setting.WindowWidth}");
+                }
+                // 设置标题
+                StartParameters.Add($"--window-title \"{ledTitle.Text}\"");
+
+                if (_Setting.AudioEnabled == false)
+                {
+                    StartParameters.Add("--no-audio");// 不转发音频
                 }
 
-                //设置标题
-                StartParameters += $"--window-title \"{ledTitle.Text}\" ";
+                // 其他参数
+                if (_Setting.CloseScreen)
+                {
+                    StartParameters.Add(_Setting.GetDesc("CloseScreen"));
+                }
+                if (_Setting.KeepAwake)
+                {
+                    StartParameters.Add(_Setting.GetDesc("KeepAwake"));
+                }
+                if (_Setting.AllFPS)
+                {
+                    StartParameters.Add(_Setting.GetDesc("AllFPS"));
+                }
+                if (_Setting.ReadOnly)
+                {
+                    StartParameters.Add(_Setting.GetDesc("ReadOnly"));
+                }
+                if (_Setting.HideBorder)
+                {
+                    StartParameters.Add(_Setting.GetDesc("HideBorder"));
+                }
+                if (_Setting.FullScreen)
+                {
+                    StartParameters.Add(_Setting.GetDesc("FullScreen"));
+                }
+                if (_Setting.TopMost)
+                {
+                    StartParameters.Add(_Setting.GetDesc("TopMost"));
+                }
+                if (_Setting.ShowTouches)
+                {
+                    StartParameters.Add(_Setting.GetDesc("ShowTouches"));
+                }
 
-                //无线访问
+                // 无线访问
                 if (_Setting.UseWireless)
                 {
-                    //StartParameters = $"-s {_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
-                    StartParameters = $"--tcpip={_Setting.IPAddress}:{_Setting.Port} " + StartParameters;
+                    StartParameters.Add($"--tcpip={_Setting.IPAddress}:{_Setting.Port}");
                     ADBConnectFunc.BeginInvoke(ADBConnectCallback, ADBConnectFunc);
                 }
                 else
                 {
+                    StartParameters.Add("--select-usb");// 使用usb
                     RunScrcpy();
                 }
             }
@@ -317,7 +360,8 @@ namespace FreeControl
         /// </summary>
         private readonly Func<string> ADBConnectFunc = () =>
         {
-            //return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
+            // 不再验证adb连接状态
+            // return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
             return string.Empty;
         };
 
@@ -329,7 +373,7 @@ namespace FreeControl
         {
             Func<string> tempFunc = ar.AsyncState as Func<string>;
             string result = tempFunc.EndInvoke(ar);
-            //ADB连接返回消息不为空
+            // ADB连接返回消息不为空
             if (!result.IsNullOrWhiteSpace() && result.Contains("cannot connect"))
             {
                 ButtonHandle(false);
@@ -345,9 +389,17 @@ namespace FreeControl
         private void RunScrcpy()
         {
             Logger.Info("scrcpy running...");
+            string args = "";
+            StartParameters.ForEach(x =>
+            {
+                if (x.IsNullOrWhiteSpace() == false)
+                {
+                    args += x + " ";
+                }
+            });
             var processStartInfo = new ProcessStartInfo($@"{ScrcpyPath}scrcpy.exe")
             {
-                Arguments = StartParameters,
+                Arguments = args,
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -435,7 +487,7 @@ namespace FreeControl
                 if (isStart)
                 {
                     Hide();
-                    //是否启用控制器
+                    // 是否启用控制器
                     if (_Setting.ControllerEnabled)
                     {
                         _Controller = new Controller();
@@ -612,8 +664,8 @@ namespace FreeControl
         private void CbxUseWireless_ValueChanged(object sender, bool value)
         {
             _Setting.UseWireless = value;
-            //tbxAddress.Enabled = !value;
-            //tbxPort.Enabled = !value;
+            // tbxAddress.Enabled = !value;
+            // tbxPort.Enabled = !value;
 
             var foreColor = Color.Transparent;
             var tabBackColor = Color.Transparent;
@@ -658,7 +710,6 @@ namespace FreeControl
 
         private void CommonCbx_ValueChanged(object sender, bool value)
         {
-            string command = "";
             var temp = sender as UICheckBox;
             switch (temp.Text)
             {
@@ -666,30 +717,26 @@ namespace FreeControl
                     _Setting.CloseScreen = value;
                     if (value)
                     {
-                        //关闭屏幕与只读模式不可同时启用
+                        // 关闭屏幕与只读模式不可同时启用
                         _Setting.ReadOnly = false;
                         cbxReadOnly.Checked = false;
-                        //UIMessageTip.ShowWarning(this, "勾选关闭屏幕后，将取消只读模式！", 1500);
+                        // UIMessageTip.ShowWarning(this, "勾选关闭屏幕后，将取消只读模式！", 1500);
                     }
-                    command = _Setting.GetDesc("CloseScreen") + " ";
                     break;
                 case "保持唤醒":
-                    command = _Setting.GetDesc("KeepAwake") + " ";
                     _Setting.KeepAwake = value;
                     if (value)
                     {
-                        //保持唤醒与只读模式不可同时启用
+                        // 保持唤醒与只读模式不可同时启用
                         _Setting.ReadOnly = false;
                         cbxReadOnly.Checked = false;
-                        //UIMessageTip.ShowWarning(this, "勾选保持唤醒后，将取消只读模式！", 1500);
+                        // UIMessageTip.ShowWarning(this, "勾选保持唤醒后，将取消只读模式！", 1500);
                     }
                     break;
                 case "全帧渲染":
-                    command = _Setting.GetDesc("AllFPS") + " ";
                     _Setting.AllFPS = value;
                     break;
                 case "只读模式":
-                    command = _Setting.GetDesc("ReadOnly") + " ";
                     _Setting.ReadOnly = value;
                     if (value)
                     {
@@ -697,35 +744,23 @@ namespace FreeControl
                         cbxCloseScreen.Checked = false;
                         _Setting.KeepAwake = false;
                         cbxKeepAwake.Checked = false;
-                        //UIMessageTip.ShowWarning(this, "勾选只读模式后，将取消关闭屏幕和保持唤醒！", 1500);
+                        // UIMessageTip.ShowWarning(this, "勾选只读模式后，将取消关闭屏幕和保持唤醒！", 1500);
                     }
                     break;
                 case "隐藏边框":
-                    command = _Setting.GetDesc("HideBorder") + " ";
                     _Setting.HideBorder = value;
                     break;
                 case "全屏显示":
-                    command = _Setting.GetDesc("FullScreen") + " ";
                     _Setting.FullScreen = value;
                     break;
                 case "窗口置顶":
-                    command = _Setting.GetDesc("TopMost") + " ";
                     _Setting.TopMost = value;
                     break;
                 case "显示触摸":
-                    command = _Setting.GetDesc("ShowTouches") + " ";
                     _Setting.ShowTouches = value;
                     break;
             }
             Logger.Info(temp.Text + ":" + value);
-            if (value)
-            {
-                _Setting.OtherParam += command;
-            }
-            else
-            {
-                _Setting.OtherParam = _Setting.OtherParam.Replace(command, "");
-            }
         }
 
         private void RbtnShortcuts_ValueChanged(object sender, int index, string text)
@@ -745,10 +780,15 @@ namespace FreeControl
             _Setting.Shortcuts = $"{_Setting.GetDesc("Shortcuts")}={_Setting.Shortcuts}";
             _Setting.ShortcutsIndex = index;
         }
+
+        private void cbxAudioEnabled_ValueChanged(object sender, bool value)
+        {
+            _Setting.AudioEnabled = value;
+        }
         #endregion
 
         #region 拖动窗口
-        [DllImport("user32.dll")]//拖动无窗体的控件
+        [DllImport("user32.dll")]// 拖动无窗体的控件
         public static extern bool ReleaseCapture();
         [DllImport("user32.dll")]
         public static extern bool SendMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
@@ -779,7 +819,7 @@ namespace FreeControl
                 var batPath = ScrcpyPath + "SetProt.bat";
                 if (!File.Exists(batPath))
                 {
-                    //提取嵌入资源
+                    // 提取嵌入资源
                     FileHelper.ExtractResFile("FreeControl.SetProt.bat", batPath);
                 }
                 if (File.Exists(batPath))
@@ -821,5 +861,4 @@ namespace FreeControl
         }
         #endregion
     }
-
 }
