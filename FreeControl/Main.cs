@@ -248,7 +248,8 @@ namespace FreeControl
         private void ExtractResource(bool reload = false)
         {
             string tempFileName = "temp.zip";
-            if (reload)
+            // 如果重新加载 且旧目录存在 删除后重新解压资源
+            if (reload && Directory.Exists(ScrcpyPath))
             {
                 Directory.Delete(ScrcpyPath, true);
             }
