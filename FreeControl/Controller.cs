@@ -1,31 +1,92 @@
 ﻿using FreeControl.Utils;
 using Sunny.UI;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
 using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+using System.Timers;
 using System.Windows.Forms;
 
 namespace FreeControl
 {
     public partial class Controller : UIForm
     {
+        [DllImport("user32.dll")]
+        public static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        /// <summary>
+        /// 监听scrcpy窗体移动后的坐标
+        /// </summary>
+        private readonly System.Timers.Timer timer;
+        /// <summary>
+        /// scrcpy句柄
+        /// </summary>
+        private IntPtr scrcpyWindow = IntPtr.Zero;
+        /// <summary>
+        /// 进程名称
+        /// </summary>
+        private const string scrcpyWindowName = "scrcpy";
+        /// <summary>
+        /// 上一个有效的scrcpy坐标
+        /// </summary>
+        private Rect lastRect = new Rect();
+
         public Controller()
         {
             InitializeComponent();
-            TopMost = true;
-            flowPanel.FlowLayoutPanel.MouseDown += (s, e) => DragWindow();
-            flowPanel.FlowLayoutPanel.AutoScroll = false;
-
             InitButton();
             InitFormSizeAndLocation();
+
+            timer = new System.Timers.Timer
+            {
+                Interval = 15
+            };
+            timer.Elapsed += OnTimedEvent;
+            timer.Enabled = true;
+            Disposed += (s, e) =>
+            {
+                Main._Setting.ScrcpyPointX = lastRect.Left;
+                Main._Setting.ScrcpyPointY = lastRect.Top;
+            };
+        }
+
+        public void StopTimer()
+        {
+            timer.Stop();
+            timer.Enabled = false;
+        }
+
+        private void OnTimedEvent(Object source, ElapsedEventArgs e)
+        {
+            Action action = () =>
+            {
+                if (scrcpyWindow == IntPtr.Zero)
+                {
+                    Process[] processes = Process.GetProcessesByName(scrcpyWindowName);
+                    scrcpyWindow = processes[0].MainWindowHandle;
+                }
+                GetWindowRect(scrcpyWindow, out Rect rect);
+                if (rect.Top == lastRect.Top && rect.Left == lastRect.Left)
+                    return;
+                if (rect.Left + rect.Top > 0)
+                {
+                    rect.Left += 8;
+                    rect.Top += 31;
+                    lastRect = rect;
+                    Location = new Point(rect.Left - 57, rect.Top);
+                }
+            };
+            if (InvokeRequired)
+                Invoke(action);
         }
 
         /// <summary>
@@ -33,15 +94,8 @@ namespace FreeControl
         /// </summary>
         void InitFormSizeAndLocation()
         {
-            if (Main._Setting.ControllerStartPointX == 0 && Main._Setting.ControllerStartPointY == 0)
-            {
-                StartPosition = FormStartPosition.CenterScreen;
-            }
-            else
-            {
-                StartPosition = FormStartPosition.Manual;
-                Location = new Point(Main._Setting.ControllerStartPointX, Main._Setting.ControllerStartPointY);
-            }
+            flowPanel.FlowLayoutPanel.AutoScroll = false;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
             if (Main._Setting.ControllerStartWidth >= 57 && Main._Setting.ControllerStartHeight >= 57)
             {
                 Width = Main._Setting.ControllerStartWidth;
@@ -52,17 +106,28 @@ namespace FreeControl
                 Width = 140;
                 Height = 140;
             }
-            LocationChanged += (sender, e) =>
+            if (Main._Setting.ScrcpyPointX + Main._Setting.ScrcpyPointY > 0)
             {
-                Main._Setting.ControllerStartPointX = Location.X;
-                Main._Setting.ControllerStartPointY = Location.Y;
-            };
+                // Location = new Point(Main._Setting.ControllerStartPointX, Main._Setting.ControllerStartPointY);
+                StartPosition = FormStartPosition.Manual;
+                Location = new Point(Main._Setting.ScrcpyPointX - 57, Main._Setting.ScrcpyPointY);
+            }
+            else
+            {
+                StartPosition = FormStartPosition.CenterScreen;
+            }
+            // LocationChanged += (sender, e) =>
+            // {
+            // Main._Setting.ControllerStartPointX = Location.X;
+            // Main._Setting.ControllerStartPointY = Location.Y;
+            // };
             SizeChanged += (sender, e) =>
             {
                 Main._Setting.ControllerStartWidth = Width;
                 Main._Setting.ControllerStartHeight = Height;
             };
-            MouseDown += (s, e) => DragWindow();
+            // MouseDown += (s, e) => DragWindow();
+            // flowPanel.FlowLayoutPanel.MouseDown += (s, e) => DragWindow();
         }
 
         /// <summary>

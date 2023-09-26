@@ -57,6 +57,7 @@
             this.updownWidth = new Sunny.UI.UIIntegerUpDown();
             this.updownHeight = new Sunny.UI.UIIntegerUpDown();
             this.cbxOtherSetting = new Sunny.UI.UIGroupBox();
+            this.cbxAudioEnabled = new Sunny.UI.UICheckBox();
             this.cbxControllerEnabled = new Sunny.UI.UICheckBox();
             this.cbxShowTouches = new Sunny.UI.UICheckBox();
             this.cbxTopMost = new Sunny.UI.UICheckBox();
@@ -72,7 +73,6 @@
             this.lbTitle = new System.Windows.Forms.Label();
             this.btnClose = new Sunny.UI.UIButton();
             this.btnMini = new Sunny.UI.UIButton();
-            this.cbxAudioEnabled = new Sunny.UI.UICheckBox();
             this.navTab.SuspendLayout();
             this.tabHome.SuspendLayout();
             this.tabSetting.SuspendLayout();
@@ -561,6 +561,20 @@
             this.cbxOtherSetting.Text = "其他设置";
             this.cbxOtherSetting.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // cbxAudioEnabled
+            // 
+            this.cbxAudioEnabled.Checked = true;
+            this.cbxAudioEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.cbxAudioEnabled.Font = new System.Drawing.Font("微软雅黑", 11F);
+            this.cbxAudioEnabled.Location = new System.Drawing.Point(443, 70);
+            this.cbxAudioEnabled.MinimumSize = new System.Drawing.Size(1, 1);
+            this.cbxAudioEnabled.Name = "cbxAudioEnabled";
+            this.cbxAudioEnabled.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
+            this.cbxAudioEnabled.Size = new System.Drawing.Size(102, 29);
+            this.cbxAudioEnabled.Style = Sunny.UI.UIStyle.Custom;
+            this.cbxAudioEnabled.TabIndex = 10;
+            this.cbxAudioEnabled.Text = "启用音频";
+            // 
             // cbxControllerEnabled
             // 
             this.cbxControllerEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -591,7 +605,7 @@
             // 
             this.cbxTopMost.Cursor = System.Windows.Forms.Cursors.Hand;
             this.cbxTopMost.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxTopMost.Location = new System.Drawing.Point(119, 67);
+            this.cbxTopMost.Location = new System.Drawing.Point(119, 70);
             this.cbxTopMost.MinimumSize = new System.Drawing.Size(1, 1);
             this.cbxTopMost.Name = "cbxTopMost";
             this.cbxTopMost.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
@@ -604,7 +618,7 @@
             // 
             this.cbxReadOnly.Cursor = System.Windows.Forms.Cursors.Hand;
             this.cbxReadOnly.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxReadOnly.Location = new System.Drawing.Point(227, 67);
+            this.cbxReadOnly.Location = new System.Drawing.Point(227, 70);
             this.cbxReadOnly.MinimumSize = new System.Drawing.Size(1, 1);
             this.cbxReadOnly.Name = "cbxReadOnly";
             this.cbxReadOnly.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
@@ -617,7 +631,7 @@
             // 
             this.cbxFullScreen.Cursor = System.Windows.Forms.Cursors.Hand;
             this.cbxFullScreen.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxFullScreen.Location = new System.Drawing.Point(11, 67);
+            this.cbxFullScreen.Location = new System.Drawing.Point(11, 70);
             this.cbxFullScreen.MinimumSize = new System.Drawing.Size(1, 1);
             this.cbxFullScreen.Name = "cbxFullScreen";
             this.cbxFullScreen.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
@@ -707,7 +721,7 @@
             // 
             this.cbxAllFPS.Cursor = System.Windows.Forms.Cursors.Hand;
             this.cbxAllFPS.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxAllFPS.Location = new System.Drawing.Point(216, 246);
+            this.cbxAllFPS.Location = new System.Drawing.Point(236, 245);
             this.cbxAllFPS.MinimumSize = new System.Drawing.Size(1, 1);
             this.cbxAllFPS.Name = "cbxAllFPS";
             this.cbxAllFPS.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
@@ -750,20 +764,6 @@
             this.btnMini.Style = Sunny.UI.UIStyle.Custom;
             this.btnMini.TabIndex = 10;
             this.btnMini.Text = "-";
-            // 
-            // cbxAudioEnabled
-            // 
-            this.cbxAudioEnabled.Checked = true;
-            this.cbxAudioEnabled.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.cbxAudioEnabled.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.cbxAudioEnabled.Location = new System.Drawing.Point(443, 70);
-            this.cbxAudioEnabled.MinimumSize = new System.Drawing.Size(1, 1);
-            this.cbxAudioEnabled.Name = "cbxAudioEnabled";
-            this.cbxAudioEnabled.Padding = new System.Windows.Forms.Padding(22, 0, 0, 0);
-            this.cbxAudioEnabled.Size = new System.Drawing.Size(102, 29);
-            this.cbxAudioEnabled.Style = Sunny.UI.UIStyle.Custom;
-            this.cbxAudioEnabled.TabIndex = 10;
-            this.cbxAudioEnabled.Text = "启用音频";
             // 
             // Main
             // 

@@ -133,11 +133,20 @@ namespace FreeControl
         /// <summary>
         /// 控制器窗体启动时宽度
         /// </summary>
-        public int ControllerStartWidth { get; set; } = 0;
+        public int ControllerStartWidth { get; set; } = 57;
         /// <summary>
         /// 控制器窗体启动时高度
         /// </summary>
-        public int ControllerStartHeight { get; set; } = 0;
+        public int ControllerStartHeight { get; set; } = 345;
+
+        /// <summary>
+        /// Scrcpy x坐标
+        /// </summary>
+        public int ScrcpyPointX { get; set; } = 0;
+        /// <summary>
+        /// Scrcpy y坐标
+        /// </summary>
+        public int ScrcpyPointY { get; set; } = 0;
 
         /// <summary>
         /// 已启用的按钮名称 修改位置可进行控制器按钮排序

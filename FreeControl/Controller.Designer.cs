@@ -180,7 +180,8 @@ namespace FreeControl
             // Controller
             // 
             this.AllowShowTitle = false;
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(380, 387);
             this.Controls.Add(this.flowPanel);
             this.MaximizeBox = false;
@@ -190,9 +191,9 @@ namespace FreeControl
             this.Padding = new System.Windows.Forms.Padding(2, 0, 2, 2);
             this.ShowDragStretch = true;
             this.ShowInTaskbar = false;
-            this.ShowRadius = false;
             this.ShowTitle = false;
             this.Text = "控制器";
+            this.TopMost = true;
             this.flowPanel.ResumeLayout(false);
             this.ResumeLayout(false);
 

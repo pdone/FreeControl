@@ -2,18 +2,15 @@
 using Sunny.UI;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 using System.Windows.Forms;
-using System.Windows.Forms.Design;
 
 namespace FreeControl
 {
@@ -47,7 +44,7 @@ namespace FreeControl
         /// <summary>
         /// 控制器
         /// </summary>
-        private static UIForm _Controller = null;
+        private static Controller _Controller = null;
         /// <summary>
         /// 启动参数
         /// </summary>
@@ -296,9 +293,17 @@ namespace FreeControl
                 {
                     StartParameters.Add($"--window-width {_Setting.WindowWidth}");
                 }
+                // 设置scrcpy启动位置
+                if (_Setting.ScrcpyPointX + _Setting.ScrcpyPointY > 0)
+                {
+                    StartParameters.Add($"--window-x={_Setting.ScrcpyPointX} --window-y={_Setting.ScrcpyPointY}");
+                }
                 // 设置标题
                 StartParameters.Add($"--window-title \"{ledTitle.Text}\"");
-
+                // 设置为文本注入
+                StartParameters.Add($"--prefer-text");
+                // 设置为按键注入
+                // StartParameters.Add($"--raw-key-events");
                 if (_Setting.AudioEnabled == false)
                 {
                     StartParameters.Add("--no-audio");// 不转发音频
@@ -497,6 +502,7 @@ namespace FreeControl
                 }
                 else
                 {
+                    _Controller?.StopTimer();
                     _Controller?.Dispose();
                     Show();
                 }
