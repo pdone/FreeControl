@@ -191,6 +191,7 @@ namespace FreeControl
             this.Padding = new System.Windows.Forms.Padding(2, 0, 2, 2);
             this.ShowDragStretch = true;
             this.ShowInTaskbar = false;
+            this.ShowRadius = false;
             this.ShowTitle = false;
             this.Text = "控制器";
             this.TopMost = true;

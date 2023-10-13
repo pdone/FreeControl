@@ -34,14 +34,15 @@
             this.navImgList = new System.Windows.Forms.ImageList(this.components);
             this.navTab = new Sunny.UI.UITabControlMenu();
             this.tabHome = new System.Windows.Forms.TabPage();
+            this.tbxIp = new Sunny.UI.UITextBox();
             this.linkIssues = new Sunny.UI.UILinkLabel();
             this.tbxPort = new Sunny.UI.UITextBox();
             this.cbxUseWireless = new Sunny.UI.UICheckBox();
-            this.tbxAddress = new Sunny.UI.UITextBox();
             this.linkSetPort = new Sunny.UI.UILinkLabel();
             this.linkEnabledADB = new Sunny.UI.UILinkLabel();
             this.uiLabel1 = new Sunny.UI.UILabel();
             this.btnStart = new Sunny.UI.UISymbolButton();
+            this.comboIp = new Sunny.UI.UIComboBox();
             this.tabSetting = new System.Windows.Forms.TabPage();
             this.uiLabel6 = new Sunny.UI.UILabel();
             this.comboPx = new Sunny.UI.UIComboBox();
@@ -70,7 +71,6 @@
             this.uDarkMode = new Sunny.UI.UILabel();
             this.switchDarkMode = new Sunny.UI.UISwitch();
             this.cbxAllFPS = new Sunny.UI.UICheckBox();
-            this.lbTitle = new System.Windows.Forms.Label();
             this.btnClose = new Sunny.UI.UIButton();
             this.btnMini = new Sunny.UI.UIButton();
             this.navTab.SuspendLayout();
@@ -112,6 +112,7 @@
             this.navTab.Controls.Add(this.tabHome);
             this.navTab.Controls.Add(this.tabSetting);
             this.navTab.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            this.navTab.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(242)))), ((int)(((byte)(244)))));
             this.navTab.Font = new System.Drawing.Font("微软雅黑", 12F);
             this.navTab.ImageList = this.navImgList;
             this.navTab.ItemSize = new System.Drawing.Size(50, 50);
@@ -122,7 +123,7 @@
             this.navTab.SelectedIndex = 0;
             this.navTab.Size = new System.Drawing.Size(658, 278);
             this.navTab.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
-            this.navTab.Style = Sunny.UI.UIStyle.Custom;
+            this.navTab.Style = Sunny.UI.UIStyle.Gray;
             this.navTab.TabBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.navTab.TabIndex = 6;
             this.navTab.TabSelectedColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
@@ -131,19 +132,42 @@
             // tabHome
             // 
             this.tabHome.BackColor = System.Drawing.Color.Transparent;
+            this.tabHome.Controls.Add(this.tbxIp);
             this.tabHome.Controls.Add(this.linkIssues);
             this.tabHome.Controls.Add(this.tbxPort);
             this.tabHome.Controls.Add(this.cbxUseWireless);
-            this.tabHome.Controls.Add(this.tbxAddress);
             this.tabHome.Controls.Add(this.linkSetPort);
             this.tabHome.Controls.Add(this.linkEnabledADB);
             this.tabHome.Controls.Add(this.uiLabel1);
             this.tabHome.Controls.Add(this.btnStart);
+            this.tabHome.Controls.Add(this.comboIp);
             this.tabHome.ImageIndex = 0;
             this.tabHome.Location = new System.Drawing.Point(51, 0);
             this.tabHome.Name = "tabHome";
             this.tabHome.Size = new System.Drawing.Size(607, 278);
             this.tabHome.TabIndex = 0;
+            // 
+            // tbxIp
+            // 
+            this.tbxIp.Cursor = System.Windows.Forms.Cursors.IBeam;
+            this.tbxIp.FillColor = System.Drawing.Color.White;
+            this.tbxIp.Font = new System.Drawing.Font("微软雅黑", 11F);
+            this.tbxIp.Location = new System.Drawing.Point(206, 229);
+            this.tbxIp.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
+            this.tbxIp.Maximum = 2147483647D;
+            this.tbxIp.Minimum = -2147483648D;
+            this.tbxIp.MinimumSize = new System.Drawing.Size(1, 1);
+            this.tbxIp.Name = "tbxIp";
+            this.tbxIp.Padding = new System.Windows.Forms.Padding(5);
+            this.tbxIp.RadiusSides = ((Sunny.UI.UICornerRadiusSides)((Sunny.UI.UICornerRadiusSides.LeftTop | Sunny.UI.UICornerRadiusSides.LeftBottom)));
+            this.tbxIp.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
+            this.tbxIp.RectDisableColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
+            this.tbxIp.Size = new System.Drawing.Size(129, 29);
+            this.tbxIp.Style = Sunny.UI.UIStyle.Custom;
+            this.tbxIp.StyleCustomMode = true;
+            this.tbxIp.TabIndex = 24;
+            this.tbxIp.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
+            this.tbxIp.Watermark = "输入IP地址";
             // 
             // linkIssues
             // 
@@ -170,7 +194,7 @@
             this.tbxPort.Cursor = System.Windows.Forms.Cursors.IBeam;
             this.tbxPort.FillColor = System.Drawing.Color.White;
             this.tbxPort.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.tbxPort.Location = new System.Drawing.Point(363, 229);
+            this.tbxPort.Location = new System.Drawing.Point(373, 229);
             this.tbxPort.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.tbxPort.Maximum = 2147483647D;
             this.tbxPort.Minimum = -2147483648D;
@@ -179,7 +203,7 @@
             this.tbxPort.Padding = new System.Windows.Forms.Padding(5);
             this.tbxPort.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.tbxPort.RectDisableColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
-            this.tbxPort.Size = new System.Drawing.Size(67, 27);
+            this.tbxPort.Size = new System.Drawing.Size(67, 29);
             this.tbxPort.Style = Sunny.UI.UIStyle.Custom;
             this.tbxPort.StyleCustomMode = true;
             this.tbxPort.TabIndex = 26;
@@ -199,27 +223,6 @@
             this.cbxUseWireless.Style = Sunny.UI.UIStyle.Custom;
             this.cbxUseWireless.TabIndex = 25;
             this.cbxUseWireless.Text = "无线访问";
-            // 
-            // tbxAddress
-            // 
-            this.tbxAddress.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.tbxAddress.FillColor = System.Drawing.Color.White;
-            this.tbxAddress.Font = new System.Drawing.Font("微软雅黑", 11F);
-            this.tbxAddress.Location = new System.Drawing.Point(210, 229);
-            this.tbxAddress.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.tbxAddress.Maximum = 2147483647D;
-            this.tbxAddress.Minimum = -2147483648D;
-            this.tbxAddress.MinimumSize = new System.Drawing.Size(1, 1);
-            this.tbxAddress.Name = "tbxAddress";
-            this.tbxAddress.Padding = new System.Windows.Forms.Padding(5);
-            this.tbxAddress.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
-            this.tbxAddress.RectDisableColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
-            this.tbxAddress.Size = new System.Drawing.Size(145, 27);
-            this.tbxAddress.Style = Sunny.UI.UIStyle.Custom;
-            this.tbxAddress.StyleCustomMode = true;
-            this.tbxAddress.TabIndex = 24;
-            this.tbxAddress.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
-            this.tbxAddress.Watermark = "输入IP地址";
             // 
             // linkSetPort
             // 
@@ -296,6 +299,23 @@
             this.btnStart.Symbol = 61671;
             this.btnStart.TabIndex = 0;
             this.btnStart.Text = "启动";
+            // 
+            // comboIp
+            // 
+            this.comboIp.DropDownStyle = Sunny.UI.UIDropDownStyle.DropDownList;
+            this.comboIp.FillColor = System.Drawing.Color.White;
+            this.comboIp.Font = new System.Drawing.Font("微软雅黑", 12F);
+            this.comboIp.Location = new System.Drawing.Point(206, 229);
+            this.comboIp.Margin = new System.Windows.Forms.Padding(0);
+            this.comboIp.MinimumSize = new System.Drawing.Size(63, 0);
+            this.comboIp.Name = "comboIp";
+            this.comboIp.Padding = new System.Windows.Forms.Padding(0, 0, 30, 2);
+            this.comboIp.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
+            this.comboIp.Size = new System.Drawing.Size(159, 29);
+            this.comboIp.Style = Sunny.UI.UIStyle.Gray;
+            this.comboIp.TabIndex = 28;
+            this.comboIp.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
+            this.comboIp.Watermark = "";
             // 
             // tabSetting
             // 
@@ -731,16 +751,6 @@
             this.cbxAllFPS.Text = "全帧渲染";
             this.cbxAllFPS.Visible = false;
             // 
-            // lbTitle
-            // 
-            this.lbTitle.AutoSize = true;
-            this.lbTitle.Font = new System.Drawing.Font("微软雅黑", 21.75F);
-            this.lbTitle.Location = new System.Drawing.Point(280, 19);
-            this.lbTitle.Name = "lbTitle";
-            this.lbTitle.Size = new System.Drawing.Size(187, 38);
-            this.lbTitle.TabIndex = 8;
-            this.lbTitle.Text = "Free Control";
-            // 
             // btnClose
             // 
             this.btnClose.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -768,25 +778,24 @@
             // Main
             // 
             this.AllowShowTitle = false;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.ClientSize = new System.Drawing.Size(658, 340);
             this.Controls.Add(this.btnMini);
             this.Controls.Add(this.ledTitle);
             this.Controls.Add(this.btnClose);
-            this.Controls.Add(this.lbTitle);
             this.Controls.Add(this.navTab);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.Name = "Main";
             this.Padding = new System.Windows.Forms.Padding(0);
-            this.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(130)))), ((int)(((byte)(130)))));
+            this.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.ShowRect = false;
             this.ShowTitle = false;
             this.ShowTitleIcon = true;
             this.Style = Sunny.UI.UIStyle.Custom;
             this.Text = "";
-            this.TitleColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(130)))), ((int)(((byte)(130)))));
+            this.TitleColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.TitleHeight = 63;
             this.navTab.ResumeLayout(false);
             this.tabHome.ResumeLayout(false);
@@ -798,7 +807,6 @@
             this.uiGroupBox1.ResumeLayout(false);
             this.cbxOtherSetting.ResumeLayout(false);
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
@@ -824,7 +832,7 @@
         private Sunny.UI.UILinkLabel linkSetPort;
         private Sunny.UI.UITextBox tbxPort;
         private Sunny.UI.UICheckBox cbxUseWireless;
-        private Sunny.UI.UITextBox tbxAddress;
+        private Sunny.UI.UITextBox tbxIp;
         private Sunny.UI.UIGroupBox uiGroupBox1;
         private Sunny.UI.UILabel uiLabel4;
         private Sunny.UI.UILabel uiLabel3;
@@ -835,7 +843,6 @@
         private Sunny.UI.UILinkLabel linkIssues;
         private Sunny.UI.UIRadioButtonGroup rbtnShortcuts;
         private Sunny.UI.UILabel lbAllShortcut;
-        private System.Windows.Forms.Label lbTitle;
         private Sunny.UI.UIButton btnClose;
         private Sunny.UI.UIButton btnMini;
         private Sunny.UI.UIComboBox comboMaxFPS;
@@ -846,6 +853,7 @@
         private Sunny.UI.UIComboBox comboPx;
         private Sunny.UI.UICheckBox cbxControllerEnabled;
         private Sunny.UI.UICheckBox cbxAudioEnabled;
+        private Sunny.UI.UIComboBox comboIp;
     }
 }
 

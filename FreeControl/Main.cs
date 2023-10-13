@@ -44,11 +44,35 @@ namespace FreeControl
         /// <summary>
         /// 控制器
         /// </summary>
-        private static Controller _Controller = null;
+        public static Controller _Controller = null;
         /// <summary>
         /// 启动参数
         /// </summary>
         private List<string> StartParameters = new List<string>();
+        /// <summary>
+        /// 是否是初始化
+        /// </summary>
+        private bool IsInit = true;
+
+        public class Info
+        {
+            /// <summary>
+            /// 程序名称 不带空格
+            /// </summary>
+            public static readonly string Name = "FreeControl";
+            /// <summary>
+            /// 程序名称 带空格
+            /// </summary>
+            public static readonly string Name2 = "Free Control";
+            /// <summary>
+            /// scrcpy标题
+            /// </summary>
+            public static readonly string ScrcpyTitle = "FreeControlScrcpy";
+            /// <summary>
+            /// 程序名称 带版本号
+            /// </summary>
+            public static string NameVersion { get; set; }
+        }
         #endregion
 
         #region 构造函数
@@ -59,6 +83,7 @@ namespace FreeControl
         {
             InitializeComponent();
             InitPdone();
+            IsInit = false;
         }
         #endregion
 
@@ -70,7 +95,7 @@ namespace FreeControl
         {
             get
             {
-                return Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FreeControl");
+                return Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Info.Name);
             }
         }
         /// <summary>
@@ -152,10 +177,10 @@ namespace FreeControl
             };
             FormClosed += (sender, e) => Application.Exit();
             // 窗口拖动
-            MouseDown += (sender, e) => DragWindow();
-            ledTitle.MouseDown += (sender, e) => DragWindow();
-            tabHome.MouseDown += (sender, e) => DragWindow();
-            tabSetting.MouseDown += (sender, e) => DragWindow();
+            MouseDown += (sender, e) => Extend.DragWindow(Handle);
+            ledTitle.MouseDown += (sender, e) => Extend.DragWindow(Handle);
+            tabHome.MouseDown += (sender, e) => Extend.DragWindow(Handle);
+            tabSetting.MouseDown += (sender, e) => Extend.DragWindow(Handle);
             // 关闭按钮和最小化按钮
             btnClose.Click += (sender, e) => Close();
             btnMini.Click += (sender, e) => WindowState = FormWindowState.Minimized;
@@ -171,8 +196,10 @@ namespace FreeControl
             comboPx.SelectedValueChanged += ComboPx_SelectedValueChanged;
             comboMbps.SelectedValueChanged += ComboMbps_SelectedValueChanged;
             comboMaxFPS.SelectedValueChanged += ComboMaxFPS_SelectedValueChanged;
+            comboIp.SelectedIndexChanged += (sender, e) => tbxIp.Text = comboIp.SelectedItem as string;
+            LoadHistoryIPs();
             // 文本框
-            tbxAddress.TextChanged += TbxAddress_TextChanged;
+            tbxIp.TextChanged += TbxAddress_TextChanged;
             tbxPort.TextChanged += TbxPort_TextChanged;
             // CheckBox
             cbxUseWireless.ValueChanged += CbxUseWireless_ValueChanged;
@@ -190,11 +217,9 @@ namespace FreeControl
             #endregion
 
             #region 设置标题和图标
-            Text = $"Free Control v{fvi.ProductVersion}";
-            lbTitle.Visible = false;
-            lbTitle.Text = Text;
-            lbTitle.ForeColor = Color.FromArgb(250, 240, 230);
-            ledTitle.Text = Text;
+            Info.NameVersion = $"Free Control v{fvi.ProductVersion}";
+            Text = Info.NameVersion;
+            ledTitle.Text = Info.NameVersion;
             ledTitle.CharCount = 19;
             Icon = Properties.Resources.pcm;
             #endregion
@@ -219,7 +244,8 @@ namespace FreeControl
             comboMaxFPS.SelectedIndex = _Setting.MaxFPSIndex;
             rbtnShortcuts.SelectedIndex = _Setting.ShortcutsIndex;
             switchDarkMode.Active = _Setting.DarkMode;
-            tbxAddress.Text = _Setting.IPAddress;
+            tbxIp.Text = _Setting.IPAddress;
+            comboIp.Text = _Setting.IPAddress;
             tbxPort.Text = _Setting.Port;
             updownHeight.Value = _Setting.WindowHeight;
             updownWidth.Value = _Setting.WindowWidth;
@@ -299,7 +325,7 @@ namespace FreeControl
                     StartParameters.Add($"--window-x={_Setting.ScrcpyPointX} --window-y={_Setting.ScrcpyPointY}");
                 }
                 // 设置标题
-                StartParameters.Add($"--window-title \"{ledTitle.Text}\"");
+                StartParameters.Add($"--window-title \"{Info.ScrcpyTitle}\"");
                 // 设置为文本注入
                 StartParameters.Add($"--prefer-text");
                 // 设置为按键注入
@@ -386,6 +412,11 @@ namespace FreeControl
                 ShowMessage(result);
                 return;
             }
+            if (!_Setting.IPAddress.IsNullOrWhiteSpace()
+                && !_Setting.HistoryIPs.Contains(_Setting.IPAddress))
+            {
+                _Setting.HistoryIPs.Add(_Setting.IPAddress);
+            }
             RunScrcpy();
         }
 
@@ -412,8 +443,12 @@ namespace FreeControl
                 RedirectStandardError = true,
                 RedirectStandardInput = true,
             };
+            Logger.Info(args);
             Process scrcpy = Process.Start(processStartInfo);
             scrcpy.EnableRaisingEvents = true;
+
+            // 监听Scrcpy窗口移动
+            MoveListener.StartListening(scrcpy, !_Setting.UseWireless);
 
             var tempOutput = "";
             scrcpy.OutputDataReceived += (ss, ee) =>
@@ -437,8 +472,10 @@ namespace FreeControl
             };
             scrcpy.Exited += (ss, ee) =>
             {
+                MoveListener.StopListening();
                 FromHandle(false);
                 ButtonHandle(false);
+                LoadHistoryIPs(true);
                 ShowMessage("已退出");
             };
             scrcpy.BeginErrorReadLine();
@@ -502,12 +539,32 @@ namespace FreeControl
                 }
                 else
                 {
-                    _Controller?.StopTimer();
                     _Controller?.Dispose();
                     Show();
+                    Activate();
                 }
             };
             Invoke(action);
+        }
+
+        /// <summary>
+        /// 加载历史IP
+        /// </summary>
+        /// <param name="isReload"></param>
+        void LoadHistoryIPs(bool isReload = false)
+        {
+            Action action = () =>
+            {
+                comboIp.Items.Clear();
+                _Setting.HistoryIPs.ForEach(ip =>
+                {
+                    comboIp.Items.Add(ip);
+                });
+            };
+            if (isReload)
+                Invoke(action);
+            else
+                action();
         }
         #endregion
 
@@ -519,18 +576,24 @@ namespace FreeControl
         /// <param name="value"></param>
         private void SwitchDarkMode_ValueChanged(object sender, bool value)
         {
-            var tabBackColor = Color.Transparent;
-            var foreColor = Color.Transparent;
-            if (value)
+            UpdateStyle(value);
+            _Setting.DarkMode = switchDarkMode.Active;
+        }
+
+        void UpdateStyle(bool isDark)
+        {
+            Color tabBackColor;
+            Color foreColor;
+            UIStyle curStyle;
+            if (isDark)
             {
                 tabBackColor = Color.FromArgb(24, 24, 24);
                 foreColor = Color.FromArgb(192, 192, 192);
-                UIStyles.SetStyle(UIStyle.Black);
-                tabHome.BackColor = tabBackColor;
-                tabSetting.BackColor = tabBackColor;
+                curStyle = UIStyle.Black;
+                UIStyles.SetStyle(curStyle);
                 navTab.MenuStyle = UIMenuStyle.Black;
 
-                btnStart.SetStyle(UIStyle.Black);
+                btnStart.SetStyle(curStyle);
 
                 tabHome.ImageIndex = 1;
                 tabSetting.ImageIndex = 3;
@@ -539,12 +602,11 @@ namespace FreeControl
             {
                 tabBackColor = Color.FromArgb(242, 242, 244);
                 foreColor = Color.FromArgb(48, 48, 48);
-                UIStyles.SetStyle(UIStyle.Gray);
-                tabHome.BackColor = tabBackColor;
-                tabSetting.BackColor = tabBackColor;
+                curStyle = UIStyle.Gray;
+                UIStyles.SetStyle(curStyle);
                 navTab.MenuStyle = UIMenuStyle.White;
 
-                btnStart.SetStyle(UIStyle.Gray);
+                btnStart.SetStyle(curStyle);
 
                 tabHome.ImageIndex = 0;
                 tabSetting.ImageIndex = 2;
@@ -555,25 +617,33 @@ namespace FreeControl
                 navTab.TabBackColor = Color.FromArgb(222, 222, 222);
             }
 
-            tbxAddress.FillColor = tabBackColor;
+            tabHome.BackColor = tabBackColor;
+            tabSetting.BackColor = tabBackColor;
+
+
             tbxPort.FillColor = tabBackColor;
-            tbxAddress.ForeColor = foreColor;
-            tbxPort.ForeColor = foreColor;
+            tbxIp.FillColor = tabBackColor;
 
             comboPx.FillColor = tabBackColor;
             comboMbps.FillColor = tabBackColor;
             comboMaxFPS.FillColor = tabBackColor;
+            comboIp.FillColor = tabBackColor;
+
+
+
+            tbxPort.ForeColor = foreColor;
+            tbxIp.ForeColor = foreColor;
             comboPx.ForeColor = foreColor;
             comboMbps.ForeColor = foreColor;
             comboMaxFPS.ForeColor = foreColor;
+            comboIp.ForeColor = foreColor;
+
 
             BackColor = Color.FromArgb(140, 140, 140);
             btnClose.Style = UIStyle.Gray;
             btnClose.ForeColor = Color.FromArgb(250, 240, 230);
             btnMini.Style = UIStyle.Gray;
             btnMini.ForeColor = Color.FromArgb(250, 240, 230);
-
-            _Setting.DarkMode = switchDarkMode.Active;
         }
 
         private void ComboMaxFPS_SelectedValueChanged(object sender, EventArgs e)
@@ -671,43 +741,11 @@ namespace FreeControl
         private void CbxUseWireless_ValueChanged(object sender, bool value)
         {
             _Setting.UseWireless = value;
-            // tbxAddress.Enabled = !value;
-            // tbxPort.Enabled = !value;
-
-            var foreColor = Color.Transparent;
-            var tabBackColor = Color.Transparent;
-
-            var tempColor = Color.Transparent;
-            if (_Setting.DarkMode)
-            {
-                tabBackColor = Color.FromArgb(24, 24, 24);
-                foreColor = Color.FromArgb(192, 192, 192);
-            }
-            else
-            {
-                tabBackColor = Color.FromArgb(242, 242, 244);
-                foreColor = Color.FromArgb(48, 48, 48);
-            }
-
-            if (_Setting.UseWireless)
-            {
-                tbxAddress.FillDisableColor = tabBackColor;
-                tbxPort.FillDisableColor = tabBackColor;
-                tbxAddress.ForeDisableColor = foreColor;
-                tbxPort.ForeDisableColor = foreColor;
-            }
-            else
-            {
-                tbxAddress.FillColor = tabBackColor;
-                tbxPort.FillColor = tabBackColor;
-                tbxAddress.ForeColor = foreColor;
-                tbxPort.ForeColor = foreColor;
-            }
         }
 
         private void TbxAddress_TextChanged(object sender, EventArgs e)
         {
-            _Setting.IPAddress = tbxAddress.Text.Trim();
+            _Setting.IPAddress = tbxIp.Text.Trim();
         }
 
         private void TbxPort_TextChanged(object sender, EventArgs e)
@@ -767,7 +805,8 @@ namespace FreeControl
                     _Setting.ShowTouches = value;
                     break;
             }
-            Logger.Info(temp.Text + ":" + value);
+            if (IsInit == false)
+                Logger.Info(temp.Text + ":" + value);
         }
 
         private void RbtnShortcuts_ValueChanged(object sender, int index, string text)
@@ -791,25 +830,6 @@ namespace FreeControl
         private void cbxAudioEnabled_ValueChanged(object sender, bool value)
         {
             _Setting.AudioEnabled = value;
-        }
-        #endregion
-
-        #region 拖动窗口
-        [DllImport("user32.dll")]// 拖动无窗体的控件
-        public static extern bool ReleaseCapture();
-        [DllImport("user32.dll")]
-        public static extern bool SendMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
-        public const int WM_SYSCOMMAND = 0x0112;
-        public const int SC_MOVE = 0xF010;
-        public const int HTCAPTION = 0x0002;
-
-        /// <summary>
-        /// 拖动窗体
-        /// </summary>
-        public void DragWindow()
-        {
-            ReleaseCapture();
-            SendMessage(this.Handle, WM_SYSCOMMAND, SC_MOVE + HTCAPTION, 0);
         }
         #endregion
 

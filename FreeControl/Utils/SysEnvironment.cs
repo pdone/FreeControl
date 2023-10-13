@@ -144,23 +144,6 @@ namespace FreeControl.Utils
         }
 
         /// <summary>
-        /// 指示指定的字符串是 null、空还是仅由空白字符组成。
-        /// </summary>
-        /// <param name="str"></param>
-        /// <returns></returns>
-        public static bool IsNullOrWhiteSpace(this string str)
-        {
-            if (string.IsNullOrWhiteSpace(str))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
         /// 获取实体中指定成员Description特性值
         /// </summary>
         /// <typeparam name="T"></typeparam>

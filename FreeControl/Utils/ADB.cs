@@ -39,7 +39,8 @@ namespace FreeControl.Utils
             Process = Process.Start(AdbProcessInfo);
             Process.StandardInput.WriteLine(command);
             string standardOutput = Process.StandardOutput.ReadToEnd();
-            Logger.Info($"{standardOutput.Trim()}", "ADB");
+            if (standardOutput.IsNullOrWhiteSpace() == false)
+                Logger.Info($"{standardOutput.Trim()}", "ADB");
             Process.WaitForExit();
             Process.Dispose();
             return standardOutput;
@@ -48,7 +49,6 @@ namespace FreeControl.Utils
         /// <summary>
         /// 执行截图命令
         /// </summary>
-        /// <param name="command"></param>
         /// <returns></returns>
         public static bool Screenshot()
         {

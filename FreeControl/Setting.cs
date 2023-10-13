@@ -148,6 +148,8 @@ namespace FreeControl
         /// </summary>
         public int ScrcpyPointY { get; set; } = 0;
 
+        public List<string> HistoryIPs { get; set; } = new List<string>();
+
         /// <summary>
         /// 已启用的按钮名称 修改位置可进行控制器按钮排序
         /// </summary>
