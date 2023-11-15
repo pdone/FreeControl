@@ -152,7 +152,7 @@
     <EmbeddedResource Include="SetProt.bat" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\scrcpy-win64-v2.1.1.zip" />
+    <None Include="Resources\scrcpy-win64-v2.2.zip" />
     <None Include="Resources\Setting.png" />
   </ItemGroup>
   <ItemGroup>

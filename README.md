@@ -9,11 +9,9 @@
 
 ## 截图
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.1_1.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_1.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.1_2.png)
-
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_4.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_2.png)
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
@@ -43,6 +41,14 @@
 
 此功能需要输入法APP适配，暂时只发现这4款，有更好用的输入法欢迎留言推荐。
 
+#### ⭐自动切换输入法功能说明
+
+由于大多数朋友日常使用的输入法不支持跨屏输入，所以增加了启动时自动切换输入法的功能，用于自动切换到非日常使用、但支持跨屏输入的输入法。
+
+在主界面中设置启动时要切换的输入法，点击启动按钮便会自动切换（确保手机上已安装对应输入法APP）。
+
+关闭窗口时，会切换回原来的输入法。
+
 ### Q2 无线访问问题
 
 #### 无线连接（Android11 及以上）
@@ -51,44 +57,44 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 
 ***操作步骤：***
 
-1. 更新到最新版本的 SDK 平台工具(至少30.0.0)。  
-2. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。  
-3. 在开发者选项中启用无线调试。  
-4. 在询问要 `允许在此网络上进行无线调试吗？` 的对话框中，点击允许。  
+1. 更新到最新版本的 SDK 平台工具(至少30.0.0)。
+2. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
+3. 在开发者选项中启用无线调试。
+4. 在询问要 `允许在此网络上进行无线调试吗？` 的对话框中，点击允许。
 5. 选择使用配对码配对设备，使用弹窗中的 IP 地址和端口号。
-	```       
+	```
 	adb pair ipaddr:port
 	```
 6. 提示 `Enter pairing code:` 时输入弹窗中的配对码，成功后会显示 `Successfully paired to ...` 。
 7. 使用无线调试下的 **IP 地址和端口**。
-	```       
-	adb connect ipaddr:port       
+	```
+	adb connect ipaddr:port
 	```
 8. 确认连接状态。
-	```       
-	adb devices       
+	```
+	adb devices
 	```
 	如果能看到 ` ipaddr:port device` 说明连接成功。
-       
+
 #### 无线连接（需要借助 USB 线）
 
 除了可以通过 USB 连接设备与电脑来使用 adb，也可以通过无线连接——虽然连接过程中也有需要使用 USB 的步骤，但是连接成功之后你的设备就可以在一定范围内摆脱 USB 连接线的限制啦！
 
 ***操作步骤：***
 
-1. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。  
-2. 将设备与电脑通过 USB 线连接。  
-   应确保连接成功（可运行 `adb devices` 看是否能列出该设备）。  
+1. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
+2. 将设备与电脑通过 USB 线连接。
+   应确保连接成功（可运行 `adb devices` 看是否能列出该设备）。
 3. 让设备在 5555 端口监听 TCP/IP 连接：
-	```       
+	```
 	adb tcpip 5555
 	```
-4. 断开 USB 连接。  
-5. 找到设备的 IP 地址。  
-   一般能在「设置」-「关于手机」-「状态信息」-「IP地址」找到，也可以使用下文里 [查看设备信息 - IP 地址](https://github.com/mzlogin/awesome-adb#ip-地址) 一节里的方法用 adb 命令来查看。  
+4. 断开 USB 连接。
+5. 找到设备的 IP 地址。
+   一般能在「设置」-「关于手机」-「状态信息」-「IP地址」找到，也可以使用下文里 [查看设备信息 - IP 地址](https://github.com/mzlogin/awesome-adb#ip-地址) 一节里的方法用 adb 命令来查看。
 6. 通过 IP 地址连接设备。
-	```       
-	adb connect <device-ip-address>       
+	```
+	adb connect <device-ip-address>
 	```
 	这里的 `<device-ip-address>` 就是上一步中找到的设备 IP 地址。
 7. 确认连接状态。
@@ -96,9 +102,9 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
    adb devices
    ```
    如果能看到 `<device-ip-address>:5555 device` 说明连接成功。
-       
+
    如果连接不了，请确认 Android 设备与电脑是连接到了同一个 WiFi，然后再次执行 `adb connect <device-ip-address>` 那一步；
-       
+
    如果还是不行的话，通过 `adb kill-server` 重新启动 adb 然后从头再来一次试试。
 
 #### 无线连接（无需借助 USB 线）
@@ -120,6 +126,9 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 <details>
 <summary>点击查看</summary>
 
+### Version 1.6.5
+- 增加自动切换输入法功能
+- 基于scrcpy v2.2(x64)
 ### Version 1.6.4
 - 增加无线访问记录历史IP
 - 修复了一些bug

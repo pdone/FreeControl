@@ -142,32 +142,5 @@ namespace FreeControl.Utils
             }
 
         }
-
-        /// <summary>
-        /// 获取实体中指定成员Description特性值
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="obj"></param>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        public static string GetDesc<T>(this T obj, string name)
-        {
-            T ent = obj;
-            var res = "";
-            foreach (var item in ent.GetType().GetProperties())
-            {
-                if (item.Name != name)
-                {
-                    continue;
-                }
-                var v = (DescriptionAttribute[])item.GetCustomAttributes(typeof(DescriptionAttribute), false);
-                if (v != null && v.Count() > 0)
-                {
-                    res = v[0].Description;
-                    return res;
-                }
-            }
-            return res;
-        }
     }
 }

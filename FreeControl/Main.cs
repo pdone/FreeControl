@@ -2,14 +2,13 @@
 using Sunny.UI;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using System.Timers;
 using System.Windows.Forms;
 
 namespace FreeControl
@@ -24,7 +23,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.1.1";
+        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.2";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -53,6 +52,26 @@ namespace FreeControl
         /// 是否是初始化
         /// </summary>
         private bool IsInit = true;
+        /// <summary>
+        /// 输入法
+        /// </summary>
+        public enum InputMethod
+        {
+            [Description("未设置")]
+            Unknown,
+            [Description("搜狗输入法")]
+            Sougou = 1,
+            [Description("QQ输入法")]
+            QQPinyin,
+        }
+        /// <summary>
+        /// 输入法对应的包名和服务名
+        /// </summary>
+        readonly Dictionary<InputMethod, string> InputMethodPkgNames = new Dictionary<InputMethod, string>
+        {
+            { InputMethod.Sougou,"com.sohu.inputmethod.sogou/.SogouIME" },
+            { InputMethod.QQPinyin,"com.tencent.qqpinyin/.QQPYInputMethodService" },
+        };
 
         public class Info
         {
@@ -207,7 +226,6 @@ namespace FreeControl
             cbxControllerEnabled.ValueChanged += CbxControllerEnabled_ValueChanged;
             cbxCloseScreen.ValueChanged += CommonCbx_ValueChanged;
             cbxKeepAwake.ValueChanged += CommonCbx_ValueChanged;
-            cbxAllFPS.ValueChanged += CommonCbx_ValueChanged;
             cbxHideBorder.ValueChanged += CommonCbx_ValueChanged;
             cbxFullScreen.ValueChanged += CommonCbx_ValueChanged;
             cbxTopMost.ValueChanged += CommonCbx_ValueChanged;
@@ -255,13 +273,13 @@ namespace FreeControl
             cbxControllerEnabled.Checked = _Setting.ControllerEnabled;
             cbxCloseScreen.Checked = _Setting.CloseScreen;
             cbxKeepAwake.Checked = _Setting.KeepAwake;
-            cbxAllFPS.Checked = _Setting.AllFPS;
             cbxHideBorder.Checked = _Setting.HideBorder;
             cbxFullScreen.Checked = _Setting.FullScreen;
             cbxTopMost.Checked = _Setting.TopMost;
             cbxShowTouches.Checked = _Setting.ShowTouches;
             cbxReadOnly.Checked = _Setting.ReadOnly;
             cbxAudioEnabled.Checked = _Setting.AudioEnabled;
+            linkIME.Text = ((InputMethod)_Setting.IME).GetDesc();
             #endregion
         }
 
@@ -279,7 +297,7 @@ namespace FreeControl
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_1_1);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_2);
                 // 解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 // 解压完成删除压缩包
@@ -310,6 +328,7 @@ namespace FreeControl
                 StartParameters.Add(_Setting.BitRate);
                 StartParameters.Add(_Setting.MaxFPS);
                 StartParameters.Add(_Setting.Shortcuts);
+                StartParameters.Add(_Setting.PX);
                 // 设置屏幕高度 800
                 if (_Setting.WindowHeight > 0)
                 {
@@ -330,44 +349,16 @@ namespace FreeControl
                 StartParameters.Add($"--prefer-text");
                 // 设置为按键注入
                 // StartParameters.Add($"--raw-key-events");
-                if (_Setting.AudioEnabled == false)
-                {
-                    StartParameters.Add("--no-audio");// 不转发音频
-                }
+                if (_Setting.AudioEnabled == false) StartParameters.Add(_Setting.GetDesc("AudioEnabled"));// 不转发音频
 
                 // 其他参数
-                if (_Setting.CloseScreen)
-                {
-                    StartParameters.Add(_Setting.GetDesc("CloseScreen"));
-                }
-                if (_Setting.KeepAwake)
-                {
-                    StartParameters.Add(_Setting.GetDesc("KeepAwake"));
-                }
-                if (_Setting.AllFPS)
-                {
-                    StartParameters.Add(_Setting.GetDesc("AllFPS"));
-                }
-                if (_Setting.ReadOnly)
-                {
-                    StartParameters.Add(_Setting.GetDesc("ReadOnly"));
-                }
-                if (_Setting.HideBorder)
-                {
-                    StartParameters.Add(_Setting.GetDesc("HideBorder"));
-                }
-                if (_Setting.FullScreen)
-                {
-                    StartParameters.Add(_Setting.GetDesc("FullScreen"));
-                }
-                if (_Setting.TopMost)
-                {
-                    StartParameters.Add(_Setting.GetDesc("TopMost"));
-                }
-                if (_Setting.ShowTouches)
-                {
-                    StartParameters.Add(_Setting.GetDesc("ShowTouches"));
-                }
+                if (_Setting.CloseScreen) StartParameters.Add(_Setting.GetDesc("CloseScreen"));
+                if (_Setting.KeepAwake) StartParameters.Add(_Setting.GetDesc("KeepAwake"));
+                if (_Setting.ReadOnly) StartParameters.Add(_Setting.GetDesc("ReadOnly"));
+                if (_Setting.HideBorder) StartParameters.Add(_Setting.GetDesc("HideBorder"));
+                if (_Setting.FullScreen) StartParameters.Add(_Setting.GetDesc("FullScreen"));
+                if (_Setting.TopMost) StartParameters.Add(_Setting.GetDesc("TopMost"));
+                if (_Setting.ShowTouches) StartParameters.Add(_Setting.GetDesc("ShowTouches"));
 
                 // 无线访问
                 if (_Setting.UseWireless)
@@ -406,13 +397,13 @@ namespace FreeControl
             Func<string> tempFunc = ar.AsyncState as Func<string>;
             string result = tempFunc.EndInvoke(ar);
             // ADB连接返回消息不为空
-            if (!result.IsNullOrWhiteSpace() && result.Contains("cannot connect"))
+            if (result.IsNotNull() && result.Contains("cannot connect"))
             {
                 ButtonHandle(false);
                 ShowMessage(result);
                 return;
             }
-            if (!_Setting.IPAddress.IsNullOrWhiteSpace()
+            if (_Setting.IPAddress.IsNotNull()
                 && !_Setting.HistoryIPs.Contains(_Setting.IPAddress))
             {
                 _Setting.HistoryIPs.Add(_Setting.IPAddress);
@@ -429,7 +420,7 @@ namespace FreeControl
             string args = "";
             StartParameters.ForEach(x =>
             {
-                if (x.IsNullOrWhiteSpace() == false)
+                if (x.IsNotNull())
                 {
                     args += x + " ";
                 }
@@ -453,7 +444,7 @@ namespace FreeControl
             var tempOutput = "";
             scrcpy.OutputDataReceived += (ss, ee) =>
             {
-                if (!ee.Data.IsNullOrWhiteSpace())
+                if (ee.Data.IsNotNull())
                 {
                     Logger.Info($"{ee.Data}", "scrcpy");
                     tempOutput = ee.Data;
@@ -465,13 +456,18 @@ namespace FreeControl
             };
             scrcpy.ErrorDataReceived += (ss, ee) =>
             {
-                if (!ee.Data.IsNullOrWhiteSpace())
+                if (ee.Data.IsNotNull())
                 {
                     Logger.Info($"{ee.Data}", "scrcpy");
                 }
             };
             scrcpy.Exited += (ss, ee) =>
             {
+                string strOriginIme = _Setting.IMEOrigin;
+                if (_Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
+                {
+                    ADB.Execute($"shell ime set {_Setting.IMEOrigin}");
+                }
                 MoveListener.StopListening();
                 FromHandle(false);
                 ButtonHandle(false);
@@ -480,6 +476,17 @@ namespace FreeControl
             };
             scrcpy.BeginErrorReadLine();
             scrcpy.BeginOutputReadLine();
+            // 获取当前输入法
+            string strCurIME = ADB.Execute($"adb shell settings get secure default_input_method");
+            if (strCurIME.IsNotNull())
+            {
+                _Setting.IMEOrigin = strCurIME;
+            }
+            if (_Setting.IME != 0)
+            {
+                // 启动时切换到该输入法
+                ADB.Execute($"shell ime set {InputMethodPkgNames[(InputMethod)_Setting.IME]}");
+            }
         }
 
         /// <summary>
@@ -652,19 +659,19 @@ namespace FreeControl
             switch (index)
             {
                 case 1:
-                    _Setting.MaxFPS = "--max-fps 140";
+                    _Setting.MaxFPS = "--max-fps=140";
                     break;
                 case 2:
-                    _Setting.MaxFPS = "--max-fps 120";
+                    _Setting.MaxFPS = "--max-fps=120";
                     break;
                 case 3:
-                    _Setting.MaxFPS = "--max-fps 90";
+                    _Setting.MaxFPS = "--max-fps=90";
                     break;
                 case 4:
-                    _Setting.MaxFPS = "--max-fps 60";
+                    _Setting.MaxFPS = "--max-fps=60";
                     break;
                 case 5:
-                    _Setting.MaxFPS = "--max-fps 30";
+                    _Setting.MaxFPS = "--max-fps=30";
                     break;
                 default:
                     _Setting.MaxFPS = "";
@@ -778,9 +785,6 @@ namespace FreeControl
                         // UIMessageTip.ShowWarning(this, "勾选保持唤醒后，将取消只读模式！", 1500);
                     }
                     break;
-                case "全帧渲染":
-                    _Setting.AllFPS = value;
-                    break;
                 case "只读模式":
                     _Setting.ReadOnly = value;
                     if (value)
@@ -805,7 +809,7 @@ namespace FreeControl
                     _Setting.ShowTouches = value;
                     break;
             }
-            if (IsInit == false)
+            if (IsInit == false)// 初始化时 不记录此处日志
                 Logger.Info(temp.Text + ":" + value);
         }
 
@@ -887,5 +891,16 @@ namespace FreeControl
             shortcut.ShowDialog();
         }
         #endregion
+
+        private void linkIME_Click(object sender, EventArgs e)
+        {
+            var list = Extend.GetEnumDescList<InputMethod>();
+            int select = _Setting.IME;
+            if (UISelectDialog.ShowSelectDialog(this, ref select, list, "选择输入法", "启动后将切换到所选输入法，退出程序时自动还原"))
+            {
+                _Setting.IME = select;
+                linkIME.Text = ((InputMethod)_Setting.IME).GetDesc();
+            }
+        }
     }
 }
