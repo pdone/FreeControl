@@ -11,7 +11,7 @@ namespace FreeControl
         /// <summary>
         /// 比特率参数
         /// </summary>
-        [Description("--bit-rate")]
+        [Description("--video-bit-rate")]
         public string BitRate { get; set; } = "";
         public int BitRateIndex { get; set; } = 0;
         /// <summary>
@@ -44,11 +44,6 @@ namespace FreeControl
         /// </summary>
         [Description("--stay-awake")]
         public bool KeepAwake { get; set; } = false;
-        /// <summary>
-        /// 弃用 - 全帧渲染
-        /// </summary>
-        [Description("--render-expired-frames")]
-        public bool AllFPS { get; set; } = false;
         /// <summary>
         /// 镜像模式（只读）
         /// </summary>
@@ -89,7 +84,7 @@ namespace FreeControl
         /// <summary>
         /// 全屏显示
         /// </summary>
-        [Description("-f")]
+        [Description("--fullscreen")]
         public bool FullScreen { get; set; } = false;
 
         /// <summary>
@@ -107,6 +102,7 @@ namespace FreeControl
         /// <summary>
         /// 启用音频
         /// </summary>
+        [Description("--no-audio")]
         public bool AudioEnabled { get; set; } = true;
 
         /// <summary>
@@ -176,5 +172,15 @@ namespace FreeControl
         /// 程序版本号
         /// </summary>
         public string Version { get; set; } = "1.0.0";
+
+        /// <summary>
+        /// 启动Scrcpy时使用的输入法枚举值
+        /// </summary>
+        public int IME { get; set; } = 0;
+
+        /// <summary>
+        /// 手机原来的输入法
+        /// </summary>
+        public string IMEOrigin { get; set; } = null;
     }
 }

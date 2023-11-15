@@ -24,7 +24,13 @@ namespace FreeControl.Utils
         /// <returns></returns>
         public static string Execute(string command)
         {
-            Logger.Info($"{command}", "ADB");
+            Logger.Info($"{command}", "adb exec");
+            command = command.Trim();
+            if (command.StartsWith("adb"))
+            {
+                command = command.Remove(0, 3);
+                command = command.Trim();
+            }
             var AdbProcessInfo = new ProcessStartInfo($"{ADBPath}adb.exe")
             {
                 Arguments = command,
@@ -32,18 +38,23 @@ namespace FreeControl.Utils
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                RedirectStandardInput = true,
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8,
             };
             Process = Process.Start(AdbProcessInfo);
-            Process.StandardInput.WriteLine(command);
             string standardOutput = Process.StandardOutput.ReadToEnd();
             if (standardOutput.IsNullOrWhiteSpace() == false)
-                Logger.Info($"{standardOutput.Trim()}", "ADB");
+            {
+                Logger.Info($"{standardOutput.Trim()}", "adb output");
+            }
+            string standardError = Process.StandardError.ReadToEnd();
+            if (standardError.IsNullOrWhiteSpace() == false)
+            {
+                Logger.Info($"{standardError.Trim()}", "adb error");
+            }
             Process.WaitForExit();
             Process.Dispose();
-            return standardOutput;
+            return standardOutput.Trim();
         }
 
         /// <summary>
