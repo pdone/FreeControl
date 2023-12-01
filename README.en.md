@@ -1,15 +1,22 @@
 # FreeControl
 
-[ [English](https://github.com/pdone/FreeControl/blob/master/README.en.md) | [中文](https://github.com/pdone/FreeControl/blob/master/README.md) ]
+[![](https://img.shields.io/github/license/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/LICENSE)
+[![](https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/releases/latest)
+[![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
+[![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
 
 ## Introduction
+
+[ English | [中文](https://github.com/pdone/FreeControl/blob/master/README.md) ]
+
 Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrcpy), it provides a simple interactive interface.
 
 - Programming Language `C#`
 - Development Tools `Visual Studio 2022`
 - Runtime `.NET Framework 4.7.2`
 
-## Screenshots
+## Interface
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_1.png)
 
@@ -20,15 +27,16 @@ Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrc
 ## Download
 ### GitHub Release
 
-[https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
+https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
 ### ghproxy
 
-[https://mirror.ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://mirror.ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
+https://mirror.ghproxy.com/github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
-## Source Code
+## Code Repository
 
-[https://github.com/pdone/FreeControl](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/FreeControl/Update.en.md)
 
 ## FAQ
 
@@ -54,7 +62,7 @@ When the window is closed, it will switch back to the original input method.
 
 ### Device Connection Issues
 
-### USB connection
+#### USB connection
 
 USB connection normal use adb by the need to ensure that:
 
@@ -81,12 +89,12 @@ USB connection normal use adb by the need to ensure that:
    If you can see
 
    ```sh
-   xxxxxx device
+   6d56e83a device
    ```
 
    Description Connection successful.
 
-### Wireless connection (Android11+)
+#### Wireless connection (Android11+)
 
 [Doc in Android developers](https://developer.android.com/studio/command-line/adb#connect-to-a-device-over-wi-fi-android-11+)
 
@@ -118,7 +126,7 @@ To use wireless debugging, you need to pair your device to your workstation usin
 
 9. (For Linux or Microsoft Windows only) Run `adb connect ipaddr:port`. Use the IP address and port under **Wireless debugging**.
 
-### Wireless connection (need to use the USB cable)
+#### Wireless connection (need to use the USB cable)
 
 In addition to the USB connection to the computer to use adb, can also be a wireless connection - although the connection process is also step using USB needs, but after a successful connection to your device can get rid of the limit of the USB cable within a certain range it !
 
@@ -168,19 +176,9 @@ If you can not connect, verify that Android devices and the computer is connecte
 
 If that does not work, by `adb kill-server` restart the adb and then try it all over again.
 
-**The wireless connection**
-
-command:
-
-```sh
-adb disconnect <device-ip-address>
-```
-
 #### Wireless connection (without using the USB cable)
 
-**You need root privileges**
-
-Not detailed here, see more [click here](https://github.com/mzlogin/awesome-adb/blob/master/README.en.md#wireless-connection-without-using-the-usb-cable)。
+**Need root privileges**, not detailed here, see more [click here](https://github.com/mzlogin/awesome-adb/blob/master/README.en.md#wireless-connection-without-using-the-usb-cable)。
 
 ### Keep Wake-up Function
 
@@ -193,56 +191,6 @@ Audio forwarding is supported on devices using 'Android 11 'or higher and is ena
 - For `Android 12` or higher, it works out of the box.
 - For `Android 11` , you need to make sure that the device screen is unlocked when starting scrcpy. The fake pop-up window will appear briefly, making the system think that the shell application is in the foreground. Without this, audio capture will fail.
 - For `Android 10` or earlier, audio cannot be captured and is automatically disabled.
-
-## Update Log
-
-<details>
-<summary>Expand</summary>
-
-### Version 1.6.5
-- Add automatic switching IME
-- Based on scrcpy v2.2(x64)
-### Version 1.6.4
-- Add record history IP
-- Fix bug
-### Version 1.6.3
-- Add controller adsorption scrcpy window
-- Add scrcpy window position
-### Version 1.6.2
-- Fix bug
-### Version 1.6.1
-- Fix bug
-- Add audio forwarding switch (enabled by default)
-### Version 1.6.0
-- Based on scrcpy v2.1.1(x64)
-### Version 1.5.1
-- Based on scrcpy v1.25(x64)
-### Version 1.5.0
-- Based on scrcpy v1.21(x64)
-- Some optimized
-### Version 1.4.1
-- Fix bug
-- Add exception capture of program entry (easy to troubleshooting)
-### Version 1.4.0
-- Based on scrcpy v1.19
-- Add virtual key (and remember last position and size)
-- Some optimized
-### Version 1.3.1
-- Fix bug
-### Version 1.3.0
-- Based on scrcpy v1.18
-- Add some settings
-- Fix bug
-### Version 1.2.0
-- Based on scrcpy v1.17
-- Fix bug
-### Version 1.1.0
-- Based on scrcpy v1.16
-- Add port settings
-### Version 1.0.0
-- Based on scrcpy v1.14
-- Apache version
-</details>
 
 ## Donate
 

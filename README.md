@@ -1,15 +1,22 @@
 # FreeControl
 
-[ [English](https://github.com/pdone/FreeControl/blob/master/README.en.md) | [中文](https://github.com/pdone/FreeControl/blob/master/README.md) ]
+[![](https://img.shields.io/github/license/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/LICENSE)
+[![](https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/releases/latest)
+[![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
+[![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
 
 ## 介绍
+
+[ 中文 | [English](https://github.com/pdone/FreeControl/blob/master/README.en.md) ]
+
 基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，提供简洁的交互界面。
 
 - 编码语言 `C#`
 - 开发工具 `Visual Studio 2022`
 - 运行环境 `.NET Framework 4.7.2`
 
-## 截图
+## 界面
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_1.png)
 
@@ -20,15 +27,16 @@
 ## 下载
 ### GitHub Release
 
-[https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
+https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
 ### ghproxy
 
-[https://mirror.ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe](https://mirror.ghproxy.com/https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe)
+https://mirror.ghproxy.com/github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
-## 代码
+## 代码存储库
 
-[https://github.com/pdone/FreeControl](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/FreeControl/Update.md)
 
 ## 常见问题
 
@@ -81,7 +89,7 @@
    如果能看到
 
    ```sh
-   xxxxxx device
+   6d56e83a device
    ```
 
    说明连接成功。
@@ -128,7 +136,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
    ipaddr:port device
    ```
 
-说明连接成功。
+   说明连接成功。
 
 #### 无线连接（需要借助 USB 线）
 
@@ -180,19 +188,9 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 
 如果还是不行的话，通过 `adb kill-server` 重新启动 adb 然后从头再来一次试试。
 
-**断开无线连接**
-
-命令：
-
-```sh
-adb disconnect <device-ip-address>
-```
-
 #### 无线连接（无需借助 USB 线）
 
-**需要 root 权限**
-
-此处不做详细说明，有需要的朋友可[参考此处](https://github.com/mzlogin/awesome-adb#%E6%97%A0%E7%BA%BF%E8%BF%9E%E6%8E%A5%E6%97%A0%E9%9C%80%E5%80%9F%E5%8A%A9-usb-%E7%BA%BF)。
+**需要 root 权限**，此处不做详细说明，有需要的朋友可[参考此处](https://github.com/mzlogin/awesome-adb#%E6%97%A0%E7%BA%BF%E8%BF%9E%E6%8E%A5%E6%97%A0%E9%9C%80%E5%80%9F%E5%8A%A9-usb-%E7%BA%BF)。
 
 ### 保持唤醒功能
 
@@ -205,55 +203,6 @@ adb disconnect <device-ip-address>
 - 对于 `Android 12` 或更高版本，它开箱即用。
 - 对于 `Android 11` ，您需要确保在启动scrcpy时设备屏幕已解锁。假的弹出窗口将短暂出现，使系统认为shell应用程序处于前台。没有这个，音频捕获将失败。
 - 对于 `Android 10` 或更早版本，无法捕获音频并自动禁用。
-
-## 更新日志
-<details>
-<summary>展开</summary>
-
-### Version 1.6.5
-- 增加自动切换输入法功能
-- 基于scrcpy v2.2(x64)
-### Version 1.6.4
-- 增加无线访问记录历史IP
-- 修复了一些bug
-### Version 1.6.3
-- 增加控制器吸附scrcpy窗口
-- 增加scrcpy窗口位置记忆
-### Version 1.6.2
-- 修复了一些bug
-### Version 1.6.1
-- 修复了一些bug
-- 增加音频转发开关（默认启用）
-### Version 1.6.0
-- 基于scrcpy v2.1.1(x64)
-### Version 1.5.1
-- 基于scrcpy v1.25(x64)
-### Version 1.5.0
-- 基于scrcpy v1.21(x64)
-- 优化了代码
-### Version 1.4.1
-- 修复了一些bug
-- 增加了程序入口处的异常捕获 便于定位问题
-### Version 1.4.0
-- 基于scrcpy v1.19
-- 增加虚拟按键（常用功能，记忆启动时位置和大小）
-- 优化了代码
-### Version 1.3.1
-- 修复了一些bug
-### Version 1.3.0
-- 基于scrcpy v1.18
-- 增加了一些设置项
-- 修复了一些bug
-### Version 1.2.0
-- 基于scrcpy v1.17
-- 修复了一些bug
-### Version 1.1.0
-- 基于scrcpy v1.16
-- 增加了设置端口号功能
-### Version 1.0.0
-- 基于scrcpy v1.14
-- 初始版本
-</details>
 
 ## 捐赠
 如果您觉得这个项目对您有帮助，欢迎请作者喝杯咖啡。☕
