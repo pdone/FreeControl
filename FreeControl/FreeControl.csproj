@@ -137,11 +137,15 @@
     <EmbeddedResource Include="Loading.resx">
       <DependentUpon>Loading.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Main.en.resx">
+      <DependentUpon>Main.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Trusteeship.resx">
       <DependentUpon>Trusteeship.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Main.resx">
       <DependentUpon>Main.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -150,9 +154,11 @@
     </EmbeddedResource>
     <None Include="app.manifest" />
     <EmbeddedResource Include="SetProt.bat" />
+    <None Include="Resources\scrcpy-win64-v2.3.1.zip" />
+    <None Include="Update.en.md" />
+    <None Include="Update.md" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\scrcpy-win64-v2.2.zip" />
     <None Include="Resources\Setting.png" />
   </ItemGroup>
   <ItemGroup>
@@ -162,6 +168,7 @@
     <None Include="Resources\pcm.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Resources\en.FreeControl.resources.dll" />
     <Content Include="Resources\Home_Dark.png" />
     <None Include="Resources\SunnyUI.Common.dll" />
     <None Include="Resources\SunnyUI.dll" />
@@ -176,5 +183,9 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy $(TargetDir)en\FreeControl.resources.dll $(ProjectDir)en.FreeControl.resources.dll /Y</PostBuildEvent>
+  </PropertyGroup>
 </Project>

@@ -18,9 +18,9 @@
 
 ## 界面
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_1.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_1.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.5_2.png)
+![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_2.png)
 
 ![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
 
@@ -36,6 +36,9 @@ https://mirror.ghproxy.com/github.com/pdone/FreeControl/releases/latest/download
 ## 代码存储库
 
 [![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/pdone/FreeControl)
+
+## 更新记录
+
 [![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/FreeControl/Update.md)
 
 ## 常见问题

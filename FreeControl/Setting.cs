@@ -182,5 +182,10 @@ namespace FreeControl
         /// 手机原来的输入法
         /// </summary>
         public string IMEOrigin { get; set; } = null;
+
+        /// <summary>
+        /// 界面语言
+        /// </summary>
+        public Lang Language { get; set; } = Lang.zh_cn;
     }
 }

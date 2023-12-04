@@ -1,5 +1,9 @@
 # Free Control Update Record
 
+## v1.6.6
+- Add i18n
+- Based on scrcpy v2.3.1(x64)
+
 ## v1.6.5
 - Add automatic switching IME
 - Based on scrcpy v2.2(x64)

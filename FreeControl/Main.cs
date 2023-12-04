@@ -7,9 +7,13 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace FreeControl
 {
@@ -23,7 +27,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.2";
+        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.3.1";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -53,18 +57,6 @@ namespace FreeControl
         /// </summary>
         private bool IsInit = true;
         /// <summary>
-        /// 输入法
-        /// </summary>
-        public enum InputMethod
-        {
-            [Description("未设置")]
-            Unknown,
-            [Description("搜狗输入法")]
-            Sougou = 1,
-            [Description("QQ输入法")]
-            QQPinyin,
-        }
-        /// <summary>
         /// 输入法对应的包名和服务名
         /// </summary>
         readonly Dictionary<InputMethod, string> InputMethodPkgNames = new Dictionary<InputMethod, string>
@@ -92,6 +84,8 @@ namespace FreeControl
             /// </summary>
             public static string NameVersion { get; set; }
         }
+
+        public MultiLanguage i18n;
         #endregion
 
         #region 构造函数
@@ -100,7 +94,16 @@ namespace FreeControl
         /// </summary>
         public Main()
         {
+            // 获取用户配置数据
+            _Setting = GetUserData();
+            LoadResEn();
+
+            string lang = _Setting.Language.GetDesc();
+            i18n = new MultiLanguage(_Setting.Language);
+            System.Globalization.CultureInfo UICulture = new System.Globalization.CultureInfo(lang);
+            Thread.CurrentThread.CurrentUICulture = UICulture;
             InitializeComponent();
+
             InitPdone();
             IsInit = false;
         }
@@ -171,8 +174,6 @@ namespace FreeControl
             // 获取程序集信息
             Assembly asm = Assembly.GetExecutingAssembly();
             FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
-            // 获取用户配置数据
-            _Setting = GetUserData();
             // adb路径
             ADB.ADBPath = $@"{ScrcpyPath}";
             // 增加adb执行文件系统变量
@@ -192,7 +193,7 @@ namespace FreeControl
             Application.ApplicationExit += (sender, e) =>
             {
                 SetUserData(_Setting);
-                ADB.Execute("kill-server");
+                // ADB.Execute("kill-server");
             };
             FormClosed += (sender, e) => Application.Exit();
             // 窗口拖动
@@ -257,6 +258,9 @@ namespace FreeControl
             #endregion
 
             #region 配置项默认值
+            comboPx.Items[0] = i18n.def;
+            comboMbps.Items[0] = i18n.def;
+            comboMaxFPS.Items[0] = i18n.def;
             comboPx.SelectedIndex = _Setting.PXIndex;
             comboMbps.SelectedIndex = _Setting.BitRateIndex;
             comboMaxFPS.SelectedIndex = _Setting.MaxFPSIndex;
@@ -279,7 +283,9 @@ namespace FreeControl
             cbxShowTouches.Checked = _Setting.ShowTouches;
             cbxReadOnly.Checked = _Setting.ReadOnly;
             cbxAudioEnabled.Checked = _Setting.AudioEnabled;
-            linkIME.Text = ((InputMethod)_Setting.IME).GetDesc();
+            linkIME.Text = i18n.imes[(InputMethod)_Setting.IME];
+            tbxIp.Watermark = i18n.tbxIpPlaceholder;
+            tbxPort.Watermark = i18n.tbxPortPlaceholder;
             #endregion
         }
 
@@ -297,11 +303,29 @@ namespace FreeControl
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_2);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_3_1);
                 // 解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 // 解压完成删除压缩包
                 File.Delete(ScrcpyPath + tempFileName);
+            }
+        }
+
+        /// <summary>
+        /// 加载英文资源
+        /// </summary>
+        public void LoadResEn()
+        {
+            if (_Setting.Language == Lang.en)
+            {
+                string dirResEn = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "en");
+                Directory.CreateDirectory(dirResEn);
+                string path = Path.Combine(dirResEn, "FreeControl.resources.dll");
+                if (File.Exists(path) == false)
+                {
+                    // 英文资源文件
+                    File.WriteAllBytes(path, Properties.Resources.en_FreeControl_resources);
+                }
             }
         }
 
@@ -319,7 +343,7 @@ namespace FreeControl
                 if (_Setting.UseWireless &&
                 (string.IsNullOrWhiteSpace(_Setting.IPAddress) || string.IsNullOrWhiteSpace(_Setting.Port)))
                 {
-                    ShowMessage("IP地址或者端口号没有填写，无法启动 -.-!");
+                    ShowMessage(i18n.msgIpNull);
                     return;
                 }
 
@@ -472,7 +496,7 @@ namespace FreeControl
                 FromHandle(false);
                 ButtonHandle(false);
                 LoadHistoryIPs(true);
-                ShowMessage("已退出");
+                ShowMessage(i18n.msgExit);
             };
             scrcpy.BeginErrorReadLine();
             scrcpy.BeginOutputReadLine();
@@ -515,12 +539,12 @@ namespace FreeControl
                 if (isStart)
                 {
                     btnStart.Enabled = false;
-                    btnStart.Text = "正在启动...";
+                    btnStart.Text = i18n.btnStarting;
                 }
                 else
                 {
                     btnStart.Enabled = true;
-                    btnStart.Text = "启动";
+                    btnStart.Text = i18n.btnStartDef;
                 }
             };
             Invoke(action);
@@ -766,6 +790,7 @@ namespace FreeControl
             switch (temp.Text)
             {
                 case "关闭屏幕":
+                case "Close Screen":
                     _Setting.CloseScreen = value;
                     if (value)
                     {
@@ -776,6 +801,7 @@ namespace FreeControl
                     }
                     break;
                 case "保持唤醒":
+                case "Stay Awake":
                     _Setting.KeepAwake = value;
                     if (value)
                     {
@@ -786,6 +812,7 @@ namespace FreeControl
                     }
                     break;
                 case "只读模式":
+                case "Read Only":
                     _Setting.ReadOnly = value;
                     if (value)
                     {
@@ -797,15 +824,19 @@ namespace FreeControl
                     }
                     break;
                 case "隐藏边框":
+                case "Hide Border":
                     _Setting.HideBorder = value;
                     break;
                 case "全屏显示":
+                case "Full Screen":
                     _Setting.FullScreen = value;
                     break;
                 case "窗口置顶":
+                case "Top Most":
                     _Setting.TopMost = value;
                     break;
                 case "显示触摸":
+                case "Show Touch":
                     _Setting.ShowTouches = value;
                     break;
             }
@@ -845,7 +876,8 @@ namespace FreeControl
 
         private void linkSetPort_Click(object sender, EventArgs e)
         {
-            if (UIMessageBox.Show("1、使用数据线将手机连接电脑\n2、手机开启调试模式\n3、程序将使用adb tcpip 5555命令修改无线调试端口号\n4、点击确定后若看到一只狗头，则表示设置端口号成功", "请确认", _Setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
+            if (UIMessageBox.Show(i18n.linkSetPort, i18n.linkSetPortTitle,
+                _Setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
             {
                 var batPath = ScrcpyPath + "SetProt.bat";
                 if (!File.Exists(batPath))
@@ -882,25 +914,148 @@ namespace FreeControl
                     shortcut.Close();
                 }
             };
+            Image img = null;
+            if (_Setting.Language == Lang.zh_cn)
+                img = Properties.Resources.shortcut_zh;
+            else if (_Setting.Language == Lang.en)
+                img = Properties.Resources.shortcut_en;
+
             PictureBox pictureBox = new PictureBox
             {
-                Image = Properties.Resources.shortcut_zh,
+                Image = img,
                 SizeMode = PictureBoxSizeMode.AutoSize,
             };
             shortcut.Controls.Add(pictureBox);
             shortcut.ShowDialog();
         }
-        #endregion
 
         private void linkIME_Click(object sender, EventArgs e)
         {
-            var list = Extend.GetEnumDescList<InputMethod>();
+            var list = i18n.imes.Values.ToList();
             int select = _Setting.IME;
-            if (UISelectDialog.ShowSelectDialog(this, ref select, list, "选择输入法", "启动后将切换到所选输入法，退出程序时自动还原"))
+            if (UISelectDialog.ShowSelectDialog(this, ref select, list, i18n.linkImeTitle, i18n.linkImeContent))
             {
                 _Setting.IME = select;
-                linkIME.Text = ((InputMethod)_Setting.IME).GetDesc();
+                linkIME.Text = i18n.imes[(InputMethod)_Setting.IME];
             }
         }
+
+        private void linkLang_Click(object sender, EventArgs e)
+        {
+            var list = i18n.langs;
+            int select = (int)_Setting.Language;
+            if (UISelectDialog.ShowSelectDialog(this, ref select, list, i18n.linkLangTitle, i18n.linkLangContent))
+            {
+                if (select == (int)_Setting.Language)
+                {
+                    return;
+                }
+                _Setting.Language = (Lang)select;
+                LoadResEn();
+
+                System.Windows.Forms.Application.Restart();
+            }
+        }
+        #endregion
+    }
+
+    /// <summary>
+    /// 输入法
+    /// </summary>
+    public enum InputMethod
+    {
+        Unknown = 0,
+        Sougou,
+        QQPinyin,
+    }
+
+    /// <summary>
+    /// 多语言
+    /// </summary>
+    public enum Lang
+    {
+        [Description("zh-CN")]
+        zh_cn = 0,
+        [Description("en")]
+        en,
+    }
+
+    public class MultiLanguage
+    {
+        public MultiLanguage(Lang lang)
+        {
+            switch (lang)
+            {
+                case Lang.en:
+                    // 选择输入法弹窗
+                    linkImeTitle = "Select";
+                    linkImeContent = "After startup, it will switch to the selected input method";
+                    linkLangTitle = "Select";
+                    linkLangContent = " ";
+                    linkSetPort =
+                        "1. Turn on USB debug mode\n" +
+                        "2. Connect your phone to your computer\n" +
+                        "3. I will use adb tcpip 5555\n" +
+                        "4. If you see a dog's head, it's a success";
+                    linkSetPortTitle = "Tip";
+
+                    tbxIpPlaceholder = "IP Address";
+                    tbxPortPlaceholder = "Port";
+
+                    btnStartDef = "Start";
+                    btnStarting = "Starting...";
+                    msgExit = "Exit";
+                    msgIpNull = "IP address or port must input -.-!";
+
+                    unset = "Unset";
+                    def = "Default";
+
+                    imes.Clear();
+                    imes.Add(InputMethod.Unknown, unset);
+                    imes.Add(InputMethod.Sougou, "Sougou IME");
+                    imes.Add(InputMethod.QQPinyin, "QQ IME");
+
+                    break;
+
+                case Lang.zh_cn:
+                default:
+                    break;
+            }
+        }
+
+        public string linkImeTitle = "选择";
+        public string linkImeContent = "启动后将切换到所选输入法，退出程序时自动还原";
+        public string linkLangTitle = "选择";
+        public string linkLangContent = " ";
+        public string linkSetPort =
+            "1、使用数据线将手机连接电脑\n" +
+            "2、手机开启调试模式\n" +
+            "3、程序将使用adb tcpip 5555命令修改无线调试端口号\n" +
+            "4、点击确定后若看到一只狗头，则表示设置端口号成功";
+        public string linkSetPortTitle = "提示";
+
+        public string tbxIpPlaceholder = "IP 地址";
+        public string tbxPortPlaceholder = "端口号";
+
+        public string btnStartDef = "启动";
+        public string btnStarting = "正在启动...";
+        public string msgExit = "已退出";
+        public string msgIpNull = "IP地址或者端口号没有填写，无法启动 -.-!";
+
+        public string unset = "未设置";
+        public string def = "默认";
+
+        public Dictionary<InputMethod, string> imes = new Dictionary<InputMethod, string>()
+        {
+            { InputMethod.Unknown, "未设置" },
+            { InputMethod.Sougou, "搜狗输入法" },
+            { InputMethod.QQPinyin, "QQ输入法" },
+        };
+
+        public List<string> langs = new List<string>()
+        {
+            "简体中文",
+            "English",
+        };
     }
 }

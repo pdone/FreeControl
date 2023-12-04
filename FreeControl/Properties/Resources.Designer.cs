@@ -61,6 +61,16 @@ namespace FreeControl.Properties {
         }
         
         /// <summary>
+        ///   查找 System.Byte[] 类型的本地化资源。
+        /// </summary>
+        internal static byte[] en_FreeControl_resources {
+            get {
+                object obj = ResourceManager.GetObject("en_FreeControl_resources", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
         ///   查找类似于 (图标) 的 System.Drawing.Icon 类型的本地化资源。
         /// </summary>
         internal static System.Drawing.Icon pcm {
@@ -73,9 +83,9 @@ namespace FreeControl.Properties {
         /// <summary>
         ///   查找 System.Byte[] 类型的本地化资源。
         /// </summary>
-        internal static byte[] scrcpy_win64_v2_2 {
+        internal static byte[] scrcpy_win64_v2_3_1 {
             get {
-                object obj = ResourceManager.GetObject("scrcpy_win64_v2_2", resourceCulture);
+                object obj = ResourceManager.GetObject("scrcpy_win64_v2_3_1", resourceCulture);
                 return ((byte[])(obj));
             }
         }
