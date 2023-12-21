@@ -5,6 +5,7 @@
 [![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
 [![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
 [![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
+[![](https://img.shields.io/badge/site-Pdone's_Blog-blue?style=for-the-badge)](https://awaw.cc)
 
 ## Introduction
 
@@ -18,11 +19,11 @@ Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrc
 
 ## Interface
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_1_en.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.6_1_en.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_2_en.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.6_2_en.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/v1.4.0_5.gif)
 
 ## Download
 ### GitHub Release

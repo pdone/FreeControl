@@ -5,6 +5,7 @@
 [![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
 [![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
 [![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
+[![](https://img.shields.io/badge/site-Pdone's_Blog-blue?style=for-the-badge)](https://awaw.cc)
 
 ## 介绍
 
@@ -18,11 +19,11 @@
 
 ## 界面
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_1.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.6_1.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/1.6.6_2.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.6_2.png)
 
-![](https://cdn.jsdelivr.net/gh/pdone/static@latest/img/article/free-control/v1.4.0_5.gif)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/v1.4.0_5.gif)
 
 ## 下载
 ### GitHub Release
@@ -119,7 +120,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
     adb pair ipaddr:port
     ```
 
-6. 提示 `Enter pairing code: ` 时输入弹窗中的配对码，成功后会显示  `Successfully paired to ...` 。
+6. 提示 `Enter pairing code:` 时输入弹窗中的配对码，成功后会显示  `Successfully paired to ...` 。
 
 7. 使用无线调试下的 **IP 地址和端口**。
 
@@ -213,7 +214,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 <details>
 <summary>展开</summary>
 
-![](https://ghps.cc/https://github.com/pdone/static/blob/master/img/donate/zfb_wx.jpg)
+![](https://raw.githubusercontent.com/pdone/static/master/img/donate/zfb_wx.jpg)
 
 </details>
 

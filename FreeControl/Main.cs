@@ -193,7 +193,7 @@ namespace FreeControl
             Application.ApplicationExit += (sender, e) =>
             {
                 SetUserData(_Setting);
-                // ADB.Execute("kill-server");
+                ADB.Execute("kill-server");
             };
             FormClosed += (sender, e) => Application.Exit();
             // 窗口拖动
