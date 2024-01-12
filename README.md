@@ -30,9 +30,9 @@
 
 https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
-### ghproxy
+### My Proxy
 
-https://mirror.ghproxy.com/github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
 ## 代码存储库
 
@@ -219,4 +219,4 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 </details>
 
 ## Stargazers Over Time
-[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg)](https://starchart.cc/pdone/FreeControl)
+[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg?variant=adaptive)](https://starchart.cc/pdone/FreeControl)

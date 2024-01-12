@@ -187,7 +187,12 @@ namespace FreeControl
             }
             // 提取资源
             ExtractResource(reload);
-
+            if (_Setting.MainWindowX != 0 || _Setting.MainWindowY != 0)
+            {
+                // 主窗口位置
+                StartPosition = FormStartPosition.Manual;
+                Location = new Point(_Setting.MainWindowX, _Setting.MainWindowY);
+            }
             #region 事件绑定
             // 退出时保存用户配置数据
             Application.ApplicationExit += (sender, e) =>
@@ -198,9 +203,16 @@ namespace FreeControl
             FormClosed += (sender, e) => Application.Exit();
             // 窗口拖动
             MouseDown += (sender, e) => Extend.DragWindow(Handle);
+            // 窗口位置改变
+            LocationChanged += (sender, e) =>
+            {
+                _Setting.MainWindowX = Location.X;
+                _Setting.MainWindowY = Location.Y;
+            };
             ledTitle.MouseDown += (sender, e) => Extend.DragWindow(Handle);
             tabHome.MouseDown += (sender, e) => Extend.DragWindow(Handle);
             tabSetting.MouseDown += (sender, e) => Extend.DragWindow(Handle);
+            uiLabel1.MouseDown += (sender, e) => Extend.DragWindow(Handle);
             // 关闭按钮和最小化按钮
             btnClose.Click += (sender, e) => Close();
             btnMini.Click += (sender, e) => WindowState = FormWindowState.Minimized;
@@ -208,7 +220,7 @@ namespace FreeControl
             btnStart.Click += StartButtonClick;
             // 深色模式切换
             switchDarkMode.ValueChanged += SwitchDarkMode_ValueChanged;
-            // 窗口大小设置
+            // scrcpy窗口大小设置
             updownHeight.ValueChanged += (sender, e) => _Setting.WindowHeight = updownHeight.Value;
             updownWidth.ValueChanged += (sender, e) => _Setting.WindowWidth = updownWidth.Value;
             rbtnShortcuts.ValueChanged += RbtnShortcuts_ValueChanged;
@@ -440,6 +452,7 @@ namespace FreeControl
         /// </summary>
         private void RunScrcpy()
         {
+            SetUserData(_Setting);// 启动前保存一下配置文件
             Logger.Info("scrcpy running...");
             string args = "";
             StartParameters.ForEach(x =>
@@ -487,6 +500,7 @@ namespace FreeControl
             };
             scrcpy.Exited += (ss, ee) =>
             {
+                SetUserData(_Setting);// 关闭scrcpy后保存一下配置文件
                 string strOriginIme = _Setting.IMEOrigin;
                 if (_Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
                 {
@@ -573,6 +587,7 @@ namespace FreeControl
                     _Controller?.Dispose();
                     Show();
                     Activate();
+                    Focus();
                 }
             };
             Invoke(action);

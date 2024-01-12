@@ -30,9 +30,9 @@ Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrc
 
 https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
-### ghproxy
+### My Proxy
 
-https://mirror.ghproxy.com/github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.exe
 
 ## Code Repository
 
@@ -203,4 +203,4 @@ If you think this project is helpful, please invite the author to have a cup of 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge)](https://paypal.me/alexpdone)
 
 ## Stargazers Over Time
-[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg)](https://starchart.cc/pdone/FreeControl)
+[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg?variant=adaptive)](https://starchart.cc/pdone/FreeControl)

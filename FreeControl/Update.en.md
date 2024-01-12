@@ -1,5 +1,9 @@
 # Free Control Update Record
 
+## v1.6.7
+- Add main window location memory
+- Adjust profile save time
+
 ## v1.6.6
 - Add i18n
 - Based on scrcpy v2.3.1(x64)
