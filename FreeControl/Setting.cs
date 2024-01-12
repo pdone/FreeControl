@@ -106,11 +106,11 @@ namespace FreeControl
         public bool AudioEnabled { get; set; } = true;
 
         /// <summary>
-        /// 窗口高度
+        /// Scrcpy 窗口高度
         /// </summary>
         public int WindowHeight { get; set; } = 0;
         /// <summary>
-        /// 窗口宽度
+        /// Scrcpy 窗口宽度
         /// </summary>
         public int WindowWidth { get; set; } = 0;
 
@@ -187,5 +187,14 @@ namespace FreeControl
         /// 界面语言
         /// </summary>
         public Lang Language { get; set; } = Lang.zh_cn;
+
+        /// <summary>
+        /// 主窗口 x坐标
+        /// </summary>
+        public int MainWindowX { get; set; } = 0;
+        /// <summary>
+        /// 主窗口 y坐标
+        /// </summary>
+        public int MainWindowY { get; set; } = 0;
     }
 }

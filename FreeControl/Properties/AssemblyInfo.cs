@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // 有关程序集的一般信息由以下
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
-[assembly: AssemblyTitle("在PC上控制Android设备。")]//在PC上控制Android设备。
-[assembly: AssemblyDescription("在PC上控制Android设备。")]
+[assembly: AssemblyTitle("在PC上控制Android设备")]//在PC上控制Android设备。
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Pdone Technology Ltd.")]
 [assembly: AssemblyProduct("Free Control")]
-[assembly: AssemblyCopyright("Copyright © 2023 awaw.cc")]
+[assembly: AssemblyCopyright("Copyright © 2024 awaw.cc")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -33,5 +33,5 @@ using System.Runtime.InteropServices;
 //通过使用 "*"，如下所示:
 // [assembly: AssemblyVersion("1.0.*")]
 //[assembly: AssemblyVersion("1.0.0")]
-[assembly: AssemblyFileVersion("1.6.6")]
-[assembly: AssemblyVersion("1.6.6")]
+[assembly: AssemblyFileVersion("1.6.7")]
+[assembly: AssemblyVersion("1.6.7")]
