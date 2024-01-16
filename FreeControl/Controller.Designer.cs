@@ -163,7 +163,6 @@ namespace FreeControl
             this.flowPanel.Size = new System.Drawing.Size(368, 373);
             this.flowPanel.TabIndex = 9;
             this.flowPanel.Text = null;
-            this.flowPanel.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // btnScreenshot
             // 
@@ -190,10 +189,11 @@ namespace FreeControl
             this.Name = "Controller";
             this.Padding = new System.Windows.Forms.Padding(2, 0, 2, 2);
             this.ShowDragStretch = true;
+            this.ShowIcon = true;
             this.ShowInTaskbar = false;
             this.ShowRadius = false;
             this.ShowTitle = false;
-            this.Text = "控制器";
+            this.Text = "Controller";
             this.TopMost = true;
             this.flowPanel.ResumeLayout(false);
             this.ResumeLayout(false);
