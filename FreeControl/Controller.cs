@@ -11,6 +11,7 @@ namespace FreeControl
         public Controller()
         {
             InitializeComponent();
+            Icon = Properties.Resources.pcm;
             InitButton();
             InitFormSizeAndLocation();
         }

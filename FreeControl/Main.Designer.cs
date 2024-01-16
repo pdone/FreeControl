@@ -173,6 +173,7 @@
             this.tbxIp.RadiusSides = ((Sunny.UI.UICornerRadiusSides)((Sunny.UI.UICornerRadiusSides.LeftTop | Sunny.UI.UICornerRadiusSides.LeftBottom)));
             this.tbxIp.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.tbxIp.RectDisableColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
+            this.tbxIp.RectSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.None;
             this.tbxIp.Style = Sunny.UI.UIStyle.Custom;
             this.tbxIp.StyleCustomMode = true;
             this.tbxIp.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
@@ -265,6 +266,7 @@
             this.btnStart.RectPressColor = System.Drawing.Color.FromArgb(((int)(((byte)(130)))), ((int)(((byte)(130)))), ((int)(((byte)(130)))));
             this.btnStart.Style = Sunny.UI.UIStyle.Custom;
             this.btnStart.Symbol = 61671;
+            this.btnStart.TipsFont = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             // 
             // comboIp
             // 
@@ -390,7 +392,6 @@
             this.rbtnShortcuts.Radius = 10;
             this.rbtnShortcuts.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.rbtnShortcuts.Style = Sunny.UI.UIStyle.Custom;
-            this.rbtnShortcuts.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lbAllShortcut
             // 
@@ -412,7 +413,6 @@
             this.uiGroupBox1.Name = "uiGroupBox1";
             this.uiGroupBox1.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.uiGroupBox1.Style = Sunny.UI.UIStyle.Custom;
-            this.uiGroupBox1.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // uiLabel4
             // 
@@ -435,7 +435,6 @@
             this.updownWidth.Minimum = 0;
             this.updownWidth.Name = "updownWidth";
             this.updownWidth.Style = Sunny.UI.UIStyle.Custom;
-            this.updownWidth.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // updownHeight
             // 
@@ -446,7 +445,6 @@
             this.updownHeight.Minimum = 0;
             this.updownHeight.Name = "updownHeight";
             this.updownHeight.Style = Sunny.UI.UIStyle.Custom;
-            this.updownHeight.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // cbxOtherSetting
             // 
@@ -465,7 +463,6 @@
             this.cbxOtherSetting.Name = "cbxOtherSetting";
             this.cbxOtherSetting.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
             this.cbxOtherSetting.Style = Sunny.UI.UIStyle.Custom;
-            this.cbxOtherSetting.TextAlignment = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // cbxAudioEnabled
             // 
@@ -559,6 +556,7 @@
             resources.ApplyResources(this.btnClose, "btnClose");
             this.btnClose.Name = "btnClose";
             this.btnClose.Style = Sunny.UI.UIStyle.Custom;
+            this.btnClose.TipsFont = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             // 
             // btnMini
             // 
@@ -566,6 +564,7 @@
             resources.ApplyResources(this.btnMini, "btnMini");
             this.btnMini.Name = "btnMini";
             this.btnMini.Style = Sunny.UI.UIStyle.Custom;
+            this.btnMini.TipsFont = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             // 
             // Main
             // 
@@ -580,7 +579,9 @@
             this.MaximizeBox = false;
             this.Name = "Main";
             this.RectColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
-            this.ShowRect = false;
+            this.ShowIcon = true;
+            this.ShowRadius = false;
+            this.ShowShadow = true;
             this.ShowTitle = false;
             this.ShowTitleIcon = true;
             this.Style = Sunny.UI.UIStyle.Custom;

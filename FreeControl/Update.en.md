@@ -1,5 +1,9 @@
 # Free Control Update Record
 
+## v1.6.8
+- Fix bug
+- Remove automatic switching IME
+
 ## v1.6.7
 - Add main window location memory
 - Adjust profile save time

@@ -122,7 +122,7 @@
         AAEAAAD/////AQAAAAAAAAAMAgAAAFdTeXN0ZW0uV2luZG93cy5Gb3JtcywgVmVyc2lvbj00LjAuMC4w
         LCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAACZTeXN0
         ZW0uV2luZG93cy5Gb3Jtcy5JbWFnZUxpc3RTdHJlYW1lcgEAAAAERGF0YQcCAgAAAAkDAAAADwMAAADG
-        GgAAAk1TRnQBSQFMAgEBBAEAAZgBAgGYAQIBHgEAAR4BAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAF4
+        GgAAAk1TRnQBSQFMAgEBBAEAAaABAgGgAQIBHgEAAR4BAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAF4
         AwABPAMAAQEBAAEgBQABgAFw/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A
         /wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A
         /wD/AP8A/wD/AJ4AAzgBXQMaAf8DGgH/AxoB/wMaAf8DGgH/AxoB/wMaAf8DGgH/AxoB/wMaAf8DGgH/
@@ -203,7 +203,7 @@
         AXgDvwH/AzcBWggABAEDAgEDMAAEAQMCAQMIAAMHAQkDXgHtA2oB+QMPARQYAANNAZIDXgH7AxoB/wNE
         AXgDAgEDLAADEQEWA14B0gMaAf8DWgHpAyIBMSQAA00BkgNfAfsDvwH/A0QBeAMCAQMsAAMRARYDXgHS
         A78B/wNjAekDIgExHAADXQHOAxoB/wMbASYDUQGfAxoB/wMaAf8DWgHHAyUBNiAAAwMBBANJAYcDGgH/
-        AxoB/wNdAc8DKQE+A1ABnANoAf4DMQFNFAADXwHOA78B/wMbASYDUQGfA78B/wO/Af8DWgHHAyUBNiAA
+        AxoB/wNdAc8DKQE+A1ABnANpAf4DMQFNFAADXwHOA78B/wMbASYDUQGfA78B/wO/Af8DWgHHAyUBNiAA
         AwMBBANJAYcDvwH/A78B/wNdAc8DKQE+A1EBnAOAAf4DMQFNIAADHgEqA10B3wMaAf8DWwHQAxgBICQA
         AzkBXgNJAfYDGgH/A1UBrzAAAx4BKgNdAd8DvwH/A18B0AMYASAkAAM5AV4DYgH2A78B/wNVAa8kAAMc
         AScDSQH2AxoB/wMaAf8DXwHaA10ByQNgAfMDGgH/AxwBJxwAA10B3AMaAf8DYQHrA1sBzQNeAfsDGgH/
@@ -344,9 +344,6 @@ If all of the above methods are useless, please send</value>
   <data name="uiLabel2.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
     <value>MiddleRight</value>
   </data>
-  <data name="rbtnShortcuts.Text" xml:space="preserve">
-    <value>Shortcuts (      )</value>
-  </data>
   <data name="lbAllShortcut.Location" type="System.Drawing.Point, System.Drawing">
     <value>89, 6</value>
   </data>
@@ -356,8 +353,8 @@ If all of the above methods are useless, please send</value>
   <data name="lbAllShortcut.Text" xml:space="preserve">
     <value>All</value>
   </data>
-  <data name="uiGroupBox1.Text" xml:space="preserve">
-    <value>Size</value>
+  <data name="rbtnShortcuts.Text" xml:space="preserve">
+    <value>Shortcuts (      )</value>
   </data>
   <data name="uiLabel4.Location" type="System.Drawing.Point, System.Drawing">
     <value>6, 35</value>
@@ -389,8 +386,8 @@ If all of the above methods are useless, please send</value>
   <data name="updownHeight.Size" type="System.Drawing.Size, System.Drawing">
     <value>108, 29</value>
   </data>
-  <data name="cbxOtherSetting.Text" xml:space="preserve">
-    <value>Other</value>
+  <data name="uiGroupBox1.Text" xml:space="preserve">
+    <value>Size</value>
   </data>
   <data name="cbxAudioEnabled.Location" type="System.Drawing.Point, System.Drawing">
     <value>455, 70</value>
@@ -469,6 +466,9 @@ If all of the above methods are useless, please send</value>
   </data>
   <data name="cbxCloseScreen.Text" xml:space="preserve">
     <value>Close Screen</value>
+  </data>
+  <data name="cbxOtherSetting.Text" xml:space="preserve">
+    <value>Other</value>
   </data>
   <data name="lbDarkMode.Location" type="System.Drawing.Point, System.Drawing">
     <value>419, 248</value>

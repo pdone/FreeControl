@@ -1,8 +1,5 @@
 ﻿using FreeControl.Utils;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Windows.Forms;
 
 namespace FreeControl
@@ -15,13 +12,11 @@ namespace FreeControl
         [STAThread]
         static void Main()
         {
-            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
-
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
-                Application.Run(new Trusteeship());
+                Application.Run(Singleton<Main>.Instance);
             }
             catch (Exception ex)
             {
@@ -32,29 +27,6 @@ namespace FreeControl
                     System.Diagnostics.Process.Start("https://github.com/pdone/FreeControl/issues");
                 }
             }
-        }
-        private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
-        {
-            string dllName = new AssemblyName(args.Name).Name;
-            Assembly assembly = null;
-            switch (dllName)
-            {
-                case "SunnyUI":
-                    assembly = Assembly.Load(Properties.Resources.SunnyUI);
-                    break;
-                case "SunnyUI.Common":
-                    assembly = Assembly.Load(Properties.Resources.SunnyUI_Common);
-                    break;
-                //case "ICSharpCode.SharpZipLib":
-                //    assembly = Assembly.Load(Properties.Resources.ICSharpCode_SharpZipLib);
-                //    break;
-                //case "Newtonsoft.Json":
-                //    assembly = Assembly.Load(Properties.Resources.Newtonsoft_Json);
-                //    break;
-                default:
-                    break;
-            }
-            return assembly;
         }
     }
 }

@@ -9,11 +9,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace FreeControl
 {
@@ -86,6 +84,11 @@ namespace FreeControl
         }
 
         public MultiLanguage i18n;
+
+        /// <summary>
+        /// 是否启用输入法切换
+        /// </summary>
+        public readonly bool EnableSwitchIME = false;
         #endregion
 
         #region 构造函数
@@ -103,7 +106,6 @@ namespace FreeControl
             System.Globalization.CultureInfo UICulture = new System.Globalization.CultureInfo(lang);
             Thread.CurrentThread.CurrentUICulture = UICulture;
             InitializeComponent();
-
             InitPdone();
             IsInit = false;
         }
@@ -193,6 +195,12 @@ namespace FreeControl
                 StartPosition = FormStartPosition.Manual;
                 Location = new Point(_Setting.MainWindowX, _Setting.MainWindowY);
             }
+
+            #region 控件状态
+            uiLabel7.Visible = EnableSwitchIME;
+            linkIME.Visible = EnableSwitchIME;
+            #endregion
+
             #region 事件绑定
             // 退出时保存用户配置数据
             Application.ApplicationExit += (sender, e) =>
@@ -248,7 +256,7 @@ namespace FreeControl
             #endregion
 
             #region 设置标题和图标
-            Info.NameVersion = $"Free Control v{fvi.ProductVersion}";
+            Info.NameVersion = $"FreeControl v{fvi.ProductVersion}";
             Text = Info.NameVersion;
             ledTitle.Text = Info.NameVersion;
             ledTitle.CharCount = 19;
@@ -263,6 +271,8 @@ namespace FreeControl
             // 设置默认导航条图标
             tabHome.ImageIndex = 0;
             tabSetting.ImageIndex = 2;
+            this.BackColor = Color.FromArgb(140, 140, 140);
+            navTab.TabBackColor = Color.FromArgb(222, 222, 222);
             #endregion
 
             #region 切换tab事件
@@ -501,8 +511,7 @@ namespace FreeControl
             scrcpy.Exited += (ss, ee) =>
             {
                 SetUserData(_Setting);// 关闭scrcpy后保存一下配置文件
-                string strOriginIme = _Setting.IMEOrigin;
-                if (_Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
+                if (EnableSwitchIME && _Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
                 {
                     ADB.Execute($"shell ime set {_Setting.IMEOrigin}");
                 }
@@ -514,19 +523,19 @@ namespace FreeControl
             };
             scrcpy.BeginErrorReadLine();
             scrcpy.BeginOutputReadLine();
-            // 获取当前输入法
-            string strCurIME = ADB.Execute($"adb shell settings get secure default_input_method");
-            if (strCurIME.IsNotNull())
+
+            if (EnableSwitchIME && _Setting.IME != 0)
             {
-                _Setting.IMEOrigin = strCurIME;
-            }
-            if (_Setting.IME != 0)
-            {
+                // 获取当前输入法
+                string strCurIME = ADB.Execute($"adb shell settings get secure default_input_method");
+                if (strCurIME.IsNotNull())
+                {
+                    _Setting.IMEOrigin = strCurIME;
+                }
                 // 启动时切换到该输入法
                 ADB.Execute($"shell ime set {InputMethodPkgNames[(InputMethod)_Setting.IME]}");
             }
         }
-
         /// <summary>
         /// 显示提示消息
         /// </summary>
@@ -612,7 +621,7 @@ namespace FreeControl
             else
                 action();
         }
-        #endregion
+#endregion
 
         #region 配置项改变事件
         /// <summary>
@@ -639,10 +648,15 @@ namespace FreeControl
                 UIStyles.SetStyle(curStyle);
                 navTab.MenuStyle = UIMenuStyle.Black;
 
-                btnStart.SetStyle(curStyle);
-
                 tabHome.ImageIndex = 1;
                 tabSetting.ImageIndex = 3;
+
+                btnStart.FillHoverColor = Color.FromArgb(20, 54, 94);
+                btnStart.FillDisableColor = tabBackColor;
+                btnStart.FillPressColor = Color.FromArgb(20, 54, 94);
+                btnStart.ForeHoverColor = Color.White;
+                btnStart.ForeDisableColor = Color.White;
+                btnStart.ForePressColor = Color.White;
             }
             else
             {
@@ -651,8 +665,6 @@ namespace FreeControl
                 curStyle = UIStyle.Gray;
                 UIStyles.SetStyle(curStyle);
                 navTab.MenuStyle = UIMenuStyle.White;
-
-                btnStart.SetStyle(curStyle);
 
                 tabHome.ImageIndex = 0;
                 tabSetting.ImageIndex = 2;
@@ -914,7 +926,7 @@ namespace FreeControl
 
         private void lbAllShortcut_Click(object sender, EventArgs e)
         {
-            Form shortcut = new Form()
+            Form dlgShortcut = new Form()
             {
                 AutoSize = true,
                 StartPosition = FormStartPosition.CenterScreen,
@@ -922,26 +934,40 @@ namespace FreeControl
                 MinimizeBox = false,
                 MaximizeBox = false,
             };
-            shortcut.KeyPress += (senderr, ee) =>
+            dlgShortcut.KeyPress += (senderr, ee) =>
             {
                 if (ee.KeyChar == (char)Keys.Escape)
                 {
-                    shortcut.Close();
+                    dlgShortcut.Close();
                 }
             };
             Image img = null;
+            dlgShortcut.Icon = Properties.Resources.pcm;
             if (_Setting.Language == Lang.zh_cn)
-                img = Properties.Resources.shortcut_zh;
+            {
+                if (_Setting.DarkMode)
+                    img = Properties.Resources.shortcut_zh_dark;
+                else
+                    img = Properties.Resources.shortcut_zh;
+            }
             else if (_Setting.Language == Lang.en)
-                img = Properties.Resources.shortcut_en;
+            {
+                if (_Setting.DarkMode)
+                    img = Properties.Resources.shortcut_en_dark;
+                else
+                    img = Properties.Resources.shortcut_en;
+            }
 
             PictureBox pictureBox = new PictureBox
             {
                 Image = img,
                 SizeMode = PictureBoxSizeMode.AutoSize,
             };
-            shortcut.Controls.Add(pictureBox);
-            shortcut.ShowDialog();
+            pictureBox.MouseDown += (ss, ee) => Extend.DragWindow(dlgShortcut.Handle);
+            pictureBox.BorderStyle = BorderStyle.None;
+            pictureBox.Margin = new Padding(0);
+            dlgShortcut.Controls.Add(pictureBox);
+            dlgShortcut.ShowDialog();
         }
 
         private void linkIME_Click(object sender, EventArgs e)
@@ -974,6 +1000,7 @@ namespace FreeControl
         #endregion
     }
 
+    #region 语言相关
     /// <summary>
     /// 输入法
     /// </summary>
@@ -1030,6 +1057,9 @@ namespace FreeControl
                     imes.Add(InputMethod.Sougou, "Sougou IME");
                     imes.Add(InputMethod.QQPinyin, "QQ IME");
 
+                    UILocalize.OK = "OK";
+                    UILocalize.Cancel = "Cancel";
+
                     break;
 
                 case Lang.zh_cn:
@@ -1073,4 +1103,5 @@ namespace FreeControl
             "English",
         };
     }
+    #endregion
 }

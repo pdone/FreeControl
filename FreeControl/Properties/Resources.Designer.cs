@@ -103,6 +103,16 @@ namespace FreeControl.Properties {
         /// <summary>
         ///   查找 System.Drawing.Bitmap 类型的本地化资源。
         /// </summary>
+        internal static System.Drawing.Bitmap shortcut_en_dark {
+            get {
+                object obj = ResourceManager.GetObject("shortcut_en_dark", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   查找 System.Drawing.Bitmap 类型的本地化资源。
+        /// </summary>
         internal static System.Drawing.Bitmap shortcut_zh {
             get {
                 object obj = ResourceManager.GetObject("shortcut_zh", resourceCulture);
@@ -111,22 +121,12 @@ namespace FreeControl.Properties {
         }
         
         /// <summary>
-        ///   查找 System.Byte[] 类型的本地化资源。
+        ///   查找 System.Drawing.Bitmap 类型的本地化资源。
         /// </summary>
-        internal static byte[] SunnyUI {
+        internal static System.Drawing.Bitmap shortcut_zh_dark {
             get {
-                object obj = ResourceManager.GetObject("SunnyUI", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   查找 System.Byte[] 类型的本地化资源。
-        /// </summary>
-        internal static byte[] SunnyUI_Common {
-            get {
-                object obj = ResourceManager.GetObject("SunnyUI_Common", resourceCulture);
-                return ((byte[])(obj));
+                object obj = ResourceManager.GetObject("shortcut_zh_dark", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
     }

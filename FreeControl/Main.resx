@@ -151,7 +151,7 @@
         AAEAAAD/////AQAAAAAAAAAMAgAAAFdTeXN0ZW0uV2luZG93cy5Gb3JtcywgVmVyc2lvbj00LjAuMC4w
         LCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPWI3N2E1YzU2MTkzNGUwODkFAQAAACZTeXN0
         ZW0uV2luZG93cy5Gb3Jtcy5JbWFnZUxpc3RTdHJlYW1lcgEAAAAERGF0YQcCAgAAAAkDAAAADwMAAADG
-        GgAAAk1TRnQBSQFMAgEBBAEAAfwBAgH8AQIBHgEAAR4BAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAF4
+        GgAAAk1TRnQBSQFMAgEBBAEAAWgBAwFoAQMBHgEAAR4BAAT/ASEBAAj/AUIBTQE2BwABNgMAASgDAAF4
         AwABPAMAAQEBAAEgBQABgAFw/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A
         /wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A/wD/AP8A
         /wD/AP8A/wD/AJ4AAzgBXQMaAf8DGgH/AxoB/wMaAf8DGgH/AxoB/wMaAf8DGgH/AxoB/wMaAf8DGgH/
@@ -232,7 +232,7 @@
         AXgDvwH/AzcBWggABAEDAgEDMAAEAQMCAQMIAAMHAQkDXgHtA2oB+QMPARQYAANNAZIDXgH7AxoB/wNE
         AXgDAgEDLAADEQEWA14B0gMaAf8DWgHpAyIBMSQAA00BkgNfAfsDvwH/A0QBeAMCAQMsAAMRARYDXgHS
         A78B/wNjAekDIgExHAADXQHOAxoB/wMbASYDUQGfAxoB/wMaAf8DWgHHAyUBNiAAAwMBBANJAYcDGgH/
-        AxoB/wNdAc8DKQE+A1ABnANmAf4DMQFNFAADXwHOA78B/wMbASYDUQGfA78B/wO/Af8DWgHHAyUBNiAA
+        AxoB/wNdAc8DKQE+A1ABnANzAf4DMQFNFAADXwHOA78B/wMbASYDUQGfA78B/wO/Af8DWgHHAyUBNiAA
         AwMBBANJAYcDvwH/A78B/wNdAc8DKQE+A1EBnAOAAf4DMQFNIAADHgEqA10B3wMaAf8DWwHQAxgBICQA
         AzkBXgNJAfYDGgH/A1UBrzAAAx4BKgNdAd8DvwH/A18B0AMYASAkAAM5AV4DYgH2A78B/wNVAa8kAAMc
         AScDSQH2AxoB/wMaAf8DXwHaA10ByQNgAfMDGgH/AxwBJxwAA10B3AMaAf8DYQHrA1sBzQNeAfsDGgH/
@@ -272,6 +272,27 @@
   <data name="navTab.Alignment" type="System.Windows.Forms.TabAlignment, System.Windows.Forms">
     <value>Left</value>
   </data>
+  <data name="linkIME.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="linkIME.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 10pt</value>
+  </data>
+  <data name="linkIME.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
+    <value>0, 12</value>
+  </data>
+  <data name="linkIME.Location" type="System.Drawing.Point, System.Drawing">
+    <value>434, 37</value>
+  </data>
+  <data name="linkIME.Size" type="System.Drawing.Size, System.Drawing">
+    <value>46, 23</value>
+  </data>
+  <data name="linkIME.TabIndex" type="System.Int32, mscorlib">
+    <value>30</value>
+  </data>
+  <data name="linkIME.Text" xml:space="preserve">
+    <value>未设置</value>
+  </data>
   <data name="&gt;&gt;linkIME.Name" xml:space="preserve">
     <value>linkIME</value>
   </data>
@@ -283,6 +304,27 @@
   </data>
   <data name="&gt;&gt;linkIME.ZOrder" xml:space="preserve">
     <value>0</value>
+  </data>
+  <data name="uiLabel7.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="uiLabel7.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 10pt</value>
+  </data>
+  <data name="uiLabel7.Location" type="System.Drawing.Point, System.Drawing">
+    <value>356, 35</value>
+  </data>
+  <data name="uiLabel7.Size" type="System.Drawing.Size, System.Drawing">
+    <value>79, 20</value>
+  </data>
+  <data name="uiLabel7.TabIndex" type="System.Int32, mscorlib">
+    <value>29</value>
+  </data>
+  <data name="uiLabel7.Text" xml:space="preserve">
+    <value>自动切换为</value>
+  </data>
+  <data name="uiLabel7.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
   </data>
   <data name="&gt;&gt;uiLabel7.Name" xml:space="preserve">
     <value>uiLabel7</value>
@@ -296,6 +338,27 @@
   <data name="&gt;&gt;uiLabel7.ZOrder" xml:space="preserve">
     <value>1</value>
   </data>
+  <data name="tbxIp.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="tbxIp.Location" type="System.Drawing.Point, System.Drawing">
+    <value>205, 231</value>
+  </data>
+  <data name="tbxIp.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>4, 5, 4, 5</value>
+  </data>
+  <data name="tbxIp.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="tbxIp.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>3, 3, 3, 3</value>
+  </data>
+  <data name="tbxIp.Size" type="System.Drawing.Size, System.Drawing">
+    <value>135, 27</value>
+  </data>
+  <data name="tbxIp.TabIndex" type="System.Int32, mscorlib">
+    <value>24</value>
+  </data>
   <data name="&gt;&gt;tbxIp.Name" xml:space="preserve">
     <value>tbxIp</value>
   </data>
@@ -307,6 +370,27 @@
   </data>
   <data name="&gt;&gt;tbxIp.ZOrder" xml:space="preserve">
     <value>2</value>
+  </data>
+  <data name="linkIssues.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="linkIssues.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 9pt</value>
+  </data>
+  <data name="linkIssues.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
+    <value>0, 12</value>
+  </data>
+  <data name="linkIssues.Location" type="System.Drawing.Point, System.Drawing">
+    <value>360, 200</value>
+  </data>
+  <data name="linkIssues.Size" type="System.Drawing.Size, System.Drawing">
+    <value>40, 21</value>
+  </data>
+  <data name="linkIssues.TabIndex" type="System.Int32, mscorlib">
+    <value>27</value>
+  </data>
+  <data name="linkIssues.Text" xml:space="preserve">
+    <value>issues</value>
   </data>
   <data name="&gt;&gt;linkIssues.Name" xml:space="preserve">
     <value>linkIssues</value>
@@ -320,6 +404,27 @@
   <data name="&gt;&gt;linkIssues.ZOrder" xml:space="preserve">
     <value>3</value>
   </data>
+  <data name="tbxPort.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="tbxPort.Location" type="System.Drawing.Point, System.Drawing">
+    <value>372, 231</value>
+  </data>
+  <data name="tbxPort.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>4, 5, 4, 5</value>
+  </data>
+  <data name="tbxPort.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="tbxPort.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>5, 5, 5, 5</value>
+  </data>
+  <data name="tbxPort.Size" type="System.Drawing.Size, System.Drawing">
+    <value>67, 27</value>
+  </data>
+  <data name="tbxPort.TabIndex" type="System.Int32, mscorlib">
+    <value>26</value>
+  </data>
   <data name="&gt;&gt;tbxPort.Name" xml:space="preserve">
     <value>tbxPort</value>
   </data>
@@ -331,6 +436,27 @@
   </data>
   <data name="&gt;&gt;tbxPort.ZOrder" xml:space="preserve">
     <value>4</value>
+  </data>
+  <data name="cbxUseWireless.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="cbxUseWireless.Location" type="System.Drawing.Point, System.Drawing">
+    <value>113, 230</value>
+  </data>
+  <data name="cbxUseWireless.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="cbxUseWireless.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>22, 0, 0, 0</value>
+  </data>
+  <data name="cbxUseWireless.Size" type="System.Drawing.Size, System.Drawing">
+    <value>85, 29</value>
+  </data>
+  <data name="cbxUseWireless.TabIndex" type="System.Int32, mscorlib">
+    <value>25</value>
+  </data>
+  <data name="cbxUseWireless.Text" xml:space="preserve">
+    <value>无线访问</value>
   </data>
   <data name="&gt;&gt;cbxUseWireless.Name" xml:space="preserve">
     <value>cbxUseWireless</value>
@@ -344,6 +470,27 @@
   <data name="&gt;&gt;cbxUseWireless.ZOrder" xml:space="preserve">
     <value>5</value>
   </data>
+  <data name="linkSetPort.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="linkSetPort.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 9pt</value>
+  </data>
+  <data name="linkSetPort.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
+    <value>0, 12</value>
+  </data>
+  <data name="linkSetPort.Location" type="System.Drawing.Point, System.Drawing">
+    <value>359, 181</value>
+  </data>
+  <data name="linkSetPort.Size" type="System.Drawing.Size, System.Drawing">
+    <value>66, 21</value>
+  </data>
+  <data name="linkSetPort.TabIndex" type="System.Int32, mscorlib">
+    <value>4</value>
+  </data>
+  <data name="linkSetPort.Text" xml:space="preserve">
+    <value>设置端口号</value>
+  </data>
   <data name="&gt;&gt;linkSetPort.Name" xml:space="preserve">
     <value>linkSetPort</value>
   </data>
@@ -355,6 +502,27 @@
   </data>
   <data name="&gt;&gt;linkSetPort.ZOrder" xml:space="preserve">
     <value>6</value>
+  </data>
+  <data name="linkEnabledADB.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="linkEnabledADB.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 9pt</value>
+  </data>
+  <data name="linkEnabledADB.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
+    <value>0, 12</value>
+  </data>
+  <data name="linkEnabledADB.Location" type="System.Drawing.Point, System.Drawing">
+    <value>282, 81</value>
+  </data>
+  <data name="linkEnabledADB.Size" type="System.Drawing.Size, System.Drawing">
+    <value>124, 17</value>
+  </data>
+  <data name="linkEnabledADB.TabIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="linkEnabledADB.Text" xml:space="preserve">
+    <value>(开启USB调试的方法)</value>
   </data>
   <data name="&gt;&gt;linkEnabledADB.Name" xml:space="preserve">
     <value>linkEnabledADB</value>
@@ -368,6 +536,33 @@
   <data name="&gt;&gt;linkEnabledADB.ZOrder" xml:space="preserve">
     <value>7</value>
   </data>
+  <data name="uiLabel1.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="uiLabel1.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 10pt</value>
+  </data>
+  <data name="uiLabel1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>142, 78</value>
+  </data>
+  <data name="uiLabel1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>232, 140</value>
+  </data>
+  <data name="uiLabel1.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="uiLabel1.Text" xml:space="preserve">
+    <value>1、开启USB调试模式
+2、使用数据线将手机连接到电脑上
+3、点击启动按钮
+
+无线访问失败请确认IP地址是否正确
+若IP地址正确仍无法使用，请尝试
+若以上操作后仍无法使用，请提交</value>
+  </data>
+  <data name="uiLabel1.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
   <data name="&gt;&gt;uiLabel1.Name" xml:space="preserve">
     <value>uiLabel1</value>
   </data>
@@ -380,6 +575,27 @@
   <data name="&gt;&gt;uiLabel1.ZOrder" xml:space="preserve">
     <value>8</value>
   </data>
+  <data name="btnStart.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 12pt</value>
+  </data>
+  <data name="btnStart.Location" type="System.Drawing.Point, System.Drawing">
+    <value>203, 19</value>
+  </data>
+  <data name="btnStart.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="btnStart.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>28, 0, 0, 0</value>
+  </data>
+  <data name="btnStart.Size" type="System.Drawing.Size, System.Drawing">
+    <value>145, 51</value>
+  </data>
+  <data name="btnStart.TabIndex" type="System.Int32, mscorlib">
+    <value>0</value>
+  </data>
+  <data name="btnStart.Text" xml:space="preserve">
+    <value>启动</value>
+  </data>
   <data name="&gt;&gt;btnStart.Name" xml:space="preserve">
     <value>btnStart</value>
   </data>
@@ -391,6 +607,27 @@
   </data>
   <data name="&gt;&gt;btnStart.ZOrder" xml:space="preserve">
     <value>9</value>
+  </data>
+  <data name="comboIp.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 12pt</value>
+  </data>
+  <data name="comboIp.Location" type="System.Drawing.Point, System.Drawing">
+    <value>203, 230</value>
+  </data>
+  <data name="comboIp.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 0, 0</value>
+  </data>
+  <data name="comboIp.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>63, 0</value>
+  </data>
+  <data name="comboIp.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 0, 30, 2</value>
+  </data>
+  <data name="comboIp.Size" type="System.Drawing.Size, System.Drawing">
+    <value>165, 29</value>
+  </data>
+  <data name="comboIp.TabIndex" type="System.Int32, mscorlib">
+    <value>28</value>
   </data>
   <data name="&gt;&gt;comboIp.Name" xml:space="preserve">
     <value>comboIp</value>
@@ -707,6 +944,27 @@
   <data name="&gt;&gt;comboMaxFPS.ZOrder" xml:space="preserve">
     <value>6</value>
   </data>
+  <data name="lbAllShortcut.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="lbAllShortcut.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11.25pt</value>
+  </data>
+  <data name="lbAllShortcut.Location" type="System.Drawing.Point, System.Drawing">
+    <value>70, 6</value>
+  </data>
+  <data name="lbAllShortcut.Size" type="System.Drawing.Size, System.Drawing">
+    <value>69, 20</value>
+  </data>
+  <data name="lbAllShortcut.TabIndex" type="System.Int32, mscorlib">
+    <value>24</value>
+  </data>
+  <data name="lbAllShortcut.Text" xml:space="preserve">
+    <value>查看全部</value>
+  </data>
+  <data name="lbAllShortcut.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
   <data name="&gt;&gt;lbAllShortcut.Name" xml:space="preserve">
     <value>lbAllShortcut</value>
   </data>
@@ -763,759 +1021,6 @@
   </data>
   <data name="&gt;&gt;rbtnShortcuts.ZOrder" xml:space="preserve">
     <value>7</value>
-  </data>
-  <data name="&gt;&gt;uiLabel4.Name" xml:space="preserve">
-    <value>uiLabel4</value>
-  </data>
-  <data name="&gt;&gt;uiLabel4.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;uiLabel4.Parent" xml:space="preserve">
-    <value>uiGroupBox1</value>
-  </data>
-  <data name="&gt;&gt;uiLabel4.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
-  <data name="&gt;&gt;uiLabel3.Name" xml:space="preserve">
-    <value>uiLabel3</value>
-  </data>
-  <data name="&gt;&gt;uiLabel3.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;uiLabel3.Parent" xml:space="preserve">
-    <value>uiGroupBox1</value>
-  </data>
-  <data name="&gt;&gt;uiLabel3.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;updownWidth.Name" xml:space="preserve">
-    <value>updownWidth</value>
-  </data>
-  <data name="&gt;&gt;updownWidth.Type" xml:space="preserve">
-    <value>Sunny.UI.UIIntegerUpDown, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;updownWidth.Parent" xml:space="preserve">
-    <value>uiGroupBox1</value>
-  </data>
-  <data name="&gt;&gt;updownWidth.ZOrder" xml:space="preserve">
-    <value>2</value>
-  </data>
-  <data name="&gt;&gt;updownHeight.Name" xml:space="preserve">
-    <value>updownHeight</value>
-  </data>
-  <data name="&gt;&gt;updownHeight.Type" xml:space="preserve">
-    <value>Sunny.UI.UIIntegerUpDown, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;updownHeight.Parent" xml:space="preserve">
-    <value>uiGroupBox1</value>
-  </data>
-  <data name="&gt;&gt;updownHeight.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
-  <data name="uiGroupBox1.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="uiGroupBox1.Location" type="System.Drawing.Point, System.Drawing">
-    <value>9, 5</value>
-  </data>
-  <data name="uiGroupBox1.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>4, 5, 4, 5</value>
-  </data>
-  <data name="uiGroupBox1.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="uiGroupBox1.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>0, 32, 0, 0</value>
-  </data>
-  <data name="uiGroupBox1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>190, 114</value>
-  </data>
-  <data name="uiGroupBox1.TabIndex" type="System.Int32, mscorlib">
-    <value>22</value>
-  </data>
-  <data name="uiGroupBox1.Text" xml:space="preserve">
-    <value>窗口大小</value>
-  </data>
-  <data name="&gt;&gt;uiGroupBox1.Name" xml:space="preserve">
-    <value>uiGroupBox1</value>
-  </data>
-  <data name="&gt;&gt;uiGroupBox1.Type" xml:space="preserve">
-    <value>Sunny.UI.UIGroupBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;uiGroupBox1.Parent" xml:space="preserve">
-    <value>tabSetting</value>
-  </data>
-  <data name="&gt;&gt;uiGroupBox1.ZOrder" xml:space="preserve">
-    <value>8</value>
-  </data>
-  <data name="&gt;&gt;cbxAudioEnabled.Name" xml:space="preserve">
-    <value>cbxAudioEnabled</value>
-  </data>
-  <data name="&gt;&gt;cbxAudioEnabled.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxAudioEnabled.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxAudioEnabled.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
-  <data name="&gt;&gt;cbxControllerEnabled.Name" xml:space="preserve">
-    <value>cbxControllerEnabled</value>
-  </data>
-  <data name="&gt;&gt;cbxControllerEnabled.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxControllerEnabled.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxControllerEnabled.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;cbxShowTouches.Name" xml:space="preserve">
-    <value>cbxShowTouches</value>
-  </data>
-  <data name="&gt;&gt;cbxShowTouches.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxShowTouches.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxShowTouches.ZOrder" xml:space="preserve">
-    <value>2</value>
-  </data>
-  <data name="&gt;&gt;cbxTopMost.Name" xml:space="preserve">
-    <value>cbxTopMost</value>
-  </data>
-  <data name="&gt;&gt;cbxTopMost.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxTopMost.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxTopMost.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
-  <data name="&gt;&gt;cbxReadOnly.Name" xml:space="preserve">
-    <value>cbxReadOnly</value>
-  </data>
-  <data name="&gt;&gt;cbxReadOnly.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxReadOnly.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxReadOnly.ZOrder" xml:space="preserve">
-    <value>4</value>
-  </data>
-  <data name="&gt;&gt;cbxFullScreen.Name" xml:space="preserve">
-    <value>cbxFullScreen</value>
-  </data>
-  <data name="&gt;&gt;cbxFullScreen.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxFullScreen.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxFullScreen.ZOrder" xml:space="preserve">
-    <value>5</value>
-  </data>
-  <data name="&gt;&gt;cbxHideBorder.Name" xml:space="preserve">
-    <value>cbxHideBorder</value>
-  </data>
-  <data name="&gt;&gt;cbxHideBorder.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxHideBorder.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxHideBorder.ZOrder" xml:space="preserve">
-    <value>6</value>
-  </data>
-  <data name="&gt;&gt;cbxUseLog.Name" xml:space="preserve">
-    <value>cbxUseLog</value>
-  </data>
-  <data name="&gt;&gt;cbxUseLog.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxUseLog.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxUseLog.ZOrder" xml:space="preserve">
-    <value>7</value>
-  </data>
-  <data name="&gt;&gt;cbxKeepAwake.Name" xml:space="preserve">
-    <value>cbxKeepAwake</value>
-  </data>
-  <data name="&gt;&gt;cbxKeepAwake.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxKeepAwake.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxKeepAwake.ZOrder" xml:space="preserve">
-    <value>8</value>
-  </data>
-  <data name="&gt;&gt;cbxCloseScreen.Name" xml:space="preserve">
-    <value>cbxCloseScreen</value>
-  </data>
-  <data name="&gt;&gt;cbxCloseScreen.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxCloseScreen.Parent" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxCloseScreen.ZOrder" xml:space="preserve">
-    <value>9</value>
-  </data>
-  <data name="cbxOtherSetting.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="cbxOtherSetting.Location" type="System.Drawing.Point, System.Drawing">
-    <value>9, 129</value>
-  </data>
-  <data name="cbxOtherSetting.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>4, 5, 4, 5</value>
-  </data>
-  <data name="cbxOtherSetting.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="cbxOtherSetting.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>0, 32, 0, 0</value>
-  </data>
-  <data name="cbxOtherSetting.Size" type="System.Drawing.Size, System.Drawing">
-    <value>586, 110</value>
-  </data>
-  <data name="cbxOtherSetting.TabIndex" type="System.Int32, mscorlib">
-    <value>3</value>
-  </data>
-  <data name="cbxOtherSetting.Text" xml:space="preserve">
-    <value>其他设置</value>
-  </data>
-  <data name="&gt;&gt;cbxOtherSetting.Name" xml:space="preserve">
-    <value>cbxOtherSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxOtherSetting.Type" xml:space="preserve">
-    <value>Sunny.UI.UIGroupBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxOtherSetting.Parent" xml:space="preserve">
-    <value>tabSetting</value>
-  </data>
-  <data name="&gt;&gt;cbxOtherSetting.ZOrder" xml:space="preserve">
-    <value>9</value>
-  </data>
-  <data name="lbDarkMode.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="lbDarkMode.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="lbDarkMode.Location" type="System.Drawing.Point, System.Drawing">
-    <value>440, 248</value>
-  </data>
-  <data name="lbDarkMode.Size" type="System.Drawing.Size, System.Drawing">
-    <value>69, 20</value>
-  </data>
-  <data name="lbDarkMode.TabIndex" type="System.Int32, mscorlib">
-    <value>16</value>
-  </data>
-  <data name="lbDarkMode.Text" xml:space="preserve">
-    <value>深色模式</value>
-  </data>
-  <data name="lbDarkMode.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
-    <value>MiddleLeft</value>
-  </data>
-  <data name="&gt;&gt;lbDarkMode.Name" xml:space="preserve">
-    <value>lbDarkMode</value>
-  </data>
-  <data name="&gt;&gt;lbDarkMode.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;lbDarkMode.Parent" xml:space="preserve">
-    <value>tabSetting</value>
-  </data>
-  <data name="&gt;&gt;lbDarkMode.ZOrder" xml:space="preserve">
-    <value>10</value>
-  </data>
-  <data name="switchDarkMode.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="switchDarkMode.Location" type="System.Drawing.Point, System.Drawing">
-    <value>515, 245</value>
-  </data>
-  <data name="switchDarkMode.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="switchDarkMode.Size" type="System.Drawing.Size, System.Drawing">
-    <value>75, 29</value>
-  </data>
-  <data name="switchDarkMode.TabIndex" type="System.Int32, mscorlib">
-    <value>17</value>
-  </data>
-  <data name="&gt;&gt;switchDarkMode.Name" xml:space="preserve">
-    <value>switchDarkMode</value>
-  </data>
-  <data name="&gt;&gt;switchDarkMode.Type" xml:space="preserve">
-    <value>Sunny.UI.UISwitch, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;switchDarkMode.Parent" xml:space="preserve">
-    <value>tabSetting</value>
-  </data>
-  <data name="&gt;&gt;switchDarkMode.ZOrder" xml:space="preserve">
-    <value>11</value>
-  </data>
-  <data name="tabSetting.ImageIndex" type="System.Int32, mscorlib">
-    <value>2</value>
-  </data>
-  <data name="tabSetting.Location" type="System.Drawing.Point, System.Drawing">
-    <value>51, 0</value>
-  </data>
-  <data name="tabSetting.Size" type="System.Drawing.Size, System.Drawing">
-    <value>607, 278</value>
-  </data>
-  <data name="tabSetting.TabIndex" type="System.Int32, mscorlib">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;tabSetting.Name" xml:space="preserve">
-    <value>tabSetting</value>
-  </data>
-  <data name="&gt;&gt;tabSetting.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;tabSetting.Parent" xml:space="preserve">
-    <value>navTab</value>
-  </data>
-  <data name="&gt;&gt;tabSetting.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="navTab.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 12pt</value>
-  </data>
-  <data name="navTab.ItemSize" type="System.Drawing.Size, System.Drawing">
-    <value>50, 50</value>
-  </data>
-  <data name="navTab.Location" type="System.Drawing.Point, System.Drawing">
-    <value>0, 63</value>
-  </data>
-  <data name="navTab.Size" type="System.Drawing.Size, System.Drawing">
-    <value>658, 278</value>
-  </data>
-  <data name="navTab.TabIndex" type="System.Int32, mscorlib">
-    <value>6</value>
-  </data>
-  <data name="&gt;&gt;navTab.Name" xml:space="preserve">
-    <value>navTab</value>
-  </data>
-  <data name="&gt;&gt;navTab.Type" xml:space="preserve">
-    <value>Sunny.UI.UITabControlMenu, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;navTab.Parent" xml:space="preserve">
-    <value>$this</value>
-  </data>
-  <data name="&gt;&gt;navTab.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
-  <data name="linkIME.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="linkIME.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 10pt</value>
-  </data>
-  <data name="linkIME.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
-    <value>0, 12</value>
-  </data>
-  <data name="linkIME.Location" type="System.Drawing.Point, System.Drawing">
-    <value>434, 37</value>
-  </data>
-  <data name="linkIME.Size" type="System.Drawing.Size, System.Drawing">
-    <value>46, 23</value>
-  </data>
-  <data name="linkIME.TabIndex" type="System.Int32, mscorlib">
-    <value>30</value>
-  </data>
-  <data name="linkIME.Text" xml:space="preserve">
-    <value>未设置</value>
-  </data>
-  <data name="&gt;&gt;linkIME.Name" xml:space="preserve">
-    <value>linkIME</value>
-  </data>
-  <data name="&gt;&gt;linkIME.Type" xml:space="preserve">
-    <value>Sunny.UI.UILinkLabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;linkIME.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;linkIME.ZOrder" xml:space="preserve">
-    <value>0</value>
-  </data>
-  <data name="uiLabel7.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="uiLabel7.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 10pt</value>
-  </data>
-  <data name="uiLabel7.Location" type="System.Drawing.Point, System.Drawing">
-    <value>356, 35</value>
-  </data>
-  <data name="uiLabel7.Size" type="System.Drawing.Size, System.Drawing">
-    <value>79, 20</value>
-  </data>
-  <data name="uiLabel7.TabIndex" type="System.Int32, mscorlib">
-    <value>29</value>
-  </data>
-  <data name="uiLabel7.Text" xml:space="preserve">
-    <value>自动切换为</value>
-  </data>
-  <data name="uiLabel7.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
-    <value>MiddleLeft</value>
-  </data>
-  <data name="&gt;&gt;uiLabel7.Name" xml:space="preserve">
-    <value>uiLabel7</value>
-  </data>
-  <data name="&gt;&gt;uiLabel7.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;uiLabel7.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;uiLabel7.ZOrder" xml:space="preserve">
-    <value>1</value>
-  </data>
-  <data name="tbxIp.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="tbxIp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>206, 229</value>
-  </data>
-  <data name="tbxIp.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>4, 5, 4, 5</value>
-  </data>
-  <data name="tbxIp.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="tbxIp.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>5, 5, 5, 5</value>
-  </data>
-  <data name="tbxIp.Size" type="System.Drawing.Size, System.Drawing">
-    <value>129, 29</value>
-  </data>
-  <data name="tbxIp.TabIndex" type="System.Int32, mscorlib">
-    <value>24</value>
-  </data>
-  <data name="&gt;&gt;tbxIp.Name" xml:space="preserve">
-    <value>tbxIp</value>
-  </data>
-  <data name="&gt;&gt;tbxIp.Type" xml:space="preserve">
-    <value>Sunny.UI.UITextBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;tbxIp.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;tbxIp.ZOrder" xml:space="preserve">
-    <value>2</value>
-  </data>
-  <data name="linkIssues.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="linkIssues.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 9pt</value>
-  </data>
-  <data name="linkIssues.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
-    <value>0, 12</value>
-  </data>
-  <data name="linkIssues.Location" type="System.Drawing.Point, System.Drawing">
-    <value>360, 200</value>
-  </data>
-  <data name="linkIssues.Size" type="System.Drawing.Size, System.Drawing">
-    <value>40, 21</value>
-  </data>
-  <data name="linkIssues.TabIndex" type="System.Int32, mscorlib">
-    <value>27</value>
-  </data>
-  <data name="linkIssues.Text" xml:space="preserve">
-    <value>issues</value>
-  </data>
-  <data name="&gt;&gt;linkIssues.Name" xml:space="preserve">
-    <value>linkIssues</value>
-  </data>
-  <data name="&gt;&gt;linkIssues.Type" xml:space="preserve">
-    <value>Sunny.UI.UILinkLabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;linkIssues.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;linkIssues.ZOrder" xml:space="preserve">
-    <value>3</value>
-  </data>
-  <data name="tbxPort.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="tbxPort.Location" type="System.Drawing.Point, System.Drawing">
-    <value>373, 229</value>
-  </data>
-  <data name="tbxPort.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>4, 5, 4, 5</value>
-  </data>
-  <data name="tbxPort.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="tbxPort.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>5, 5, 5, 5</value>
-  </data>
-  <data name="tbxPort.Size" type="System.Drawing.Size, System.Drawing">
-    <value>67, 29</value>
-  </data>
-  <data name="tbxPort.TabIndex" type="System.Int32, mscorlib">
-    <value>26</value>
-  </data>
-  <data name="&gt;&gt;tbxPort.Name" xml:space="preserve">
-    <value>tbxPort</value>
-  </data>
-  <data name="&gt;&gt;tbxPort.Type" xml:space="preserve">
-    <value>Sunny.UI.UITextBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;tbxPort.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;tbxPort.ZOrder" xml:space="preserve">
-    <value>4</value>
-  </data>
-  <data name="cbxUseWireless.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11pt</value>
-  </data>
-  <data name="cbxUseWireless.Location" type="System.Drawing.Point, System.Drawing">
-    <value>118, 229</value>
-  </data>
-  <data name="cbxUseWireless.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="cbxUseWireless.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>22, 0, 0, 0</value>
-  </data>
-  <data name="cbxUseWireless.Size" type="System.Drawing.Size, System.Drawing">
-    <value>85, 29</value>
-  </data>
-  <data name="cbxUseWireless.TabIndex" type="System.Int32, mscorlib">
-    <value>25</value>
-  </data>
-  <data name="cbxUseWireless.Text" xml:space="preserve">
-    <value>无线访问</value>
-  </data>
-  <data name="&gt;&gt;cbxUseWireless.Name" xml:space="preserve">
-    <value>cbxUseWireless</value>
-  </data>
-  <data name="&gt;&gt;cbxUseWireless.Type" xml:space="preserve">
-    <value>Sunny.UI.UICheckBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;cbxUseWireless.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;cbxUseWireless.ZOrder" xml:space="preserve">
-    <value>5</value>
-  </data>
-  <data name="linkSetPort.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="linkSetPort.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 9pt</value>
-  </data>
-  <data name="linkSetPort.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
-    <value>0, 12</value>
-  </data>
-  <data name="linkSetPort.Location" type="System.Drawing.Point, System.Drawing">
-    <value>359, 181</value>
-  </data>
-  <data name="linkSetPort.Size" type="System.Drawing.Size, System.Drawing">
-    <value>66, 21</value>
-  </data>
-  <data name="linkSetPort.TabIndex" type="System.Int32, mscorlib">
-    <value>4</value>
-  </data>
-  <data name="linkSetPort.Text" xml:space="preserve">
-    <value>设置端口号</value>
-  </data>
-  <data name="&gt;&gt;linkSetPort.Name" xml:space="preserve">
-    <value>linkSetPort</value>
-  </data>
-  <data name="&gt;&gt;linkSetPort.Type" xml:space="preserve">
-    <value>Sunny.UI.UILinkLabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;linkSetPort.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;linkSetPort.ZOrder" xml:space="preserve">
-    <value>6</value>
-  </data>
-  <data name="linkEnabledADB.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="linkEnabledADB.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 9pt</value>
-  </data>
-  <data name="linkEnabledADB.LinkArea" type="System.Windows.Forms.LinkArea, System.Windows.Forms">
-    <value>0, 12</value>
-  </data>
-  <data name="linkEnabledADB.Location" type="System.Drawing.Point, System.Drawing">
-    <value>282, 81</value>
-  </data>
-  <data name="linkEnabledADB.Size" type="System.Drawing.Size, System.Drawing">
-    <value>124, 17</value>
-  </data>
-  <data name="linkEnabledADB.TabIndex" type="System.Int32, mscorlib">
-    <value>2</value>
-  </data>
-  <data name="linkEnabledADB.Text" xml:space="preserve">
-    <value>(开启USB调试的方法)</value>
-  </data>
-  <data name="&gt;&gt;linkEnabledADB.Name" xml:space="preserve">
-    <value>linkEnabledADB</value>
-  </data>
-  <data name="&gt;&gt;linkEnabledADB.Type" xml:space="preserve">
-    <value>Sunny.UI.UILinkLabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;linkEnabledADB.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;linkEnabledADB.ZOrder" xml:space="preserve">
-    <value>7</value>
-  </data>
-  <data name="uiLabel1.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="uiLabel1.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 10pt</value>
-  </data>
-  <data name="uiLabel1.Location" type="System.Drawing.Point, System.Drawing">
-    <value>142, 78</value>
-  </data>
-  <data name="uiLabel1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>232, 140</value>
-  </data>
-  <data name="uiLabel1.TabIndex" type="System.Int32, mscorlib">
-    <value>1</value>
-  </data>
-  <data name="uiLabel1.Text" xml:space="preserve">
-    <value>1、开启USB调试模式
-2、使用数据线将手机连接到电脑上
-3、点击启动按钮
-
-无线访问失败请确认IP地址是否正确
-若IP地址正确仍无法使用，请尝试
-若以上操作后仍无法使用，请提交</value>
-  </data>
-  <data name="uiLabel1.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
-    <value>MiddleLeft</value>
-  </data>
-  <data name="&gt;&gt;uiLabel1.Name" xml:space="preserve">
-    <value>uiLabel1</value>
-  </data>
-  <data name="&gt;&gt;uiLabel1.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;uiLabel1.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;uiLabel1.ZOrder" xml:space="preserve">
-    <value>8</value>
-  </data>
-  <data name="btnStart.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 12pt</value>
-  </data>
-  <data name="btnStart.Location" type="System.Drawing.Point, System.Drawing">
-    <value>203, 19</value>
-  </data>
-  <data name="btnStart.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <data name="btnStart.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>28, 0, 0, 0</value>
-  </data>
-  <data name="btnStart.Size" type="System.Drawing.Size, System.Drawing">
-    <value>145, 51</value>
-  </data>
-  <data name="btnStart.TabIndex" type="System.Int32, mscorlib">
-    <value>0</value>
-  </data>
-  <data name="btnStart.Text" xml:space="preserve">
-    <value>启动</value>
-  </data>
-  <data name="&gt;&gt;btnStart.Name" xml:space="preserve">
-    <value>btnStart</value>
-  </data>
-  <data name="&gt;&gt;btnStart.Type" xml:space="preserve">
-    <value>Sunny.UI.UISymbolButton, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;btnStart.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;btnStart.ZOrder" xml:space="preserve">
-    <value>9</value>
-  </data>
-  <data name="comboIp.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 12pt</value>
-  </data>
-  <data name="comboIp.Location" type="System.Drawing.Point, System.Drawing">
-    <value>206, 229</value>
-  </data>
-  <data name="comboIp.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>0, 0, 0, 0</value>
-  </data>
-  <data name="comboIp.MinimumSize" type="System.Drawing.Size, System.Drawing">
-    <value>63, 0</value>
-  </data>
-  <data name="comboIp.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
-    <value>0, 0, 30, 2</value>
-  </data>
-  <data name="comboIp.Size" type="System.Drawing.Size, System.Drawing">
-    <value>159, 29</value>
-  </data>
-  <data name="comboIp.TabIndex" type="System.Int32, mscorlib">
-    <value>28</value>
-  </data>
-  <data name="&gt;&gt;comboIp.Name" xml:space="preserve">
-    <value>comboIp</value>
-  </data>
-  <data name="&gt;&gt;comboIp.Type" xml:space="preserve">
-    <value>Sunny.UI.UIComboBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;comboIp.Parent" xml:space="preserve">
-    <value>tabHome</value>
-  </data>
-  <data name="&gt;&gt;comboIp.ZOrder" xml:space="preserve">
-    <value>10</value>
-  </data>
-  <data name="lbAllShortcut.AutoSize" type="System.Boolean, mscorlib">
-    <value>True</value>
-  </data>
-  <data name="lbAllShortcut.Font" type="System.Drawing.Font, System.Drawing">
-    <value>微软雅黑, 11.25pt</value>
-  </data>
-  <data name="lbAllShortcut.Location" type="System.Drawing.Point, System.Drawing">
-    <value>70, 6</value>
-  </data>
-  <data name="lbAllShortcut.Size" type="System.Drawing.Size, System.Drawing">
-    <value>69, 20</value>
-  </data>
-  <data name="lbAllShortcut.TabIndex" type="System.Int32, mscorlib">
-    <value>24</value>
-  </data>
-  <data name="lbAllShortcut.Text" xml:space="preserve">
-    <value>查看全部</value>
-  </data>
-  <data name="lbAllShortcut.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
-    <value>MiddleLeft</value>
-  </data>
-  <data name="&gt;&gt;lbAllShortcut.Name" xml:space="preserve">
-    <value>lbAllShortcut</value>
-  </data>
-  <data name="&gt;&gt;lbAllShortcut.Type" xml:space="preserve">
-    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
-  </data>
-  <data name="&gt;&gt;lbAllShortcut.Parent" xml:space="preserve">
-    <value>rbtnShortcuts</value>
-  </data>
-  <data name="&gt;&gt;lbAllShortcut.ZOrder" xml:space="preserve">
-    <value>0</value>
   </data>
   <data name="uiLabel4.Font" type="System.Drawing.Font, System.Drawing">
     <value>微软雅黑, 12pt</value>
@@ -1642,6 +1147,42 @@
   </data>
   <data name="&gt;&gt;updownHeight.ZOrder" xml:space="preserve">
     <value>3</value>
+  </data>
+  <data name="uiGroupBox1.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="uiGroupBox1.Location" type="System.Drawing.Point, System.Drawing">
+    <value>9, 5</value>
+  </data>
+  <data name="uiGroupBox1.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>4, 5, 4, 5</value>
+  </data>
+  <data name="uiGroupBox1.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="uiGroupBox1.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 32, 0, 0</value>
+  </data>
+  <data name="uiGroupBox1.Size" type="System.Drawing.Size, System.Drawing">
+    <value>190, 114</value>
+  </data>
+  <data name="uiGroupBox1.TabIndex" type="System.Int32, mscorlib">
+    <value>22</value>
+  </data>
+  <data name="uiGroupBox1.Text" xml:space="preserve">
+    <value>窗口大小</value>
+  </data>
+  <data name="&gt;&gt;uiGroupBox1.Name" xml:space="preserve">
+    <value>uiGroupBox1</value>
+  </data>
+  <data name="&gt;&gt;uiGroupBox1.Type" xml:space="preserve">
+    <value>Sunny.UI.UIGroupBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;uiGroupBox1.Parent" xml:space="preserve">
+    <value>tabSetting</value>
+  </data>
+  <data name="&gt;&gt;uiGroupBox1.ZOrder" xml:space="preserve">
+    <value>8</value>
   </data>
   <data name="cbxAudioEnabled.Font" type="System.Drawing.Font, System.Drawing">
     <value>微软雅黑, 11pt</value>
@@ -1972,6 +1513,153 @@
   </data>
   <data name="&gt;&gt;cbxCloseScreen.ZOrder" xml:space="preserve">
     <value>9</value>
+  </data>
+  <data name="cbxOtherSetting.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="cbxOtherSetting.Location" type="System.Drawing.Point, System.Drawing">
+    <value>9, 129</value>
+  </data>
+  <data name="cbxOtherSetting.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>4, 5, 4, 5</value>
+  </data>
+  <data name="cbxOtherSetting.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="cbxOtherSetting.Padding" type="System.Windows.Forms.Padding, System.Windows.Forms">
+    <value>0, 32, 0, 0</value>
+  </data>
+  <data name="cbxOtherSetting.Size" type="System.Drawing.Size, System.Drawing">
+    <value>586, 110</value>
+  </data>
+  <data name="cbxOtherSetting.TabIndex" type="System.Int32, mscorlib">
+    <value>3</value>
+  </data>
+  <data name="cbxOtherSetting.Text" xml:space="preserve">
+    <value>其他设置</value>
+  </data>
+  <data name="&gt;&gt;cbxOtherSetting.Name" xml:space="preserve">
+    <value>cbxOtherSetting</value>
+  </data>
+  <data name="&gt;&gt;cbxOtherSetting.Type" xml:space="preserve">
+    <value>Sunny.UI.UIGroupBox, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;cbxOtherSetting.Parent" xml:space="preserve">
+    <value>tabSetting</value>
+  </data>
+  <data name="&gt;&gt;cbxOtherSetting.ZOrder" xml:space="preserve">
+    <value>9</value>
+  </data>
+  <data name="lbDarkMode.AutoSize" type="System.Boolean, mscorlib">
+    <value>True</value>
+  </data>
+  <data name="lbDarkMode.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="lbDarkMode.Location" type="System.Drawing.Point, System.Drawing">
+    <value>440, 248</value>
+  </data>
+  <data name="lbDarkMode.Size" type="System.Drawing.Size, System.Drawing">
+    <value>69, 20</value>
+  </data>
+  <data name="lbDarkMode.TabIndex" type="System.Int32, mscorlib">
+    <value>16</value>
+  </data>
+  <data name="lbDarkMode.Text" xml:space="preserve">
+    <value>深色模式</value>
+  </data>
+  <data name="lbDarkMode.TextAlign" type="System.Drawing.ContentAlignment, System.Drawing">
+    <value>MiddleLeft</value>
+  </data>
+  <data name="&gt;&gt;lbDarkMode.Name" xml:space="preserve">
+    <value>lbDarkMode</value>
+  </data>
+  <data name="&gt;&gt;lbDarkMode.Type" xml:space="preserve">
+    <value>Sunny.UI.UILabel, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;lbDarkMode.Parent" xml:space="preserve">
+    <value>tabSetting</value>
+  </data>
+  <data name="&gt;&gt;lbDarkMode.ZOrder" xml:space="preserve">
+    <value>10</value>
+  </data>
+  <data name="switchDarkMode.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 11pt</value>
+  </data>
+  <data name="switchDarkMode.Location" type="System.Drawing.Point, System.Drawing">
+    <value>515, 245</value>
+  </data>
+  <data name="switchDarkMode.MinimumSize" type="System.Drawing.Size, System.Drawing">
+    <value>1, 1</value>
+  </data>
+  <data name="switchDarkMode.Size" type="System.Drawing.Size, System.Drawing">
+    <value>75, 29</value>
+  </data>
+  <data name="switchDarkMode.TabIndex" type="System.Int32, mscorlib">
+    <value>17</value>
+  </data>
+  <data name="&gt;&gt;switchDarkMode.Name" xml:space="preserve">
+    <value>switchDarkMode</value>
+  </data>
+  <data name="&gt;&gt;switchDarkMode.Type" xml:space="preserve">
+    <value>Sunny.UI.UISwitch, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;switchDarkMode.Parent" xml:space="preserve">
+    <value>tabSetting</value>
+  </data>
+  <data name="&gt;&gt;switchDarkMode.ZOrder" xml:space="preserve">
+    <value>11</value>
+  </data>
+  <data name="tabSetting.ImageIndex" type="System.Int32, mscorlib">
+    <value>2</value>
+  </data>
+  <data name="tabSetting.Location" type="System.Drawing.Point, System.Drawing">
+    <value>51, 0</value>
+  </data>
+  <data name="tabSetting.Size" type="System.Drawing.Size, System.Drawing">
+    <value>607, 278</value>
+  </data>
+  <data name="tabSetting.TabIndex" type="System.Int32, mscorlib">
+    <value>1</value>
+  </data>
+  <data name="&gt;&gt;tabSetting.Name" xml:space="preserve">
+    <value>tabSetting</value>
+  </data>
+  <data name="&gt;&gt;tabSetting.Type" xml:space="preserve">
+    <value>System.Windows.Forms.TabPage, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;tabSetting.Parent" xml:space="preserve">
+    <value>navTab</value>
+  </data>
+  <data name="&gt;&gt;tabSetting.ZOrder" xml:space="preserve">
+    <value>1</value>
+  </data>
+  <data name="navTab.Font" type="System.Drawing.Font, System.Drawing">
+    <value>微软雅黑, 12pt</value>
+  </data>
+  <data name="navTab.ItemSize" type="System.Drawing.Size, System.Drawing">
+    <value>50, 50</value>
+  </data>
+  <data name="navTab.Location" type="System.Drawing.Point, System.Drawing">
+    <value>0, 63</value>
+  </data>
+  <data name="navTab.Size" type="System.Drawing.Size, System.Drawing">
+    <value>658, 278</value>
+  </data>
+  <data name="navTab.TabIndex" type="System.Int32, mscorlib">
+    <value>6</value>
+  </data>
+  <data name="&gt;&gt;navTab.Name" xml:space="preserve">
+    <value>navTab</value>
+  </data>
+  <data name="&gt;&gt;navTab.Type" xml:space="preserve">
+    <value>Sunny.UI.UITabControlMenu, SunnyUI, Version=3.0.3.0, Culture=neutral, PublicKeyToken=null</value>
+  </data>
+  <data name="&gt;&gt;navTab.Parent" xml:space="preserve">
+    <value>$this</value>
+  </data>
+  <data name="&gt;&gt;navTab.ZOrder" xml:space="preserve">
+    <value>3</value>
   </data>
   <data name="btnClose.Font" type="System.Drawing.Font, System.Drawing">
     <value>微软雅黑, 18pt, style=Bold</value>

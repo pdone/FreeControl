@@ -39,7 +39,6 @@
             this.Icon = global::FreeControl.Properties.Resources.pcm;
             this.Name = "Trusteeship";
             this.Opacity = 0D;
-            this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.Text = "Trusteeship";
             this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
