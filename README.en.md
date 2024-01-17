@@ -56,14 +56,6 @@ My personal testing found that currently the phone input method apps that suppor
 
 This feature requires input method apps to be adapted. If you have any better suggestions, please feel free to recommend them in the comments.
 
-#### ⭐Automatic Switch Input Method Function Description
-
-Since most of my friends' daily use input methods do not support cross-screen input, I added the feature to automatically switch input methods when starting the app, which is used to automatically switch to non-daily use, but supports cross-screen input, input methods.
-
-In the main interface, set the input method you want to use, click the start button, and it will automatically switch (ensure that the phone has installed the corresponding input method app).
-
-When the window is closed, it will switch back to the original input method.
-
 ### Device Connection Issues
 
 #### USB connection
