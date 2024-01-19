@@ -88,7 +88,7 @@ namespace FreeControl.Utils
         /// <returns></returns>
         public static void ExecuteShell(string command)
         {
-            Logger.Info($"{command}", $"ADB Shell");
+            Logger.Info($"{command}", $"adb shell");
 
             var AdbProcessInfo = new ProcessStartInfo($"{ADBPath}adb.exe")
             {

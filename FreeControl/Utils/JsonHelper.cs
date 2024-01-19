@@ -1,31 +1,28 @@
-﻿//using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Web.Script.Serialization;
+﻿using System.Web.Script.Serialization;
 
 namespace FreeControl.Utils
 {
     public class JsonHelper
     {
-        /// <summary>  
-        /// json反序列化  
-        /// </summary>  
-        /// <param name="input"></param>  
-        /// <returns></returns>  
-        public static T jsonDes<T>(string input)
+        /// <summary>
+        /// Json字符串转对象
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static T Str2Obj<T>(string input)
         {
-            //return JsonConvert.DeserializeObject<T>(input);
-            JavaScriptSerializer javaScriptSerializer = new JavaScriptSerializer();
-            return javaScriptSerializer.Deserialize<T>(input);
+            return new JavaScriptSerializer().Deserialize<T>(input);
         }
-        public static string json(object obj)
+
+        /// <summary>
+        /// 对象转Json字符串
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public static string Obj2Str(object obj)
         {
-            //return JsonConvert.SerializeObject(obj, Formatting.Indented);
-            JavaScriptSerializer javaScriptSerializer = new JavaScriptSerializer();
-            return javaScriptSerializer.Serialize(obj);
+            return new JavaScriptSerializer().Serialize(obj);
         }
     }
 }

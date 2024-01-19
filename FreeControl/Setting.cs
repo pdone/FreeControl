@@ -174,6 +174,11 @@ namespace FreeControl
         public string Version { get; set; } = "1.0.0";
 
         /// <summary>
+        /// 是否启用输入法切换功能
+        /// </summary>
+        public bool EnableSwitchIME { get; set; } = false;
+
+        /// <summary>
         /// 启动Scrcpy时使用的输入法枚举值
         /// </summary>
         public int IME { get; set; } = 0;
@@ -196,5 +201,10 @@ namespace FreeControl
         /// 主窗口 y坐标
         /// </summary>
         public int MainWindowY { get; set; } = 0;
+
+        /// <summary>
+        /// 心跳间隔 单位：毫秒
+        /// </summary>
+        public int Heartbeat { get; set; } = 60000;
     }
 }
