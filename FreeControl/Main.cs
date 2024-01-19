@@ -83,12 +83,17 @@ namespace FreeControl
             public static string NameVersion { get; set; }
         }
 
-        public MultiLanguage i18n;
+        /// <summary>
+        /// 多语言支持
+        /// </summary>
+        public MultiLanguage I18n;
+
+        public static IntPtr ControllerPtr = IntPtr.Zero;
 
         /// <summary>
-        /// 是否启用输入法切换
+        /// 保持后台活跃 避免界面隐藏后被自动回收
         /// </summary>
-        public readonly bool EnableSwitchIME = false;
+        private readonly System.Timers.Timer _Timer;
         #endregion
 
         #region 构造函数
@@ -99,12 +104,20 @@ namespace FreeControl
         {
             // 获取用户配置数据
             _Setting = GetUserData();
-            LoadResEn();
-
+            // 加载语言资源
+            LoadLangRes();
+            // 设置语言
             string lang = _Setting.Language.GetDesc();
-            i18n = new MultiLanguage(_Setting.Language);
+            I18n = new MultiLanguage(_Setting.Language);
             System.Globalization.CultureInfo UICulture = new System.Globalization.CultureInfo(lang);
             Thread.CurrentThread.CurrentUICulture = UICulture;
+            // 界面保活
+            _Timer = new System.Timers.Timer(_Setting.Heartbeat);
+            _Timer.Elapsed += (sender, e) =>
+            {
+                Logger.Info("", "alive");
+            };
+
             InitializeComponent();
             InitPdone();
             IsInit = false;
@@ -135,10 +148,10 @@ namespace FreeControl
                 Directory.CreateDirectory(UserDataPath);
                 if (!File.Exists(fullPath))
                 {
-                    File.WriteAllText(fullPath, JsonHelper.json(tempData));
+                    File.WriteAllText(fullPath, JsonHelper.Obj2Str(tempData));
                 }
                 StreamReader reader = File.OpenText(fullPath);
-                tempData = JsonHelper.jsonDes<Setting>(reader.ReadToEnd());
+                tempData = JsonHelper.Str2Obj<Setting>(reader.ReadToEnd());
                 reader.Close();
                 return tempData;
             }
@@ -158,7 +171,7 @@ namespace FreeControl
             {
                 var fullPath = Path.Combine(UserDataPath, "config.json");
                 Directory.CreateDirectory(UserDataPath);
-                File.WriteAllText(fullPath, JsonHelper.json(userData));
+                File.WriteAllText(fullPath, JsonHelper.Obj2Str(userData));
             }
             catch (Exception ex)
             {
@@ -197,8 +210,8 @@ namespace FreeControl
             }
 
             #region 控件状态
-            uiLabel7.Visible = EnableSwitchIME;
-            linkIME.Visible = EnableSwitchIME;
+            uiLabel7.Visible = _Setting.EnableSwitchIME;
+            linkIME.Visible = _Setting.EnableSwitchIME;
             #endregion
 
             #region 事件绑定
@@ -280,9 +293,9 @@ namespace FreeControl
             #endregion
 
             #region 配置项默认值
-            comboPx.Items[0] = i18n.def;
-            comboMbps.Items[0] = i18n.def;
-            comboMaxFPS.Items[0] = i18n.def;
+            comboPx.Items[0] = I18n.def;
+            comboMbps.Items[0] = I18n.def;
+            comboMaxFPS.Items[0] = I18n.def;
             comboPx.SelectedIndex = _Setting.PXIndex;
             comboMbps.SelectedIndex = _Setting.BitRateIndex;
             comboMaxFPS.SelectedIndex = _Setting.MaxFPSIndex;
@@ -305,9 +318,9 @@ namespace FreeControl
             cbxShowTouches.Checked = _Setting.ShowTouches;
             cbxReadOnly.Checked = _Setting.ReadOnly;
             cbxAudioEnabled.Checked = _Setting.AudioEnabled;
-            linkIME.Text = i18n.imes[(InputMethod)_Setting.IME];
-            tbxIp.Watermark = i18n.tbxIpPlaceholder;
-            tbxPort.Watermark = i18n.tbxPortPlaceholder;
+            linkIME.Text = I18n.imes[(InputMethod)_Setting.IME];
+            tbxIp.Watermark = I18n.tbxIpPlaceholder;
+            tbxPort.Watermark = I18n.tbxPortPlaceholder;
             #endregion
         }
 
@@ -334,9 +347,9 @@ namespace FreeControl
         }
 
         /// <summary>
-        /// 加载英文资源
+        /// 加载语言资源 此资源控制界面布局
         /// </summary>
-        public void LoadResEn()
+        public void LoadLangRes()
         {
             if (_Setting.Language == Lang.en)
             {
@@ -365,7 +378,7 @@ namespace FreeControl
                 if (_Setting.UseWireless &&
                 (string.IsNullOrWhiteSpace(_Setting.IPAddress) || string.IsNullOrWhiteSpace(_Setting.Port)))
                 {
-                    ShowMessage(i18n.msgIpNull);
+                    ShowMessage(I18n.msgIpNull);
                     return;
                 }
 
@@ -511,7 +524,7 @@ namespace FreeControl
             scrcpy.Exited += (ss, ee) =>
             {
                 SetUserData(_Setting);// 关闭scrcpy后保存一下配置文件
-                if (EnableSwitchIME && _Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
+                if (_Setting.EnableSwitchIME && _Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
                 {
                     ADB.Execute($"shell ime set {_Setting.IMEOrigin}");
                 }
@@ -519,12 +532,12 @@ namespace FreeControl
                 FromHandle(false);
                 ButtonHandle(false);
                 LoadHistoryIPs(true);
-                ShowMessage(i18n.msgExit);
+                ShowMessage(I18n.msgExit);
             };
             scrcpy.BeginErrorReadLine();
             scrcpy.BeginOutputReadLine();
 
-            if (EnableSwitchIME && _Setting.IME != 0)
+            if (_Setting.EnableSwitchIME && _Setting.IME != 0)
             {
                 // 获取当前输入法
                 string strCurIME = ADB.Execute($"adb shell settings get secure default_input_method");
@@ -562,12 +575,12 @@ namespace FreeControl
                 if (isStart)
                 {
                     btnStart.Enabled = false;
-                    btnStart.Text = i18n.btnStarting;
+                    btnStart.Text = I18n.btnStarting;
                 }
                 else
                 {
                     btnStart.Enabled = true;
-                    btnStart.Text = i18n.btnStartDef;
+                    btnStart.Text = I18n.btnStartDef;
                 }
             };
             Invoke(action);
@@ -588,8 +601,10 @@ namespace FreeControl
                     if (_Setting.ControllerEnabled)
                     {
                         _Controller = new Controller();
+                        ControllerPtr = _Controller.Handle;
                         _Controller.Show();
                     }
+                    _Timer?.Start();
                 }
                 else
                 {
@@ -597,6 +612,7 @@ namespace FreeControl
                     Show();
                     Activate();
                     Focus();
+                    _Timer?.Stop();
                 }
             };
             Invoke(action);
@@ -621,7 +637,7 @@ namespace FreeControl
             else
                 action();
         }
-#endregion
+        #endregion
 
         #region 配置项改变事件
         /// <summary>
@@ -903,7 +919,7 @@ namespace FreeControl
 
         private void linkSetPort_Click(object sender, EventArgs e)
         {
-            if (UIMessageBox.Show(i18n.linkSetPort, i18n.linkSetPortTitle,
+            if (UIMessageBox.Show(I18n.linkSetPort, I18n.linkSetPortTitle,
                 _Setting.DarkMode ? UIStyle.Black : UIStyle.Gray, UIMessageBoxButtons.OKCancel, false))
             {
                 var batPath = ScrcpyPath + "SetProt.bat";
@@ -972,27 +988,27 @@ namespace FreeControl
 
         private void linkIME_Click(object sender, EventArgs e)
         {
-            var list = i18n.imes.Values.ToList();
+            var list = I18n.imes.Values.ToList();
             int select = _Setting.IME;
-            if (UISelectDialog.ShowSelectDialog(this, ref select, list, i18n.linkImeTitle, i18n.linkImeContent))
+            if (UISelectDialog.ShowSelectDialog(this, ref select, list, I18n.linkImeTitle, I18n.linkImeContent))
             {
                 _Setting.IME = select;
-                linkIME.Text = i18n.imes[(InputMethod)_Setting.IME];
+                linkIME.Text = I18n.imes[(InputMethod)_Setting.IME];
             }
         }
 
         private void linkLang_Click(object sender, EventArgs e)
         {
-            var list = i18n.langs;
+            var list = I18n.langs;
             int select = (int)_Setting.Language;
-            if (UISelectDialog.ShowSelectDialog(this, ref select, list, i18n.linkLangTitle, i18n.linkLangContent))
+            if (UISelectDialog.ShowSelectDialog(this, ref select, list, I18n.linkLangTitle, I18n.linkLangContent))
             {
                 if (select == (int)_Setting.Language)
                 {
                     return;
                 }
                 _Setting.Language = (Lang)select;
-                LoadResEn();
+                LoadLangRes();
 
                 System.Windows.Forms.Application.Restart();
             }

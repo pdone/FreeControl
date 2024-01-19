@@ -19,15 +19,15 @@ namespace FreeControl
         /// <summary>
         /// 更新控制器位置
         /// </summary>
-        public void UpdateLocation()
-        {
-            Action action = () =>
-            {
-                // 减去控制器自身默认宽度
-                Location = new Point(Main._Setting.ScrcpyPointX - 57, Main._Setting.ScrcpyPointY);
-            };
-            Invoke(action);
-        }
+        //public void UpdateLocation()
+        //{
+        //    Action action = () =>
+        //    {
+        //        // 减去控制器自身默认宽度
+        //        Location = new Point(Main._Setting.ScrcpyPointX - 57, Main._Setting.ScrcpyPointY);
+        //    };
+        //    Invoke(action);
+        //}
 
         /// <summary>
         /// 初始化窗口大小和位置

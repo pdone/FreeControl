@@ -194,7 +194,7 @@ namespace FreeControl
             this.ShowRadius = false;
             this.ShowTitle = false;
             this.Text = "Controller";
-            this.TopMost = true;
+            this.TopMost = false;
             this.flowPanel.ResumeLayout(false);
             this.ResumeLayout(false);
 

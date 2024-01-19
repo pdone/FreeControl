@@ -1,5 +1,9 @@
 # Free Control Update Record
 
+## v1.6.9
+- Fix bug
+- Some optimized
+
 ## v1.6.8
 - Fix bug
 - Remove automatic switching IME
