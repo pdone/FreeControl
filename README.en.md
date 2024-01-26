@@ -5,7 +5,6 @@
 [![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
 [![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
 [![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
-[![](https://img.shields.io/badge/site-Pdone's_Blog-blue?style=for-the-badge)](https://awaw.cc)
 
 ## Introduction
 
@@ -55,6 +54,8 @@ My personal testing found that currently the phone input method apps that suppor
 - WeChat IME
 
 This feature requires input method apps to be adapted. If you have any better suggestions, please feel free to recommend them in the comments.
+
+> Automatic input method switching is disabled by default. If you want it, close program first, then open the configuration file `%AppData%\FreeControl\config.json`, change the `EnableSwitchIME` field value to `true`, save and start the program.
 
 ### Device Connection Issues
 
