@@ -45,6 +45,15 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
 ### 输入法问题
 
+`v1.7.0` 及以后的版本中，默认启用scrcpy的 `UHID keyboard` 特性，以优化中文输入体验。
+
+如果在此过程中遇到了什么问题，可尝试打开配置文件 `%AppData%\FreeControl\config.json`，将 `CustomArgs` 的值由 `--keyboard=uhid` 改为 `--keyboard=sdk`。
+
+更多信息可参考 [scrcpy-doc-keyboard](https://github.com/Genymobile/scrcpy/blob/master/doc/keyboard.md)。
+
+<details>
+<summary>已过时</summary>
+
 个人测试发现，目前支持跨屏进行拼音输入的 **手机输入法APP** 如下：
 
 - 搜狗输入法
@@ -56,6 +65,8 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 此功能需要输入法APP适配，有更好用的输入法欢迎留言推荐。
 
 > 自动切换输入法功能默认禁用。如需启用，先关闭程序，然后打开配置文件 `%AppData%\FreeControl\config.json`，将 `EnableSwitchIME` 字段值改为 `true`，保存后启动程序即可。
+
+</details>
 
 ### 设备连接问题
 
@@ -209,6 +220,7 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 
 ![](https://raw.githubusercontent.com/pdone/static/master/img/donate/zfb_wx.jpg)
 
+爱发电❤ https://afdian.net/a/pdone
 </details>
 
 ## Stargazers Over Time
