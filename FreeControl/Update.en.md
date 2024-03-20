@@ -1,5 +1,10 @@
 # Free Control Update Record
 
+## v1.7.0
+- `UHID keyboard` is enabled by default to optimize the Chinese input experience
+- Add `PowerOffOnClose` parameter to control lock screen when exiting, enabled by default
+- Based on scrcpy v2.4(x64)
+
 ## v1.6.9
 - Fix bug
 - Some optimized

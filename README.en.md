@@ -45,6 +45,15 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
 ### Input Method Issues
 
+`v1.7.0` and later versions, the `UHID keyboard` feature of scrcpy is enabled by default to optimize the Chinese input experience.
+
+And if you run into any problems along the way, you can try to open the configuration file `%AppData%\FreeControl\config.json`，change the value of `CustomArgs` from `--keyboard=uhid` to `--keyboard=sdk`.
+
+More information can be found in [scrcpy-doc-keyboard](https://github.com/Genymobile/scrcpy/blob/master/doc/keyboard.md).
+
+<details>
+<summary>Obsolete</summary>
+
 My personal testing found that currently the phone input method apps that support cross-screen input are as follows:
 
 - Sogou IME
@@ -56,6 +65,8 @@ My personal testing found that currently the phone input method apps that suppor
 This feature requires input method apps to be adapted. If you have any better suggestions, please feel free to recommend them in the comments.
 
 > Automatic input method switching is disabled by default. If you want it, close program first, then open the configuration file `%AppData%\FreeControl\config.json`, change the `EnableSwitchIME` field value to `true`, save and start the program.
+
+</details>
 
 ### Device Connection Issues
 
