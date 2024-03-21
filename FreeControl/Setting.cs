@@ -206,5 +206,15 @@ namespace FreeControl
         /// 心跳间隔 单位：毫秒
         /// </summary>
         public int Heartbeat { get; set; } = 60000;
+
+        /// <summary>
+        /// 退出时锁屏
+        /// </summary>
+        public bool PowerOffOnClose { get; set; } = true;
+
+        /// <summary>
+        /// 自定义参数
+        /// </summary>
+        public string CustomArgs { get; set; } = "--keyboard=uhid";
     }
 }

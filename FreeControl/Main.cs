@@ -25,7 +25,7 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.3.1";
+        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.4";
         /// <summary>
         /// scrcpy路径
         /// </summary>
@@ -266,6 +266,10 @@ namespace FreeControl
             cbxShowTouches.ValueChanged += CommonCbx_ValueChanged;
             cbxReadOnly.ValueChanged += CommonCbx_ValueChanged;
             cbxAudioEnabled.ValueChanged += cbxAudioEnabled_ValueChanged;
+
+            uiLabel4.DoubleClick += (sender, e) => Process.Start(Logger.path);
+            uiLabel3.DoubleClick += (sender, e) => Process.Start(UserDataPath);
+
             #endregion
 
             #region 设置标题和图标
@@ -338,7 +342,7 @@ namespace FreeControl
             if (!Directory.Exists(ScrcpyPath))
             {
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_3_1);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_4);
                 // 解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 // 解压完成删除压缩包
@@ -404,10 +408,9 @@ namespace FreeControl
                 }
                 // 设置标题
                 StartParameters.Add($"--window-title \"{Info.ScrcpyTitle}\"");
-                // 设置为文本注入
-                StartParameters.Add($"--prefer-text");
-                // 设置为按键注入
-                // StartParameters.Add($"--raw-key-events");
+                // 设置断开后锁定屏幕
+                StartParameters.Add("--power-off-on-close");
+                StartParameters.Add(_Setting.CustomArgs);
                 if (_Setting.AudioEnabled == false) StartParameters.Add(_Setting.GetDesc("AudioEnabled"));// 不转发音频
 
                 // 其他参数
@@ -514,14 +517,8 @@ namespace FreeControl
                     }
                 }
             };
-            scrcpy.ErrorDataReceived += (ss, ee) =>
-            {
-                if (ee.Data.IsNotNull())
-                {
-                    Logger.Info($"{ee.Data}", "scrcpy");
-                }
-            };
-            scrcpy.Exited += (ss, ee) =>
+
+            void exitHandle()
             {
                 SetUserData(_Setting);// 关闭scrcpy后保存一下配置文件
                 if (_Setting.EnableSwitchIME && _Setting.IME != 0 && _Setting.IMEOrigin.IsNotNull())
@@ -533,7 +530,20 @@ namespace FreeControl
                 ButtonHandle(false);
                 LoadHistoryIPs(true);
                 ShowMessage(I18n.msgExit);
+            }
+
+            scrcpy.ErrorDataReceived += (ss, ee) =>
+            {
+                if (ee.Data.IsNotNull())
+                {
+                    Logger.Info($"{ee.Data}", "scrcpy");
+                    if (ee.Data.Contains("ERROR"))
+                    {
+                        exitHandle();
+                    }
+                }
             };
+            scrcpy.Exited += (ss, ee) => exitHandle();
             scrcpy.BeginErrorReadLine();
             scrcpy.BeginOutputReadLine();
 
@@ -766,6 +776,9 @@ namespace FreeControl
                     break;
                 case 5:
                     _Setting.BitRate = "-b 4M";
+                    break;
+                case 6:
+                    _Setting.BitRate = "-b 1M";
                     break;
                 default:
                     _Setting.BitRate = "";

@@ -283,7 +283,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="SetProt.bat" />
     <None Include="packages.config" />
-    <None Include="Resources\scrcpy-win64-v2.3.1.zip" />
+    <None Include="Resources\scrcpy-win64-v2.4.zip" />
     <None Include="Update.en.md" />
     <None Include="Update.md" />
   </ItemGroup>

@@ -350,7 +350,8 @@
             resources.GetString("comboMbps.Items2"),
             resources.GetString("comboMbps.Items3"),
             resources.GetString("comboMbps.Items4"),
-            resources.GetString("comboMbps.Items5")});
+            resources.GetString("comboMbps.Items5"),
+            resources.GetString("comboMbps.Items6")});
             this.comboMbps.Name = "comboMbps";
             this.comboMbps.Style = Sunny.UI.UIStyle.Custom;
             this.comboMbps.TextAlignment = System.Drawing.ContentAlignment.MiddleLeft;
