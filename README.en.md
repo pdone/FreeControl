@@ -1,6 +1,6 @@
 # FreeControl
 
-[![](https://img.shields.io/github/license/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/LICENSE)
+[![](https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/pdone/FreeControl/actions/workflows/build-and-release.yml)
 [![](https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/releases/latest)
 [![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
 [![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
