@@ -22,8 +22,8 @@ jobs:
         run: |
           msbuild FreeControl.sln /p:Configuration=Release /p:Platform="Any CPU" /p:OutputPath="../output"
           $filePath = "output/Freecontrol.exe"
-          $sha256Hash = (Get-FileHash -Algorithm SHA256 -Path $filePath).Hash
-          $sha256Hash > "output/SHA256"
+          $sha256Hash = (Get-FileHash -Algorithm SHA256 -Path $filePath).Hash.ToLower()
+          "``sha256: $sha256Hash``" > "output/SHA256"
 
       - name: Release
         uses: softprops/action-gh-release@v2
