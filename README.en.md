@@ -18,9 +18,9 @@ Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrc
 
 ## Interface
 
-![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.8_1_en.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/latest_home_en.png)
 
-![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.6.8_2_en.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/latest_setting_en.png)
 
 ![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/v1.4.0_5.gif)
 

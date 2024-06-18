@@ -18,9 +18,9 @@
 
 ## 界面
 
-![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.7.0_1.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/latest_home.png)
 
-![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/1.7.0_2.png)
+![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/latest_setting.png)
 
 ![](https://raw.githubusercontent.com/pdone/static/master/img/article/free-control/v1.4.0_5.gif)
 
