@@ -110,51 +110,7 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
    说明连接成功。
 
-#### 无线连接（Android11 及以上）
-
-Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以无线方式部署和调试应用。例如，您可以将可调试应用部署到多台远程设备，而无需通过 USB 实际连接设备。这样就可以避免常见的 USB 连接问题，例如驱动程序安装方面的问题。
-
-[官方文档](https://developer.android.com/studio/command-line/adb?hl=zh_cn#connect-to-a-device-over-wi-fi-android-11+)
-
-操作步骤：
-
-1. 更新到最新版本的 [SDK 平台工具](https://developer.android.com/studio/releases/platform-tools?hl=zh_cn)(至少30.0.0)。
-
-2. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
-
-3. 在开发者选项中启用**无线调试**。
-
-4. 在询问要允许在此网络上进行无线调试吗？的对话框中，点击允许。
-
-5. 选择使用配对码配对设备，使用弹窗中的 IP 地址和端口号。
-
-    ```sh
-    adb pair ipaddr:port
-    ```
-
-6. 提示 `Enter pairing code:` 时输入弹窗中的配对码，成功后会显示  `Successfully paired to ...` 。
-
-7. 使用无线调试下的 **IP 地址和端口**。
-
-    ```sh
-    adb connect ipaddr:port
-    ```
-
-8. 确认连接状态。
-
-   ```sh
-   adb devices
-   ```
-
-   如果能看到
-
-   ```sh
-   ipaddr:port device
-   ```
-
-   说明连接成功。
-
-#### 无线连接（需要借助 USB 线）
+#### 无线连接（首次需要借助 USB 线）
 
 除了可以通过 USB 连接设备与电脑来使用 adb，也可以通过无线连接——虽然连接过程中也有需要使用 USB 的步骤，但是连接成功之后你的设备就可以在一定范围内摆脱 USB 连接线的限制啦！
 
@@ -204,9 +160,58 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 
 如果还是不行的话，通过 `adb kill-server` 重新启动 adb 然后从头再来一次试试。
 
+<details>
+<summary>已隐藏</summary>
+
+#### 无线连接（Android11 及以上）
+
+Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以无线方式部署和调试应用。例如，您可以将可调试应用部署到多台远程设备，而无需通过 USB 实际连接设备。这样就可以避免常见的 USB 连接问题，例如驱动程序安装方面的问题。
+
+[官方文档](https://developer.android.com/studio/command-line/adb?hl=zh_cn#connect-to-a-device-over-wi-fi-android-11+)
+
+操作步骤：
+
+1. 更新到最新版本的 [SDK 平台工具](https://developer.android.com/studio/releases/platform-tools?hl=zh_cn)(至少30.0.0)。
+
+2. 将 Android 设备与要运行 adb 的电脑连接到同一个局域网，比如连到同一个 WiFi。
+
+3. 在开发者选项中启用**无线调试**。
+
+4. 在询问要允许在此网络上进行无线调试吗？的对话框中，点击允许。
+
+5. 选择使用配对码配对设备，使用弹窗中的 IP 地址和端口号。
+
+    ```sh
+    adb pair ipaddr:port
+    ```
+
+6. 提示 `Enter pairing code:` 时输入弹窗中的配对码，成功后会显示  `Successfully paired to ...` 。
+
+7. 使用无线调试下的 **IP 地址和端口**。
+
+    ```sh
+    adb connect ipaddr:port
+    ```
+
+8. 确认连接状态。
+
+   ```sh
+   adb devices
+   ```
+
+   如果能看到
+
+   ```sh
+   ipaddr:port device
+   ```
+
+   说明连接成功。
+
 #### 无线连接（无需借助 USB 线）
 
 **需要 root 权限**，此处不做详细说明，有需要的朋友可[参考此处](https://github.com/mzlogin/awesome-adb#%E6%97%A0%E7%BA%BF%E8%BF%9E%E6%8E%A5%E6%97%A0%E9%9C%80%E5%80%9F%E5%8A%A9-usb-%E7%BA%BF)。
+
+</details>
 
 ### 保持唤醒功能
 
