@@ -569,6 +569,7 @@
             // 
             // Main
             // 
+            this.AcceptButton = this.btnStart;
             this.AllowShowTitle = false;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));

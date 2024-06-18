@@ -1,0 +1,24 @@
+name: Test Build
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore FreeControl.sln
+
+      - name: Build
+        run: msbuild FreeControl.sln /p:Configuration=Release /p:Platform="Any CPU" /p:OutputPath="output"

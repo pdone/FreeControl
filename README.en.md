@@ -43,6 +43,14 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
 ## FAQ
 
+### Lock Screen After Closing Window
+
+`v1.7.1` and later versions, the `PowerOffOnClose` parameter is added to control whether the mobile phone will be locked after the control window is closed. It is not enabled by default. You can change the value of the `PowerOffOnClose` parameter to `true` in the configuration file `%AppData%\FreeControl\config.json` to enable it.
+
+### Compilation Issues
+
+`Workflows` have been added to this repository for continuous integration. You can view the latest code build status through `GitHub Action`. If `Workflows` is successfully built but cannot be compiled after being pulled locally, you can try to manually add project dependencies or retry by referring to the build process configured in `Workflows`.
+
 ### Input Method Issues
 
 `v1.7.0` and later versions, the `UHID keyboard` feature of scrcpy is enabled by default to optimize the Chinese input experience.
