@@ -43,6 +43,14 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
 ## 常见问题
 
+### 关闭窗口后锁屏
+
+`v1.7.1` 及以后的版本中，增加 `PowerOffOnClose` 参数，用于控制关闭控制窗口后，是否将手机锁屏。默认不启用，可以在配置文件 `%AppData%\FreeControl\config.json` 中，将 `PowerOffOnClose` 参数值改为 `true` 以启用。
+
+### 编译问题
+
+本仓库已添加 `Workflows` 进行持续集成，可通过 `GitHub Action` 查看最新代码构建情况。如果 `Workflows` 构建成功，但拉取本地后无法正常编译，可尝试手动添加项目依赖，也可参考 `Workflows` 中配置的构建流程重试。
+
 ### 输入法问题
 
 `v1.7.0` 及以后的版本中，默认启用scrcpy的 `UHID keyboard` 特性，以优化中文输入体验。

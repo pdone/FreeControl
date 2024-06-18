@@ -210,7 +210,7 @@ namespace FreeControl
         /// <summary>
         /// 退出时锁屏
         /// </summary>
-        public bool PowerOffOnClose { get; set; } = true;
+        public bool PowerOffOnClose { get; set; } = false;
 
         /// <summary>
         /// 自定义参数

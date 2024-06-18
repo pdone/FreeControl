@@ -409,7 +409,10 @@ namespace FreeControl
                 // 设置标题
                 StartParameters.Add($"--window-title \"{Info.ScrcpyTitle}\"");
                 // 设置断开后锁定屏幕
-                StartParameters.Add("--power-off-on-close");
+                if (_Setting.PowerOffOnClose)
+                {
+                    StartParameters.Add("--power-off-on-close");
+                }
                 StartParameters.Add(_Setting.CustomArgs);
                 if (_Setting.AudioEnabled == false) StartParameters.Add(_Setting.GetDesc("AudioEnabled"));// 不转发音频
 

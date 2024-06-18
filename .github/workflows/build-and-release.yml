@@ -1,0 +1,34 @@
+name: Build and Release
+
+on:
+  push:
+    tags: [ "v*.*.*" ]
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet Packages
+        run: nuget restore FreeControl.sln
+
+      - name: Build
+        run: |
+          msbuild FreeControl.sln /p:Configuration=Release /p:Platform="Any CPU" /p:OutputPath="../output"
+          $filePath = "output/Freecontrol.exe"
+          $sha256Hash = (Get-FileHash -Algorithm SHA256 -Path $filePath).Hash
+          $sha256Hash > "output/SHA256 $sha256Hash"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/FreeControl.exe
+            output/SHA256*
+          name: ${{ github.ref_name }}
+          draft: true
