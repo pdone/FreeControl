@@ -1,5 +1,8 @@
 # Free Control Update Record
 
+## v1.7.2
+- Fix bug
+
 ## v1.7.1
 - Add `Workflows`
 - Fix `PowerOffOnClose` parameter not taking effect

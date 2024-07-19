@@ -1,5 +1,8 @@
 # Free Control 更新记录
 
+## v1.7.2
+- 修复了一些bug
+
 ## v1.7.1
 - 增加 `Workflows`
 - 修复 `PowerOffOnClose` 参数未生效的问题

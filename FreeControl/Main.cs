@@ -204,9 +204,13 @@ namespace FreeControl
             ExtractResource(reload);
             if (_Setting.MainWindowX != 0 || _Setting.MainWindowY != 0)
             {
-                // 主窗口位置
-                StartPosition = FormStartPosition.Manual;
-                Location = new Point(_Setting.MainWindowX, _Setting.MainWindowY);
+                // 避免异常坐标导致窗口无法看到 同时需要考虑双屏时的负坐标 三屏或以上暂时无法测试与兼容
+                if (_Setting.MainWindowX.InRange(-1980, 1980) && _Setting.MainWindowY.InRange(-1080, 1080))
+                {
+                    // 主窗口位置
+                    StartPosition = FormStartPosition.Manual;
+                    Location = new Point(_Setting.MainWindowX, _Setting.MainWindowY);
+                }
             }
 
             #region 控件状态
