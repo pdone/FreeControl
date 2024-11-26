@@ -1,5 +1,9 @@
 # Free Control 更新记录
 
+## v1.7.3
+- 基于scrcpy v3.0(x32)
+- 增加 `CustomScrcpyPath` 参数用于自定义Scrcpy目录
+
 ## v1.7.2
 - 修复了一些bug
 

@@ -1,8 +1,8 @@
-﻿using FreeControl.Utils;
-using Sunny.UI;
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using FreeControl.Utils;
+using Sunny.UI;
 
 namespace FreeControl
 {

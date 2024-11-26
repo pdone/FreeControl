@@ -1,5 +1,9 @@
 # Free Control Update Record
 
+## v1.7.3
+- Based on scrcpy v3.0(x32)
+- Add 'CustomScrcpyPath' parameter to customize Scrcpy directory
+
 ## v1.7.2
 - Fix bug
 

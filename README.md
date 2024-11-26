@@ -43,6 +43,21 @@ https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.ex
 
 ## 常见问题
 
+### 自定义Scrcpy路径
+
+`v1.7.3` 增加了 `CustomScrcpyPath` 参数，默认值为程序内置Scrcpy目录。
+可以在配置文件 `%AppData%\FreeControl\config.json` 中，将值改为你自己的Scrcpy目录。
+需要注意，路径中反斜杠须进行转义，改为双反斜杠；也可以使用斜杠。
+
+```json
+// 使用反斜杠示例
+"CustomScrcpyPath":"D:\\YourDir\\scrcpy-win64-v3.0\\"
+```
+```json
+// 使用斜杠示例
+"CustomScrcpyPath":"D:/Test/scrcpy-win64-v3.0/"
+```
+
 ### 关闭窗口后锁屏
 
 `v1.7.1` 及以后的版本中，增加 `PowerOffOnClose` 参数，用于控制关闭控制窗口后，是否将手机锁屏。默认不启用，可以在配置文件 `%AppData%\FreeControl\config.json` 中，将 `PowerOffOnClose` 参数值改为 `true` 以启用。

@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
 
 namespace FreeControl
 {
@@ -216,5 +213,10 @@ namespace FreeControl
         /// 自定义参数
         /// </summary>
         public string CustomArgs { get; set; } = "--keyboard=uhid";
+
+        /// <summary>
+        /// 自定义Scrcpy路径
+        /// </summary>
+        public string CustomScrcpyPath { get; set; } = "";
     }
 }

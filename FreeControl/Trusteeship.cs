@@ -1,5 +1,5 @@
-﻿using FreeControl.Utils;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
+using FreeControl.Utils;
 
 namespace FreeControl
 {

@@ -1,6 +1,4 @@
-﻿using FreeControl.Utils;
-using Sunny.UI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -8,10 +6,11 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using FreeControl.Utils;
+using Sunny.UI;
 
 namespace FreeControl
 {
@@ -25,11 +24,11 @@ namespace FreeControl
         /// <summary>
         /// scrcpy版本
         /// </summary>
-        public static readonly string ScrcpyVersion = "scrcpy-win64-v2.4";
+        public static readonly string ScrcpyVersion = "scrcpy-win32-v3.0";
         /// <summary>
         /// scrcpy路径
         /// </summary>
-        public static readonly string ScrcpyPath = Path.Combine(UserDataPath, ScrcpyVersion + "\\");
+        public static string ScrcpyPath = Path.Combine(UserDataPath, ScrcpyVersion + "\\");
         /// <summary>
         /// 用户桌面路径
         /// </summary>
@@ -68,19 +67,19 @@ namespace FreeControl
             /// <summary>
             /// 程序名称 不带空格
             /// </summary>
-            public static readonly string Name = "FreeControl";
+            public const string Name = "FreeControl";
             /// <summary>
             /// 程序名称 带空格
             /// </summary>
-            public static readonly string Name2 = "Free Control";
+            public const string Name2 = "Free Control";
             /// <summary>
             /// scrcpy标题
             /// </summary>
-            public static readonly string ScrcpyTitle = "FreeControlScrcpy";
+            public const string ScrcpyTitle = "FreeControlScrcpy";
             /// <summary>
             /// 程序名称 带版本号
             /// </summary>
-            public static string NameVersion { get; set; }
+            public static readonly string NameVersion = $"{Name} v{Program.Version}";
         }
 
         /// <summary>
@@ -186,22 +185,21 @@ namespace FreeControl
         /// </summary>
         public void InitPdone()
         {
-            // 获取程序集信息
-            Assembly asm = Assembly.GetExecutingAssembly();
-            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(asm.Location);
+            if (Directory.Exists(_Setting.CustomScrcpyPath))
+            {
+                ScrcpyPath = _Setting.CustomScrcpyPath;
+                if (!ScrcpyPath.EndsWith("/") && !ScrcpyPath.EndsWith("\\"))
+                {
+                    ScrcpyPath += "/";
+                }
+            }
             // adb路径
             ADB.ADBPath = $@"{ScrcpyPath}";
             // 增加adb执行文件系统变量
             ADB.AddEnvironmentPath(ScrcpyPath);
-            // 是否重新加载资源包
-            bool reload = false;
-            if (_Setting.Version != fvi.ProductVersion)
-            {
-                reload = true;
-                _Setting.Version = fvi.ProductVersion;
-            }
+            _Setting.Version = Program.Version;
             // 提取资源
-            ExtractResource(reload);
+            ExtractResource();
             if (_Setting.MainWindowX != 0 || _Setting.MainWindowY != 0)
             {
                 // 避免异常坐标导致窗口无法看到 同时需要考虑双屏时的负坐标 三屏或以上暂时无法测试与兼容
@@ -277,7 +275,6 @@ namespace FreeControl
             #endregion
 
             #region 设置标题和图标
-            Info.NameVersion = $"FreeControl v{fvi.ProductVersion}";
             Text = Info.NameVersion;
             ledTitle.Text = Info.NameVersion;
             ledTitle.CharCount = 19;
@@ -335,18 +332,14 @@ namespace FreeControl
         /// <summary>
         /// 提取内置资源
         /// </summary>
-        private void ExtractResource(bool reload = false)
+        private void ExtractResource()
         {
             string tempFileName = "temp.zip";
-            // 如果重新加载 且旧目录存在 删除后重新解压资源
-            if (reload && Directory.Exists(ScrcpyPath))
-            {
-                Directory.Delete(ScrcpyPath, true);
-            }
             if (!Directory.Exists(ScrcpyPath))
             {
+                _Setting.CustomScrcpyPath = ScrcpyPath;
                 Directory.CreateDirectory(ScrcpyPath);
-                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win64_v2_4);
+                File.WriteAllBytes(ScrcpyPath + tempFileName, Properties.Resources.scrcpy_win32_v3_0);
                 // 解压缩
                 ZipFile.ExtractToDirectory(ScrcpyPath + tempFileName, UserDataPath);
                 // 解压完成删除压缩包

@@ -262,7 +262,6 @@
     <Compile Include="Utils\Logger.cs" />
     <Compile Include="Utils\MoveListener.cs" />
     <Compile Include="Utils\SysEnvironment.cs" />
-    <Compile Include="Utils\ZipHelper.cs" />
     <EmbeddedResource Include="Controller.resx">
       <DependentUpon>Controller.cs</DependentUpon>
     </EmbeddedResource>
@@ -283,7 +282,7 @@
     </EmbeddedResource>
     <EmbeddedResource Include="SetProt.bat" />
     <None Include="packages.config" />
-    <None Include="Resources\scrcpy-win64-v2.4.zip" />
+    <None Include="Resources\scrcpy-win32-v3.0.zip" />
     <None Include="Update.en.md" />
     <None Include="Update.md" />
   </ItemGroup>
