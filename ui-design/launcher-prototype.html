@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FreeControl2 · UI 原型</title>
+<!-- 与侧边栏品牌标记同源，仅用于浏览器标签页预览；资产来源为 assets/icons/desktop/128x128.png（成品位图，应用图标取同包 desktop/ 的同一份） -->
+<link rel="icon" href="../assets/icons/desktop/128x128.png" />
+<style>
+  :root {
+    --bg: #0b0d11;
+    --bg-elev: #14171d;
+    --panel: #171b22;
+    --panel-2: #1c212b;
+    /* 内联 code 的底色：比 --panel-2 再抬约 9% 亮度（≈#2e333d）。
+       直接沿用 --panel-2 时，卡片（--panel）/ 弹窗底上的 code 底与底几乎同色，
+       看不出是一个「块」；由 --text 混出，与灰阶同色相，不新增硬编码色。 */
+    --code-bg: color-mix(in srgb, var(--text) 9%, var(--panel-2));
+    --border: #272d38;
+    --border-strong: #353c49;
+    --text: #e7eaf0;
+    --text-dim: #9aa3b2;
+    --text-faint: #6b7382;
+    /* 强调色：固定为产品默认色（indigo），不提供用户自定义入口。
+       只有 --accent 是字面量，其余一律由它派生（CSS 用 color-mix）—— 界面里不留第二处硬编码，
+       否则调整主色必漏（历史上 tag 描边、code 文字、选中项文字就是这类漏点）。
+       --accent-ink 是压在「强调色实底」上的文字色（主按钮 / 分段控件选中项 / logo 兜底块）；
+       主色 #6366f1 偏暗（相对亮度远低于翻转阈值 ≈0.20），白字对比度 4.47:1，故固定用白色。 */
+    --accent: #6366f1;
+    --accent-ink: #fff;
+    --accent-hover: color-mix(in srgb, var(--accent) 85%, #fff);         /* 压在【深底】上的高亮色：图标 / 文字 / 滑块手柄，须比主色更亮 */
+    --accent-text:  color-mix(in srgb, var(--accent) 35%, #fff);         /* 搭 soft 背景的浅色文字 */
+    --accent-soft:  color-mix(in srgb, var(--accent) 14%, transparent);  /* 选中背景（含弹窗图标底） */
+    --accent-weak:  color-mix(in srgb, var(--accent) 5%,  transparent);  /* 极淡提示条背景 */
+    --accent-line:  color-mix(in srgb, var(--accent) 40%, transparent);  /* tag 描边 */
+    --danger: #f87171;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --teal: #22d3ee;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    /* 轨道色系：滑块未填充段 / 下载进度条槽 / 滚动条槽共用，不进界面主色体系。
+       必须【不透明】—— Chromium 自绘滚动条有独立合成层，trough 写 transparent 会被
+       当作"未绘制"，露出该层默认底色（浅色），在深色界面里就表现为「白底 + 深色滑块」。
+       所以滚动条槽取实色；取值贴近 --bg-elev，视觉上像"透明槽"，但确实画了。 */
+    --track: #262c37;          /* 未填充轨道（滑块 / 下载进度条） */
+    --scroll-track: #14171d;   /* 滚动条槽（务必保持不透明，勿改回 transparent） */
+    --scroll-thumb: #333a47;
+    --scroll-thumb-hover: #4b5464;
+    font-synthesis: none;
+    /* 让 WebView2 / Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
+       textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。
+       注：这一行只影响"系统绘制"的部件；下面自绘的滚动条与滑块不受它约束。 */
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 界面文本的可选中性与光标形态（三态） ----------
+     界面文本收敛为三态：可点击 = 指针光标 + 不可选中；技术值 = 文本光标 + 可选中；
+     其余外壳文字 = 默认箭头 + 不可选中。
+     注意 I 形光标不是本文件哪一行写出来的 —— 它是 cursor:auto 压在选择中文本上时由运行环境
+     解析出来的效果（全仓 cursor:text / user-select:text 原本都是 0 处），所以"关掉它"只能显式
+     声明 cursor:default。cursor 与 user-select 都是**可继承**属性 ⇒ 表单控件必须显式开例外；
+     例外里 cursor 写 auto 而**不是** text：让 range / checkbox 仍拿各自的光标，
+     只有文本输入才解析成 I 形。 */
+  body { user-select: none; cursor: default; }
+  input, textarea, select, [contenteditable] { user-select: text; cursor: auto; }
+  /* 技术值白名单：作为值**独立承载**、会被用户带出应用的技术文本一律保持可选中。
+     说明文字里的【裸】技术值（如提示语中的 %APPDATA%/… 目录约定、设备卡上的 PID 与窗口坐标）
+     不在其列 —— 本规则只认有独立承载的技术值，不为一句提示去改文案结构（见 spec 的做法约定）。
+     下列选择器在本原型里**没有对应元素**，故不在此列出（产品侧有）：.log-view / .sess-cmd /
+     .sess-cmd code 的宿主、.env-path、.env-reason-cmp、.flabel code —— 原型没有会话输出那一块
+     与运行环境原因块，参数标签也未用 <code> 承载 flag 名。产品侧落规则时以产品侧那份为准。 */
+  .dev-cid, .proxy-url, .cmd-preview, .path-row > input[readonly],
+  .dl-text, .dl-channel, .hint code, .modal code
+  { user-select: text; cursor: text; }
+  /* 关于弹窗的两处**不在**白名单里：
+     · 技术栈药丸是纯静态标签（不是会被带走的"值"），回到外壳文字态；
+     · 版本值随版本行整行成为可点击目标 —— 复制由那个整行入口承担（见 .about-ver-row）。
+     药丸这一条仍要写：`.chip` 自带 cursor:pointer，而关于页的药丸不可点。 */
+  .modal.about-modal .chip { cursor: default; }
+  /* 选中高亮由强调色派生：运行环境默认的高亮色在暗色界面上是一块突兀的亮色。
+     不用 --accent-soft（14%）—— 那是给"选中态背景"用的，铺在整段被选中的文字上太淡，
+     看不出选区边界。 */
+  ::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--text); }
+  /* 侧栏收起几何：收起态一律由 flex 精确居中，不依赖 padding 算术；只改下面几个尺寸即可
+     约束：展开态图标 x = --rail-pad + --item-pad
+           收起态居中 x = --rail-pad + (栏内容宽 − --icon) / 2
+           两者相等（此处均为 22px）→ 图标在收起/展开之间不位移 */
+  .app {
+    --rail-pad: 10px;    /* .sidebar 横向 padding */
+    --item-pad: 12px;    /* .nav-item / .collapse-btn 横向 padding */
+    --icon: 20px;        /* 导航 / 收起按钮图标尺寸 */
+    --logo: 45px;        /* logo 尺寸（改动后 .brand 的居中偏移自动跟随，不需手算） */
+    --rail-w: 64px;      /* 收起后侧栏宽度（设计值；居中由 flex 保证，与其无关） */
+    display: grid; grid-template-columns: 210px 1fr; height: 100vh; transition: grid-template-columns .18s ease;
+  }
+
+  /* ---------- Sidebar ---------- */
+  /* 分隔线用 inset box-shadow 画而不是 border：border 会吃掉 1px 布局宽度，使栏内内容整体偏离中线 */
+  .sidebar { background: var(--bg-elev); box-shadow: inset -1px 0 0 var(--border); display: flex; flex-direction: column; padding: 18px var(--rail-pad); }
+  /* 品牌行：左右偏移由 --logo 派生，使 logo 的**水平中心恒为 x=32**
+     （= 展开态导航图标中心 = 收起态栏中线：栏内容宽 64−2×10 = 44，
+      偏移 = (44 − --logo)/2，logo 中心 = 10 + 偏移 + --logo/2 = 32，与 --logo 取值无关）。
+     两态取值完全相同 ⇒ 收起/展开时 logo 零位移，不需要任何 collapsed 覆盖，
+     将来只改 --logo 也自动重新居中。
+     用 margin 而非 padding：--logo(45) 比栏内容宽(44) 大 1px，偏移为 −0.5px，
+     而 padding 不接受负值（会被钳到 0 ⇒ 反而偏心 0.5px）；margin 允许负值。
+     溢出 0.5px 无碍：logo 四角透明（成品资产圆角矩形沿对角线的缺口约 10%，45px 下约 4.4px），实际图形仍完整落在栏内。 */
+  .brand { display: flex; align-items: center; gap: 10px; padding-top: 6px; padding-bottom: 16px;
+           margin-left: calc((var(--rail-w) - 2 * var(--rail-pad) - var(--logo)) / 2);
+           margin-right: calc((var(--rail-w) - 2 * var(--rail-pad) - var(--logo)) / 2);
+           transition: gap .18s ease; }
+    /* 品牌行是「关于」弹窗的入口之一：整行可点，故给指针与一处 hover 反馈
+    （只改产品名颜色，不动行的几何与两态过渡）。 */
+    .brand.clickable { cursor: pointer; }
+    .brand.clickable:hover .name { color: var(--accent-hover); }
+  /* 品牌标记。尺寸只由 --logo 控制；图形是成品位图 desktop/128x128.png（带母版的明暗层次），
+     品牌底色与圆角（rx=243/1024 ≈ 23.7%）都已内含在资产里，CSS 不参与。
+     1) img 不设 border-radius：圆角与底板渐变都是品牌资产的一部分，不得用 CSS 改写；
+        也不要往图片下垫色块/渐变 —— 垫了就要额外用 CSS 圆角去盖四角，只会把脏边露出来。
+     2) .logo 的 24% 圆角只为兜底层而设（对齐成品资产的 23.7%），
+        按百分比写 ⇒ 改 --logo 时兜底外观自动同比例缩放。
+     3) 兜底渐变只在【没有图片】时绘制（:not(:has(img))）：图片加载失败会被 onerror 移除，
+        于是兜底层自动出现，避免破图；有图时完全不画底。
+     4) 兜底色**只用强调色族**，不引入品牌色：品牌色（琥珀 #FCCD01）只存在于资产内部、
+        不进界面配色体系（见 D9），且它与状态栏「非最佳适配版本」的琥珀色警示（--warn）相近，
+        若把兜底也染成琥珀，会在界面里制造一个与警示语义撞色的品牌色块。 */
+  .brand .logo { position: relative; width: var(--logo); height: var(--logo); flex: none; border-radius: 24%; display: grid; place-items: center; }
+  .brand .logo:not(:has(img)) { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: var(--accent-ink); font-weight: 700; }
+  .brand .logo:has(img) { color: transparent; }
+  .brand .logo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* 品牌行只有图形标记与产品名（MUST NOT 再出现版本号）：版本信息统一在「关于」弹窗展示，
+     产品侧的品牌行早已只渲染产品名，原型留着一行版本会演示出并不存在的东西。 */
+  .brand .name { font-weight: 600; letter-spacing: .3px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 var(--item-pad); border-radius: var(--radius-sm); color: var(--text-dim); cursor: pointer; user-select: none; transition: background .12s, color .12s, gap .18s ease; font-size: 14.5px; }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent-text); }
+  .nav-item.active svg { stroke: var(--accent-hover); }
+  .nav-item svg { width: var(--icon); height: var(--icon); stroke: var(--text-faint); stroke-width: 1.7; fill: none; flex: none; transition: width .18s ease, height .18s ease; }
+  .nav-sep { height: 1px; background: var(--border); margin: 10px 8px; }
+
+  /* 导航/品牌文字：用 max-width + opacity 过渡，与侧栏宽度动画同速，避免挤压闪烁 */
+  .nav-text, .brand-text { white-space: nowrap; overflow: hidden; min-width: 0; max-width: 200px; opacity: 1; transition: max-width .18s ease, opacity .15s ease; }
+  /* 侧边栏收起按钮：边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
+  .collapse-btn { margin-top: 12px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .12s, color .12s, gap .18s ease; }
+  .collapse-btn:hover { box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text); }
+  .collapse-btn svg { width: var(--icon); height: var(--icon); stroke: currentColor; stroke-width: 1.7; flex: none; transition: transform .18s ease; }
+  /* 收起态：collapsed 加在 .app 容器上。
+     居中完全由几何保证（--rail-w = 2×(--rail-pad + --item-pad) + --icon），
+     所以收起时【不再改动 nav-item / collapse-btn 的 padding】。
+     原因：padding 不在过渡列表里，会在宽度动画开始前"瞬间"生效 —— 图标先跳到
+     收起态位置、侧栏随后才收窄，看起来就是"弹一下"。收起态只动画 gap 与文字宽度，
+     图标 x 全程恒为 22px。nav-sep 的 margin 同理保持两态一致（对称 margin 自然居中）。
+     品牌行同理：它的居中 padding 两态取值相同，故此处无需覆盖（见 .brand 注释）。 */
+  .app.collapsed { grid-template-columns: var(--rail-w) 1fr; }
+  .app.collapsed .launchbar { left: var(--rail-w); }
+  .app.collapsed .sidebar .nav-item,
+  .app.collapsed .sidebar .brand { gap: 0; }
+  .app.collapsed .sidebar .collapse-btn { gap: 0; }
+  .app.collapsed .sidebar .nav-text,
+  .app.collapsed .sidebar .brand-text { max-width: 0; opacity: 0; }
+  .app.collapsed .sidebar .collapse-btn svg { transform: rotate(180deg); }
+
+  /* ---------- Main ---------- */
+  /* 命令条为内容区让出的底部留白：取值在 .main 上单点定义，与命令条是否呈现同步
+     —— 日志 / 运行环境两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
+  .main { display: flex; flex-direction: column; min-width: 0; --bar-reserve: 120px; }
+  .main.no-bar { --bar-reserve: 26px; }
+  .topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 0 0 22px; border-bottom: 1px solid var(--border); background: rgba(20,23,29,.6); backdrop-filter: blur(8px); }
+  .topbar .title { font-weight: 600; }
+  .topbar .spacer { flex: 1; }
+  /* 自绘标题栏的窗口控件（右端三枚）：46px 宽 × 顶栏全高，**贴窗口右缘** —— 故 .topbar 的右内边距为 0，
+     与左内边距不再对称（左 22px / 右 0）。控件与左边那颗状态指示的间隔由 .topbar 的 gap 给。
+     悬停取 Windows 原生口径：最小化 / 最大化用中性叠加，关闭用破坏性实底（红底白图标）。
+     两处都不新造颜色常量：中性叠加由 --text 混出（与 --code-bg 同一手法），破坏底由 --danger 压暗得到，
+     白色取自 --accent-ink（调色板里表示「压在实底上的白色」的那一个取值）。 */
+  .win-controls { display: flex; align-self: stretch; }
+  .win-btn { width: 46px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; transition: background-color .12s, color .12s; }
+  .win-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+  .win-btn:active { background: color-mix(in srgb, var(--text) 14%, transparent); }
+  .win-btn.close:hover { background: color-mix(in srgb, var(--danger) 55%, #000); color: var(--accent-ink); }
+  .win-btn.close:active { background: color-mix(in srgb, var(--danger) 42%, #000); }
+  .win-btn svg { width: 16px; height: 16px; stroke-width: 1.7; flex: none; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--text-dim); background: var(--panel); }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+  .pill.ok { color: var(--success); border-color: rgba(52,211,153,.35); }
+  .pill.ok .dot { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  /* 非最佳适配版本：黄色叹号警示（不阻断任何操作）。
+     这里**不给**指针光标 —— 指针只由下面的 .pill.clickable 给：顶栏那颗确实可点，
+     而「运行环境」页的状态指示用的是同一个 .pill.env.warn 却不可点，
+     写在 warn 上会让那颗不可点的指示也显示手形光标（光标与可点击性必须一致）。 */
+  .pill.env.warn { color: var(--warn); border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.08); }
+  .pill.env.warn svg { width: 13px; height: 13px; stroke: var(--warn); flex: none; }
+  /* 顶栏两个状态指示可点击跳转：点设备概况回「设备」页，点运行环境指示去「运行环境」页 */
+  .pill.clickable { cursor: pointer; }
+
+  .content { flex: 1; overflow-y: auto; padding: 22px 26px var(--bar-reserve); }
+  .section { display: none; animation: fade .18s ease; }
+  .section.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .sec-head { margin-bottom: 16px; }
+  .sec-head h2 { font-size: 17px; font-weight: 600; }
+  .sec-head p { color: var(--text-faint); font-size: 12.5px; margin-top: 3px; }
+
+  /* 通用隐藏开关（此前只有 .dev-params.hidden，导致 cameraCard / mWifiField 等"设了 hidden 却依然显示"） */
+  .hidden { display: none; }
+
+  /* ---------- 原生滚动条暗色适配 ---------- */
+  /* 两个内核必须走不同且互斥的通道：Chromium 一旦设了标准属性 scrollbar-color/width，
+     就会整体忽略 ::-webkit-scrollbar 的自绘样式；若两条都写，结果取决于运行时版本。
+     故用 @supports 分流，保证任一内核下只命中一套。
+     关键（这条踩过）：两套都**必须给槽上实色**。只给 thumb 上色、槽留 transparent 时，
+     Chromium 把未绘制的槽当成"没画"，露出自绘滚动条合成层的默认浅色底 ——
+     深色界面里就出现「白色背景 + 深色拉手」，也就是本次反馈的现象。 */
+  @supports selector(::-webkit-scrollbar) {
+    ::-webkit-scrollbar { width: 10px; height: 10px; background: var(--scroll-track); }
+    ::-webkit-scrollbar-track { background: var(--scroll-track); }
+    /* 2px 透明 border + content-box 裁剪：视觉宽 6px，但热区仍有 10px，细而不难点 */
+    ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: content-box; }
+    ::-webkit-scrollbar-corner { background: var(--scroll-track); }
+  }
+  /* Firefox 不支持 ::-webkit-scrollbar，只能走标准属性；槽同样给实色（transparent 会露出页面底/白） */
+  @supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
+  }
+
+  .param-note { display: none; align-items: center; gap: 8px; padding: 9px 13px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--accent-weak); color: var(--text-dim); font-size: 12px; margin-bottom: 16px; }
+  .param-note.show { display: flex; }
+  .param-note svg { width: 15px; height: 15px; stroke: var(--accent-hover); }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 18px; }
+  .card.col2 { grid-column: span 2; }
+  .card h3 { font-size: 11.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  /* 标签行两种写法同款：`.flabel` 是**产品侧的写法**（`EnvironmentPage` / `ParamField` 都用它）。
+     带 `?` 的字段必须用 `.flabel` 而不是 `<label>` —— `<button>` 是 labelable 元素，
+     `<label>` 里嵌一个按钮时，点标签行**任意处**都会被转发去激活它、它随即拿到焦点，
+     `:focus-within` 就把说明面板钉住了：等于整行都是「帮助按钮」的热区。
+     实测（无头 Edge，改前）：点标签文字 → `activeElement` 变成 `BUTTON`、面板展开。 */
+  .field > label,
+  .field > .flabel { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; }
+  .field .hint { font-size: 11px; color: var(--text-faint); margin-top: 5px; }
+  .field .hint b { color: var(--warn); font-weight: 600; }   /* 提示里的告警片段（如可读性不足） */
+  /* 添加设备弹窗的连接方式两支**同处一格**（openspec/config.yaml ⑭ 的「等高收尾」）：
+     容器高度取两者中的较高者，切换只改可见性 ⇒ 不重算高度、不产生位移。
+     不活跃者用 `visibility: hidden` 而不是 `display: none` —— 占位、不可聚焦、对 AT 不可见三者都要。
+     外部外边距显式化，不依赖「栅格容器是否把子项外边距计入轨道高度」这类细节。 */
+  .field-swap { display: grid; margin-bottom: 14px; }
+  .field-swap > .field { grid-area: 1 / 1; margin-bottom: 0; }
+  .field-swap > .field.off { visibility: hidden; }
+  .field > label code,
+  .field > .flabel code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: var(--accent-text); font-size: 11px; }
+
+  /* ---------- 详情入口（`?`）与详情面板 ----------
+     每个字段：字段下方一句**简短常驻说明**（`.hint`）＋ 标签右侧 `?` 里的**详情**（config ④）。
+     详情可为可读性改写措辞、并按语义拆成多段（`.fhelp-p`），但信息不得丢。
+     展开方式有三种，全靠 CSS 承担（没有脚本、没有状态）：**指针悬浮**、**键盘聚焦**、
+     以及**点击后保持展开** —— 后者由 :focus-within 顺带实现（鼠标点击会让按钮获得焦点），
+     于是「同一时刻最多一块被固定」由**焦点唯一**自然成立，不必写脚本。
+     代价（用户 2026-10-08 明确接受）：**不能「再点一下收起」** —— 收起要点页面别处，
+     或用键盘把焦点移走。
+     面板【绝对定位、不参与布局】⇒ 展开既不改变卡片高度、也不推动下方元素。
+     定位祖先是**标签行本身**（`.field > label` / `.field > .flabel`：块级、宽度恒等于该字段的
+     可用宽度），**不是 .fhelp** —— 这样面板左缘与标签左缘对齐，而 `max-width: 100%` 正好等于
+     「字段可用宽」，窗口一窄面板跟着收窄、不会撞出窗口（config ⑭）。若定位祖先是 .fhelp
+     （行内块、只有图标那么宽），`100%` 会解析成十几像素，上限就管不住宽度 —— 实测过：视口
+     收到 700px 时面板右缘仍在 759px，被窗口截断。
+     `::before` 是一条盖住标签与面板之间那 6px 缝的透明桥：没有它，指针从 `?` 往下移向
+     面板时会经过「谁都没悬停」的一瞬，面板随即收起 —— 那块面板也就永远进不去。
+     与产品侧 app.css 的 .fhelp / .fhelp-btn / .fhelp-panel / .fhelp-title / .fhelp-p 同名同值。 */
+  .field > label,
+  .field > .flabel { position: relative; }
+  .fhelp { display: inline-block; }
+  /* 入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色 ——
+     再画一圈就成了"圈中圈"。定位祖先是这个行内包裹。与产品侧 .fhelp-btn 同款。 */
+  .fhelp-btn { margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+  .fhelp-btn:hover { color: var(--text-dim); }
+  .fhelp-btn svg { width: 14px; height: 14px; }
+  /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
+     原固定值 440px 退居上限，且上限定为 `min(440px, 100%)`，随字段可用宽收窄，window 窄了不截断。 */
+  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: none; width: max-content; max-width: min(440px, 100%); padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); box-shadow: var(--shadow); color: var(--text-dim); font-size: 12px; line-height: 1.6; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .fhelp-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
+  /* 详情分段的每一段（config ④）：块级；段间留白与 `.hint` 那一档同值（5px 上下取整）。 */
+  .fhelp-p { display: block; }
+  .fhelp-p + .fhelp-p { margin-top: 6px; }
+  /* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 .fhelp.open ——
+     没有脚本、没有状态，入口上也不挂 aria-expanded（静态写死的值在展开时是假的）。 */
+  .fhelp:hover .fhelp-panel { display: block; }
+  .fhelp:focus-within .fhelp-panel { display: block; }
+  .fhelp-title { display: block; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+
+  /* ---------- scrcpy 运行环境（「更多」页） ---------- */
+  .path-row { display: flex; align-items: center; gap: 10px; }
+  .path-row > svg { width: 16px; height: 16px; stroke: var(--text-faint); flex: none; }
+  .path-row > input { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--text-dim); }
+  .path-row > .btn { flex: none; }
+  /* 紧跟在文本框后面的按钮与它**等高**（「目录」行的「打开目录」）。文本框实测 36px
+     （9px 上下内边距 ×2 + 13px 行高 + 2px 边框），按钮取同一取值才与它齐平。
+     与下面那条 `.seg + .btn` 是一个手法。 */
+  .path-row > input + .btn.sm { height: 36px; }
+  /* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
+     与产品侧同一条选择器、同一个取值：38px 即分段控件自己的外框（2px 边框 + 3px 内边距 x2
+     + 30px 按钮）。作用域靠 `+` 限定，运行环境页那三处 `.path-row` 里没有 `.seg`，不受影响。 */
+  .path-row > .seg + .btn.sm { height: 38px; }
+  .dl { margin-top: 14px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); }
+  /* 进度文案 / 通道信息 / 百分比三格同行，且整行恒为单行（超出省略、全文进 title）——
+     与产品侧 `.dl-head` 同构（产品在那里的取舍：通道那格吃掉剩余宽度、百分比恒钉最右）。 */
+  .dl .dl-head { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-dim); margin-bottom: 9px; }
+  .dl .dl-head .dl-text, .dl .dl-head .dl-channel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .dl .dl-head .dl-channel { flex: 1 1 auto; }
+  .dl .dl-head .dl-percent { flex: none; margin-left: auto; }
+  .dl .dl-bar { height: 6px; border-radius: 999px; background: var(--track); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
+  .dl .dl-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--teal)); transition: width .2s ease; }
+  /* 「切换通道 / 取消」在进度条**下方新起一行**（与产品侧 app.css 的 .dl-actions 同值）：
+     通道行三格已实测超宽，再塞按钮会破掉「整行恒为单行」的约定。 */
+  .dl .dl-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .12s;
+  }
+  textarea { resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .toggle .t-label { font-size: 13px; }
+  .switch { position: relative; width: 42px; height: 24px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; transition: .18s; }
+  .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: var(--text-faint); border-radius: 50%; transition: .18s; }
+  .switch input:checked + .slider { background: var(--accent-soft); border-color: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent-hover); }
+
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
+  .seg button { border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; }
+  .seg button.active { background: var(--accent); color: var(--accent-ink); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); padding: 6px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer; user-select: none; transition: .12s; }
+  .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+
+  .range-row { display: flex; align-items: center; gap: 12px; }
+  /* ---------- 滑块（range）暗色适配 ---------- */
+  /* 原生 range 的轨道与滑块由系统按浅色绘制，在暗色界面里很突兀，故完全自绘。
+     「已填充到哪」纯 CSS 表达不了（Chromium 没有 range-progress 伪元素），
+     由 JS 写入 --p（0–100%）交给轨道渐变表现；两个内核共用同一变量与同一视觉，
+     只有伪元素名不同 —— 必须拆成独立规则，混在一个选择器里会让整条规则失效。 */
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 20px; background: transparent; cursor: pointer; }
+  input[type=range]:focus-visible { outline: none; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
+    box-shadow: inset 0 0 0 1px var(--border);   /* 不用 border：不吃布局宽度，也不会让 --p 渐变与轨道错位 */
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; margin-top: -5px;   /* (16-6)/2，让滑块在 6px 轨道上垂直居中 */
+    border-radius: 50%; background: var(--accent-hover);
+    box-shadow: 0 0 0 2px var(--bg-elev), 0 2px 6px rgba(0,0,0,.45);   /* 外圈底色描边，保证压在轨道上仍看得清 */
+  }
+  input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 2px var(--bg-elev); }
+  input[type=range]::-moz-range-track {
+    height: 6px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border: none; border-radius: 50%;
+    background: var(--accent-hover);
+    box-shadow: 0 0 0 2px var(--bg-elev), 0 2px 6px rgba(0,0,0,.45);
+  }
+  input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 2px var(--bg-elev); }
+  .range-val { min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); font-size: 13px; }
+
+  /* ---------- Device cards (merged: management + connection) ---------- */
+  .dev-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .dev-toolbar .spacer { flex: 1; }
+  /* 批量结果的就地反馈位：可收缩，长结果在本行内换行，不把按钮挤走（与产品侧同名规则同值） */
+  .dev-toolbar .status-text { min-width: 0; }
+  .dev-list { display: grid; gap: 12px; }
+  /* 选中态改的是卡片自身的边框色（不再是底色）—— 过渡属性随之翻回 border-color；
+     边框宽度仍 1px，故布局盒与卡内文字位置都不动。 */
+  .dev-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 12px; transition: border-color .12s; }
+  /* 「已连接」的强调落在卡片左缘的一条 --success 色条上。用 inset 阴影而不是 border-left
+     —— 后者占布局盒，会把该卡内容右推 2px，成列的状态点随之错位。 */
+  .dev-card.connected { box-shadow: inset 3px 0 0 var(--success); }
+  /* 选中态（命令预览的目标）由卡片自身的边框承担：描边色取既有的 --accent-line（tag 描边同款），
+     外描边与底色抬升已撤；边框宽度仍 1px、底色不变，卡内文字与左缘色条都不位移。 */
+  .dev-card.sel { border-color: var(--accent-line); }
+  /* 既已连接又被选中：不再需要合并声明 —— 色条走 box-shadow、选中走边框色，两者各占一个属性。 */
+  .dev-card.offline { opacity: .72; }
+  .dev-main { display: flex; align-items: center; gap: 13px; cursor: pointer; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  /* 「已连接」与「在线」的状态点同形同色：已连接的强调不落在状态点上，而落在卡片左缘
+     的色条（见 .dev-card.connected）。两态合并成一条，避免两处各写一句而分叉。 */
+  .status-dot.connected,
+  .status-dot.idle { background: var(--success); }
+  .status-dot.offline { background: var(--text-faint); }
+  .dev-id { min-width: 0; flex: 1; }
+  .dev-alias { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dev-alias .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; }
+  .dev-alias .edit:hover { color: var(--accent-hover); }
+  .dev-alias .edit svg { width: 13px; height: 13px; stroke: currentColor; }
+  .dev-alias input { font-weight: 600; font-size: 14.5px; padding: 3px 7px; width: 200px; }
+  /* 别名行里的标识：外框必须与别名的行盒等高（14.5px × 行高 1.5 = 21.75px；
+     15.75 = 21.75 − 2×2 内边距 − 2×1 边框）。否则标识一出现就把该行由 21.75 顶到 22.5，
+     整张卡片与下方内容跟着位移 0.75px。与产品侧 app.css 的同名规则同一取值。 */
+  .dev-alias .tag { line-height: 15.75px; }
+  .dev-meta { font-size: 12px; color: var(--text-faint); margin-top: 3px; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  /* 标识是「图标 + 文字」（2026-10-10）：转成行内 flex 只为把图标与文字排在一行。
+     高度仍由文字行盒决定 —— 图标取 12px，不超过 11px 字号的正常行盒，
+     故标识与所在行的几何不随图标变化（与产品侧 app.css 的同名规则同一取值）。 */
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); display: inline-flex; align-items: center; gap: 3px; }
+  .tag svg { width: 12px; height: 12px; flex: none; }
+  /* 两种连接方式标识**同色**（都取强调色族）：类别标识不各自占一个色相，颜色留给状态与警示。
+     无线那枚此前用的是硬编码青色（#7fe3f0 / rgba(34,211,238,.4)），本次撤掉。 */
+  .tag.usb { color: var(--accent-text); border-color: var(--accent-line); }
+  .tag.wifi { color: var(--accent-text); border-color: var(--accent-line); }
+  .tag.over { color: var(--warn); border-color: rgba(251,191,36,.4); }
+  /* 下载通道（与产品侧 app.css 的同名类一致）：只读的**直连**项与可删的**代理**项
+     在样式上可区分；代理地址一律可删，唯一的只读项是首行的 GitHub 直连。
+     只用既有调色板变量，不引入新颜色。 */
+  .tag.direct { color: var(--text-faint); border-color: var(--border); }
+  .tag.proxy { color: var(--accent-text); border-color: var(--accent-line); }
+  .proxy-list { display: flex; flex-direction: column; gap: 6px; }
+  .proxy-item { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); }
+  .proxy-url { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proxy-item .btn.sm { flex: none; }
+  .proxy-ro, .proxy-empty { font-size: 12px; color: var(--text-faint); }
+  .proxy-add { margin-top: 8px; align-items: center; }
+  .proxy-add > input { flex: 1; }
+  .proxy-add > .btn { flex: none; }
+  .hint.dl-error { color: var(--danger); }
+  .status-text { font-size: 12px; }
+  .status-text.connected { color: var(--success); }
+  .status-text.idle { color: var(--success); }
+  .status-text.offline { color: var(--text-faint); }
+  /* 行内承载失败原因的档位（2026-10-10）：取既有的 --danger，不新造颜色 —— 失败原因从
+     独立一行挪进「更新」行后仍保持与 .hint.dl-error 相同的红色语义。 */
+  .status-text.danger { color: var(--danger); }
+  /* 状态行 / 更新行：横向排布复用 .path-row，回显格可收缩、容器换行（与产品侧 .env-state /
+     .env-update 同值 —— 长回显配上几颗按钮可能超出卡宽）。 */
+  .env-state { flex-wrap: wrap; }
+  .env-state .status-text { min-width: 0; }
+  .env-update { flex-wrap: wrap; }
+  .env-update .status-text { min-width: 0; }
+  /* 状态行的就绪态指示是**图标**（circle-check）而非圆点：与产品侧 .pill.env.ok 同款。 */
+  .pill.env.ok svg { width: 13px; height: 13px; stroke: var(--success); flex: none; }
+  /* 「非最佳适配版本」的原因说明（与产品侧 .env-reason / .in-card 同值）：
+     原先只挂在顶栏指示的 title 上，现就地展开在这张卡里。 */
+  .env-reason { display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; margin-top: 10px; border: 1px solid rgba(251,191,36,.35); border-radius: var(--radius-sm); background: rgba(251,191,36,.08); }
+  /* 收起态必须显式赢过上面的 display:flex —— 通用 `.hidden`（本文件更靠前、同权重）会被它盖掉。 */
+  .env-reason.hidden { display: none; }
+  .env-reason > svg { width: 16px; height: 16px; stroke: var(--warn); flex: none; margin-top: 2px; }
+  .env-reason-text { flex: 1; min-width: 0; }
+  .env-reason-title { font-size: 13px; font-weight: 600; color: var(--warn); margin-bottom: 3px; }
+  .env-reason p { font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .env-reason p strong { color: var(--text); font-weight: 600; }
+  .env-reason-cmp { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-faint); }
+  .env-reason-cmp b { color: var(--text); font-weight: 600; }
+  .dev-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+  .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 9px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; display: inline-flex; align-items: center; gap: 7px; }
+  .btn:hover { border-color: var(--border-strong); }
+  .btn svg { width: 15px; height: 15px; stroke: currentColor; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }   /* 压暗而非提亮：提亮会把白字对比度压到 ~3.5:1，压暗反而升到 ~5.4:1 */
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--danger); border-color: rgba(248,113,113,.35); }
+  .btn.danger:hover { background: rgba(248,113,113,.1); }
+  .btn.sm { padding: 7px 11px; font-size: 12.5px; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  /* 带 `hidden` 的按钮必须显式关掉显示：通用 `.hidden`（更靠前、同权重）会被本块的
+     `display: inline-flex` 盖掉，`hidden` 就成了摆设（同 `.dev-params.hidden` 那条的由来）。 */
+  .btn.hidden { display: none; }
+
+  .dev-params { border-top: 1px dashed var(--border); padding-top: 12px; display: grid; gap: 12px; }
+  .dev-params.hidden { display: none; }
+  .ov-head { display: flex; align-items: center; justify-content: space-between; }
+  .ov-head .lab { font-size: 12.5px; color: var(--text-dim); display: flex; align-items: center; gap: 7px; }
+  .ov-head .lab svg { width: 15px; height: 15px; stroke: var(--accent-hover); }
+  .ov-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .ov-empty { font-size: 12px; color: var(--text-faint); }
+
+  /* ---------- 关于弹窗（侧边栏「关于」入口与品牌行共用这一个弹窗）：版式取自验收参考图 ---------- */
+  /* 内容居中。宽度取 520px：三颗技术栈药丸要在一行里排开（实测内容宽 440px），
+     原型里 `.modal` 的默认是 460px（内容宽只有 414px）⇒ 会折成两行，故这里显式放宽；
+     520px 与产品侧 `.modal` 的默认宽度同值，产品侧因此不必写宽度。
+     写成两个类（.modal.about-modal）是为了压过既有的 .modal —— 那条规则在样式表后段，
+     若只写单类 .about-modal，会由「谁在后面」定胜负，改一处顺序就失效。 */
+  .modal.about-modal { position: relative; width: min(520px, calc(100vw - 48px)); padding: 26px 22px 22px; text-align: center; }
+  /* 弹出与关闭动画：遮罩淡入淡出 + 面板轻微缩放上浮。关闭走 .closing（脚本加上），
+     动画播完由 animationend 收掉 .show —— 顺序是「先播动画再消失」，不是瞬隐。
+     时长与曲线只写在这里；减少动态效果偏好下压到 0.01ms（仍会触发 animationend，逻辑不必分叉）。 */
+  @keyframes about-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes about-fade-out { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes about-panel-in { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes about-panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.96) translateY(4px); } }
+  .overlay.about-overlay.show { animation: about-fade-in .18s ease both; }
+  .overlay.about-overlay.show .modal { animation: about-panel-in .2s cubic-bezier(.2, .9, .3, 1.05) both; }
+  .overlay.about-overlay.closing { animation: about-fade-out .16s ease both; }
+  .overlay.about-overlay.closing .modal { animation: about-panel-out .16s ease both; }
+  @media (prefers-reduced-motion: reduce) {
+    .overlay.about-overlay.show, .overlay.about-overlay.show .modal,
+    .overlay.about-overlay.closing, .overlay.about-overlay.closing .modal { animation-duration: .01ms; }
+  }
+  /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
+  .about-close { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .12s; }
+  .about-close:hover { background: var(--panel-2); color: var(--text); }
+  .about-close svg { width: 17px; height: 17px; stroke: currentColor; }
+  /* 品牌图形：与品牌行同一个图形（脚本里取同一个 src，不复制一份数据 URI）。
+     **尺寸写死 72px，不用 --logo 派生**：--logo 定义在 .app 上，而弹窗挂在 .app 之外
+     （与其它四个弹窗同理），取不到该变量 —— `calc(var(--logo) * 1.6)` 会整条声明失效，
+     实测表现是 logo 被拉成整个弹窗宽（384×21）。圆角与兜底层照品牌行那一套写法
+     （img 本身不设圆角：圆角是品牌资产的一部分）。 */
+  .about-logo { position: relative; width: 72px; height: 72px; margin: 4px auto 14px; border-radius: 24%; display: grid; place-items: center; }
+  .about-logo:not(:has(img)) { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: var(--accent-ink); font-weight: 700; font-size: 32px; }
+  .about-logo:has(img) { color: transparent; }
+  .about-logo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* 产品名 */
+  .about-name { font-size: 22px; font-weight: 700; letter-spacing: .3px; margin-bottom: 16px; }
+  /* 版本行：左侧「名称 + 版本」标签，值右对齐加粗，行末一颗图标作**反馈载体**
+     （整行才是复制入口 —— 点整行任意位置都能复制，见下一条的光标与悬停） */
+  .about-ver { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  /* 行底用 --panel-2：弹窗自身就是 --panel，同色会看不出这两行。
+     整行可点：指针光标 + **一处**悬停反馈（描边转 --border-strong —— 与 .btn:hover /
+     .collapse-btn:hover 同一个既有取值，不新造颜色、不加底纹）；行末图标不再自己给反馈。 */
+  .about-ver-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color .12s; }
+  .about-ver-row:hover { border-color: var(--border-strong); }
+  /* 两行等宽、左右对齐（不做错位内收：两行版本框对齐后与「技术栈」等块形成同一条左基线） */
+  .about-ver-name { font-size: 13.5px; color: var(--text); }
+  .about-ver-tag { margin-left: 8px; font-size: 12px; color: var(--text-faint); }
+  .about-ver-val { margin-left: auto; font-size: 13.5px; font-weight: 600; color: var(--text); }
+  /* 行末图标：**反馈载体**，不是按钮（整行才是入口）—— 故没有 cursor: pointer、
+     也没有自己的 hover 反馈；复制成功短暂转成成功色（`.ok` 类名与 1.4s 复原不变）。 */
+  .about-copy { display: inline-flex; align-items: center; justify-content: center; padding: 4px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); transition: .12s; }
+  .about-copy.ok { color: var(--success); }
+  .about-copy svg { width: 16px; height: 16px; stroke: currentColor; }
+  .about-chips-title { margin: 16px 0 8px; font-size: 12px; color: var(--text-faint); }
+  /* 技术栈药丸复用既有 .chips / .chip 形态，配色改成主色派生（见下方作用域规则），故这里只补居中 */
+  .about-modal .chips { justify-content: center; }
+  /* 静态标签借用 .chip 的形态，但不复用 .chip.active —— 那是「选中态」语义，静态标签不该看起来可选。
+     配色只用主色派生：底 --accent-soft / 描边 --accent-line / 文字 --accent-text。
+     MUST NOT 引入各技术自己的品牌色（项目硬约束：界面只有主色一个色相，且品牌色与警示琥珀语义冲突）。
+     芯片内改 inline-flex + align-items: center：既有的 .chip 不是 flex 容器，图标以 inline 元素
+     参与行内布局、按文字基线对齐 ⇒ 会偏离胶囊中线；这里把图标与文字都作为 flex 项垂直居中，
+     图标加 flex: none 免得被压扁。 */
+  .about-modal .chip { display: inline-flex; align-items: center; gap: 7px; background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
+  .about-modal .chip svg { flex: none; width: 15px; height: 15px; stroke: currentColor; }
+  /* 外链栅格：两列四颗（官网 / GitHub / 更新日志 / 支持），正好铺满两行，不留空格 */
+  .about-links { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .about-links .btn { justify-content: center; padding: 12px 14px; }
+  /* 页脚：居中一行版权；属这个弹窗自身，不是全局页脚 */
+  .about-foot { margin-top: 18px; text-align: center; font-size: 12px; color: var(--text-faint); }
+
+  /* Launch bar */
+  .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: rgba(11,13,17,.88); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
+  .launchbar .cmd-preview { flex: 1; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .launchbar .cmd-preview b { color: var(--accent-hover); font-weight: 600; }
+  .launchbar .cmd-preview .dev { color: var(--teal); }
+  .launchbar .lb-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-faint); font-size: 12px; flex: none; }
+  .launchbar .lb-label svg { width: 15px; height: 15px; stroke: currentColor; }
+  /* 复制 / 连接两个图标按钮共用一套样式；尺寸取按钮自己的单一变量、恒为正方形，
+     **不与命令框等高**（同步产品侧：config.yaml ⑭ 几何取值 + ㉑ 命令条新增按钮）。 */
+  .launchbar .copy-btn, .launchbar .connect-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--lb-btn-size); height: var(--lb-btn-size); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; transition: .12s; }
+  .launchbar .copy-btn:hover, .launchbar .connect-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .launchbar .copy-btn svg, .launchbar .connect-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.7; }
+  .launchbar .copy-btn.ok { border-color: var(--success); color: var(--success); }
+  .launchbar .connect-btn:disabled, .launchbar .connect-btn:disabled:hover { opacity: .4; border-color: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(5,7,10,.7); backdrop-filter: blur(4px); display: none; place-items: center; z-index: 50; }
+  .overlay.show { display: grid; }
+  .modal { width: 460px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+  .modal .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); display: grid; place-items: center; margin-bottom: 16px; }
+  .modal .ico svg { width: 24px; height: 24px; stroke: var(--accent-hover); stroke-width: 1.8; fill: none; }
+  .modal .ico.warn { background: rgba(251,191,36,.14); }
+  .modal .ico.warn svg { stroke: var(--warn); }
+  .modal h2 { font-size: 18px; margin-bottom: 8px; }
+  .modal p { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+  .modal code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; color: var(--accent-text); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <!-- 品牌行也是「关于」弹窗的入口（spec `about-page`「弹窗的打开入口」）：整行可点、键盘可达，
+         收起态只剩图形标记时仍可点。提示文案说明这一行的作用（不是导航项，故不参与收起态标题提示）。 -->
+    <div class="brand clickable" id="brandRow" role="button" tabindex="0" title="关于 FreeControl2">
+      <!-- 品牌图形标记：源资产为 assets/icons/desktop/128x128.png（含品牌方底与母版明暗层次，与应用图标同源）。
+           ① 成品位图取 128 是为覆盖到 2.5× 缩放档（45 CSS px × 2.5 = 112.5 ≤ 128）；该尺寸由生成流程原生产出，不是放大低位图凑的。
+           ② 这里用 data URI 内嵌【仅为原型可预览】：预览服务只吐单个 HTML 文件，取不到同级/上级资源。
+           正式实现请引用源资产文件，不要复制这段 base64。 -->
+      <div class="logo">F<img alt="FreeControl2" onerror="this.remove()" src="data:image/png;base64,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"></div>
+      <div class="brand-text">
+        <div class="name">FreeControl2</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-item active" data-sec="devices"><i data-lucide="tablet-smartphone"></i><span class="nav-text">设备</span></div>
+      <div class="nav-item" data-sec="source"><i data-lucide="monitor"></i><span class="nav-text">显示源</span></div>
+      <div class="nav-item" data-sec="video"><i data-lucide="video"></i><span class="nav-text">视频</span></div>
+      <div class="nav-item" data-sec="audio"><i data-lucide="volume-2"></i><span class="nav-text">音频</span></div>
+      <div class="nav-item" data-sec="control"><i data-lucide="gamepad-2"></i><span class="nav-text">控制</span></div>
+      <div class="nav-item" data-sec="record"><i data-lucide="disc"></i><span class="nav-text">录制</span></div>
+      <div class="nav-item" data-sec="window"><i data-lucide="app-window"></i><span class="nav-text">窗口</span></div>
+      <div class="nav-item" data-sec="advanced"><i data-lucide="layout-grid"></i><span class="nav-text">高级</span></div>
+      <div class="nav-sep"></div>
+      <div class="nav-item" data-sec="diagnostics"><i data-lucide="scroll-text"></i><span class="nav-text">日志</span></div>
+      <div class="nav-item" data-sec="environment"><i data-lucide="settings"></i><span class="nav-text">运行环境</span></div>
+      <!-- 末位入口「关于」不是页面：点它**不切页**（不动选中态与标题），只打开关于弹窗，
+           故用 data-dialog 而不是 data-sec（页键里没有 about）。与品牌行是同一个弹窗的两个入口。
+           不加 .nav-sep —— 仅存的那条分隔线把「设备 + 8 个参数页」与「日志 / 运行环境 / 关于」分开，
+           新入口归在后一组里，不再引入第三组语义。 -->
+      <div class="nav-item" data-dialog="about"><i data-lucide="info"></i><span class="nav-text">关于</span></div>
+    </nav>
+    <button class="collapse-btn" id="collapseBtn" title="收起 / 展开侧边栏"><i data-lucide="chevrons-left"></i><span class="nav-text">收起</span></button>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- 顶栏同时是自绘标题栏（Windows 上窗口不使用系统标题栏，见 spec「自定义标题栏」）：
+         空白处可拖拽窗口、双击最大化 / 还原，右端三枚窗口控件贴窗口右缘。
+         `data-tauri-drag-region="deep"` 表示「子树内任意处可拖」，而可点击元素（三枚控件、两颗状态指示）
+         自带阻断 —— 属性在本原型（浏览器）里无对象可施，只作与产品同位的事实标记。 -->
+    <div class="topbar" data-tauri-drag-region="deep">
+      <div class="title" id="pageTitle">设备</div>
+      <div class="spacer"></div>
+      <span class="pill clickable" id="devPill" title="回到设备页"><span class="dot"></span>0 台设备</span>
+      <span class="pill env ok clickable" id="envPill" title="前往运行环境页"><span class="dot"></span>scrcpy 就绪</span>
+      <!-- 窗口控件：自左至右 最小化 / 最大化（向下还原）/ 关闭。
+           原型里没有窗口可控，故只呈现外观 —— 最小化与关闭无动作，最大化键点击切一次图标
+           （见脚本：便于核对「最大化」与「向下还原」两枚图形）；产品侧由窗口实际状态驱动。 -->
+      <div class="win-controls">
+        <button class="win-btn" id="winMin" type="button" title="最小化" aria-label="最小化"><i data-lucide="minus"></i></button>
+        <button class="win-btn" id="winMax" type="button" title="最大化" aria-label="最大化"><i data-lucide="square"></i></button>
+        <button class="win-btn close" id="winClose" type="button" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- ============ 设备（管理 + 连接合并） ============ -->
+      <section class="section active" id="sec-devices">
+        <div class="sec-head"><h2>设备</h2><p>统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。</p></div>
+        <div class="dev-toolbar">
+          <button class="btn sm primary" id="addDeviceBtn"><i data-lucide="plus"></i>添加设备</button>
+          <button class="btn sm" id="connAll"><i data-lucide="zap"></i>全部连接</button>
+          <button class="btn sm" id="discAll"><i data-lucide="zap-off"></i>全部断开</button>
+          <div class="spacer"></div>
+          <!-- 批量操作的结果就地呈现在本行内（与产品侧 DevicePage 工具栏的反馈位同槽，不另起一行） -->
+          <span class="status-text" id="devNotice"></span>
+        </div>
+        <div class="dev-list" id="deviceList"></div>
+      </section>
+
+      <!-- ============ 显示源 ============ -->
+      <section class="section" id="sec-source">
+        <div class="sec-head"><h2>显示源</h2><p>镜像主屏、虚拟显示器、Flex Display 或摄像头画面。以下为<b>默认参数</b>，可在「设备」页中按设备覆盖。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>视频源</h3>
+            <div class="field"><label>--video-source</label>
+              <div class="seg" data-g="source" data-k="videoSource" data-t="seg"><button class="active" data-v="display">主屏幕</button><button data-v="camera">摄像头</button></div></div>
+            <div class="field" id="displayModeField"><label>显示模式</label>
+              <div class="seg" data-g="source" data-k="displayMode" data-t="seg"><button class="active" data-v="main">主屏</button><button data-v="new">虚拟显示器</button><button data-v="flex">Flex Display</button></div>
+              <div class="hint">虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）。</div></div>
+          </div>
+          <div class="card" id="newDispCard">
+            <h3>虚拟显示器</h3>
+            <div class="field"><label>分辨率（--new-display）</label><input type="text" data-g="source" data-k="newDisplayRes" data-t="text" value="" placeholder="1920x1080" />
+              <div class="hint">留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160。</div></div>
+            <div class="field"><label>密度 DPI</label><input type="number" data-g="source" data-k="newDisplayDpi" data-t="number" value="" />
+              <div class="hint">留空用上面的默认密度。</div></div>
+            <div class="field"><label>关闭时保留内容（--no-vd-destroy-content）</label>
+              <div class="toggle"><span class="t-label">移到主屏而非销毁</span><label class="switch"><input type="checkbox" data-g="source" data-k="noVdDestroy" data-t="bool" checked /><span class="slider"></span></label></div></div>
+          </div>
+          <div class="card col2 hidden" id="cameraCard">
+            <h3>摄像头</h3>
+            <div class="grid">
+              <div class="field"><label>摄像头朝向（--camera-facing）</label><select data-g="source" data-k="cameraFacing" data-t="select"><option value="">自动</option><option>front</option><option>back</option><option>external</option></select>
+                <div class="hint">不指定时由 scrcpy 使用第一个摄像头。</div></div>
+              <div class="field"><label>尺寸（--camera-size）</label><input type="text" data-g="source" data-k="cameraSize" data-t="text" value="" placeholder="1920x1080" />
+                <div class="hint">留空由 scrcpy 自动选择尺寸。</div></div>
+              <div class="field"><label>帧率（--camera-fps）</label><input type="number" data-g="source" data-k="cameraFps" data-t="number" value="" placeholder="30" />
+                <div class="hint">留空用 Android 默认的 30 fps。</div></div>
+              <div class="field"><label>初始缩放（--camera-zoom）</label><input type="number" data-g="source" data-k="cameraZoom" data-t="number" value="1" /></div>
+              <div class="field"><label>开启闪光灯（--camera-torch）</label>
+                <div class="toggle"><span class="t-label">启动时点亮</span><label class="switch"><input type="checkbox" data-g="source" data-k="cameraTorch" data-t="bool" /><span class="slider"></span></label></div></div>
+              <div class="field"><label>列出摄像头</label><button class="btn ghost">--list-cameras</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 视频 ============ -->
+      <section class="section" id="sec-video">
+        <div class="sec-head"><h2>视频</h2><p>编码、分辨率、码率、帧率与画面适配。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>编码与画质</h3>
+            <div class="field"><label>视频编码（--video-codec）</label><select data-g="video" data-k="videoCodec" data-t="select"><option value="" selected>自动</option><option>h264</option><option>h265</option><option>av1</option><option>vp8</option><option>vp9</option></select></div>
+            <div class="field"><label>长边分辨率（--max-size）</label>
+              <div class="range-row"><input type="range" min="0" max="2560" step="64" value="0" data-g="video" data-k="maxSize" data-t="range" id="vSize" /><span class="range-val" id="vSizeVal">自动</span></div></div>
+            <div class="field"><label>视频码率（--video-bit-rate）</label>
+              <div class="range-row"><input type="range" min="0" max="64" value="0" data-g="video" data-k="bitrate" data-t="range" id="vBitrate" /><span class="range-val" id="vBitrateVal">自动</span></div></div>
+            <div class="field"><label>最大帧率（--max-fps）</label>
+              <div class="range-row"><input type="range" min="0" max="240" value="0" data-g="video" data-k="maxFps" data-t="range" id="vFps" /><span class="range-val" id="vFpsVal">不限制</span></div></div>
+          </div>
+          <div class="card">
+            <h3>画面与适配</h3>
+            <div class="field"><label>裁剪（--crop W:H:X:Y）</label><input type="text" data-g="video" data-k="crop" data-t="text" placeholder="1224:1440:0:0" /></div>
+            <div class="field"><label>旋转角度（--angle）</label><div class="seg" data-g="video" data-k="angle" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
+            <div class="field"><label>渲染适配（--render-fit）</label><select data-g="video" data-k="renderFit" data-t="select"><option>letterbox</option><option>stretched</option><option>unscaled</option></select></div>
+            <div class="field"><label>视频缓冲（--video-buffer，毫秒）</label><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 音频 ============ -->
+      <section class="section" id="sec-audio">
+        <div class="sec-head"><h2>音频</h2><p>Android 11+ 可转发设备音频，支持多种音源与编码。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>音频转发</h3>
+            <div class="field"><label>禁用音频转发（--no-audio 开启）</label>
+              <div class="toggle"><span class="t-label">禁用音频转发</span><label class="switch"><input type="checkbox" data-g="audio" data-k="audioOff" data-t="bool" id="aOn" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><label>音频源（--audio-source）</label><select data-g="audio" data-k="audioSource" data-t="select" id="aSource"><option>output</option><option>playback</option><option>mic</option><option>mic-unprocessed</option><option>mic-camcorder</option><option>mic-voice-communication</option><option>voice-call</option><option>voice-performance</option></select></div>
+            <div class="field"><label>音频编码（--audio-codec）</label><select data-g="audio" data-k="audioCodec" data-t="select"><option>opus</option><option>aac</option><option>flac</option><option>raw</option></select></div>
+            <div class="field"><label>复制音频（--audio-dup，设备同时播放）</label>
+              <div class="toggle"><span class="t-label">边播边录</span><label class="switch"><input type="checkbox" data-g="audio" data-k="audioDup" data-t="bool" /><span class="slider"></span></label></div></div>
+          </div>
+          <div class="card">
+            <h3>码率与缓冲</h3>
+            <div class="field"><label>音频码率（--audio-bit-rate）</label>
+              <div class="range-row"><input type="range" min="0" max="512" step="32" value="0" data-g="audio" data-k="audioBitrate" data-t="range" id="aBitrate" /><span class="range-val" id="aBitrateVal">自动</span></div></div>
+            <div class="field"><label>采集缓冲（--audio-buffer，毫秒）</label><input type="number" data-g="audio" data-k="audioBuffer" data-t="number" value="50" /></div>
+            <div class="field"><label>输出缓冲（--audio-output-buffer，毫秒）</label><input type="number" data-g="audio" data-k="audioOutBuffer" data-t="number" value="10" /></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 控制 ============ -->
+      <section class="section" id="sec-control">
+        <div class="sec-head"><h2>控制</h2><p>键鼠/手柄注入方式、快捷键、屏幕与剪贴板行为。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>输入注入</h3>
+            <div class="field"><label>只读 / 仅查看（--no-control）</label>
+              <div class="toggle"><span class="t-label">禁用设备控制</span><label class="switch"><input type="checkbox" data-g="control" data-k="noControl" data-t="bool" id="cReadonly" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>键盘（--keyboard）</label><select data-g="control" data-k="keyboard" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><label>鼠标（--mouse）</label><select data-g="control" data-k="mouse" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><label>游戏手柄（--gamepad）</label><select data-g="control" data-k="gamepad" data-t="select"><option>uhid</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><label>快捷键修饰键（--shortcut-mod）</label>
+              <div class="chips" id="shortMod" data-g="control" data-k="shortMod" data-t="multichips"><span class="chip">lalt</span><span class="chip">lsuper</span><span class="chip">lctrl</span><span class="chip">rctrl</span><span class="chip">ralt</span><span class="chip">rsuper</span></div></div>
+          </div>
+          <div class="card">
+            <h3>屏幕与剪贴板</h3>
+            <div class="field"><label>显示触摸点（--show-touches）</label>
+              <div class="toggle"><span class="t-label">演示可见点击</span><label class="switch"><input type="checkbox" data-g="control" data-k="showTouches" data-t="bool" id="cTouches" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>关闭屏幕（--turn-screen-off）</label>
+              <div class="toggle"><span class="t-label">镜像时熄灭手机屏；视频源为摄像头时不生效</span><label class="switch"><input type="checkbox" data-g="control" data-k="turnScreenOff" data-t="bool" id="cScreenOff" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>保持唤醒（--stay-awake）</label>
+              <div class="toggle"><span class="t-label">充电时保持亮屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="stayAwake" data-t="bool" id="cAwake" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>保持活跃（--keep-active）</label>
+              <div class="toggle"><span class="t-label">模拟活动防息屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="keepActive" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>关闭时锁屏（--power-off-on-close）</label>
+              <div class="toggle"><span class="t-label">退出即熄屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="powerOffOnClose" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>剪贴板自动同步（关闭=--no-clipboard-autosync）</label>
+              <div class="toggle"><span class="t-label">双向同步</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 录制 ============ -->
+      <section class="section" id="sec-record">
+        <div class="sec-head"><h2>录制</h2><p>录制镜像到文件，或仅录制不显示窗口。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>录制设置</h3>
+            <div class="field"><label>启用录制（--record）</label>
+              <div class="toggle"><span class="t-label">保存到文件</span><label class="switch"><input type="checkbox" data-g="record" data-k="recordOn" data-t="bool" id="rOn" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>文件路径</label><div class="row"><input type="text" data-g="record" data-k="recordPath" data-t="text" value="D:/Recordings/session.mp4" /><button class="btn ghost" style="flex:none">浏览</button></div></div>
+            <div class="field"><label>格式（--record-format）</label><select data-g="record" data-k="recordFormat" data-t="select"><option>mp4</option><option>mkv</option><option>m4a</option><option>mka</option><option>opus</option><option>aac</option><option>flac</option><option>wav</option></select></div>
+            <div class="field"><label>录制方向（--record-orientation）</label><div class="seg" data-g="record" data-k="recordOrientation" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
+          </div>
+          <div class="card">
+            <h3>无头与时限</h3>
+            <div class="field"><label>无窗口仅录制（--no-window）</label>
+              <div class="toggle"><span class="t-label">后台录制</span><label class="switch"><input type="checkbox" data-g="record" data-k="noWindow" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>时间限制（--time-limit，秒）</label><input type="number" data-g="record" data-k="timeLimit" data-t="number" value="0" /><div class="hint">0 = 不限时</div></div>
+            <div class="field"><label>退出时暂停（--pause-on-exit）</label><select data-g="record" data-k="pauseOnExit" data-t="select"><option>false</option><option>true</option><option>if-error</option></select></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 窗口 ============ -->
+      <section class="section" id="sec-window">
+        <div class="sec-head"><h2>窗口</h2><p>scrcpy 窗口的标题、尺寸、位置与外观。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>外观</h3>
+            <div class="field"><label>窗口标题（--window-title）</label><input type="text" data-g="window" data-k="windowTitle" data-t="text" value="" /><div class="hint">留空则不传，标题用设备名</div></div>
+            <div class="field"><label>无边框（--window-borderless）</label>
+              <div class="toggle"><span class="t-label">隐藏装饰</span><label class="switch"><input type="checkbox" data-g="window" data-k="borderless" data-t="bool" id="wBorderless" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>全屏（--fullscreen）</label>
+              <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-g="window" data-k="fullscreen" data-t="bool" id="wFull" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>置顶（--always-on-top）</label>
+              <div class="toggle"><span class="t-label">最前显示</span><label class="switch"><input type="checkbox" data-g="window" data-k="alwaysOnTop" data-t="bool" id="wTop" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>锁定宽高比（关闭=--no-window-aspect-ratio-lock）</label>
+              <div class="toggle"><span class="t-label">保持比例</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLock" data-t="bool" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><label>背景色（--background-color）</label><input type="text" data-g="window" data-k="bgColor" data-t="text" value="#222222" /></div>
+          </div>
+          <div class="card">
+            <h3>尺寸与位置</h3>
+            <div class="row">
+              <div class="field"><label>宽度（--window-width）</label><input type="number" data-g="window" data-k="windowWidth" data-t="number" value="0" /></div>
+              <div class="field"><label>高度（--window-height）</label><input type="number" data-g="window" data-k="windowHeight" data-t="number" value="0" /></div>
+            </div>
+            <div class="row">
+              <div class="field"><label>X（--window-x）</label><input type="number" data-g="window" data-k="windowX" data-t="number" value="0" /></div>
+              <div class="field"><label>Y（--window-y）</label><input type="number" data-g="window" data-k="windowY" data-t="number" value="0" /></div>
+            </div>
+            <div class="hint">0 / auto = 由 scrcpy 自动决定</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 高级 ============ -->
+      <section class="section" id="sec-advanced">
+        <div class="sec-head"><h2>高级</h2><p>连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底任何未覆盖的 flag，并可调整端口与隧道主机等网络参数。<b>默认参数</b>。</p></div>
+        <div class="grid">
+          <div class="card">
+            <h3>启动应用</h3>
+            <div class="field"><label>包名（--start-app，支持 ? 模糊 / + 强制停止）</label>
+              <div class="row"><input type="text" data-g="apps" data-k="startApp" data-t="text" placeholder="org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox" /><button class="btn ghost" style="flex:none">列出应用</button></div></div>
+            <div class="hint">例如 <code>--start-app=+?firefox</code>：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。</div>
+          </div>
+          <div class="card">
+            <h3>网络</h3>
+            <div class="field"><label>客户端端口范围（--port）</label><input type="text" data-g="advanced" data-k="port" data-t="text" value="27183:27199" /></div>
+            <div class="field"><label>隧道主机（--tunnel-host）</label><input type="text" data-g="advanced" data-k="tunnelHost" data-t="text" value="localhost" /></div>
+          </div>
+          <div class="card col2">
+            <h3>自定义参数（直接透传给 scrcpy）</h3>
+            <div class="field"><label>额外参数</label>
+              <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
+              <div class="hint">任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备。</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 日志 ============ -->
+      <section class="section" id="sec-diagnostics">
+        <div class="sec-head"><h2>日志</h2><p>查看每个会话的输出（含已结束的会话）以排查异常，并设置与日志相关的默认参数。</p></div>
+        <div class="grid">
+          <div class="ov-empty">会话输出仅在产品侧提供，本原型不演示。</div>
+          <div class="card col2">
+            <h3>运行日志参数</h3>
+            <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
+            <div class="field"><label>显示 FPS 计数（--print-fps）</label>
+              <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>关闭时清理（关闭=--no-cleanup）</label>
+              <div class="toggle"><span class="t-label">还原设备状态</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
+          </div>
+          <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
+               （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
+               「打开日志目录」与保留策略同处一行（同产品侧）：按钮文字已说明它去哪，
+               不需要「日志目录」这个独立标签再把同一件事说一遍。 -->
+          <div class="card col2">
+            <h3>日志文件</h3>
+            <div class="field"><label>保留策略</label>
+              <div class="path-row">
+                <div class="seg" id="logRetention">
+                  <button class="active" data-v="7d">保留 7 天</button>
+                  <button data-v="30d">保留 30 天</button>
+                  <button data-v="forever">保留永久</button>
+                </div>
+                <button class="btn sm" id="openLogDirBtn"><i data-lucide="folder-open"></i>打开日志目录</button>
+                <span class="status-text" id="logDirStatus"></span>
+              </div>
+              <div class="hint">日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 运行环境 ============ -->
+      <section class="section" id="sec-environment">
+        <div class="sec-head"><h2>运行环境</h2><p>管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。</p></div>
+        <div class="grid">
+          <!-- 卡片不设标题行（config ⑳）：本页只有这一张卡、页标题已表明身份，
+               卡片内自上而下第一个元素直接是「scrcpy 目录」字段的标签行。 -->
+          <div class="card col2">
+            <div class="field">
+              <span class="flabel">scrcpy 目录<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="scrcpy 目录的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">scrcpy 目录</span><span class="fhelp-p">约定目录为 <span id="envDirHint"></span>；scrcpy 与 adb 都由该目录提供。</span><span class="fhelp-p">首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。</span></span>
+              </span></span>
+              <div class="path-row">
+                <i data-lucide="folder"></i>
+                <input type="text" id="scrcpyPath" readonly value="" title="点击右侧按钮可在资源管理器中定位该目录" />
+                <button class="btn sm" id="openDirBtn"><i data-lucide="folder-open"></i>打开目录</button>
+              </div>
+            </div>
+            <!-- 状态字段：产品侧早有、原型一直缺（本次一并补齐，见 config ⑲）。
+                 就绪指示是不可点的 pill（无 .clickable，光标保持默认箭头）；「查看原因」仅
+                 非最佳适配时出现，点它就地展开下方的原因说明块（与产品侧同一套判定与文案）。 -->
+            <div class="field">
+              <span class="flabel">状态<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="状态的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">状态</span><span class="fhelp-p">未就绪时仍可查看路径与打开目录，或点「下载最佳适配版本」自动获取（下载通道 / 官方校验 / 原子替换）。</span></span>
+              </span></span>
+              <div class="path-row env-state">
+                <span class="pill env ok" id="envStatePill"></span>
+                <button class="btn sm" id="recheckBtn"><i data-lucide="refresh-cw"></i>重新检测</button>
+                <button class="btn ghost sm hidden" id="reasonBtn"><i data-lucide="alert-triangle"></i><span id="reasonBtnText">查看原因</span></button>
+                <span class="status-text" id="envFlash"></span>
+              </div>
+              <div class="hint">就绪 = 目录内 scrcpy 与 adb 齐备。</div>
+              <div class="env-reason in-card hidden" id="envReason">
+                <i data-lucide="alert-triangle"></i>
+                <div class="env-reason-text">
+                  <div class="env-reason-title">非最佳适配版本</div>
+                  <p>当前版本非最佳适配版本，部分特性可能不受支持或存在未知问题。此提示<strong>不阻断任何操作</strong>，你仍可正常连接设备、发起会话与复制命令。</p>
+                  <div class="env-reason-cmp">
+                    <span>已安装 <b id="envReasonInstalled"></b></span>
+                    <span>最佳适配 <b id="envReasonBestFit"></b></span>
+                    <span>已安装版本高于最佳适配版本（更新）</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">更新<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="更新的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">更新</span><span class="fhelp-p">两个入口都会删除并替换运行环境目录内的全部文件（scrcpy 与 adb 一起更新）；曾手动放入自定义版本请先备份。</span><span class="fhelp-p">两者都从 GitHub Releases 获取：「下载最佳适配版本」取构建期锁定的受支持版本，不依赖官方最新发布查询；「下载最新版本」取官方最新发布，查询失败会回退到最佳适配版本并说明原因。</span><span class="fhelp-p">直连失败会自动按序改用下面的代理地址，进度块会标明当前所用通道。直连虽可用但太慢时，可在进度块点「切换通道」立即换一条；下载完成后以官方 SHA256SUMS 校验，校验不通过不写入目录。</span></span>
+              </span></span>
+              <div class="path-row env-update">
+                <!-- 下载最佳适配版本：仅非最佳适配（!envBestFit）时出现，位置留**行首**；与产品侧 envOk 同谓词。
+                     不再使用强调色（2026-10-10 决定，覆盖 2026-09-23 那版「行首并给 primary」的设计）：
+                     它的可辨识性由「在场 = 当前探测到非最佳适配」这一显隐条件与行首位置承担。 -->
+                <button class="btn sm hidden" id="bestFitBtn"><i data-lucide="download"></i>下载最佳适配版本</button>
+                <button class="btn sm" id="redownloadBtn"><i data-lucide="download"></i>下载最新版本</button>
+                <button class="btn ghost sm" id="checkUpdateBtn"><i data-lucide="refresh-cw"></i>检查更新</button>
+                <span class="status-text" id="envStatus"></span>
+              </div>
+              <div class="hint">会删除并替换目录内全部文件；自定义版本请先备份。</div>
+            </div>
+            <div class="dl hidden" id="dlProgress">
+              <div class="dl-head">
+                <span class="dl-text" id="dlLabel"></span>
+                <span class="dl-channel" id="dlChannel"></span>
+                <span class="dl-percent" id="dlPct">0%</span>
+              </div>
+              <div class="dl-bar"><i id="dlBar"></i></div>
+              <div class="dl-actions" id="dlActions">
+                <button class="btn ghost sm" id="dlSwitchBtn"><i data-lucide="shuffle"></i>切换通道</button>
+                <button class="btn ghost sm" id="dlCancelBtn"><i data-lucide="x"></i>取消</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">下载通道<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="下载通道的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">下载通道</span><span class="fhelp-p">列表内所有地址都可删除，含出厂默认的两条；删除后不会自动恢复。</span><span class="fhelp-p">追加的地址须以 http:// 或 https:// 开头，会持久化并在重启后保留。</span></span>
+              </span></span>
+              <div class="proxy-list" id="proxyList"></div>
+              <div class="row proxy-add">
+                <input type="text" id="proxyInput" placeholder="https://你的代理地址" />
+                <button class="btn sm" id="proxyAddBtn" disabled><i data-lucide="plus"></i>追加</button>
+              </div>
+              <div class="hint dl-error hidden" id="proxyErr"></div>
+              <div class="hint">下载按列表顺序自动降级：先走 GitHub 直连，失败则依次改用下面的代理地址。</div>
+            </div>
+            <div class="field">
+              <label>兼容性演示</label>
+              <div class="toggle"><span class="t-label">预览非最佳适配版本样式</span><label class="switch"><input type="checkbox" id="demoEnvWarn" /><span class="slider"></span></label></div>
+              <div class="hint">原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Launch bar -->
+    <div class="launchbar">
+      <!-- 标签仅保留图标（config.yaml ④：控件标签的存废）：文字撤除后靠 title 提供提示。 -->
+      <span class="lb-label" title="命令"><i data-lucide="terminal"></i></span>
+      <div class="cmd-preview" id="cmdPreview">选择一台设备查看命令</div>
+      <button class="copy-btn" id="copyBtn" title="复制命令"><i data-lucide="copy"></i></button>
+      <!-- 连接入口（config.yaml ㉑）：仅图标，排在复制按钮之后；选中且可连接的设备才可点。 -->
+      <button class="connect-btn" id="connectBtn" title="连接该设备" disabled><i data-lucide="zap"></i></button>
+    </div>
+  </main>
+</div>
+
+<!-- 添加设备 Modal -->
+<div class="overlay" id="addModal">
+  <div class="modal">
+    <div class="ico"><i data-lucide="tablet-smartphone"></i></div>
+    <h2>添加设备</h2>
+    <p>设置别名并选择连接方式。连接标识（serial 或 IP:端口）将作为 scrcpy 的 <code>-s</code> 参数。</p>
+    <div class="field"><label>别名</label><input type="text" id="mAlias" placeholder="例如：我的主力机" /></div>
+    <div class="field"><label>连接方式</label>
+      <div class="seg" id="mType"><button class="active" data-v="usb">USB（serial）</button><button data-v="wifi">无线（IP:端口）</button></div></div>
+    <!-- 两种连接方式同处一格（`.field-swap`）：容器高度取两者中的较高者，切换只改可见性
+         ⇒ 弹窗高度与位置不随连接方式变化（openspec/config.yaml ⑭ 的「等高收尾」）。 -->
+    <div class="field-swap">
+      <div class="field" id="mUsbField">
+        <label>设备 serial</label>
+        <input type="text" id="mSerial" placeholder="08081FDD4006LYE（可留空，稍后自动检测）" />
+        <div class="hint">serial 可留空：设备会先登记，待检测到唯一一台未登记的 USB 设备后自动补全连接标识。</div>
+      </div>
+      <div class="field off" id="mWifiField">
+        <label>IP 地址 : 端口</label>
+        <div class="row"><input type="text" id="mIp" placeholder="192.168.1.50" /><input type="number" id="mPort" value="5555" style="max-width:110px" /></div>
+        <div class="hint">需先在设备上开启无线调试（<code>adb tcpip 5555</code>）；端口留默认 5555 即可。</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="mCancel">取消</button>
+      <button class="btn primary" id="mSave">保存设备</button>
+    </div>
+  </div>
+</div>
+
+<!-- 关于 Modal（spec `about-page`：两个入口共用这一个弹窗 —— 侧边栏「关于」入口与品牌行）
+     版式取自验收参考图：关闭键 → 品牌图形 → 产品名 → 两行版本行（等宽对齐、各带复制键）→ 标语 →
+     技术栈药丸（一行排开）→ 外链按钮栅格 → 居中页脚。
+     弹出与关闭有过渡动画（`.about-overlay` 上的 keyframes，关闭先加 `.closing` 再由 animationend 收掉）。
+     两处刻意不照抄参考图（已记账在 design D9/D10）：药丸只用主色派生色（项目硬约束：不得引入品牌色）、
+     版本值不加 v 前缀（与「运行环境」页同口径）。外链四颗，与参考图的四颗一一对应。 -->
+<div class="overlay about-overlay" id="aboutModal">
+  <div class="modal about-modal">
+    <button class="about-close" id="aboutClose" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+    <!-- 品牌图形复用品牌行那一份（JS 里取同一个 src，不复制 base64），与窗口图标同源 -->
+    <div class="about-logo"><img alt="FreeControl2" id="aboutLogo" onerror="this.remove()" />F</div>
+    <div class="about-name">FreeControl2</div>
+    <div class="about-ver">
+      <!-- 整行是复制入口（**不是**行末那颗图标）：行可点、可键盘聚焦，Enter / 空格与点击等价；
+           行末图标降为反馈载体（成功后转勾、1.4s 复原），自身不再可点 —— 一行只有一个入口。 -->
+      <div class="about-ver-row" role="button" tabindex="0" aria-label="复制 FreeControl2 版本号">
+        <span class="about-ver-name">FreeControl2<span class="about-ver-tag">版本</span></span>
+        <span class="about-ver-val" id="aboutAppVersion"></span>
+        <span class="about-copy" aria-hidden="true"><i data-lucide="copy"></i></span>
+      </div>
+      <div class="about-ver-row" role="button" tabindex="0" aria-label="复制 scrcpy 适配版本号">
+        <span class="about-ver-name">scrcpy<span class="about-ver-tag">适配版本</span></span>
+        <span class="about-ver-val" id="aboutScrcpyVersion"></span>
+        <span class="about-copy" aria-hidden="true"><i data-lucide="copy"></i></span>
+      </div>
+    </div>
+    <div class="about-chips-title">技术栈</div>
+    <div class="chips">
+      <span class="chip"><i data-lucide="cpu"></i>Rust + Tauri 2</span>
+      <span class="chip"><i data-lucide="file-code"></i>Svelte + Vite + TypeScript</span>
+      <span class="chip"><i data-lucide="shapes"></i>lucide 图标</span>
+    </div>
+    <!-- 四颗按钮的形态即本弹窗要交付的呈现；地址是后端的事实（见 design D6），
+         原型不复刻一份，故这里不接点击行为（弹窗内只有版本行的复制键接了行为）。 -->
+    <div class="about-links">
+      <button class="btn"><i data-lucide="globe"></i>官网</button>
+      <button class="btn"><i data-lucide="github"></i>GitHub</button>
+      <button class="btn"><i data-lucide="file-text"></i>更新日志</button>
+      <button class="btn"><i data-lucide="heart"></i>支持</button>
+    </div>
+    <div class="about-foot">© 2026 pdone</div>
+  </div>
+</div>
+
+<!-- 图标库版本**锁定**，与产品侧 package.json 的 lucide-svelte 0.456.0 同版：
+     原先写 `@latest`，实测 CDN 已把品牌图标（`github`）从新版里移除，导致原型上「关于」弹窗的
+     GitHub 入口少一个图标、与产品不一致 —— 浮动版本会让原型悄悄漂离产品，故改为定版引用。 -->
+<script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.js"></script>
+  <script>
+  /* ===================== 状态模型 ===================== */
+  // 全局默认参数（param tabs 编辑）
+  const defaults = {
+    video:    { videoCodec:'', bitrate:0, maxSize:0, maxFps:0, crop:'', angle:'0', renderFit:'letterbox', videoBuffer:0 },
+    // 显示源组不预设（同产品侧）：尺寸 / 密度 / 摄像头朝向·尺寸·帧率出厂都为空串。
+    // 注意 `--new-display` 取空时**仍会下发该 flag、只是不带取值**，其余四个取空则不产生 flag（见 buildArgs）。
+    source:   { videoSource:'display', displayMode:'main', newDisplayRes:'', newDisplayDpi:'', noVdDestroy:true, cameraFacing:'', cameraSize:'', cameraFps:'', cameraZoom:1, cameraTorch:false },
+    audio:    { audioOff:true, audioSource:'output', audioCodec:'opus', audioDup:false, audioBitrate:0, audioBuffer:50, audioOutBuffer:10 },
+    control:  { noControl:false, keyboard:'uhid', mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboard:true },
+    record:   { recordOn:false, recordPath:'D:/Recordings/session.mp4', recordFormat:'mp4', recordOrientation:'0', noWindow:false, timeLimit:0, pauseOnExit:'false' },
+    window:   { windowTitle:'', borderless:false, fullscreen:false, alwaysOnTop:false, aspectLock:true, bgColor:'#222222', windowWidth:0, windowHeight:0, windowX:0, windowY:0 },
+    apps:     { startApp:'' },
+    advanced: { customArgs:'', verbosity:'info', printFps:false, cleanup:true, port:'27183:27199', tunnelHost:'localhost' }
+  };
+  /* ============================================================
+     scrcpy 版本 —— 单一来源，禁止散落硬编码
+     原型为静态演示，故在此集中声明一次，页面所有版本展示均由它注入。
+     正式实现中：best-fit 版本由 Rust 侧唯一常量提供、已安装版本运行期探测，
+     前端一律通过 Tauri 命令读取（见 openspec/changes/launcher-v1/design.md D1/D2）。
+     当前取值与 doc/scrcpy/meson.build 保持一致。
+     ============================================================ */
+  const SCRCPY_VERSION = '4.1';
+  const SCRCPY_DIR     = `%APPDATA%\\FreeControl2\\scrcpy-win64-v${SCRCPY_VERSION}`;
+  const SCRCPY_ZIP     = `scrcpy-win64-v${SCRCPY_VERSION}.zip`;
+  // 平台标签在产品里由「操作系统 × 架构」二维查表决定（win64 / linux-x86_64 / …，标签
+  // 同时决定目录名与官方资产名），原型是 Windows 基线，故演示常量写死 win64 这一行取值。
+  // 仅用于演示「非最佳适配版本」警示样式：模拟运行期探测到的已安装版本。
+  // 正式实现中该值来自 scrcpy --version / 目录名解析，是运行期结果，不是常量。
+  const DEMO_INSTALLED_OTHER = '4.2';
+  /* ============================================================
+     应用版本（FreeControl2 自身）—— 单一来源，禁止散落硬编码
+     原型为静态演示，故在此集中声明一次，「关于」弹窗的版本行由它注入。
+     正式实现中：该值由 Tauri 的 getVersion()（取 tauri.conf.json 的构建期版本）下发，
+     前端一律通过该 API 读取，页面里不得写版本字面量（见 about-page design D5）。
+     ============================================================ */
+  const APP_VERSION = '0.1.0';
+
+  // 每台设备的参数覆盖（仅覆盖的字段）
+  const overrides = {};
+  // 每台设备覆盖的启用 / 禁用开关（默认启用）——与覆盖值一并持久化，禁用不清值
+  const ovEnabled = {};
+  // 已展开参数面板的设备（跨重渲染保持）
+  const openPanels = new Set();
+  // 设备清单
+  let devices = [
+    { id:'d1', alias:'Pixel 8',     type:'usb',  serial:'08081FDD4006LYE',           status:'connected', last:'当前连接' },
+    { id:'d2', alias:'客厅投屏',     type:'wifi', ip:'192.168.1.50',  port:5555,      status:'idle',      last:'2 分钟前' },
+    { id:'d3', alias:'Redmi K60',    type:'wifi', ip:'192.168.31.22', port:5555,      status:'idle',      last:'14 分钟前' },
+    { id:'d4', alias:'旧机 S23',     type:'wifi', ip:'192.168.0.88',  port:5555,      status:'offline',   last:'昨天 23:14' }
+  ];
+  let selectedId = 'd1';
+  let uid = 100;
+
+  /* ===================== 工具 ===================== */
+  function deepMerge(base, over){
+    const out = JSON.parse(JSON.stringify(base));
+    for (const g in over) for (const k in over[g]) out[g][k] = over[g][k];
+    return out;
+  }
+  function devIdentifier(d){ return d.type==='usb' ? d.serial : `${d.ip}:${d.port}`; }
+  function getDev(id){ return devices.find(d=>d.id===id); }
+  // 覆盖开关：默认启用；仅显式关闭才为禁用
+  function isOvEnabled(id){ return ovEnabled[id] !== false; }
+  // 命令拼装用：覆盖处于禁用状态时，覆盖值保留但不参与合并
+  function merged(id){
+    const useOv = id && isOvEnabled(id);
+    return deepMerge(defaults, useOv ? (overrides[id]||{}) : {});
+  }
+  // 覆盖面板回显用：有覆盖值就显示覆盖值（即使已禁用也保留可见），否则显示默认值
+  function ovVal(id, g, k){
+    const o = overrides[id];
+    return (o && o[g] && (k in o[g])) ? o[g][k] : defaults[g][k];
+  }
+  function overrideCount(id){ const o=overrides[id]; if(!o) return 0; let n=0; for(const g in o) for(const k in o[g]) n++; return n; }
+
+  /* ===================== 参数控件绑定 ===================== */
+  function readControl(el){
+    const t = el.dataset.t;
+    if (t==='bool') return el.matches('input') ? el.checked : el.querySelector('input').checked;
+    if (t==='range') return Number(el.value);
+    if (t==='multichips') return [...el.querySelectorAll('.chip.active')].map(c=>c.textContent);
+    if (t==='seg') return el.querySelector('button.active').dataset.v;
+    return el.value;
+  }
+  function writeControl(el, val){
+    const t = el.dataset.t;
+    if (t==='bool'){ if(el.matches('input')) el.checked=!!val; else el.querySelector('input').checked=!!val; }
+    else if (t==='range') el.value = val;
+    else if (t==='multichips') el.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', val.includes(c.textContent)));
+    else if (t==='seg') el.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.v===String(val)));
+    else el.value = val;
+  }
+  function setParam(target, g, k, val){
+    if (target==='default') defaults[g][k] = val;
+    else { (overrides[target] ||= {})[g] ||= {}; overrides[target][g][k] = val; }
+  }
+  document.querySelectorAll('[data-g]').forEach(el=>{
+    if (el.id==='shortMod') return;                 // 快捷键单独处理
+    const ev = (el.dataset.t==='bool') ? 'change'
+             : (el.dataset.t==='text'||el.dataset.t==='number'||el.dataset.t==='select'||el.dataset.t==='range') ? 'input'
+             : 'click';
+    el.addEventListener(ev, e=>{
+      if (el.dataset.t==='seg'){
+        const b=e.target.closest('button'); if(!b) return;
+        el.querySelectorAll('button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+      }
+      const v = readControl(el);
+      setParam('default', el.dataset.g, el.dataset.k, v);
+      // 视频源 / 显示模式联动
+      if (el.dataset.g==='source' && el.dataset.k==='videoSource') toggleSourceUI();
+      if (el.dataset.g==='source' && el.dataset.k==='displayMode') toggleNewDispUI();
+      onParamsChanged();
+    });
+  });
+  // 快捷键 chips 多选
+  document.getElementById('shortMod').addEventListener('click', e=>{
+    const c=e.target.closest('.chip'); if(!c) return; c.classList.toggle('active');
+    setParam('default','control','shortMod',[...document.querySelectorAll('#shortMod .chip.active')].map(x=>x.textContent));
+    onParamsChanged();
+  });
+
+  function toggleSourceUI(){
+    const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
+    document.getElementById('cameraCard').classList.toggle('hidden', !cam);
+    document.getElementById('displayModeField').classList.toggle('hidden', cam);
+    document.getElementById('newDispCard').classList.toggle('hidden', cam);
+  }
+  function toggleNewDispUI(){
+    const v = readControl(document.querySelector('[data-g=source][data-k=displayMode]'));
+    // 判据必须与产品侧的卡片 showWhen 完全同形：`videoSource!=='camera' && (new|flex)`。
+    // 只看 displayMode 会有次序依赖 —— 摄像头源下若残留 `displayMode='flex'`（该字段此时已隐藏、
+    // 取值仍在），本函数会把卡片重新显示出来，产品侧不会。两者独立算，谁后调用结果都一样。
+    const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
+    document.getElementById('newDispCard').classList.toggle('hidden', cam || (v!=='new' && v!=='flex'));
+  }
+  // range 数值回显
+  const bind = (id,valId,fmt)=>{ const e=document.getElementById(id), v=document.getElementById(valId); e.addEventListener('input',()=>v.textContent=fmt(e.value)); };
+  bind('vSize','vSizeVal',x=>x==0?'自动':x+' px');
+  bind('vBitrate','vBitrateVal',x=>x==0?'自动':x+' Mbps');
+  bind('vFps','vFpsVal',x=>x==0?'不限制':x+' fps');
+  bind('aBitrate','aBitrateVal',x=>x==0?'自动':x+' Kbps');
+
+  /* 滑块已填充比例 → --p，供上面的轨道渐变使用。
+     监听挂在 document（捕获阶段）而非逐个元素上：设备参数覆盖面板是 innerHTML 整块重建的，
+     逐个绑会随重建失效；这样任何新插入的 range 自动生效，无需在渲染处补绑定。
+     注意 value 的程序化赋值不会触发 input，故重建后需再 paintRanges 一次。 */
+  function paintRange(r){
+    const min = Number(r.min) || 0, max = Number(r.max) || 100, v = Number(r.value);
+    r.style.setProperty('--p', (max > min ? (v - min) / (max - min) * 100 : 0).toFixed(2) + '%');
+  }
+  const paintRanges = (root = document) => root.querySelectorAll('input[type=range]').forEach(paintRange);
+  document.addEventListener('input', e => { if (e.target && e.target.type === 'range') paintRange(e.target); }, true);
+  paintRanges();   // 静态滑块（显示源 / 视频 / 音频页）初值
+
+  /* ===================== 命令拼装 ===================== */
+  function buildArgs(p){
+    const a=[];
+    // Flex 是否真的生效（同产品侧判据：视频源不是摄像头 + 显示模式为 flex）。必须在这里算 ——
+    // 下面视频 / 控制 / 窗口三处的互斥剔除都要用它。
+    const isFlex = p.source.videoSource!=='camera' && p.source.displayMode==='flex';
+    // 摄像头源下「关闭屏幕」不生效（**应用侧口径**，与产品侧 command.ts 的 isCamera 同源）：
+    // scrcpy 自己不拒绝这个组合（doc/scrcpy 的 app/src/cli.c 对 --turn-screen-off 只约束
+    // 「设备控制被关闭」与 OTG 模式），故由应用在拼装层剔除、在参数说明里点明；
+    // 取值原样保留在配置里，视频源切回主屏幕后照常下发。
+    const isCamera = p.source.videoSource==='camera';
+    // video
+    if (p.video.videoCodec) a.push(`--video-codec=${p.video.videoCodec}`);
+    if (p.video.bitrate>0) a.push(`-b ${p.video.bitrate}M`);
+    if (p.video.maxSize>0) a.push(`-m ${p.video.maxSize}`);
+    if (p.video.maxFps>0) a.push(`--max-fps=${p.video.maxFps}`);
+    if (p.video.crop && !isFlex) a.push(`--crop=${p.video.crop}`);
+    if (p.video.angle!=='0') a.push(`--angle=${p.video.angle}`);
+    if (p.video.renderFit!=='letterbox') a.push(`--render-fit=${p.video.renderFit}`);
+    if (p.video.videoBuffer>0) a.push(`--video-buffer=${p.video.videoBuffer}`);
+    // source：虚拟显示器与 Flex 共用一段（Flex 是虚拟显示器的修饰开关，必须配 --new-display）
+    if (p.source.videoSource==='camera'){
+      a.push('--video-source=camera');
+      if (p.source.cameraFacing) a.push(`--camera-facing=${p.source.cameraFacing}`);
+      if (p.source.cameraSize) a.push(`--camera-size=${p.source.cameraSize}`);
+      if (p.source.cameraFps>0) a.push(`--camera-fps=${p.source.cameraFps}`);
+      if (p.source.cameraZoom!=1) a.push(`--camera-zoom=${p.source.cameraZoom}`);
+      if (p.source.cameraTorch) a.push('--camera-torch');
+    } else if (p.source.displayMode==='new' || isFlex){
+      const res=p.source.newDisplayRes||'', dpi=p.source.newDisplayDpi||'';
+      const spec=(res||dpi) ? `${res}${dpi?`/${dpi}`:''}` : '';
+      a.push(spec ? `--new-display=${spec}` : '--new-display');
+      if (p.source.noVdDestroy) a.push('--no-vd-destroy-content');
+      if (isFlex) a.push('--flex-display');
+    }
+    // audio
+    if (p.audio.audioOff) a.push('--no-audio');
+    else {
+      if (p.audio.audioSource!=='output') a.push(`--audio-source=${p.audio.audioSource}`);
+      if (p.audio.audioCodec!=='opus') a.push(`--audio-codec=${p.audio.audioCodec}`);
+      if (p.audio.audioDup) a.push('--audio-dup');
+      if (p.audio.audioBitrate>0) a.push(`--audio-bit-rate=${p.audio.audioBitrate}K`);
+    }
+    // control
+    if (p.control.noControl && !isFlex) a.push('--no-control');
+    if (p.control.keyboard!=='uhid') a.push(`--keyboard=${p.control.keyboard}`);
+    if (p.control.mouse!=='uhid') a.push(`--mouse=${p.control.mouse}`);
+    if (p.control.gamepad!=='uhid') a.push(`--gamepad=${p.control.gamepad}`);
+    const mods=p.control.shortMod; if (mods.length) a.push(`--shortcut-mod=${mods.join(',')}`);
+    if (p.control.showTouches) a.push('--show-touches');
+    // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
+    if (p.control.turnScreenOff && !isCamera) a.push('--turn-screen-off');
+    if (p.control.stayAwake) a.push('--stay-awake');
+    if (p.control.keepActive) a.push('--keep-active');
+    if (p.control.powerOffOnClose) a.push('--power-off-on-close');
+    if (!p.control.clipboard) a.push('--no-clipboard-autosync');
+    // record
+    if (p.record.recordOn){ a.push(`--record=${p.record.recordPath}`); a.push(`--record-format=${p.record.recordFormat}`); }
+    if (p.record.recordOrientation!=='0') a.push(`--record-orientation=${p.record.recordOrientation}`);
+    if (p.record.noWindow) a.push('--no-window');
+    if (p.record.timeLimit>0) a.push(`--time-limit=${p.record.timeLimit}`);
+    if (p.record.pauseOnExit!=='false') a.push(`--pause-on-exit=${p.record.pauseOnExit}`);
+    // window
+    if (p.window.windowTitle) a.push(`--window-title=${p.window.windowTitle}`);
+    if (p.window.borderless) a.push('--window-borderless');
+    if (p.window.fullscreen) a.push('--fullscreen');
+    if (p.window.alwaysOnTop) a.push('--always-on-top');
+    if (!p.window.aspectLock) a.push('--no-window-aspect-ratio-lock');
+    if (p.window.bgColor!=='#222222') a.push(`--background-color=${p.window.bgColor}`);
+    if (p.window.windowWidth>0 && !isFlex) a.push(`--window-width=${p.window.windowWidth}`);
+    if (p.window.windowHeight>0 && !isFlex) a.push(`--window-height=${p.window.windowHeight}`);
+    if (p.window.windowX>0) a.push(`--window-x=${p.window.windowX}`);
+    if (p.window.windowY>0) a.push(`--window-y=${p.window.windowY}`);
+    // apps
+    if (p.apps.startApp) a.push(`--start-app=${p.apps.startApp}`);
+    // advanced
+    if (p.advanced.verbosity!=='info') a.push(`--verbosity=${p.advanced.verbosity}`);
+    if (p.advanced.printFps) a.push('--print-fps');
+    if (!p.advanced.cleanup) a.push('--no-cleanup');
+    if (p.advanced.port!=='27183:27199') a.push(`--port=${p.advanced.port}`);
+    if (p.advanced.tunnelHost!=='localhost') a.push(`--tunnel-host=${p.advanced.tunnelHost}`);
+    if (p.advanced.customArgs.trim()) a.push(p.advanced.customArgs.trim());
+    return a;
+  }
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function renderPreview(){
+    const d = getDev(selectedId);
+    if(!d){ document.getElementById('cmdPreview').textContent='选择一台设备查看命令'; syncConnectBtn(); return; }
+    const p = merged(selectedId);
+    const args = buildArgs(p);
+    const cmd = `scrcpy -s <span class="dev">${escapeHtml(devIdentifier(d))}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
+    document.getElementById('cmdPreview').innerHTML = cmd;
+    syncConnectBtn();
+  }
+  /* 命令条上的会话入口（config.yaml ㉑）：随选中设备状态在「连接 / 断开」间切换 ——
+     已连接 → 断开态；未连接且可连接 → 连接态；其余置灰。判定与设备卡片同一处
+     canConnectDevice（产品侧同规则见 specs 的「命令条会话入口」）。 */
+  function syncConnectBtn(){
+    const btn=document.getElementById('connectBtn'); if(!btn) return;
+    const d=getDev(selectedId);
+    const connected = !!d && d.status==='connected';
+    const ok = !!d && (connected || canConnectDevice(d));
+    btn.disabled = !ok;
+    btn.title = !d ? '请先选择一台设备'
+              : connected ? '断开该设备的会话'
+              : ok ? '连接该设备'
+              : '当前无法连接该设备';
+    // 图标随状态切换（连接 zap / 断开 zap-off）；只在取值变化时重渲染，避免每次刷新都重建图标。
+    const icon = connected ? 'zap-off' : 'zap';
+    if (btn.dataset.icon !== icon){
+      btn.dataset.icon = icon;
+      btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+      lucide.createIcons();
+    }
+  }
+  function onParamsChanged(){ renderPreview(); }
+
+  /* ===================== 设备页渲染（管理 + 连接合并） ===================== */
+  // 第二个值是 CSS 类名（.status-dot.idle 等），不随界面措辞改名；`idle` 在界面上的称谓是「在线」（未连接但在线）。
+  function statusMeta(s){ return { connected:['已连接','connected'], idle:['在线','idle'], offline:['离线','offline'] }[s]; }
+  // 可发起连接的设备：在线未连接的，以及**离线的无线设备** —— 产品侧对后者会先建立无线链路
+  // 再发起会话（连接标识是用户填的 IP:端口，链路可以重建）；离线的 USB 设备不行，其在线与否
+  // 由物理接入决定。卡片入口与点连接共用这一处判定；「全部连接」不用它 —— 那只作用于在线设备。
+  function canConnectDevice(d){ return d.status==='idle' || (d.status==='offline' && d.type==='wifi'); }
+  function renderDeviceList(){
+    const box=document.getElementById('deviceList'); box.innerHTML='';
+    if (!devices.length){ box.innerHTML='<div class="ov-empty">暂无设备，请点击左上角「添加设备」。</div>'; }
+    devices.forEach(d=>{
+      const [stxt,scls]=statusMeta(d.status);
+      const idEl = d.type==='usb' ? `serial: ${d.serial||'(待检测)'}` : `IP: ${d.ip}:${d.port}`;
+      const oc = overrideCount(d.id);
+      const ovOn = isOvEnabled(d.id);
+      const card=document.createElement('div');
+      card.className='dev-card'+(d.id===selectedId?' sel':'')+(d.status==='connected'?' connected':'')+(d.status==='offline'?' offline':'');
+      card.dataset.id=d.id;
+      const canConnect = canConnectDevice(d);
+      card.innerHTML=`
+        <div class="dev-main" data-pick="${d.id}">
+          <span class="status-dot ${scls}"></span>
+          <div class="dev-id">
+            <div class="dev-alias">
+              <span class="a-text">${escapeHtml(d.alias)}</span>
+              <span class="edit" data-edit="${d.id}" title="重命名"><i data-lucide="pencil"></i></span>
+              ${oc&&ovOn?`<span class="tag over" title="该设备的参数覆盖已启用，优先于默认参数">已启用设备覆盖</span>`:''}
+            </div>
+            <div class="dev-meta">
+              <span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>
+              <span class="dev-cid">${idEl}</span><span>·</span>
+              <span class="status-text ${scls}">${stxt}</span>
+              <span>·</span><span>最后 ${d.last}</span>
+            </div>
+          </div>
+          <div class="dev-actions">
+            ${d.status==='connected'
+              ? `<button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button>`
+              : `<button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button>`}
+            <button class="btn sm ghost" data-ov="${d.id}"><i data-lucide="sliders-horizontal"></i>参数</button>
+            <button class="btn sm danger" data-del="${d.id}"><i data-lucide="trash-2"></i>删除</button>
+          </div>
+        </div>
+        <div class="dev-params hidden" data-ovpanel="${d.id}"></div>`;
+      box.appendChild(card);
+      renderOvPanel(d, card.querySelector('[data-ovpanel]'));
+    });
+    lucide.createIcons();
+    box.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click', e=>{
+      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit]')) return;
+      selectedId=el.dataset.pick; renderDeviceList(); renderPreview();
+    }));
+    box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); startRename(b.dataset.edit); }));
+    box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); deleteDevice(b.dataset.del); }));
+    box.querySelectorAll('[data-conn]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); connectDev(b.dataset.conn); }));
+    box.querySelectorAll('[data-disc]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); disconnectDev(b.dataset.disc); }));
+    box.querySelectorAll('[data-ov]').forEach(b=>b.addEventListener('click', e=>{
+      e.stopPropagation(); selectedId=b.dataset.ov; renderPreview();
+      const panel=box.querySelector(`[data-ovpanel="${b.dataset.ov}"]`);
+      const show = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      if (show){ openPanels.add(b.dataset.ov); renderOvPanel(getDev(b.dataset.ov), panel); }
+      else { openPanels.delete(b.dataset.ov); }
+    }));
+    // 保持已展开的参数面板
+    openPanels.forEach(id=>{
+      const card=box.querySelector(`.dev-card[data-id="${id}"]`); if(!card) return;
+      const panel=card.querySelector('[data-ovpanel]'); panel.classList.remove('hidden'); renderOvPanel(getDev(id), panel);
+    });
+  }
+  function startRename(id){
+    const d=getDev(id); const span=document.querySelector(`[data-edit="${id}"]`).previousElementSibling;
+    const inp=document.createElement('input'); inp.value=d.alias; span.replaceWith(inp); inp.focus(); inp.select();
+    const commit=()=>{ d.alias=inp.value.trim()||d.alias; renderDeviceList(); renderPreview(); updatePills(); };
+    inp.addEventListener('blur', commit); inp.addEventListener('keydown', e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){ inp.value=d.alias; commit(); } });
+  }
+  function deleteDevice(id){
+    if (id===selectedId) selectedId = devices.find(x=>x.id!==id)?.id || null;
+    openPanels.delete(id);
+    devices = devices.filter(d=>d.id!==id); delete overrides[id]; delete ovEnabled[id];
+    renderDeviceList(); renderPreview(); updatePills();
+  }
+
+  /* ===================== 每设备参数覆盖面板 ===================== */
+  function ovLabelHtml(d, enabled){
+    const n = overrideCount(d.id);
+    const off = n>0 && !enabled ? ' · 覆盖已禁用（取值已保留）' : '';
+    return `<i data-lucide="sliders-horizontal"></i>为「${escapeHtml(d.alias)}」单独设置参数${off}`;
+  }
+  function renderOvPanel(d, panel){
+    const n = overrideCount(d.id);
+    const enabled = isOvEnabled(d.id);
+    panel.innerHTML=`
+      <div class="ov-head">
+        <span class="lab">${ovLabelHtml(d, enabled)}</span>
+        <label class="switch" title="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" data-ovenable ${enabled?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="ov-grid" data-ovgrid style="${enabled?'':'opacity:.45;pointer-events:none'}">
+        <div class="field"><label>长边分辨率（--max-size）</label>
+          <div class="range-row"><input type="range" min="0" max="2560" step="64" data-ovk="video.maxSize" value="${ovVal(d.id,'video','maxSize')}"><span class="range-val">${ovVal(d.id,'video','maxSize')==0?'自动':ovVal(d.id,'video','maxSize')+' px'}</span></div></div>
+        <div class="field"><label>视频码率（--video-bit-rate）</label>
+          <div class="range-row"><input type="range" min="0" max="64" data-ovk="video.bitrate" value="${ovVal(d.id,'video','bitrate')}"><span class="range-val">${ovVal(d.id,'video','bitrate')==0?'自动':ovVal(d.id,'video','bitrate')+' Mbps'}</span></div></div>
+        <div class="field"><label>最大帧率（--max-fps）</label>
+          <div class="range-row"><input type="range" min="0" max="240" data-ovk="video.maxFps" value="${ovVal(d.id,'video','maxFps')}"><span class="range-val">${ovVal(d.id,'video','maxFps')==0?'不限制':ovVal(d.id,'video','maxFps')+' fps'}</span></div></div>
+        <div class="field"><label>窗口标题（--window-title）</label>
+          <input type="text" data-ovk="window.windowTitle" value="${escapeHtml(ovVal(d.id,'window','windowTitle'))}"></div>
+        <div class="field"><label>关闭屏幕（--turn-screen-off）</label>
+          <div class="toggle"><span class="t-label">镜像时熄灭手机屏；视频源为摄像头时不生效</span><label class="switch"><input type="checkbox" data-ovk="control.turnScreenOff" ${ovVal(d.id,'control','turnScreenOff')?'checked':''}><span class="slider"></span></label></div></div>
+        <div class="field"><label>只读 / 仅查看（--no-control）</label>
+          <div class="toggle"><span class="t-label">禁用控制</span><label class="switch"><input type="checkbox" data-ovk="control.noControl" ${ovVal(d.id,'control','noControl')?'checked':''}><span class="slider"></span></label></div></div>
+        <div class="field"><label>全屏（--fullscreen）</label>
+          <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-ovk="window.fullscreen" ${ovVal(d.id,'window','fullscreen')?'checked':''}><span class="slider"></span></label></div></div>
+        <div class="field"><label>启动应用（--start-app）</label>
+          <input type="text" data-ovk="apps.startApp" value="${escapeHtml(ovVal(d.id,'apps','startApp'))}"></div>
+        <div class="field"><label>更多参数</label>
+          <div class="ov-empty">完整参数请在「显示源 / 视频 / 音频…」标签页以默认参数设置；此处覆盖最常用项。</div></div>
+      </div>`;
+    lucide.createIcons();
+    const enabler = panel.querySelector('[data-ovenable]');
+    enabler.addEventListener('change', ()=>{
+      // 禁用只停用，不删除覆盖值：重新启用后原取值仍然生效（design.md D5）
+      ovEnabled[d.id] = enabler.checked;
+      const grid=panel.querySelector('[data-ovgrid]');
+      grid.style.opacity = enabler.checked?'1':'0.45'; grid.style.pointerEvents = enabler.checked?'auto':'none';
+      const lab=panel.querySelector('.ov-head .lab');
+      if (lab){ lab.innerHTML = ovLabelHtml(d, enabler.checked); lucide.createIcons(); }
+      renderPreview(); refreshOvBadge(d);
+    });
+    panel.querySelectorAll('[data-ovk]').forEach(inp=>{
+      const ev = inp.type==='checkbox' ? 'change' : 'input';
+      inp.addEventListener(ev, ()=>{
+        selectedId=d.id;
+        const [g,k]=inp.dataset.ovk.split('.');
+        let v = inp.type==='checkbox' ? inp.checked : (inp.type==='range'?Number(inp.value):inp.value);
+        (overrides[d.id] ||= {})[g] ||= {}; overrides[d.id][g][k]=v;
+        // 同步数值回显
+        const rv=inp.parentElement.querySelector('.range-val');
+        if (rv){ if(g==='video'&&k==='maxSize') rv.textContent=v==0?'自动':v+' px'; else if(k==='bitrate') rv.textContent=v==0?'自动':v+' Mbps'; else if(k==='maxFps') rv.textContent=v==0?'不限制':v+' fps'; }
+        renderPreview(); refreshOvBadge(d);
+      });
+    });
+    // 面板整体重建，程序化 value 不触发 input，故需在重建后再算一次填充比例
+    paintRanges(panel);
+  }
+  function refreshOvBadge(d){
+    const card=document.querySelector(`#deviceList .dev-card[data-id="${d.id}"]`); if(!card) return;
+    const alias=card.querySelector('.dev-alias'); if(!alias) return;
+    let tag=alias.querySelector('.tag.over');
+    // 与产品侧的 isOverrideActive 同源：**有覆盖取值且开关启用**才挂标识，
+    // 且只挂一枚、不含项数（拨开关即创建空条目，故「有取值」这道门槛不能省）。
+    const active = overrideCount(d.id) > 0 && isOvEnabled(d.id);
+    if (active){
+      if(!tag){ tag=document.createElement('span'); tag.className='tag over'; alias.appendChild(tag); }
+      tag.textContent = '已启用设备覆盖';
+      tag.title = '该设备的参数覆盖已启用，优先于默认参数';
+    }
+    else if (tag){ tag.remove(); }
+  }
+  function connectDev(id){
+    const d=getDev(id); if(!d||!canConnectDevice(d)) return;
+    d.status='connected'; d.last='当前连接'; selectedId=id;
+    renderDeviceList(); renderPreview(); updatePills();
+  }
+  function disconnectDev(id){
+    const d=getDev(id); if(!d) return;
+    d.status='idle'; d.last='刚刚断开';
+    renderDeviceList(); renderPreview(); updatePills();
+  }
+  /** 「在线」含已连接（与产品同一口径：在线 = 已连接 + 未连接但在线），离线不计入。 */
+  function onlineCount(){ return devices.filter(d=>d.status==='connected'||d.status==='idle').length; }
+
+  /* ===================== 顶栏 / 导航 ===================== */
+  function updatePills(){
+    const n=devices.length, c=devices.filter(d=>d.status==='connected').length;
+    const pill=document.getElementById('devPill');
+    // 判据与产品一致：有**在线**设备（含已连接）即呈 ok 态，不是只数已连接。
+    pill.classList.toggle('ok', onlineCount()>0);
+    pill.innerHTML=`<span class="dot"></span>${n} 台设备 · ${onlineCount()} 在线 · ${c} 已连接`;
+  }
+  // 页键即「页面身份」：与导航项的 data-sec、section 的 id 一致（advanced=高级、environment=运行环境）。
+  // 别与数据里的**分组键**（defaults 的 apps / advanced、data-g 属性）混为一谈 —— 那是字段名，不随页面改名。
+  // 「关于」不在其中：它不是页面（点它开弹窗、不切页），故导航项挂 data-dialog 而非 data-sec。
+  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',diagnostics:'日志',environment:'运行环境'};
+  // 页面跳转：导航点击与顶栏两个状态指示共用同一份判定（不新增过渡 / 滚动逻辑）
+  function gotoSection(sec){
+    const item=document.querySelector(`.nav-item[data-sec="${sec}"]`); if(!item) return;
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('sec-'+sec).classList.add('active');
+    document.getElementById('pageTitle').textContent=titles[sec];
+    // 命令预览只在设备页与各参数页呈现：日志 / 运行环境两页整条不呈现，底部留白也随之收掉。
+    const noBar = sec==='diagnostics' || sec==='environment';
+    document.querySelector('.main').classList.toggle('no-bar', noBar);
+    document.querySelector('.launchbar').style.display = noBar ? 'none' : '';
+  }
+  document.getElementById('nav').addEventListener('click', e=>{
+    const item=e.target.closest('.nav-item'); if(!item) return;
+    // 「关于」不是页面：只开弹窗，**不切页、不动选中态与标题**（见 spec「统一导航入口」）。
+    if (item.dataset.dialog==='about'){ openAbout(); return; }
+    gotoSection(item.dataset.sec);
+  });
+  // 顶栏两个状态指示：点设备概况回「设备」页，点运行环境指示去「运行环境」页
+  document.getElementById('devPill').addEventListener('click', ()=>gotoSection('devices'));
+  document.getElementById('envPill').addEventListener('click', ()=>gotoSection('environment'));
+
+  /* ===================== 关于弹窗 =====================
+     两个入口共用这一个弹窗：侧边栏末位的「关于」（不切页）与品牌行（整行可点）。
+     关闭方式三种：✕ / Esc / 点遮罩 —— 与仓内其它四个弹窗（只能点弹窗里的按钮关）不同，
+     这是本弹窗独有的约定（见 spec「弹窗的关闭方式」）。 */
+  const aboutModal=document.getElementById('aboutModal');
+  // 品牌图形复用品牌行那一份（取同一个 src），不在这里再复制一遍 base64 数据
+  (function(){
+    const srcImg=document.querySelector('.brand .logo img');
+    const dstImg=document.getElementById('aboutLogo');
+    if (srcImg && srcImg.src && dstImg) dstImg.src=srcImg.src;
+  })();
+  // 开：清掉可能残留的关闭态（关闭动画播到一半又点开时不至于卡住），再加 .show 触发入场动画
+  function openAbout(){
+    aboutModal.classList.remove('closing');
+    aboutModal.classList.add('show');
+    lucide.createIcons();
+  }
+  // 关：先加 .closing 播关闭动画，**动画播完**再由 animationend 收掉 .show —— 不是瞬隐。
+  // 用动画结束事件而不是写死的定时器，免得时长改了这里忘改（时长只写在 CSS 里）。
+  function closeAbout(){
+    if (!aboutModal.classList.contains('show')) return;
+    aboutModal.classList.add('closing');
+  }
+  aboutModal.querySelector('.modal').addEventListener('animationend', e=>{
+    if (e.animationName==='about-panel-out') aboutModal.classList.remove('show','closing');
+  });
+  document.getElementById('aboutClose').addEventListener('click', closeAbout);
+  // 点遮罩关闭：判据是「点到的就是遮罩本身」——点弹窗内部（含内容与按钮）不关
+  aboutModal.addEventListener('click', e=>{ if (e.target===aboutModal) closeAbout(); });
+  // Esc 关闭：只在本弹窗打开时生效
+  document.addEventListener('keydown', e=>{
+    if (e.key==='Escape' && aboutModal.classList.contains('show')) closeAbout();
+  });
+  // 品牌行入口：整行可点，且键盘可达（Enter / 空格）
+  const brandRow=document.getElementById('brandRow');
+  brandRow.addEventListener('click', openAbout);
+  brandRow.addEventListener('keydown', e=>{
+    if (e.key==='Enter' || e.key===' '){ e.preventDefault(); openAbout(); }
+  });
+
+  /* ===================== 添加设备 Modal ===================== */
+  const addModal=document.getElementById('addModal');
+  document.getElementById('addDeviceBtn').addEventListener('click', ()=>{ addModal.classList.add('show'); lucide.createIcons(); });
+  document.getElementById('mCancel').addEventListener('click', ()=>addModal.classList.remove('show'));
+  document.getElementById('mType').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#mType button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    const wifi=b.dataset.v==='wifi';
+    // 只切可见性（`.off` = visibility: hidden），两支**始终占位** ⇒ 弹窗高度与位置不随连接方式变化。
+    document.getElementById('mWifiField').classList.toggle('off', !wifi);
+    document.getElementById('mUsbField').classList.toggle('off', wifi);
+  });
+  document.getElementById('mSave').addEventListener('click', ()=>{
+    const alias=document.getElementById('mAlias').value.trim()||('设备'+(devices.length+1));
+    const type=document.querySelector('#mType button.active').dataset.v;
+    const d={ id:'d'+(++uid), alias, status:'idle', last:'刚刚添加' };
+    if (type==='usb'){ d.type='usb'; d.serial=document.getElementById('mSerial').value.trim(); }
+    else { d.type='wifi'; d.ip=document.getElementById('mIp').value.trim(); d.port=Number(document.getElementById('mPort').value)||5555; }
+    devices.push(d); selectedId=d.id;
+    addModal.classList.remove('show');
+    document.getElementById('mAlias').value=''; document.getElementById('mSerial').value=''; document.getElementById('mIp').value='';
+    renderDeviceList(); renderPreview(); updatePills();
+  });
+
+  /* ===================== scrcpy 运行环境（「更多」页） =====================
+     真实实现（Tauri 命令层）对应：
+       assets::get_scrcpy_dir()     → 解析 <应用数据根>/FreeControl2/scrcpy-{平台标签}-v{Version}
+                                       （平台标签由「操作系统 × 架构」二维查表，Windows 为 win64）
+       assets::open_scrcpy_dir()    → 调系统资源管理器定位该目录
+       assets::download_latest()    → 拉 GitHub Releases 最新版并解压覆盖（失败可手动放置）
+     这里只做交互演示。 */
+  const scrcpyPathEl  = document.getElementById('scrcpyPath');
+  const envDirHint    = document.getElementById('envDirHint');
+  const envStatus     = document.getElementById('envStatus');
+  const envFlash      = document.getElementById('envFlash');
+  const envStatePill  = document.getElementById('envStatePill');
+  const reasonBtn     = document.getElementById('reasonBtn');
+  const reasonBtnText = document.getElementById('reasonBtnText');
+  const envReason     = document.getElementById('envReason');
+  const dlBox        = document.getElementById('dlProgress');
+  const dlBar        = document.getElementById('dlBar');
+  const dlPct        = document.getElementById('dlPct');
+  const dlLabel      = document.getElementById('dlLabel');
+  const dlChannel    = document.getElementById('dlChannel');
+  /* 进度块里的文案与通道两格恒为单行、超出部分省略（见 .dl-head 规则），故全文必须同时写进
+     title，否则被截掉的那截信息就再也看不到 —— 与产品侧 DownloadProgress.svelte 同法。 */
+  function setDlText(el, text){ el.textContent = text; el.title = text; }
+
+  /* ---- 版本信息统一注入：页面所有版本展示都取自上面那两处版本常量（scrcpy 与应用各一处）---- */
+  scrcpyPathEl.value = SCRCPY_DIR;
+  // 目录字段——约定目录文字（产品侧由后端下发的 dirHint 拼成；原型取同一个目录常量）。
+  // 它现在住在 `?` 详情的第一句里：字段下方不再有常驻说明（该目录的完整路径已由上面的只读输入框展示），
+  // 句子骨架写在 HTML 里，这里只填路径。
+  // 路径输入框里贴的是资源管理器/命令行里的写法（反斜杠），说明文字与产品侧一致用正斜杠。
+  envDirHint.textContent = SCRCPY_DIR.replace(/\\/g, '/');
+  // 状态字段的就绪指示与原因说明：演示态恒为「已就绪 · 与最佳适配一致」，取值一律取自
+  // 版本常量，不另写一份字面量（产品侧的就绪文字 = 「已就绪 · scrcpy {installed}（含 adb）」）。
+  envStatePill.innerHTML = `<i data-lucide="circle-check"></i>已就绪 · scrcpy ${SCRCPY_VERSION}（含 adb）`;
+  document.getElementById('envReasonInstalled').textContent = DEMO_INSTALLED_OTHER;
+  document.getElementById('envReasonBestFit').textContent = SCRCPY_VERSION;
+  setDlText(dlLabel, `正在下载 ${SCRCPY_ZIP}…`);
+  // 「关于」弹窗的两个版本行：与运行环境页同源，不另写一份字面量（弹窗默认隐藏，赋值照常生效）
+  document.getElementById('aboutAppVersion').textContent = APP_VERSION;
+  document.getElementById('aboutScrcpyVersion').textContent = SCRCPY_VERSION;
+
+  /* ---- 顶部环境指示：可演示「最佳适配」与「非最佳适配（黄色叹号）」两态 ---- */
+  let envBestFit = true;   // 原型演示开关；正式实现由后端下发的兼容性状态决定
+  function renderEnvPill(){
+    const el = document.getElementById('envPill');
+    // 本页「兼容性演示」开关与顶部指示共用同一状态；重渲染时把开关同步回来
+    const demo = document.getElementById('demoEnvWarn'); if (demo) demo.checked = !envBestFit;
+    if (envBestFit){
+      el.className = 'pill env ok clickable';
+      el.innerHTML = `<span class="dot"></span>scrcpy v${SCRCPY_VERSION} 就绪`;
+      el.title = `已安装版本 v${SCRCPY_VERSION} 与最佳适配版本一致（点此前往运行环境页）`;
+    } else {
+      el.className = 'pill env warn clickable';
+      el.innerHTML = `<i data-lucide="alert-triangle"></i>scrcpy v${DEMO_INSTALLED_OTHER} 非最佳适配版本`;
+      el.title = `已安装 v${DEMO_INSTALLED_OTHER} ≠ 最佳适配 v${SCRCPY_VERSION}：该版本未经本程序完整适配，可能存在未知问题；不影响继续使用。（点此前往运行环境页查看原因）`;
+    }
+    // 「下载最佳适配版本」仅在非最佳适配（!envBestFit，对应产品侧 !envOk）时出现
+    const bf = document.getElementById('bestFitBtn'); if (bf) bf.classList.toggle('hidden', envBestFit);
+    // 「查看原因」与「下载最佳适配版本」同一谓词（产品侧同为 !envOk）；回到最佳适配时说明块
+    // 一并收起，不留一处过期的原因（与产品侧「环境恢复最佳适配时自动收起」同款）。
+    reasonBtn.classList.toggle('hidden', envBestFit);
+    if (envBestFit) setReasonOpen(false);
+    lucide.createIcons();
+  }
+  renderEnvPill();
+  // 两态预览的演示开关已迁到「运行环境」页的运行环境卡片内（点顶部指示本身改为跳转）
+  document.getElementById('demoEnvWarn').addEventListener('change', e=>{ envBestFit = !e.target.checked; renderEnvPill(); });
+
+  /* ---- 状态字段：「查看原因」就地展开原因说明块（产品侧把原因搬到它所属的页，design D7）---- */
+  function setReasonOpen(open){
+    envReason.classList.toggle('hidden', !open);
+    reasonBtnText.textContent = open ? '收起原因' : '查看原因';
+    reasonBtn.setAttribute('aria-expanded', String(open));
+  }
+  reasonBtn.addEventListener('click', ()=> setReasonOpen(envReason.classList.contains('hidden')));
+
+  /* 状态行与更新行各有一个就地反馈位（与产品侧一致）：状态行承担「打开目录」「重新检测」，
+     更新行承担「检查更新」。两条计时器分开，互不把对方的字清掉。 */
+  let envTimer=null, updTimer=null;
+  function flashEnvStatus(text, cls){
+    envFlash.className='status-text '+(cls||'');
+    envFlash.textContent=text;
+    clearTimeout(envTimer);
+    envTimer=setTimeout(()=>{ envFlash.textContent=''; envFlash.className='status-text'; }, 2800);
+  }
+  function flashUpdateStatus(text, cls){
+    envStatus.className='status-text '+(cls||'');
+    envStatus.textContent=text;
+    clearTimeout(updTimer);
+    updTimer=setTimeout(()=>{ envStatus.textContent=''; envStatus.className='status-text'; }, 2800);
+  }
+
+  /* 重新检测：演示只给一处就地反馈（产品侧此刻会重新探测运行环境与已安装版本）。 */
+  document.getElementById('recheckBtn').addEventListener('click', ()=>{
+    flashEnvStatus('已检测到可用的运行环境','connected');
+  });
+
+  /* 查看 / 打开 scrcpy 所在目录 */
+  document.getElementById('openDirBtn').addEventListener('click', ()=>{
+    flashEnvStatus('已在资源管理器中打开该目录','connected');
+  });
+
+  /* ---- 字段旁 `?` 的详情面板：展开完全由 CSS 承担（.fhelp:hover / .fhelp-btn:focus-visible +
+     .fhelp-panel），这里**不再有接线** —— 没有展开态要记，也就没有脚本。 ---- */
+
+  /* ---- 「日志」页的日志文件卡片：保留策略切换 + 打开日志目录（同「打开目录」的就地反馈） ---- */
+  document.getElementById('logRetention').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#logRetention button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+  });
+  let logDirTimer=null;
+  document.getElementById('openLogDirBtn').addEventListener('click', ()=>{
+    const st=document.getElementById('logDirStatus');
+    st.className='status-text connected';
+    st.textContent='已在资源管理器中打开该目录';
+    clearTimeout(logDirTimer);
+    logDirTimer=setTimeout(()=>{ st.textContent=''; st.className='status-text'; }, 2800);
+  });
+
+  /* 检查更新 */
+  document.getElementById('checkUpdateBtn').addEventListener('click', ()=>{
+    envStatus.className='status-text'; envStatus.textContent='检查中…';
+    setTimeout(()=>flashUpdateStatus(`已是最新版本 v${SCRCPY_VERSION}`,'connected'), 800);
+  });
+
+  /* 运行环境版本获取：两个入口都直接开始（无二次确认，破坏性闸门只剩下载中的「取消」）。
+     bestFit 取构建期锁定的受支持版本（不查官方发布）；latest 取官方最新发布。 */
+  function startScrcpyDl(mode){
+    envStatus.textContent=''; envStatus.className='status-text';
+    dlBox.classList.remove('hidden');
+    if (mode === 'bestFit') setDlText(dlLabel, `正在下载 ${SCRCPY_ZIP}（最佳适配版本）…`);
+    else setDlText(dlLabel, `正在下载 ${SCRCPY_ZIP}…`);
+    demoRun(0);
+  }
+  document.getElementById('bestFitBtn').addEventListener('click', ()=>startScrcpyDl('bestFit'));
+  document.getElementById('redownloadBtn').addEventListener('click', ()=>startScrcpyDl('latest'));
+
+  /* ---- 进度块里的两颗操作按钮（与产品侧 DownloadProgress 同稿、同可用阶段）----
+     可用阶段取自 spec「下载过程的人工干预」：
+       下载阶段 → 「切换通道」与「取消」都在；
+       校验阶段 → 资产已下完，产品侧不再提供切换，只留「取消」；
+       完成后   → 整行收起。
+     「切换通道」的演示行为与产品侧一致：中断当前通道，改用下一条并**从零**重下。 */
+  const dlSwitchBtn = document.getElementById('dlSwitchBtn');
+  const dlCancelBtn = document.getElementById('dlCancelBtn');
+  const dlActions   = document.getElementById('dlActions');
+  let demoTimer = null;   // 进度推进链上的定时器：切换 / 取消都要能一次掐断整条链
+  let demoChan  = 0;      // 当前演示通道：0 = GitHub 直连，其后按代理列表顺序
+  function demoStop(){ if (demoTimer){ clearTimeout(demoTimer); demoTimer=null; } }
+  function demoChannelLabel(i){ return i===0 ? 'GitHub 直连' : `代理 ${proxyList[i-1]}`; }
+  function demoSetActions(phase){
+    dlActions.classList.toggle('hidden', phase==='done');
+    // 没有别的通道可换（代理被删光）时，「切换通道」不出现 —— 与产品侧的禁用条件一致。
+    const canSwitch = phase==='download' && proxyList.length>0;
+    dlSwitchBtn.classList.toggle('hidden', !canSwitch);
+    lucide.createIcons();
+  }
+  function demoRun(i){
+    demoChan = i;
+    demoSetActions('download');
+    dlBar.style.width='0%'; dlPct.textContent='0%';
+    setDlText(dlLabel, `正在下载 ${SCRCPY_ZIP}…`);
+    setDlText(dlChannel, `下载通道：${demoChannelLabel(i)}`);
+    let p=0;
+    const step=()=>{
+      p=Math.min(100, p+Math.max(3, Math.round(Math.random()*11)));
+      dlBar.style.width=p+'%'; dlPct.textContent=p+'%';
+      if (p<100){ demoTimer=setTimeout(step, 130); return; }
+      demoSetActions('verify');
+      setDlText(dlLabel, '下载完成，正在校验 checksum…');
+      setDlText(dlChannel, `下载通道：${demoChannelLabel(demoChan)}`);
+      demoTimer=setTimeout(()=>{
+        demoTimer=null;
+        // 完成后**不收起**进度块：产品侧此刻块仍在，并给出「已安装 + 校验结论」
+        // （DownloadProgress 的 `$lastInstall` 分支）。通道行并进块内之后，结论若还留在块外
+        // 就会与盒子脱节，故改为块内常驻，文案与产品同稿。
+        demoSetActions('done');
+        dlBar.style.width='100%'; dlPct.textContent='100%';
+        setDlText(dlLabel, `已安装 scrcpy v${SCRCPY_VERSION}`);
+        setDlText(dlChannel, `下载通道：${demoChannelLabel(demoChan)} · SHA256SUMS 校验通过。`);
+        envBestFit = true; renderEnvPill();   // 重新下载的是最佳适配版本 → 警示与原因说明一并消失
+        flashEnvStatus(`已更新到 v${SCRCPY_VERSION}`,'connected');
+      }, 900);
+    };
+    demoTimer=setTimeout(step, 200);
+  }
+  dlSwitchBtn.addEventListener('click', ()=>{
+    demoStop();
+    // 「改用其他通道」向后循环一圈：直连之后依次是代理地址（按钮在没有代理时不出现）。
+    const total = proxyList.length + 1;
+    demoRun(demoChan + 1 >= total ? 1 : demoChan + 1);
+  });
+  dlCancelBtn.addEventListener('click', ()=>{
+    // 取消的反馈就是「进度块消失 + 环境零改动」：产品侧刻意**不把它当成错误**，
+    // 因此这里也不落任何红色提示（沿用同一语义）。
+    demoStop();
+    dlBox.classList.add('hidden');
+    envStatus.textContent=''; envStatus.className='status-text';
+  });
+
+  /* ===================== 批量操作 / 收起侧边栏 ===================== */
+  /* 批量操作的**结果就地写进工具栏行内的反馈位**（不另起一行）；措辞与产品侧
+     DevicePage 的 connectSummary / 全部断开收尾同款（④：提示与回显的位置、文案同步）。 */
+  const devNotice = document.getElementById('devNotice');
+  document.getElementById('connAll').addEventListener('click', ()=>{
+    const n = devices.filter(d=>d.status==='idle').length;
+    devices.forEach(d=>{ if(d.status==='idle'){ d.status='connected'; d.last='当前连接'; } });
+    renderDeviceList(); renderPreview(); updatePills();
+    devNotice.textContent = n ? `已连接 ${n} 台` : '没有可连接的设备';
+  });
+  document.getElementById('discAll').addEventListener('click', ()=>{
+    const n = devices.filter(d=>d.status==='connected').length;
+    devices.forEach(d=>{ if(d.status==='connected'){ d.status='idle'; d.last='刚刚断开'; } });
+    renderDeviceList(); renderPreview(); updatePills();
+    devNotice.textContent = n ? `已结束 ${n} 个会话` : '当前没有正在运行的会话';
+  });
+  /* 收起态下只剩图标，hover 时以原生 title 提示该入口的标题（规格「侧边栏收起与展开」）。
+     原型是静态 HTML：把 title 写死在标签上会让展开态也弹提示 —— 与产品相反，
+     故必须按当前状态派生。取值直接读该节点内的 .nav-text（不另抄一份标签表，
+     否则会与可见文字分叉）；展开态移除该属性（文字本已可见，再挂同名提示只是重复）。 */
+  function syncNavTitles(){
+    const isCollapsed=document.getElementById('app').classList.contains('collapsed');
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      const label=n.querySelector('.nav-text');
+      if (isCollapsed && label) n.title=label.textContent.trim();
+      else n.removeAttribute('title');
+    });
+  }
+  document.getElementById('collapseBtn').addEventListener('click', ()=>{
+    document.getElementById('app').classList.toggle('collapsed');
+    syncNavTitles();
+  });
+
+  /* 复制命令 */
+  function copyText(txt){
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(txt);
+    return new Promise((res, rej)=>{
+      const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); res(); } catch(e){ rej(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    const txt=document.getElementById('cmdPreview').textContent.trim();
+    if (!txt || txt==='选择一台设备查看命令') return;
+    copyText(txt).then(()=>{
+      const b=document.getElementById('copyBtn');
+      b.classList.add('ok'); b.innerHTML='<i data-lucide="check"></i>'; lucide.createIcons();
+      setTimeout(()=>{ b.classList.remove('ok'); b.innerHTML='<i data-lucide="copy"></i>'; lucide.createIcons(); }, 1400);
+    });
+  });
+
+  /* 命令条上的会话入口：已连接则结束会话，否则发起 —— 复用设备卡片那套 connectDev / disconnectDev。 */
+  document.getElementById('connectBtn').addEventListener('click', ()=>{
+    const d=getDev(selectedId); if(!d) return;
+    if (d.status==='connected') disconnectDev(selectedId); else connectDev(selectedId);
+  });
+
+  /* 「关于」弹窗版本行的复制入口 = **整行**（与命令预览**同一套复制实现与同一段反馈**：图标换勾 1.4s）。
+     复制的是界面上显示的那个值（取该行的 .about-ver-val 文本），不是另取一份常量 ——
+     复制到的与看到的一致。整行可点、可键盘聚焦，Enter / 空格与点击等价；
+     行末图标只是反馈载体，自身不再可点（一行只有一个入口）。
+     正式实现由 clipboard.ts + 同一段反馈承担。 */
+  document.querySelectorAll('.about-ver-row').forEach(row=>{
+    const icon = row.querySelector('.about-copy');
+    const copy = ()=>{
+      const val = row.querySelector('.about-ver-val');
+      const txt = val ? val.textContent.trim() : '';
+      if (!txt) return;   /* 占位（值未就绪）时不写入、也不给成功反馈 */
+      copyText(txt).then(()=>{
+        icon.classList.add('ok'); icon.innerHTML='<i data-lucide="check"></i>'; lucide.createIcons();
+        setTimeout(()=>{ icon.classList.remove('ok'); icon.innerHTML='<i data-lucide="copy"></i>'; lucide.createIcons(); }, 1400);
+      });
+    };
+    row.addEventListener('click', copy);
+    row.addEventListener('keydown', e=>{
+      if (e.key==='Enter' || e.key===' '){ e.preventDefault(); copy(); }
+    });
+  });
+
+  /* ===================== 下载通道（运行环境页 · scrcpy 运行环境卡） =====================
+     同步产品侧同一处的实现：首行是只读的 GitHub 直连地址（纯展示 —— 不可点击、无跳转），
+     其余代理地址一律可追加与删除 —— 没有「内置 / 自定义」的二分，出厂默认的那两条也只是
+     配置里的初始内容，删得掉且不会自动恢复。
+     产品侧由 Rust 校验并回传错误文案，原型在本地复刻同一组判定与话术（含重复项的拒绝），
+     因此两边的提示逐字一致；原型不落盘，刷新即回到初始状态。 */
+  const DIRECT_URL = 'https://github.com/Genymobile/scrcpy/releases/';
+  /* 出厂默认代理地址（与后端 config::DEFAULT_PROXIES 同值）：只是初始内容，不是内置项。 */
+  let proxyList = ['https://gh-proxy.org', 'https://ghproxy.net/'];
+  function normalizeProxy(raw){
+    const v = raw.trim();
+    if (!v) return { err: '地址不能为空' };
+    const rest = v.startsWith('https://') ? v.slice(8) : (v.startsWith('http://') ? v.slice(7) : null);
+    if (rest === null) return { err: '地址必须以 http:// 或 https:// 开头' };
+    if (!rest.replace(/\//g,'').length) return { err: '地址缺少主机名' };
+    if (/\s/.test(v)) return { err: '地址中不能包含空格' };
+    const url = v.replace(/\/+$/,'');
+    if (proxyList.includes(url)) return { err: '该地址已在列表中' };
+    return { url };
+  }
+  function renderProxyList(){
+    const box = document.getElementById('proxyList');
+    box.innerHTML = '';
+    // 首行：只读的直连地址。它不在可管理的代理列表里，故不提供删除，也没有任何点击跳转
+    // —— 与下面的代理行一样只是文本（同一个 .proxy-url 类，故呈现完全一致）；
+    // title 与代理行同法承载被省略掉的全量地址。
+    const direct=document.createElement('div'); direct.className='proxy-item';
+    direct.innerHTML=`<span class="tag direct">直连</span>`
+      +`<span class="proxy-url" title="${escapeHtml(DIRECT_URL)}">${escapeHtml(DIRECT_URL)}</span>`
+      +`<span class="proxy-ro">只读</span>`;
+    box.appendChild(direct);
+    proxyList.forEach(url=>{
+      const it=document.createElement('div'); it.className='proxy-item';
+      it.innerHTML=`<span class="tag proxy">代理</span><span class="proxy-url" title="${escapeHtml(url)}">${escapeHtml(url)}</span>`
+        +`<button class="btn ghost sm" data-proxy-del="${escapeHtml(url)}" title="删除该代理地址"><i data-lucide="trash-2"></i> 删除</button>`;
+      box.appendChild(it);
+    });
+    if (!proxyList.length){
+      const e=document.createElement('div'); e.className='proxy-empty'; e.textContent='代理地址已全部删除，下载将只走 GitHub 直连。';
+      box.appendChild(e);
+    }
+    lucide.createIcons();
+    box.querySelectorAll('[data-proxy-del]').forEach(b=>b.addEventListener('click', ()=>removeProxy(b.dataset.proxyDel)));
+  }
+  function showProxyErr(msg){
+    const el=document.getElementById('proxyErr');
+    el.textContent=msg; el.classList.toggle('hidden', !msg);
+  }
+  function addProxy(){
+    const inp=document.getElementById('proxyInput');
+    const r=normalizeProxy(inp.value);
+    if (r.err){ showProxyErr(r.err); return; }
+    proxyList=[...proxyList, r.url];
+    inp.value=''; showProxyErr(''); syncProxyAddBtn(); renderProxyList();
+  }
+  function removeProxy(url){
+    // 列表内一律可删：出厂默认的那两条与用户追加项走同一条路径。
+    proxyList=proxyList.filter(u=>u!==url);
+    showProxyErr(''); renderProxyList();
+  }
+  function syncProxyAddBtn(){
+    document.getElementById('proxyAddBtn').disabled = !document.getElementById('proxyInput').value.trim();
+  }
+  document.getElementById('proxyInput').addEventListener('input', syncProxyAddBtn);
+  document.getElementById('proxyInput').addEventListener('keydown', e=>{ if (e.key==='Enter') addProxy(); });
+  document.getElementById('proxyAddBtn').addEventListener('click', addProxy);
+
+  /* ============ 窗口控件（原型内只呈现外观） ============
+     浏览器里没有窗口可控：拖拽、最小化、关闭都无对象可施，故只有最大化键做一件事 ——
+     点击在「最大化 ↔ 向下还原」两枚图标间切一次，便于肉眼核对两枚图形。
+     产品侧该图标由**窗口的实际最大化状态**驱动（双击标题栏、系统快捷键、拖到屏幕边缘都算），
+     不按点击历史推断（见 spec「自定义标题栏」）。 */
+  (function(){
+    const btn = document.getElementById('winMax');
+    let maxed = false;
+    btn.addEventListener('click', () => {
+      maxed = !maxed;
+      const label = maxed ? '向下还原' : '最大化';
+      btn.title = label; btn.setAttribute('aria-label', label);
+      const ph = document.createElement('i');
+      ph.setAttribute('data-lucide', maxed ? 'copy' : 'square');
+      btn.replaceChildren(ph);   // 丢掉旧 svg 再放占位符，createIcons 只处理这一处
+      lucide.createIcons();
+    });
+  })();
+
+  /* ===================== 初始化 ===================== */
+  toggleSourceUI(); toggleNewDispUI();
+  renderDeviceList(); renderPreview(); updatePills(); syncNavTitles();
+  renderProxyList(); syncProxyAddBtn();
+  lucide.createIcons();
+  </script>
+</body>
+</html>

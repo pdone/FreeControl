@@ -1,0 +1,195 @@
+# 构建与校验（spec `release-build` / design D9）。
+#
+# 触发分级：
+#   - 推送到 main：只跑 `check`（编译 + 单测），不打包、不上传任何产物；
+#   - 手动触发：`check` → `build` → `release`，出包并汇集成一次**草稿**发行（不自动发布）。
+#
+# 两个平台的产物都由该平台自己的 runner 原生构建（MUST NOT 依赖交叉编译）：
+#   - Windows：`--no-bundle`，只产出裸 exe（免安装单文件）；
+#   - Linux：`--bundles appimage,deb`。
+#
+# 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
+# `scripts/**` 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/`
+# 这个仅被 README 引用的截图目录，不扩到整个 `assets/**`。
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "doc/**"
+      - "openspec/**"
+      - "ui-design/**"
+      - "assets/screenshots/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+# 同一分支上接连推送时，取消还在跑的旧一次，只保留最后一次（design D9）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 校验（编译 + 单测）
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: 安装 Rust（稳定版，宿主目标）
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 cargo
+        uses: Swatinem/rust-cache@v2
+
+      # tauri 在 Linux 上要链接 webkit2gtk / gtk 等，`cargo test` 同样需要 ——
+      # 省不掉「准备环境」，省掉的是打包那一段（design D9）。
+      # 缺依赖时以 apt 的报错呈现是哪一项缺失，而不是一段编译期链接错误（spec `release-build`）。
+      - name: 安装 Linux 系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf
+
+      - name: 安装前端依赖（锁文件驱动）
+        run: npm ci
+
+      - name: Rust 单测
+        run: cargo test --locked
+
+      # 前端检查与 Vite 构建与平台无关，只跑一次（design D9）。
+      - name: 前端检查
+        if: runner.os == 'Linux'
+        run: npm run check
+
+      - name: 前端构建
+        if: runner.os == 'Linux'
+        run: npm run build
+
+  build:
+    name: 出包
+    needs: check
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --no-bundle
+          - os: ubuntu-22.04
+            args: --bundles appimage,deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 Linux 系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf
+
+      - name: 安装前端依赖（锁文件驱动）
+        run: npm ci
+
+      - name: 构建（`beforeBuildCommand` 自带 `vite build`）
+        run: npm run tauri build -- ${{ matrix.args }}
+
+      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），版本段由这里补上：
+      # 从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），只改名、不改内容。
+      - name: Windows 产物按应用版本命名
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $src = "src-tauri/target/release/FreeControl2.exe"
+          $dst = "src-tauri/target/release/FreeControl2_$version.exe"
+          if (-not (Test-Path $src)) { throw "找不到构建产物 $src" }
+          Move-Item $src $dst
+          Write-Host "产物：$dst"
+
+      - name: 上传 Windows 产物
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeControl2-windows
+          path: src-tauri/target/release/FreeControl2_*.exe
+          if-no-files-found: error
+
+      - name: 上传 Linux 产物
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeControl2-linux
+          path: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  # 只创建**草稿**：发布动作由人在确认产物后点一次（design D9）。
+  # 用 gh 而非第三方 action：少一个需要信任的第三方步骤；同 tag 已有草稿时只追加文件。
+  release:
+    name: 汇集成草稿发行
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 读应用版本（单一来源：`tauri.conf.json`）
+        id: version
+        run: echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: 下载两平台产物（合并到一个目录）
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 创建或追加到草稿发行
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          ls -l dist
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" --clobber dist/*
+          else
+            gh release create "$TAG" --draft \
+              --title "FreeControl2 v$VERSION" \
+              --notes "自动构建的草稿发行。Windows 产物为免安装单文件；请人工确认后再发布。" \
+              dist/*
+          fi

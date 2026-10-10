@@ -1,0 +1,3 @@
+[submodule "openspec"]
+	path = openspec
+	url = git@github.com:pdone/FreeControl2_OPSX.git

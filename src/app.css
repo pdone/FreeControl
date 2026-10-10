@@ -1,0 +1,2019 @@
+/* ============================================================================
+   FreeControl2 全局主题
+   移植自 ui-design/launcher-prototype.html，并据 design D8/D9/D10/D12 收敛：
+   - 强调色：只有 --accent 是字面量（产品默认色 indigo），其余由它派生。
+   - 轨道色：滑块/下载进度槽/滚动条槽共用的不透明色变量，不进主色体系。
+   - 侧边栏几何：由 --rail-pad/--item-pad/--icon/--logo/--rail-w 单点派生。
+   - 原生控件暗色适配：color-scheme:dark + 自绘滚动条/滑块，槽必须不透明。
+   本文件为全局样式表（非 scoped），以满足 D10「规则落在全局、不被 scoped 处理」。
+   ========================================================================== */
+
+:root {
+  --bg: #0b0d11;
+  --bg-elev: #14171d;
+  --panel: #171b22;
+  --panel-2: #1c212b;
+  /* 内联 code 的底色：比 --panel-2 再抬约 9% 亮度（≈#2e333d）。
+     直接沿用 --panel-2 时，卡片（--panel #171b22）/ 弹窗底上的 code 底与底几乎同色，
+     看不出是一个「块」；这里由 --text 混出，与灰阶同色相，不新增硬编码色。
+     code 文字色 --accent-text 压在其上仍有 ≈7.9:1，可读性不受影响。 */
+  --code-bg: color-mix(in srgb, var(--text) 9%, var(--panel-2));
+  --border: #272d38;
+  --border-strong: #353c49;
+  /* 无装饰窗口上沿那条边线的颜色。它对齐的是**系统画的**边框像素 —— Win10 上左侧那条原生边框
+     实测为 1px / #333333（见变更 design 的实机确认表）。正因要与界面之外的系统像素同桌对齐，
+     它刻意不进上面这套调色板：--border / --border-strong 是界面内部分隔线用的，用途不同，
+     拿 --border-strong（#353c49）顶替会偏蓝、在角上与原生竖线看出色差。 */
+  --win-frame: #333333;
+  --text: #e7eaf0;
+  --text-dim: #9aa3b2;
+  --text-faint: #6b7382;
+
+  /* 强调色：固定为产品默认色（indigo），不提供用户自定义入口（design D9）。
+     只有 --accent 是字面量，其余一律由它派生（CSS 用 color-mix），界面不留第二处硬编码。
+     --accent-ink 是压在「强调色实底」上的文字色：主色偏暗，白字对比度 4.47:1，故固定白色。 */
+  --accent: #6366f1;
+  --accent-ink: #fff;
+  --accent-hover: color-mix(in srgb, var(--accent) 85%, #fff); /* 压在深底上的高亮色：图标/文字/滑块手柄，须比主色更亮 */
+  --accent-text: color-mix(in srgb, var(--accent) 35%, #fff); /* 搭 soft 背景的浅色文字 */
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent); /* 选中背景 */
+  --accent-weak: color-mix(in srgb, var(--accent) 5%, transparent); /* 极淡提示条背景 */
+  --accent-line: color-mix(in srgb, var(--accent) 40%, transparent); /* tag 描边 */
+
+  --danger: #f87171;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --teal: #22d3ee;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+
+  /* 轨道色系：滑块未填充段 / 下载进度条槽 / 滚动条槽共用，不进界面主色体系。
+     必须【不透明】—— Chromium 自绘滚动条有独立合成层，trough 写 transparent 会被当作
+     "未绘制"，露出该层默认底色（浅色），深色界面里表现为「白底 + 深色滑块」。 */
+  --track: #262c37; /* 未填充轨道（滑块 / 下载进度条） */
+  --scroll-track: #14171d; /* 滚动条槽（务必保持不透明，勿改回 transparent） */
+  --scroll-thumb: #333a47;
+  --scroll-thumb-hover: #4b5464;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  font-synthesis: none;
+  /* 让 WebView2/Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
+     textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。 */
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 界面文本的可选中性与光标形态（三态，design D1/D2） ----------
+   界面文本收敛为三态：可点击 = 指针光标 + 不可选中；技术值 = 文本光标 + 可选中；
+   其余外壳文字 = 默认箭头 + 不可选中。
+   注意 I 形光标本来不是哪一行声明写出来的 —— 它是 cursor:auto 压在选择中文本上时由运行环境
+   解析出来的效果（改动前全仓 cursor:text / user-select:text 均为 0 处），所以"关掉它"只能显式
+   声明 cursor:default。cursor 与 user-select 都是**可继承**属性 ⇒ 表单控件必须显式开例外；
+   例外里 cursor 写 auto 而**不是** text：让 range / checkbox 仍拿各自的光标，
+   只有文本输入才解析成 I 形。
+   这两个属性刻意不并进上面那条 body 规则：本段与原型是同一套选择器、同一取值（config ⑯），
+   放成一整块便于两侧对照。 */
+body {
+  user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+select,
+[contenteditable] {
+  user-select: text;
+  cursor: auto;
+}
+/* 技术值白名单：作为值**独立承载**、会被用户带出应用的技术文本一律保持可选中。
+   说明文字里的【裸】技术值（如提示语中的 %APPDATA%/… 目录约定、设备卡上的 PID 与窗口坐标）
+   不在其列 —— 本规则只认有独立承载的技术值，不为一句提示去改文案结构（spec 的做法约定）。
+   `.dev-cid` 是设备卡上承载连接标识的那一格（scrcpy 的 -s 取值），用语义类名而不是
+   `:nth-child` 这类结构选择器指它：后者在 `.dev-meta` 增删任一 span 时会静默指错元素。
+   收口判据是「该值有没有别的出口」：有自己一键复制入口的值不再列入（「关于」弹窗的版本值
+   由整个 `.about-ver-row` 承担复制、命令预览有复制键），没有出口的仍必须可拖选
+   （会话输出、代理地址、连接标识、运行环境页那两个版本号）。 */
+.log-view,
+.sess-cmd,
+.proxy-url,
+.dev-cid,
+.cmd-preview,
+.path-row > input[readonly],
+.env-path,
+.flabel code,
+.field > label code,
+.hint code,
+.modal code,
+.env-reason-cmp b,
+.dl-text,
+.dl-channel {
+  user-select: text;
+  cursor: text;
+}
+/* 关于弹窗的两处**不在**白名单里：
+   · 技术栈药丸是纯静态标签（不是会被带走的"值"），回到外壳文字态；
+   · 版本值随版本行整行成为可点击目标 —— 复制由那个整行入口承担（见 `.about-ver-row`）。
+   药丸这一条仍要写：`.chip` 自带 cursor:pointer，而关于页的药丸不可点。 */
+.modal.about-modal .chip {
+  cursor: default;
+}
+/* 选中高亮由强调色派生：运行环境默认的高亮色在暗色界面上是一块突兀的亮色。
+   不用 --accent-soft（14%）—— 那是给"选中态背景"用的，铺在整段被选中的文字上太淡，
+   看不出选区边界。全局一条即可：只有白名单里的元素选得动，不会误伤。 */
+::selection {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+
+/* ---------- 侧栏几何（design D12） ----------
+   收起态栏宽由内容派生：--rail-w = 2×(--rail-pad + --item-pad) + --icon；
+   展开态栏宽 --rail-open 是声明值（取决于文字区宽度，无变量可派生 —— 见其注释）。
+   展开/收起两态使用相同的 padding，收窄靠隐藏文字表达；收起态只改可过渡属性。
+   展开宽度全仓只此一处定义：底部命令条随主内容列定位（.main），不复写该值。 */
+.app {
+  --rail-pad: 10px; /* .sidebar 横向 padding */
+  --item-pad: 12px; /* .nav-item / .collapse-btn 横向 padding */
+  --icon: 20px; /* 导航 / 收起按钮图标尺寸 */
+  --logo: 45px; /* logo 尺寸（改动后 .brand 的居中偏移自动跟随，不需手算） */
+  --rail-w: 64px; /* 收起后侧栏宽度（设计值；居中由 flex 保证，与其无关） */
+  /* 展开后侧栏宽度。与 --rail-w 不同，它是**声明值**而非派生值：收起宽可派生（见上），
+     而展开宽取决于文字区宽度，文字区目前是「自然宽度、上限 200px」（见 .nav-text），
+     没有一个可引用的宽度变量 —— 要派生出它就得给文字定死宽度，那会改变收起过程中
+     文字的收窄方式（观感取值，须原型先行）。故 MUST NOT 按 --rail-w 的口径改成 calc()。 */
+  --rail-open: 210px;
+  display: grid;
+  grid-template-columns: var(--rail-open) 1fr;
+  height: 100vh;
+  overflow: hidden; /* 兜底：任何溢出（含极矮窗口下侧边栏自身滚动）都不外泄到文档级滚动（D14） */
+  transition: grid-template-columns 0.18s ease;
+}
+
+/* ---------- 无装饰窗口的上沿边线 ----------
+   系统只在左、右、下三边画边框：tao 在 Win10 下把客户区的上沿对齐到窗口外缘（顶上只要留出
+   非客户区，Windows 就会补画一整条原生标题栏），顶边因此没有落点（机制取证见变更 design）。
+   这一格由界面补上：一层横跨整个视口的 1px 覆盖层 —— 侧栏之上与右侧主界面之上都有。
+   它只作呈现：没有 border / padding，不挤占任何布局高度、不使既有元素位移；
+   且 MUST 保持 pointer-events: none —— 客户区顶边那一条同时是窗口的缩放热区，不能截走命中。
+   z-index 取 60（高于模态遮罩 .overlay 的 50）：与系统画的其余三边同层，弹窗打开时也不被压暗。 */
+.win-frame-top {
+  position: fixed;
+  inset: 0 0 auto 0;
+  /* 高度按设备像素比反算，使它在**物理**像素上恒为 1 —— 系统在其余三边画的是 1 个物理像素，
+     而 CSS 的 1px 是逻辑像素：缩放 150% 时它落到 1.5 个物理像素，会比那三条粗（实机复核到的
+     就是这个现象）。1px / dpr 恰好等于 1 个物理像素（dpr=1.25 → 0.8、1.5 → 0.6667、2 → 0.5）。
+     --dpr 由构件按 devicePixelRatio 给；缺失时回落到 1，即改动前的行为。 */
+  height: calc(1px / var(--dpr, 1));
+  z-index: 60;
+  pointer-events: none;
+  background: var(--win-frame);
+  display: none;
+}
+/* 呈现与否由构件给（无系统装饰且未最大化）——与 .overlay / .overlay.show 同款两态写法 */
+.win-frame-top.show {
+  display: block;
+}
+
+/* ---------- Sidebar ---------- */
+/* 分隔线用 inset box-shadow 画而不是 border：border 会吃掉 1px 布局宽度，使内容整体偏离中线 */
+.sidebar {
+  background: var(--bg-elev);
+  box-shadow: inset -1px 0 0 var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 18px var(--rail-pad);
+  overflow-y: auto; /* 仅当自身内容超高（如极矮窗口）时独立滚动，绝不随主内容或文档滚动（D14） */
+}
+
+/* 品牌行：左右偏移由 --logo 派生，使 logo 的**水平中心恒为 x=32**
+   （= 展开态导航图标中心 = 收起态栏中线：栏内容宽 64−2×10 = 44，
+    偏移 = (44 − --logo)/2，logo 中心 = 10 + 偏移 + --logo/2 = 32，与 --logo 取值无关）。
+    两态取值完全相同 ⇒ 收起/展开时 logo 零位移，不需要任何 collapsed 覆盖。
+    用 margin 而非 padding：--logo(45) 比栏内容宽(44) 大 1px，偏移为 −0.5px，
+    而 padding 不接受负值（会被钳到 0 ⇒ 偏心 0.5px）；margin 允许负值。 */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  padding-bottom: 16px;
+  margin-left: calc((var(--rail-w) - 2 * var(--rail-pad) - var(--logo)) / 2);
+  margin-right: calc((var(--rail-w) - 2 * var(--rail-pad) - var(--logo)) / 2);
+  transition: gap 0.18s ease;
+}
+
+/* 品牌标记。尺寸只由 --logo 控制；图形是成品位图（assets/icons/desktop/128x128.png），
+   品牌底板渐变与圆角（rx=243/1024 ≈ 23.7%）都已内含，CSS 不参与。
+   兜底渐变只在【没有图片】时绘制（:not(:has(img))）：图片 onerror 移除后兜底层自动出现，
+   避免破图；有图时完全不画底，也就不存在圆角盖不住的脏边问题。
+   兜底色**只用强调色族**，不引入品牌色（品牌色只存在于资产内部，见 D9）。 */
+.brand .logo {
+  position: relative;
+  width: var(--logo);
+  height: var(--logo);
+  flex: none;
+  border-radius: 24%; /* 仅作兜底层圆角（对齐成品资产的 23.7%），按百分比随 --logo 缩放 */
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+.brand .logo:not(:has(img)) {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: var(--accent-ink);
+}
+.brand .logo:has(img) {
+  color: transparent;
+}
+.brand .logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.brand .name {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+/* 品牌行是「关于」弹窗的入口之一（spec「品牌标识」）：整行可点，故给指针与一处悬停反馈
+   —— 只改产品名的颜色，不动这一行的几何与两态过渡。
+   这两条原型（第 94–95 行）一直有、产品侧此前缺失，于是鼠标压在产品名上显示的是 I 形光标
+   （cursor:auto 落在文本上），与「整行可点」自相矛盾。属产品追上既有 spec，不是新增交互。
+   `.brand .sub { font-size: 11px; color: var(--text-faint); }` 规则已删：模板只渲染产品名
+   （版本信息统一在「关于」弹窗展示），该规则已无对应元素，留着会误导成"品牌行还有版本号"。 */
+.brand.clickable {
+  cursor: pointer;
+}
+/* .brand.clickable:hover .name {
+  color: var(--accent-hover);
+} */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  /* 吃掉侧边栏的剩余高度，把收起按钮顶到栏底（见 .collapse-btn）。
+     不用 .collapse-btn { margin-top: auto } 表达：flex 项的 auto margin 在没有剩余空间时
+     归零，窗口矮到侧边栏自己出滚动条时按钮会贴死最后一个导航项，那 12px 间距就丢了。 */
+  flex: 1 0 auto;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 var(--item-pad);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s, gap 0.18s ease;
+  font-size: 14.5px;
+}
+.nav-item:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.nav-item.active svg {
+  stroke: var(--accent-hover);
+}
+.nav-item svg {
+  width: var(--icon);
+  height: var(--icon);
+  stroke: var(--text-faint);
+  stroke-width: 1.7;
+  fill: none;
+  flex: none;
+  /* 不挂 width / height 过渡：两态下这里的尺寸都是 var(--icon)，没有任何收起态覆盖该值，
+     那条过渡永不触发，只会误导成「图标尺寸随收起变化」。收起按钮图标的旋转另有其过渡。 */
+}
+.nav-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 8px;
+}
+
+/* 导航/品牌文字：用 max-width + opacity 过渡，与侧栏宽度动画同速，避免挤压闪烁 */
+.nav-text,
+.brand-text {
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 200px;
+  opacity: 1;
+  transition: max-width 0.18s ease, opacity 0.15s ease;
+}
+
+/* 侧边栏收起按钮：贴在侧边栏末端（剩余高度由 .nav 吃掉，见其 `flex`）；
+   边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
+.collapse-btn {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--item-pad);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  transition: box-shadow 0.12s, color 0.12s, gap 0.18s ease;
+}
+.collapse-btn:hover {
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+}
+.collapse-btn svg {
+  width: var(--icon);
+  height: var(--icon);
+  stroke: currentColor;
+  stroke-width: 1.7;
+  flex: none;
+  transition: transform 0.18s ease;
+}
+
+/* 收起态：collapsed 加在 .app 容器上。
+   居中完全由几何保证（--rail-w = 2×(--rail-pad + --item-pad) + --icon），
+   所以收起时【不再改动 nav-item / collapse-btn 的 padding】—— 否则会「弹一下」。
+   品牌行居中 padding 两态取值相同，故此处无需覆盖（见 .brand 注释）。 */
+.app.collapsed {
+  grid-template-columns: var(--rail-w) 1fr;
+}
+/* 命令条不在此列：它随主内容列定位（见 .launchbar），左缘自动等于侧栏右缘，两态通用。 */
+.app.collapsed .sidebar .nav-item,
+.app.collapsed .sidebar .brand {
+  gap: 0;
+}
+.app.collapsed .sidebar .collapse-btn {
+  gap: 0;
+}
+.app.collapsed .sidebar .nav-text,
+.app.collapsed .sidebar .brand-text {
+  max-width: 0;
+  opacity: 0;
+}
+.app.collapsed .sidebar .collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+/* ---------- Main ---------- */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0; /* 防御：允许 .content 在 flex 链中收缩，配合其 overflow-y:auto 成为唯一滚动容器（D14） */
+  /* 命令条（.launchbar）的定位祖先：它随本列定位，左缘即侧栏右缘 —— 展开态、收起态与
+     过渡期都自动贴合，故展开宽度只需在 --rail-open 一处定义（MUST NOT 在此复写该值）。 */
+  position: relative;
+  /* 命令条为内容区让出的底部留白：取值在本处单点定义，与命令条是否呈现同步
+     —— 日志 / 运行环境两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
+  --bar-reserve: 120px;
+}
+/* 命令条不呈现的页面（日志 / 运行环境）：底部留白收到与左右内边距一致的那一档 */
+.main.no-bar {
+  --bar-reserve: 26px;
+}
+/* 顶栏兼作自绘标题栏（Windows 上窗口不带系统标题栏，见 app-shell 规格「自定义标题栏」）：
+   右端是那三枚窗口控件，故右内边距为 0 —— 与左内边距不再对称（左 22px / 右 0）。
+   控件与左边那颗状态指示的间隔由本行的 gap 给。拖拽区属性由构件挂在元素上。 */
+.topbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 0 0 22px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(20, 23, 29, 0.6);
+  backdrop-filter: blur(8px);
+}
+.topbar .title {
+  font-weight: 600;
+}
+.topbar .spacer {
+  flex: 1;
+}
+/* 窗口控件（右端三枚）：46px 宽 × 顶栏全高，**贴窗口右缘**。
+   悬停取 Windows 原生口径：最小化 / 最大化用中性叠加，关闭用破坏性实底（红底白图标）。
+   两处都不新造颜色常量：中性叠加由 --text 混出（与 --code-bg 同一手法），破坏底由 --danger
+   压暗得到，白色取自 --accent-ink（调色板里表示「压在实底上的白色」的那一个取值）。 */
+.win-controls {
+  display: flex;
+  align-self: stretch;
+}
+.win-btn {
+  width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 0.12s, color 0.12s;
+}
+.win-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+.win-btn:active {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+.win-btn.close:hover {
+  background: color-mix(in srgb, var(--danger) 55%, #000);
+  color: var(--accent-ink);
+}
+.win-btn.close:active {
+  background: color-mix(in srgb, var(--danger) 42%, #000);
+}
+.win-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.7;
+  flex: none;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--panel);
+}
+.pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+/* 「有在线设备」（设备概况）与「运行环境就绪」共用同一套 ok 态：顶栏两颗指示同色同描边，
+   圆点绿 + 光晕。两处各写一条规则迟早分叉成两种绿，故合并成这一条。 */
+.pill.ok {
+  color: var(--success);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+.pill.ok .dot {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+/* 非最佳适配版本：黄色叹号警示（不阻断任何操作，design D1）。
+   这里**不给**指针光标 —— 指针只由下面的 .pill.clickable 给：顶栏那颗确实可点，
+   而「运行环境」页的状态指示用的是同一个 .pill.env.warn 却不可点（它随就绪与否在 .ok /
+   .warn 之间切换），写在 warn 上会让那颗不可点的指示也显示手形光标，而光标必须与
+   当前是否可点击一致（⑯ 段的三态之一）。 */
+.pill.env.warn {
+  color: var(--warn);
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.08);
+}
+.pill.env.warn svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--warn);
+  flex: none;
+}
+/* 顶栏两个状态指示都可点击跳转（设备概况 → 设备页，运行环境指示 → 运行环境页，design D7）。
+   只补指针光标与键盘可达性，指示自身的配色与两态样式不动。 */
+.pill.clickable {
+  cursor: pointer;
+}
+.pill.env.ok svg {
+  width: 13px;
+  height: 13px;
+  stroke: var(--success);
+  flex: none;
+}
+
+/* 版本兼容性的原因说明（tasks 10.4）：顶栏正下方的**非模态**说明条，不覆盖内容区、
+   也不截获任何点击（MUST NOT 阻断页面操作，spec「版本兼容性指示」）。
+   它是 `.main` 的 flex 子项（与 .topbar / .content 同级），故 `flex: none` 保持自然高度。 */
+.env-reason {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 22px;
+  background: rgba(251, 191, 36, 0.08);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+}
+.env-reason > svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--warn);
+  flex: none;
+  margin-top: 2px;
+}
+.env-reason-text {
+  flex: 1;
+  min-width: 0;
+}
+.env-reason-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warn);
+  margin-bottom: 3px;
+}
+.env-reason p {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.env-reason p strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.env-reason-cmp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.env-reason-cmp b {
+  color: var(--text);
+  font-weight: 600;
+}
+.env-reason-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 原因说明迁到「运行环境」页的运行环境卡内后就地展开（design D7）。
+   上面的样式是「顶栏下方的整条横幅」（左右通栏 + 下边框），进了卡片就改成与内容同宽的警示块。 */
+.env-reason.in-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 运行环境状态与首启缺失引导（Group 3） ---------- */
+/* 状态行复用 .path-row 的横向排布；这里只保证中间的即时反馈文字不撑破布局。 */
+.env-state {
+  flex-wrap: wrap;
+}
+.env-state .status-text {
+  min-width: 0;
+}
+/* 「更新」行（「运行环境」页，design D8）：三颗按钮 + 即时回显。最佳适配入口会随
+   版本状态进出（仅未就绪/非最佳适配时出现），长回显配上三颗按钮可能超出卡宽 ——
+   与 .env-state 同值：容器换行、回显格可收缩，不另立间距。 */
+.env-update {
+  flex-wrap: wrap;
+}
+.env-update .status-text {
+  min-width: 0;
+}
+/* 弹窗内的目录展示：长路径必须能换行，否则会把弹窗顶出去。 */
+.modal .env-path {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  word-break: break-all;
+  }
+
+.content {
+  flex: 1;
+  min-height: 0; /* 关键：flex 子项默认 min-height:auto 会拒绝收缩→溢出泄漏到文档级滚动；置 0 后才真正内部滚动（D14） */
+  overflow-y: auto;
+  padding: 22px 26px var(--bar-reserve);
+}
+.section {
+  display: none;
+  animation: fade 0.18s ease;
+}
+.section.active {
+  display: block;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sec-head {
+  margin-bottom: 16px;
+}
+.sec-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.sec-head p {
+  color: var(--text-faint);
+  font-size: 12.5px;
+  margin-top: 3px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- 原生滚动条暗色适配（design D10） ----------
+   两个内核必须走不同且互斥的通道：Chromium 一旦设了标准属性 scrollbar-color/width，
+   就会整体忽略 ::-webkit-scrollbar 的自绘样式；若两条都写，结果取决于运行时版本。
+   故用 @supports 分流，保证任一内核下只命中一套。两套都**必须给槽上实色**。 */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: var(--scroll-track);
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-corner {
+    background: var(--scroll-track);
+  }
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  }
+}
+
+.param-note {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--accent-weak);
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.param-note.show {
+  display: flex;
+}
+.param-note svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--accent-hover);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 16px 18px;
+}
+.card.col2 {
+  grid-column: span 2;
+}
+.card h3 {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+.field:last-child {
+  margin-bottom: 0;
+}
+.field > label,
+.field > .flabel {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+  /* 详情面板的定位祖先（见下方 `.fhelp` 段注释）：块级、宽度恒等于字段可用宽，
+     面板的 `max-width: 100%` 因此才有意义。 */
+  position: relative;
+}
+.field .hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 5px;
+}
+.field .hint b {
+  color: var(--warn);
+  font-weight: 600;
+}
+/* 添加设备弹窗的连接方式两支**同处一格**（openspec/config.yaml ⑭ 的「等高收尾」）：
+   容器高度取两者中的较高者，切换只改可见性 ⇒ 不重算高度、不产生位移。
+   此前两支互斥渲染（`{#if}` / `display: none`），高度差一行，而弹窗垂直居中（`.overlay`
+   的 `place-items: center`），于是切换连接方式即整块上下跳动。
+   不活跃者用 `visibility: hidden` 而不是 `display: none`：占位、不可聚焦、对辅助技术不可见，
+   三者都要 —— 用户看不到它，Tab 也不会落进去。
+   外部外边距显式化，不依赖「栅格容器是否把子项外边距计入轨道高度」这类细节。 */
+.field-swap {
+  display: grid;
+  margin-bottom: 14px;
+}
+.field-swap > .field {
+  grid-area: 1 / 1;
+  margin-bottom: 0;
+}
+.field-swap > .field.off {
+  visibility: hidden;
+}
+.field > label code,
+.field > .flabel code {
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent-text);
+  font-size: 11px;
+  font-family: var(--font-sans); /* 显式声明，消除对浏览器默认等宽的依赖（D15） */
+}
+
+/* ---------- 字段标签右侧的详情入口与详情面板 ----------
+   每个字段：字段下方一句**简短常驻说明**（`.hint`），细节收进 `.fhelp-panel`，由标签旁 `?` 按需展开。
+   入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色（再画一圈就是"圈中圈"）。
+   面板【绝对定位、不参与布局】⇒ 展开既不改变卡片高度、也不推动下方元素。
+   展开全由 CSS 承担（没有脚本、没有展开态）：`.fhelp:hover`（悬浮）与 `.fhelp:focus-within`
+   （键盘聚焦，以及**鼠标点击后保持展开** —— 点击会让按钮获得焦点）。于是「同一时刻最多一块被固定」
+   由**焦点唯一性**自然成立，不必写脚本；`aria-expanded` 也一并去掉（静态写死的值在展开时是假的）。
+   代价：不能「再点一下收起」—— 收起要点页面别处，或用键盘把焦点移走。
+   定位祖先是**标签行本身**（`.field > label` / `.field > .flabel`：块级、宽度恒等于字段可用宽），
+   不是 `.fhelp` —— 面板左缘因此与标签左缘对齐，`max-width` 里的 `100%` 才等于「字段可用宽」，
+   窗口一窄面板跟着收窄、不会撞出窗口。（若定位祖先是 `.fhelp`（行内块、只有图标那么宽），
+   `100%` 会解析成十几像素，上限形同虚设。）
+   `::before` 是一条盖住标签与面板之间那 6px 缝的透明桥：没有它，指针从 `?` 往下移向面板的途中
+   会经过「谁都没悬停」的一瞬，面板随即收起、永远进不去。
+   带 `?` 的字段，其标签必须用 `.flabel`（`<span>`）而**不能是 `<label>`**：`<button>` 是 labelable
+   元素，`<label>` 里嵌一个按钮时，点标签行**任意处**都会被转发去激活它、它随即拿到焦点，
+   等于整行都成了热区（产品侧四处本来就是 `.flabel`）。
+   与原型 `ui-design/launcher-prototype.html` 的同名类同值。 */
+.fhelp {
+  display: inline-block;
+}
+.fhelp-btn {
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.fhelp-btn:hover {
+  color: var(--text-dim);
+}
+.fhelp-btn svg {
+  width: 14px;
+  height: 14px;
+}
+/* 宽度按内容自适应、上限「440px 与字段可用宽取小」：短说明得到窄面板，长说明被上限截住后正常换行；
+   窗口一窄，字段可用宽随之变小、面板跟着收窄，不会撞出窗口。
+   （`100%` 的解析基准是上面那个定位祖先 —— 标签行。） */
+.fhelp-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: none;
+  width: max-content;
+  max-width: min(440px, 100%);
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.fhelp-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  height: 6px;
+}
+/* 详情分段的每一段：块级；段间留白与 `.hint` 那一档同值（5px 上下取整）。 */
+.fhelp-p {
+  display: block;
+}
+.fhelp-p + .fhelp-p {
+  margin-top: 6px;
+}
+/* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 `.open` ——
+   没有脚本、没有状态，入口上也不挂 `aria-expanded`。 */
+.fhelp:hover .fhelp-panel {
+  display: block;
+}
+.fhelp:focus-within .fhelp-panel {
+  display: block;
+}
+.fhelp-title {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- scrcpy 运行环境（「运行环境」页） ---------- */
+.path-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.path-row > svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-faint);
+  flex: none;
+}
+/* scrcpy 路径输入框：可编辑的技术输入，**保留等宽**（D15）。
+   选择器必须带上属性限定（`.path-row > input[type='text']`）而不是裸 `input`：
+   下方的 `input[type='text'], … { font-family: inherit }` 与裸 `input` 同权重（0,1,1），
+   且排在后面 ⇒ 会把这里的 font-family / font-size / color 全部盖掉，输入框静默退回无衬线。 */
+.path-row > input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+/* 只读的 scrcpy 路径输入框原本在这里写 `cursor: default`（"不可编辑 ⇒ 不给 I 形"）。
+   但它是技术值白名单里的一格 —— 目录路径正是要被复制的对象，箭头光标与"可选中"自相矛盾，
+   故该声明已删；光标由文件开头 ⑯ 段白名单的 `cursor: text` 接管。 */
+.path-row > .btn {
+  flex: none;
+}
+/* 紧跟在文本框后面的按钮与它**等高**（「目录」行的「打开目录」）。
+   用 `align-self: stretch` 让它撑到本行的高度 —— 行高由最高的那一件（文本框）决定，
+   于是不必写死一个会随字体度量漂移的像素值（原型侧同一条写的是固定值：那边文本框实测 36px，
+   两边换算值不同源自字体栈差异，产品侧实测 34px，故改成本写法以免照抄出偏差）。
+   作用域靠 `+` 限定为「同一行里紧跟文本框的那颗 `.btn.sm`」—— 代理追加行是 `.row.proxy-add`
+   而非 `.path-row`，因此不受影响。 */
+.path-row > input + .btn.sm {
+  align-self: stretch;
+}
+/* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
+   取值 38px 就是分段控件自己的外框：2px 边框 + 3px 内边距 x2 + 30px 按钮。
+   作用域靠 `+` 限定为「同一行里紧跟 `.seg` 的那颗 `.btn.sm`」—— 运行环境页的三处
+   `.path-row` 里没有 `.seg`，因此不受影响；`.btn.sm` 自身的横向内边距与字号一字不动。 */
+.path-row > .seg + .btn.sm {
+  height: 38px;
+}
+
+.dl {
+  margin-top: 14px;
+  /* 下间距：卡内间距一贯由**上方元素的 margin-bottom** 表达（见 `.field`），进度块没有这一条，
+     所以它在卡里会与自己下面的代理地址贴合（实测 0px）。补上与 `.field` 同值的 14px。
+     与首启引导弹窗的按钮行不冲突：`.modal .actions` 有 `margin-top: 22px`，相邻外边距取大者
+     ⇒ 那里仍是 22px（相邻兄弟的外边距合并，不是相加）。 */
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+.dl .dl-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 9px;
+}
+/* 进度文案 / 通道信息 / 百分比三格同行，且**整行恒为单行**（用户两次要求「不要再另起一行」）。
+   两个可变格都 nowrap + 溢出省略，超出部分由 `title` 提供全文（见 DownloadProgress.svelte）；
+   百分比用 margin-left: auto 钉在最右（文案缺失时也成立）。
+   `min-width: 0` 与 `overflow: hidden` 缺一不可：前者让 flex 允许收缩到内容宽以下，
+   后者才让 text-overflow 生效。
+   实测（无头 Edge，弹窗内容宽 468 ⇒ 本行可用 438px）：进度文案自然宽 363px、通道「直连」150px、
+   通道「代理 https://…」266px、百分比 25px —— 三样加起来 538~654px 必然超宽，
+   所以「单行」只能靠省略达成，不可能全量显示。 */
+.dl .dl-head .dl-text,
+.dl .dl-head .dl-channel {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* 通道格吃掉剩余宽度。两格的压缩按各自宽度**等比**分担（都用默认 `flex-shrink: 1`）：
+   曾试过给文案更大的收缩权重（`flex: 0 3 auto`），实测在「已完成」态反噬 —— 文案只有 102px
+   却被压到 41px（「已安装 scrcpy v4.1」看不全），而 426px 的通道句仍留着 341px。
+   等比分担没有这个偏向问题；被截掉的部分一律由 title 兜底。 */
+.dl .dl-head .dl-channel {
+  flex: 1 1 auto;
+}
+.dl .dl-head .dl-percent {
+  flex: none;
+  margin-left: auto;
+}
+.dl .dl-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.dl .dl-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--teal));
+  transition: width 0.2s ease;
+}
+/* 「切换通道 / 取消」落在**进度条下方新起的一行**，不进 `.dl-head`。
+   为什么另起一行：`.dl-head` 已实测超宽（可用 438px vs 内容 464~564px，见上），再塞两颗
+   按钮必然把百分比挤出右边界或破掉「整行恒为单行」的约定。这与 spec 的「下载过程的人工干预」
+   一致 —— 那里只要求两项操作在获取期间可用，不要求它们挤进那一行。 */
+.dl .dl-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+/* 失败原因：错误语义色，与普通 hint 区分（tasks 4.3 要求失败原因可见）。
+   选择器需与 `.field .hint` 同权重并靠后，否则会被 hint 的常规文字色覆盖。 */
+.hint.dl-error {
+  color: var(--danger);
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s;
+}
+textarea {
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+}
+/* 参数校验失败（tasks 7.3）：非法输入就地描边，具体原因由同字段下方的 .hint.dl-error 说明 */
+input[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: rgba(248, 113, 113, 0.55);
+}
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+.row {
+  display: flex;
+  gap: 10px;
+}
+.row > * {
+  flex: 1;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.toggle .t-label {
+  font-size: 13px;
+}
+.switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex: none;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  inset: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.18s;
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  top: 3px;
+  background: var(--text-faint);
+  border-radius: 50%;
+  transition: 0.18s;
+}
+.switch input:checked + .slider {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.switch input:checked + .slider::before {
+  transform: translateX(18px);
+  background: var(--accent-hover);
+}
+
+.seg {
+  display: inline-flex;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.seg button {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size:13px;
+  font-family: inherit;
+  transition: 0.12s;
+}
+.seg button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: 0.12s;
+}
+.chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+/* ---------- 滑块（range）暗色适配（design D10） ----------
+   原生 range 的轨道与滑块由系统按浅色绘制，故完全自绘。
+   「已填充到哪」纯 CSS 表达不了（Chromium 没有 range-progress 伪元素），
+   由 JS 写入 --p（0–100%）交给轨道渐变表现；两个内核共用同一变量，只有伪元素名不同，
+   必须拆成独立规则，混在一个选择器里会让整条规则失效。 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]:focus-visible {
+  outline: none;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0 var(--p, 0%),
+    var(--track) var(--p, 0%) 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px; /* (16-6)/2，让滑块在 6px 轨道上垂直居中 */
+  border-radius: 50%;
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 2px var(--bg-elev);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0 var(--p, 0%),
+    var(--track) var(--p, 0%) 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 2px var(--bg-elev);
+}
+.range-val {
+  min-width: 70px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ---------- Device cards（merged: management + connection） ---------- */
+.dev-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.dev-toolbar .spacer {
+  flex: 1;
+}
+/* 批量结果的就地反馈位（与设备概况共处本行右侧）：可收缩，长结果在本行内换行、不把按钮挤走。
+   与原型 launcher-prototype.html 的同名规则同值（同步类别 ④ / ⑭）。 */
+.dev-toolbar .status-text {
+  min-width: 0;
+}
+.dev-list {
+  display: grid;
+  gap: 12px;
+}
+.dev-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: grid;
+  gap: 12px;
+  /* 选中态改的是卡片自身的边框色（不再是底色）—— 过渡属性随之翻回 border-color，
+     否则切换选中时没有任何过渡（原来的 background-color 已成死属性）。 */
+  transition: border-color 0.12s;
+}
+/* 「已连接」的强调落在卡片左缘的一条 --success 色条上。用 inset 阴影而不是 border-left
+   —— 后者占布局盒，会把该卡内容右推 2px，成列的状态点随之错位。 */
+.dev-card.connected {
+  box-shadow: inset 3px 0 0 var(--success);
+}
+/* 选中态（命令预览的目标）由卡片自身的边框承担：描边色取既有的 --accent-line（tag 描边与
+   日志页会话条选中态同款），外描边与底色抬升已撤。边框宽度仍 1px、底色仍是 --panel，
+   卡内文字与左缘色条都不位移。
+   既已连接又被选中时不再需要合并声明 —— 色条走 box-shadow、选中走边框色，两者各占一个属性。 */
+.dev-card.sel {
+  border-color: var(--accent-line);
+}
+.dev-card.offline {
+  opacity: 0.72;
+}
+.dev-main {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  cursor: pointer;
+}
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+/* 「已连接」与「在线」的状态点同形同色：已连接的强调不落在状态点上，而落在卡片左缘的
+   色条（见 .dev-card.connected）。两态合并成一条，避免两处各写一句而迟早分叉。
+   「在线」是可用的常态，不是需要注意的异常 —— 用成功色，琥珀色留给真警示（非最佳适配等）。 */
+.status-dot.connected,
+.status-dot.idle {
+  background: var(--success);
+}
+.status-dot.offline {
+  background: var(--text-faint);
+}
+/* 状态尚未探测出结果（tasks 6.3）：与「离线」区分开 —— 没探测出来就不该报离线 */
+.status-dot.unknown {
+  background: var(--border-strong);
+}
+/* 工具栏下方的会话提示已改由工具栏行内的 `.dev-toolbar .status-text` 承载（2026-10-10），
+   故此处的 `.dev-note` 规则随之删除 —— 留着会指向一个不再存在的元素。 */
+.dev-id {
+  min-width: 0;
+  flex: 1;
+}
+.dev-alias {
+  font-weight: 600;
+  font-size: 14.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dev-alias .edit {
+  color: var(--text-faint);
+  cursor: pointer;
+  display: inline-flex;
+}
+.dev-alias .edit:hover {
+  color: var(--accent-hover);
+}
+.dev-alias .edit svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+}
+/* 别名行里的标识（如「已启用设备覆盖」）：外框必须与别名的行盒等高 ——
+   14.5px × 行高 1.5 = 21.75px；15.75 = 21.75 − 2×2 内边距 − 2×1 边框。
+   否则标识一出现就把该行由 21.75 顶到 22.5，整张卡片与下方内容跟着位移 0.75px；
+   标识的出现 / 消失 MUST NOT 改变任何行的几何（它只占该行右侧的横向空间）。 */
+.dev-alias .tag {
+  line-height: 15.75px;
+}
+.dev-alias input {
+  font-weight: 600;
+  font-size: 14.5px;
+  padding: 3px 7px;
+  width: 200px;
+}
+.dev-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+/* 连接方式标识（USB / 无线）是「图标 + 文字」（2026-10-10）：转成行内 flex 只为把图标与
+   文字排在一行。高度仍由文字行盒决定 —— 图标取 12px，不超过 11px 字号的正常行盒，
+   故标识与所在行的几何不随图标变化（与原型 launcher-prototype.html 的同名规则同值）。 */
+.tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.tag svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+/* 两种连接方式标识**同色**（都取强调色族）：类别标识不各自占一个色相，颜色留给状态与警示。
+   无线那枚此前用的是一个独立于调色板的硬编码青色，本次撤掉 —— 界面里只有主色是字面量。 */
+.tag.usb {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+}
+.tag.wifi {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+}
+.tag.over {
+  color: var(--warn);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+/* 代理地址列表：只读的**直连**项与可删的**代理**项在样式上可区分。
+   没有「内置 / 自定义」的二分 —— 代理地址一律可删，唯一的只读项是首行的 GitHub 直连。 */
+.tag.direct {
+  color: var(--text-faint);
+  border-color: var(--border);
+}
+.tag.proxy {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+}
+.proxy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.proxy-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+.proxy-url {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proxy-item .btn.sm {
+  flex: none;
+}
+.proxy-ro,
+.proxy-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.proxy-add {
+  margin-top: 8px;
+  align-items: center;
+}
+.proxy-add > input {
+  flex: 1;
+}
+.proxy-add > .btn {
+  flex: none;
+}
+.status-text {
+  font-size: 12px;
+}
+.status-text.connected {
+  color: var(--success);
+}
+.status-text.idle {
+  color: var(--success);
+}
+.status-text.offline {
+  color: var(--text-faint);
+}
+/* 行内承载失败原因的档位（2026-10-10）：取既有的 --danger，不新造颜色 —— 获取失败的
+   原因从独立一行挪进「更新」行后仍保持与 .hint.dl-error 相同的红色语义。
+   不能沿用 .offline：那一档是 --text-faint（灰），会把错误降级成提示。 */
+.status-text.danger {
+  color: var(--danger);
+}
+.status-text.unknown {
+  color: var(--text-faint);
+}
+.dev-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: none;
+}
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: 0.12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  /* 按钮标签永不换行：标签折成两行比按钮变宽更难读。容器容纳不下时由容器整体换行
+     （见下方 `.modal .actions` 的 flex-wrap），而不是把文字压成两行。 */
+  white-space: nowrap;
+}
+.btn:hover {
+  border-color: var(--border-strong);
+}
+.btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.btn.primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #000);
+} /* 压暗而非提亮：提亮把白字压到 ~3.5:1，压暗升到 ~5.4:1 */
+.btn.ghost {
+  background: transparent;
+}
+.btn.danger {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.btn.danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+.btn.sm {
+  padding: 7px 11px;
+  font-size: 12.5px;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dev-params {
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+.ov-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ov-head .lab {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ov-head .lab svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--accent-hover);
+}
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+/* 覆盖被禁用（tasks 7.5）：取值仍显示（不清值），但不接受编辑、明显变灰 */
+.ov-grid.ov-off {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.ov-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ---------- 会话（Group 9）：窗口位置提示 + 「日志」页的会话输出 ---------- */
+/* 设备卡上的会话说明：PID 与实际窗口位置（自动排列 / 让位 / 空间不足降级） */
+.sess-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.sess-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 9px;
+}
+.sess-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+/* 正在查看的那条会话：沿用导航选中态的表达（强调色柔底 + 描边），不引入新色 */
+.sess-item.sel {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.sess-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.sess-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sess-state {
+  margin-left: auto; /* 状态靠右：名字过长时先截断名字 */
+  flex: none;
+}
+.sess-state,
+.sess-meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+/* 该会话实际执行的命令：只读展示，按 D15 用与界面一致的字体并显式声明。
+   命令很长，折行显示（而不是横向滚动）—— 截断的命令看不全，反而失去对照价值。 */
+.sess-cmd {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  margin-bottom: 5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.sess-cmd code {
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+/* 会话输出：只读的诊断文本，保留等宽 —— 多行前缀对齐在这里有实际价值，
+   与 D15「命令预览去等宽」的取舍不同（那里是单行展示） */
+.log-view {
+  margin: 4px 0 8px;
+  padding: 9px 11px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--scroll-track);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 会话输出的操作行（刷新 / 清空 / 提示）：不用 `.row` —— 它的 `> * { flex: 1 }` 是
+   「子项等分整行」的语义，会把按钮拉成整行宽（另有两处 `.row` 依赖该语义，故不改它）。
+   容器可以整体换行，但按钮标签仍由 `.btn` 的 `white-space: nowrap` 保证不被压成两行。 */
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.log-actions > * {
+  flex: none;
+}
+.log-actions .hint {
+  /* 提示可收缩：卡片窄时先截断提示，而不是把两个按钮挤到下一行 */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Launch bar */
+/* 随主内容列定位（.main 是它的定位祖先）：左缘由布局推出 = 侧栏右缘，展开态、收起态与过渡期
+   自动贴合，故此处 MUST NOT 再写一份侧栏宽度，也不再需要 left 的过渡 —— 过渡期的位移由
+   .app 的列宽动画驱动，`left` 不再是每帧参与布局的动画属性。 */
+.launchbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* 两枚图标按钮的尺寸：**自有取值**（沿用本变更前复制按钮的 34×34），
+     不与命令框等高 —— 命令框是随字号/内边距漂移的内容容器，按钮是定尺寸控件。 */
+  --lb-btn-size: 34px;
+  padding: 14px 26px;
+  background: rgba(11, 13, 17, 0.88);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+}
+.launchbar .cmd-preview {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.launchbar .cmd-preview b {
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+.launchbar .cmd-preview .dev {
+  color: var(--teal);
+}
+.launchbar .lb-warn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--danger);
+}
+.launchbar .lb-warn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+.launchbar .lb-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-faint);
+  font-size: 12px;
+  flex: none;
+}
+.launchbar .lb-label svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+.launchbar .copy-btn,
+.launchbar .connect-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 宽高都显式取同一个变量：恒为正方形，且不依赖 aspect-ratio 的引擎支持 ——
+     只写 height 而让 width 回落内容尺寸，在不认 aspect-ratio 的运行时里会得到一个窄条按钮。 */
+  width: var(--lb-btn-size);
+  height: var(--lb-btn-size);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: 0.12s;
+}
+.launchbar .copy-btn:hover,
+.launchbar .connect-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.launchbar .copy-btn svg,
+.launchbar .connect-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+.launchbar .copy-btn.ok {
+  border-color: var(--success);
+  color: var(--success);
+}
+/* 无命令可复制（未选设备 / 连接标识未知）：按钮置灰并改为禁用光标，
+   避免「点了没反应」这种无从判断的路径（tasks 8.3）。 */
+.launchbar .copy-btn:disabled,
+.launchbar .copy-btn:disabled:hover,
+.launchbar .connect-btn:disabled,
+.launchbar .connect-btn:disabled:hover {
+  opacity: 0.4;
+  border-color: var(--border);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+/* Modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.7);
+  backdrop-filter: blur(4px);
+  display: none;
+  place-items: center;
+  z-index: 50;
+}
+.overlay.show {
+  display: grid;
+}
+.modal {
+  /* 默认宽度统一为 min(520px, 视口 − 48px)：原来的 460px（原型基线）在装长正文与
+     运行环境目录这类长路径时显得局促。尺寸取自「需要 scrcpy 运行环境」那个弹窗 ——
+     它曾用 `.modal.wide` 单独放宽，现在默认宽度就是它，故该修饰类一并删除。
+     按钮行：首启引导现为两颗按钮（稍后再说 / 下载并安装），520px 的内容宽 468px
+     一行排开余量充足；窗口拖到容纳不下时由 `.modal .actions` 的
+     `flex-wrap` 把整颗按钮换行（`.btn` 的 `white-space: nowrap` 保证标签不折行）。
+     注意：这是对 `ui-design/launcher-prototype.html`（其中 `.modal` 仍为 460px）的**有意偏离**，
+     对应用户「默认宽度太小、参考首启引导弹窗」的反馈。 */
+  width: min(520px, calc(100vw - 48px));
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 26px;
+  box-shadow: var(--shadow);
+}
+.modal .ico {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+}
+.modal .ico svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--accent-hover);
+  stroke-width: 1.8;
+  fill: none;
+}
+.modal .ico.warn {
+  background: rgba(251, 191, 36, 0.14);
+}
+.modal .ico.warn svg {
+  stroke: var(--warn);
+}
+.modal h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.modal p {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.modal .actions {
+  display: flex;
+  /* 按钮行容纳不下时**整颗按钮**换行，而不是把标签压成两行（`.btn` 已声明
+     `white-space: nowrap`，若这里不允许换行，这一行会直接顶出弹窗）。
+     正常情况下不该走到换行（弹窗默认宽度见上），
+     只有窗口被拖到容纳不下时才由这条规则兜底。 */
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+.modal code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-family: var(--font-sans); /* 显式声明，与主界面字体一致（D15） */
+}
+
+/* ---------- 关于弹窗（spec `about-page`；类名与取值与 ui-design/launcher-prototype.html 同名同值） ----------
+   弹出 / 关闭动画**不在这里**：用 Svelte 的过渡（AboutDialog 的 `transition:fade` / `transition:scale`），
+   CSS 只管静态呈现 —— 故原型那组 keyframes 与 `.closing` 类在本文件里没有对应物。
+   宽度也不必写：`.modal` 的默认 `min(520px, …)` 正好容下三颗技术栈药丸一行（原型那边才需要显式放宽，
+   因为原型的 `.modal` 默认是 460px）。下面用两个类（`.modal.about-modal`）压过上面的 `.modal`，
+   免得依赖「谁在后面」这种一改顺序就失效的胜负关系。 */
+.modal.about-modal {
+  position: relative;
+  padding: 26px 22px 22px;
+  text-align: center;
+}
+/* 点遮罩关闭的那一层：纯装饰，铺满遮罩、位于面板之下（面板已 position: relative，按 DOM 顺序在其上） */
+.about-backdrop {
+  position: absolute;
+  inset: 0;
+}
+/* 右上角关闭键：裸图标，hover 才给底与色 */
+.about-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: 0.12s;
+}
+.about-close:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.about-close svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+/* 品牌图形：与侧边栏品牌行、窗口图标同源。尺寸写死 72px —— 不用 `--logo` 派生：该变量定义在
+   `.app` 上，而弹窗挂在 `.app` 之外，`calc(var(--logo) * 1.6)` 会整条声明失效（原型上实测过，
+   图形会被拉成整个弹窗宽）。圆角与兜底层照品牌行那一套（img 本身不设圆角：圆角是资产的一部分）。 */
+.about-logo {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 4px auto 14px;
+  border-radius: 24%;
+  display: grid;
+  place-items: center;
+}
+.about-logo:not(:has(img)) {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 32px;
+}
+.about-logo:has(img) {
+  color: transparent;
+}
+.about-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.about-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin-bottom: 16px;
+}
+/* 两行版本行：等宽、左右对齐（不做错位内收）。
+   **整行是复制入口**（不是行末那颗图标）：行可点、可键盘聚焦，Enter / 空格与点击等价，
+   行末图标降为反馈载体（见下一条）。 */
+.about-ver {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* 行底用 --panel-2：弹窗自身就是 --panel，同色会看不出这两行。
+   整行可点：指针光标 + **一处**悬停反馈（描边转 --border-strong —— 与 .btn:hover /
+   .collapse-btn:hover 同一个既有取值，不新造颜色、不加底纹；取值经原型验收）。 */
+.about-ver-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.about-ver-row:hover {
+  border-color: var(--border-strong);
+}
+.about-ver-name {
+  font-size: 13.5px;
+  color: var(--text);
+}
+.about-ver-tag {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.about-ver-val {
+  margin-left: auto;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+/* 行末图标：**反馈载体**，不是按钮（整行才是入口）—— 故没有 cursor: pointer、
+   也没有自己的 hover 反馈（否则会暗示"图标自己是可点的"）。
+   复制成功短暂转成成功色：`.ok` 类名与 1.4 秒复原与改动前一致。 */
+.about-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  transition: 0.12s;
+}
+.about-copy.ok {
+  color: var(--success);
+}
+.about-copy svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+/* 品牌行 slogan 已随「关于」弹窗的收敛撤除：文案是产品侧撤掉的那一处呈现，
+   元素与这条规则都一并下线（原型同期删掉对应的元素与规则）。 */
+.about-chips-title {
+  margin: 16px 0 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+/* 技术栈药丸复用既有 .chips / .chip 形态，配色改成主色派生（界面只有主色一个色相） */
+.about-modal .chips {
+  justify-content: center;
+}
+/* 静态标签借用 .chip 形态，但不复用 .chip.active（那是「选中态」语义）。
+   这里必须自己加 `inline-flex + align-items: center`：既有 `.chip` 不是 flex 容器，
+   图标以 inline 元素按文字基线排 ⇒ 会偏离胶囊中线（原型上实测到 0 之外的偏差）。 */
+.about-modal .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+.about-modal .chip svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+/* 外链栅格：两列四颗（官网 / GitHub / 更新日志 / 支持），正好铺满两行 */
+.about-links {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.about-links .btn {
+  justify-content: center;
+  padding: 12px 14px;
+}
+.about-foot {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}

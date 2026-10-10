@@ -1,0 +1,15 @@
+# Reference source dumps (read-only, large trees — kept out of VCS)
+doc/FreeControl
+doc/scrcpy
+tmp
+
+# Node
+node_modules/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Logs
+*.log

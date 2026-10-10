@@ -1,0 +1,166 @@
+<p align="center">
+  <img src="assets/icons/desktop/128x128.png" width="128" height="128" alt="FreeControl2" />
+</p>
+
+<h1 align="center">FreeControl2</h1>
+
+<p align="center">
+  <a href="https://github.com/pdone/FreeControl2/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl2/build.yml?style=for-the-badge" alt="构建状态" /></a>
+  <a href="https://github.com/pdone/FreeControl2/releases/latest"><img src="https://img.shields.io/github/release/pdone/FreeControl2?style=for-the-badge" alt="最新发行" /></a>
+  <a href="https://github.com/pdone/FreeControl2/releases"><img src="https://img.shields.io/github/downloads/pdone/FreeControl2/total?style=for-the-badge" alt="下载量" /></a>
+  <a href="https://github.com/pdone/FreeControl2"><img src="https://img.shields.io/github/stars/pdone/FreeControl2?style=for-the-badge" alt="星标" /></a>
+  <a href="https://github.com/pdone/FreeControl2/issues"><img src="https://img.shields.io/github/issues/pdone/FreeControl2?style=for-the-badge" alt="议题" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/pdone/FreeControl2?style=for-the-badge" alt="许可证" /></a>
+</p>
+
+<p align="center">在PC上控制Android设备</p>
+
+<p align="center">
+  中文 | <a href="README.en.md">English</a>
+</p>
+
+## 功能特性
+
+- **设备清单** —— 每台设备一个别名，映射到 USB 序列号或 `IP:端口`，可增删改，在线状态实时可见
+- **参数面板** —— 六组常用选项做成控件，逐项对应 scrcpy 长选项名，另有自定义参数框
+- **设备级参数覆盖** —— 单台设备一套参数，可整体启用或停用
+- **连接控制** —— 单台或全部连接 / 断开，多台设备可同时投屏，进程与输出由程序托管
+- **运行环境** —— scrcpy 与 adb 按需下载，可查看路径、打开目录、检查更新
+- **下载通道** —— 直连、内置代理与自加代理按序回退，当前所用通道在界面上标明，下载按官方校验值核对
+- **日志** —— 逐会话输出持久化，保留 7 天 / 30 天 / 永久
+- **命令预览** —— 底部显示将执行的完整命令，可一键复制
+- **外观** —— 暗色优先，侧栏可收成图标栏
+
+## 界面
+
+**设备页** —— 设备清单与连接控制：
+
+<img src="assets/screenshots/devices.png" alt="设备页：设备清单与连接控制" />
+
+**参数页** —— 常用选项控件：
+
+<img src="assets/screenshots/video.png" alt="视频参数页" />
+
+**运行环境** —— 获取 scrcpy 与 adb 的入口：
+
+<img src="assets/screenshots/environment.png" alt="运行环境页" />
+
+**日志** —— 会话输出：
+
+<img src="assets/screenshots/logs.png" alt="日志页" />
+
+## 快速开始
+
+**运行要求**：Windows 10 / 11（x64；Windows on ARM 上经 x64 仿真运行）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。
+
+程序是免安装的单文件：从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 下载 `FreeControl2_<版本>.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器。
+
+1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
+2. **添加设备** —— 在「设备」页新增一台：USB 连接填 `adb devices` 列出的序列号，无线连接填 `IP:端口`。
+3. **连接投屏** —— 在设备卡上点「连接」；多台设备可同时连接。底部命令预览会显示实际下发的完整命令。
+4. 之后可在各参数页调整默认参数，或为某台设备单独开一套覆盖。
+
+### 从源码构建
+
+另需 Node.js 24 与 npm · Rust 稳定工具链 · Windows 的 MSVC 构建工具 / Linux 的 webkit2gtk 等系统库（清单见 `.github/workflows/build.yml`）。
+
+```sh
+npm install
+```
+
+Windows（免安装单文件）：
+
+```sh
+npm run app:build
+```
+
+产物在 `src-tauri/target/release/FreeControl2.exe`。
+
+Linux（AppImage 与 deb）：
+
+```sh
+npm run tauri build -- --bundles appimage,deb
+```
+
+产物在 `src-tauri/target/release/bundle/`。
+
+### 本地开发
+
+```sh
+npm install
+npm run app:dev
+```
+
+一条命令起完整应用，前端开发服务器由构建配置自动拉起（`src-tauri/tauri.conf.json` 的 `beforeDevCommand`，界面跑在 `http://localhost:1420`）。常用命令都登记在 `.vscode/tasks.json` 的编辑器任务里，从任务列表按名字直接跑即可。
+
+## 项目结构
+
+```
+FreeControl2/
+├─ src/                    前端（Svelte + Vite + TypeScript）
+│  ├─ components/          界面组件（设备页、各参数页、日志、运行环境、关于弹窗…）
+│  └─ lib/                 前端逻辑（参数模型、命令拼装、校验、配置存取）
+├─ src-tauri/              后端（Rust + Tauri 2）
+│  ├─ src/                 命令层与平台实现（设备、scrcpy、配置、资产、下载、会话、日志）
+│  └─ tauri.conf.json      应用与打包配置 —— 版本号的单一来源
+├─ assets/icons/           品牌资产包（唯一来源，含图标生成流程与用法说明）
+├─ scripts/                图标同步脚本（按打包清单镜像到 src-tauri/icons/）
+├─ .vscode/                编辑器任务入口（只引用 package.json 的脚本名）
+├─ ui-design/              UI 基线原型（只读参考）
+├─ openspec/               规格与变更工件
+└─ Update.md               更新日志
+```
+
+## 常见问题
+
+### 设备连不上
+
+**USB** —— 确认设备已开启「开发者选项」与「USB 调试」，数据线完好，Windows 下驱动正常（设备管理器里该设备没有黄色感叹号），且 `adb devices` 能列出它。找不到开发者选项时，在「设置」-「关于手机」里连点「版本号」7 次即可显示。
+
+**无线** —— 首次需借助 USB：`adb tcpip 5555` 后拔线，再 `adb connect <IP>:5555`；Android 11 及以上也可走「无线调试」的配对码（`adb pair <IP>:<端口>` 再 `adb connect <IP>:<端口>`）。设备与电脑须在同一局域网。
+
+### 提示找不到 scrcpy 或 adb
+
+到「运行环境」页获取。两者都不随安装包分发，按需下载到应用数据目录。
+
+### 下载失败或长时间卡在某个通道
+
+直连失败会自动改用后面的通道；也可在进度区就地「切换通道」重下。连不上的通道在本次运行内会被跳过，不再重复等待。
+
+### Windows 上启动后界面空白
+
+确认系统已装 WebView2 运行时（Windows 10 / 11 一般自带）。
+
+### 数据都存在哪
+
+都在应用数据根下（Windows 为 `%APPDATA%/FreeControl2`，Linux 为 XDG 数据根下的同名目录）：
+
+| 路径 | 用途 |
+|---|---|
+| `config.json` | 单一配置文件（含 `schemaVersion`）：设备清单、默认参数、设备级覆盖、日志保留策略 |
+| `logs/yyyy-MM-dd.log` | 会话输出与本程序关键操作的持久化记录 |
+| `scrcpy-{OS}-v{版本}/` | 按需下载的 scrcpy 与 adb 运行环境 |
+
+界面上能改的东西都落在 `config.json`。
+
+### 怎么恢复出厂设置
+
+删掉 `config.json` 再启动即可：设备清单、参数与保留策略都回到出厂默认。
+
+### 日志在哪
+
+「日志」页可一键打开日志目录；文件位于应用数据根下的 `logs/`，按日期命名。
+
+### 退出应用后 adb 还在跑
+
+这是有意为之：退出不会结束 adb 服务端，已建立的无线连接随应用退出继续保留，下次启动直接复用。
+
+## 许可证
+
+[MIT](LICENSE)
+
+## 致谢
+
+- [scrcpy](https://github.com/Genymobile/scrcpy) —— 投屏与设备控制全部由它完成，本项目是它的图形外壳。
+- [Tauri](https://tauri.app/)、[Svelte](https://svelte.dev/)、[Vite](https://vite.dev/)、[lucide](https://lucide.dev/) —— 应用外壳与界面。
+- 前身 [FreeControl](https://github.com/pdone/FreeControl) —— 本项目在它的交互经验上重做。

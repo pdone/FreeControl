@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 显式声明图标，避免浏览器隐式请求 /favicon.ico 得到 404；
+         直接复用资产包 desktop/ 分区的成品位图（与侧边栏品牌 logo 同一份），不另存 public/ 副本 -->
+    <link rel="icon" type="image/png" href="./assets/icons/desktop/128x128.png" />
+    <title>FreeControl2</title>
+    <!-- 首帧底色：窗口一开到 `app.css` 生效之间有一小段没有样式的空档，不写这行就是白底一闪。
+         取值与 `src/app.css` 的 `--bg` 同一份深色（改主题要同步两处）；
+         窗口自身的原生底色另由 `tauri.conf.json` 的 `backgroundColor` 覆盖。 -->
+    <style>
+      html {
+        background-color: #0b0d11;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

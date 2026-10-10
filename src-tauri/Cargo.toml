@@ -1,0 +1,83 @@
+[package]
+name = "freecontrol2"
+version = "1.0.0"
+description = "FreeControl2 - scrcpy launcher"
+authors = ["FreeControl2"]
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+open = "5"
+# HTTP 客户端：下载通道走 https，Windows 上用系统 schannel（native-tls），无需额外 C 工具链。
+# 只用 async 客户端：blocking 版既没有 `read_timeout`（停滞预算），也无法中断在途读
+# （「切换通道 / 取消」要立刻生效），见 design D1。
+reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+# async 运行时的同步原语与 `select!` 宏：控制信号用 `Notify` + 原子命令字（design D2），
+# 下载循环用 `select!` 在「数据到达」与「控制信号」之间择一。版本由 tauri 传递决定，
+# 这里只补特性，不引入版本漂移。
+tokio = { version = "1", features = ["sync", "macros"] }
+# SHA-256 校验（纯 Rust，无构建依赖）。
+sha2 = "0.10"
+# 解压 scrcpy 发布包（Windows 侧）：官方资产为 deflate 压缩的 zip，仅启用 deflate 以免引入 C 依赖。
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# 解压 scrcpy 发布包（Linux 侧）：官方资产是 `.tar.gz`。flate2 只启用 `rust_backend`
+# （纯 Rust 的 miniz_oxide），tar 亦为纯 Rust —— 两者都不引入 C 构建依赖，也不依赖系统
+# 的 `tar` / `gzip` 命令（design D2）。
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+tar = "0.4"
+# 非 Windows 平台的**本地时区**取时（日志按本地日期切天、行时间戳用本地时刻）。
+# `Local` 经 iana-time-zone 读系统时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖；
+# 关掉 default-features 以免拉入用不到的序列化栈。
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# 读取主显示器工作区矩形（`SystemParametersInfoW(SPI_GETWORKAREA)`，扣除任务栏）——
+# 多设备窗口排列的基准（design D6）；`GetLocalTime`（SystemInformation）供日志取**本地**日期与时刻
+# （文件名与行时间戳要与用户看到的「今天」一致，故不能用 UTC）；`GetModuleHandleW`（LibraryLoader）
+# 供窗口图标按 DPI 从产物内嵌资源里取原生层（design D1）。只启用所需四个命名空间，
+# 与 tauri 已用的版本一致。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_SystemInformation",
+    "Win32_System_LibraryLoader",
+] }
+
+# 向会话进程发 `SIGTERM`（Linux 的优雅结束，design D6 的平台实现）。
+# libc 只是符号绑定，不引入构建期 C 依赖。
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[features]
+# default features are defined in tauri's features
+
+# 发布档位：体积导向。本仓库原先没有这一段，发布构建一直跑在 cargo 的默认档位上
+# （opt-level = 3、codegen-units = 16、lto = false），产物体积因此由工具默认值决定。
+# 实测（Windows / MSVC，2026-10-09，同一份源码，逐档按 PE 节区核对）：补回本段后单文件
+# 10.94 MB → 6.20 MB。
+#
+# 三项各管一件事：
+# - `lto`：链接期**全程序**优化 —— 跨 crate 的死代码消除与内联只有它做得到，是体积收益的主要来源
+#   （没有它时，每个 crate 各编各的，链接器看不到彼此，未内联的函数与被引用的常量池都留在产物里）；
+# - `opt-level = "z"`：把默认的「性能优先」换成体积优先，比 `"s"` 更激进（同源实测：`"s"` 7.48 MB
+#   → `"z"` 6.79 MB）。本应用对运行速度不敏感 —— 热路径是进程启动、下载 IO 与 WebView2 渲染，
+#   前者受 IO 限制、后者不在本产物内；
+# - `codegen-units = 1`：每个 crate 只用一块编译单元。`lto` 在链接期合并的是各 crate 产出的 bitcode，
+#   而块边界会限制 crate **内部**函数被合并与内联的范围，故在 `lto` 之上仍有收益（同源实测：16 块
+#   6.79 MB → 1 块 6.20 MB，−8.7%），代价是丢掉 crate 内的并行编译。**这一条修正了上一轮「与 `lto`
+#   作用重叠、不取」的判断**：那条结论出自 `opt-level = "s"` 档位，本项目改用 `"z"` 后不成立。
+#
+# 以下两项是**评估过、不取**，不是漏了：
+# - `panic = "abort"`：还能再省 2.76 MB（同源实测：6.20 MB → 3.44 MB），但会取消线程级 panic 隔离 ——
+#   `download::run_blocking` 的既有契约是「阻塞任务内的 panic 以 `Err` 回传、而不是把进程带走」，
+#   abort 下这条路径不可能发生（契约与对应用例只剩调试构建成立），且 panic 路径不再有会话收尾；
+# - `strip`：在 MSVC 上不改变产物 —— PDB 照旧生成（实测与 exe 同秒写出，产物还略大 512 B），Windows 侧收益约为 0。
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1

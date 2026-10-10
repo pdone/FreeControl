@@ -1,0 +1,31 @@
+{
+  "name": "freecontrol2",
+  "version": "1.0.0",
+  "description": "FreeControl2 - scrcpy launcher (Windows)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "icons": "node scripts/sync-icons.mjs",
+    "app:dev": "tauri dev",
+    "app:build": "tauri build --no-bundle",
+    "test:rs": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
+    "verify": "npm run check && npm run test:rs && npm run build",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "lucide-svelte": "^0.456.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tauri-apps/cli": "^2.1.0",
+    "svelte": "^4.2.19",
+    "svelte-check": "^3.8.6",
+    "tslib": "^2.7.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

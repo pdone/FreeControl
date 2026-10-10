@@ -1,0 +1,71 @@
+{
+  // 本地命令的取值只有一处：package.json 的 scripts。
+  // 下面每一条只引用脚本名（npm run <名字>），不复制命令行本身 ——
+  // 改命令的取值时不需要动这个文件，这里只负责标签、排序与分组。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "开发：起应用（前端热更新）",
+      "detail": "一条命令起完整应用，前端开发服务器由构建配置自动拉起",
+      "type": "shell",
+      "command": "npm run app:dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "构建：出免安装单文件",
+      "detail": "产出与出包流程同口径的 Windows 裸 exe，不产出安装器",
+      "type": "shell",
+      "command": "npm run app:build",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "测试：Rust 单测",
+      "type": "shell",
+      "command": "npm run test:rs",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "校验：一把过（前端检查 + 单测 + 前端构建）",
+      "detail": "本地过一遍推送时持续集成执行的那组校验，任一步失败即停",
+      "type": "shell",
+      "command": "npm run verify",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
