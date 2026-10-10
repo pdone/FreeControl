@@ -56,6 +56,8 @@ jobs:
 
       - name: 缓存 cargo
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       # tauri 在 Linux 上要链接 webkit2gtk / gtk 等，`cargo test` 同样需要 ——
       # 省不掉「准备环境」，省掉的是打包那一段（design D9）。
@@ -73,7 +75,7 @@ jobs:
         run: npm ci
 
       - name: Rust 单测
-        run: cargo test --locked
+        run: npm run test:rs
 
       # 前端检查与 Vite 构建与平台无关，只跑一次（design D9）。
       - name: 前端检查
@@ -109,6 +111,8 @@ jobs:
 
       - name: 缓存 cargo
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       - name: 安装 Linux 系统依赖
         if: runner.os == 'Linux'
@@ -184,12 +188,18 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           TAG="v$VERSION"
-          ls -l dist
+          # 逐个点名三份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
+          # 那两份来自 `bundle/appimage/` 与 `bundle/deb/`，于是 `dist/` 里还多出 `appimage/`、
+          # `deb/` 两个目录，一并交给 gh 会报 `read dist/deb: is a directory`
+          # （2026-10-10 首次手动触发实测）。少一份时通配符保持字面量，gh 会报「文件不存在」
+          # 而失败 —— 与上传步骤的 `if-no-files-found: error` 同一口径，不静默少传。
+          ASSETS=(dist/*.exe dist/appimage/*.AppImage dist/deb/*.deb)
+          ls -l "${ASSETS[@]}"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$TAG" --clobber dist/*
+            gh release upload "$TAG" --clobber "${ASSETS[@]}"
           else
             gh release create "$TAG" --draft \
               --title "FreeControl2 v$VERSION" \
               --notes "自动构建的草稿发行。Windows 产物为免安装单文件；请人工确认后再发布。" \
-              dist/*
+              "${ASSETS[@]}"
           fi

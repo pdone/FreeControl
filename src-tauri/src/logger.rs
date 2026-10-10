@@ -164,6 +164,8 @@ pub fn local_now() -> LocalTime {
 /// `Local` 经 `iana-time-zone` 读系统时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖。
 #[cfg(not(windows))]
 pub fn local_now() -> LocalTime {
+    use chrono::{Datelike, Timelike};
+
     let now = chrono::Local::now();
     let date = now.date_naive();
     let time = now.time();
@@ -176,7 +178,7 @@ pub fn local_now() -> LocalTime {
         hour: time.hour(),
         minute: time.minute(),
         second: time.second(),
-        millis: time.subsec_millis(),
+        millis: time.nanosecond() / 1_000_000,
     }
 }
 
@@ -679,5 +681,20 @@ mod tests {
         info("test", "未初始化时静默丢弃");
         warn("test", "同上");
         error("test", "同上");
+    }
+
+    // 非 Windows 的取时路径只在 Linux 上编译：编译检查只看得到签名，看不出字段映射
+    // 与毫秒换算，这一条是它们唯一的运行时把关（也正因如此，它在 Windows 上不参与编译）。
+    #[cfg(not(windows))]
+    #[test]
+    fn local_now_fields_are_in_range() {
+        let now = local_now();
+        assert!(now.date.year >= 2020, "年份不合理：{}", now.date.year);
+        assert!((1..=12).contains(&now.date.month), "月份越界：{}", now.date.month);
+        assert!((1..=31).contains(&now.date.day), "日期越界：{}", now.date.day);
+        assert!(now.hour < 24, "小时越界：{}", now.hour);
+        assert!(now.minute < 60, "分钟越界：{}", now.minute);
+        assert!(now.second < 60, "秒越界：{}", now.second);
+        assert!(now.millis < 1000, "毫秒越界：{}", now.millis);
     }
 }

@@ -2774,6 +2774,15 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
 
     #[test]
     fn extracts_nested_release_layout_and_finds_payload() {
+        // 与上面那条 tar.gz 同源：目录名与二进制名都按当前平台取，使这条用例在两个平台上都成立
+        // —— `find_payload_root` 找的是**当前平台**的 `scrcpy` 可执行文件。
+        let dir_name = scrcpy::dir_name_at(here(), "4.1");
+        let files = [
+            format!("{dir_name}/{}", scrcpy::SCRCPY_BIN),
+            format!("{dir_name}/{}", assets::ADB_BIN),
+            format!("{dir_name}/README.md"),
+        ];
+
         let root = unique_temp_dir("extract");
         let raw = root.join("raw");
         let zip_path = root.join("asset.zip");
@@ -2781,16 +2790,16 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         write_zip(
             &zip_path,
             &[
-                ("scrcpy-win64-v4.1/scrcpy.exe", "SC"),
-                ("scrcpy-win64-v4.1/adb.exe", "ADB"),
-                ("scrcpy-win64-v4.1/README.md", "hi"),
+                (files[0].as_str(), "SC"),
+                (files[1].as_str(), "ADB"),
+                (files[2].as_str(), "hi"),
             ],
         );
 
         extract_zip(&zip_path, &raw, |_, _| {}).unwrap();
         let payload = find_payload_root(&raw).unwrap();
 
-        assert_eq!(payload, raw.join("scrcpy-win64-v4.1"));
+        assert_eq!(payload, raw.join(&dir_name));
         assert!(assets::missing_bins(&payload).is_empty());
         let _ = fs::remove_dir_all(&root);
     }
@@ -2951,13 +2960,14 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         let payload = root.join("payload");
         fs::create_dir_all(&target).unwrap();
         fs::create_dir_all(&payload).unwrap();
-        fs::write(target.join("scrcpy.exe"), b"OLD").unwrap();
-        fs::write(payload.join("scrcpy.exe"), b"NEW").unwrap();
-        fs::write(payload.join("adb.exe"), b"NEW").unwrap();
+        // 二进制名按当前平台取：`missing_bins` 查的是**本平台**的必需文件，写死 `.exe` 只在 Windows 上成立。
+        fs::write(target.join(scrcpy::SCRCPY_BIN), b"OLD").unwrap();
+        fs::write(payload.join(scrcpy::SCRCPY_BIN), b"NEW").unwrap();
+        fs::write(payload.join(assets::ADB_BIN), b"NEW").unwrap();
 
         replace_dir(&payload, &target).unwrap();
 
-        assert_eq!(fs::read(target.join("scrcpy.exe")).unwrap(), b"NEW");
+        assert_eq!(fs::read(target.join(scrcpy::SCRCPY_BIN)).unwrap(), b"NEW");
         assert!(assets::missing_bins(&target).is_empty());
         // 备份目录已被清理。
         let leftovers: Vec<_> = fs::read_dir(&root)
@@ -2971,14 +2981,16 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
 
     #[test]
     fn payload_without_required_bins_is_rejected() {
+        // 只放 `scrcpy`、不放 `adb`：夹具的名字按当前平台取，否则 Linux 上 `find_payload_root`
+        // 连 payload 都定位不到，测的就不是「缺 adb 被拒」而是别的东西。
+        let dir_name = scrcpy::dir_name_at(here(), "4.1");
+        let only_scrcpy = format!("{dir_name}/{}", scrcpy::SCRCPY_BIN);
+
         let root = unique_temp_dir("payload-partial");
         let raw = root.join("raw");
         let zip_path = root.join("asset.zip");
         fs::create_dir_all(&root).unwrap();
-        write_zip(
-            &zip_path,
-            &[("scrcpy-win64-v4.1/scrcpy.exe", "SC")],
-        );
+        write_zip(&zip_path, &[(only_scrcpy.as_str(), "SC")]);
 
         extract_zip(&zip_path, &raw, |_, _| {}).unwrap();
         let payload = find_payload_root(&raw).unwrap();

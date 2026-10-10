@@ -330,8 +330,13 @@ mod tests {
     #[test]
     fn env_dir_follows_spec_layout() {
         // tasks 3.1：运行环境目录 = 应用数据根 + `scrcpy-{平台标签}-v{Version}`（带 `v`，
-        // 与官方发布包同名），且为绝对路径。
-        let root = Path::new(r"C:\Users\someone\AppData\Roaming\FreeControl2");
+        // 与官方发布包同名），且为绝对路径。根路径按平台取 —— `C:\…` 在 Linux 上是**相对**路径，
+        // 用它在非 Windows 上断言 `is_absolute()` 只会得到假失败。
+        let root = Path::new(if cfg!(windows) {
+            r"C:\Users\someone\AppData\Roaming\FreeControl2"
+        } else {
+            "/home/someone/.local/share/FreeControl2"
+        });
         let dir = scrcpy_dir_at(root).unwrap();
         let platform = current().unwrap();
 

@@ -31,10 +31,6 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # 的 `tar` / `gzip` 命令（design D2）。
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 tar = "0.4"
-# 非 Windows 平台的**本地时区**取时（日志按本地日期切天、行时间戳用本地时刻）。
-# `Local` 经 iana-time-zone 读系统时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖；
-# 关掉 default-features 以免拉入用不到的序列化栈。
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # 读取主显示器工作区矩形（`SystemParametersInfoW(SPI_GETWORKAREA)`，扣除任务栏）——
 # 多设备窗口排列的基准（design D6）；`GetLocalTime`（SystemInformation）供日志取**本地**日期与时刻
 # （文件名与行时间戳要与用户看到的「今天」一致，故不能用 UTC）；`GetModuleHandleW`（LibraryLoader）
@@ -47,6 +43,13 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_SystemInformation",
     "Win32_System_LibraryLoader",
 ] }
+
+# 非 Windows 平台的**本地时区**取时（日志按本地日期切天、行时间戳用本地时刻）。
+# `Local` 经 iana-time-zone 读系统时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖；
+# 关掉 default-features 以免拉入用不到的序列化栈。Windows 侧走 `GetLocalTime`（SystemInformation）
+# 根本用不到它，故按目标平台门控 —— 与上面 `windows-sys`、下面 `libc` 的写法一致。
+[target.'cfg(not(windows))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 
 # 向会话进程发 `SIGTERM`（Linux 的优雅结束，design D6 的平台实现）。
 # libc 只是符号绑定，不引入构建期 C 依赖。

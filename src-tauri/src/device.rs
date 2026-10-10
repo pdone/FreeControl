@@ -569,6 +569,10 @@ mod tests {
     //! 「带超时地执行命令」这一层（用系统自带命令，不依赖真实 adb 与设备）。
 
     use super::*;
+
+    // 只有 Windows 那几个用 `cmd.exe` 的用例用到它，故随用例一起门控；
+    // 不加这层条件的话，Linux 侧编译（那些用例不参与）会报一条 unused import。
+    #[cfg(windows)]
     use std::path::PathBuf;
 
     fn usb(id: &str, alias: &str, serial: &str) -> Device {
