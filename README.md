@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> 本项目不再维护，请移至新项目 [FreeControl2](https://github.com/pdone/FreeControl2)
+
 # FreeControl
 
 [![](https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/pdone/FreeControl/actions/workflows/build-and-release.yml)
