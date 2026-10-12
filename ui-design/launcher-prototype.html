@@ -100,12 +100,12 @@
     --icon: 20px;        /* 导航 / 收起按钮图标尺寸 */
     --logo: 45px;        /* logo 尺寸（改动后 .brand 的居中偏移自动跟随，不需手算） */
     --rail-w: 64px;      /* 收起后侧栏宽度（设计值；居中由 flex 保证，与其无关） */
-    display: grid; grid-template-columns: 210px 1fr; height: 100vh; transition: grid-template-columns .18s ease;
+    display: grid; grid-template-columns: 210px 1fr; height: 100vh; overflow: hidden; transition: grid-template-columns .18s ease;
   }
 
   /* ---------- Sidebar ---------- */
   /* 分隔线用 inset box-shadow 画而不是 border：border 会吃掉 1px 布局宽度，使栏内内容整体偏离中线 */
-  .sidebar { background: var(--bg-elev); box-shadow: inset -1px 0 0 var(--border); display: flex; flex-direction: column; padding: 18px var(--rail-pad); }
+  .sidebar { background: var(--bg-elev); box-shadow: inset -1px 0 0 var(--border); display: flex; flex-direction: column; padding: 18px var(--rail-pad); overflow-y: auto; }
   /* 品牌行：左右偏移由 --logo 派生，使 logo 的**水平中心恒为 x=32**
      （= 展开态导航图标中心 = 收起态栏中线：栏内容宽 64−2×10 = 44，
       偏移 = (44 − --logo)/2，logo 中心 = 10 + 偏移 + --logo/2 = 32，与 --logo 取值无关）。
@@ -173,7 +173,7 @@
   /* ---------- Main ---------- */
   /* 命令条为内容区让出的底部留白：取值在 .main 上单点定义，与命令条是否呈现同步
      —— 日志 / 运行环境两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
-  .main { display: flex; flex-direction: column; min-width: 0; --bar-reserve: 120px; }
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; --bar-reserve: 120px; }
   .main.no-bar { --bar-reserve: 26px; }
   .topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 0 0 22px; border-bottom: 1px solid var(--border); background: rgba(20,23,29,.6); backdrop-filter: blur(8px); }
   .topbar .title { font-weight: 600; }
@@ -203,7 +203,7 @@
   /* 顶栏两个状态指示可点击跳转：点设备概况回「设备」页，点运行环境指示去「运行环境」页 */
   .pill.clickable { cursor: pointer; }
 
-  .content { flex: 1; overflow-y: auto; padding: 22px 26px var(--bar-reserve); }
+  .content { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 26px var(--bar-reserve); }
   .section { display: none; animation: fade .18s ease; }
   .section.active { display: block; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -562,7 +562,7 @@
      图标加 flex: none 免得被压扁。 */
   .about-modal .chip { display: inline-flex; align-items: center; gap: 7px; background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
   .about-modal .chip svg { flex: none; width: 15px; height: 15px; stroke: currentColor; }
-  /* 外链栅格：两列三颗 —— 第一行 GitHub / 更新日志，第二行只有左下的「开源许可」（GitHub 正下方），右下留空 */
+  /* 外链栅格：两列四颗 —— 第一行「官网」/ GitHub，第二行「更新日志」/「开源许可」（「官网」居首位、占第一行左格） */
   .about-links { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .about-links .btn { justify-content: center; padding: 12px 14px; }
   /* 页脚：居中一行版权；属这个弹窗自身，不是全局页脚 */
@@ -1072,10 +1072,11 @@
       <span class="chip"><i data-lucide="file-code"></i>Svelte + Vite + TypeScript</span>
       <span class="chip"><i data-lucide="shapes"></i>lucide 图标</span>
     </div>
-    <!-- 三颗按钮的形态与落位即本弹窗要交付的呈现（第一行两颗、第二行只有左下那颗）；
+    <!-- 四颗按钮的形态与落位即本弹窗要交付的呈现（第一行「官网」/ GitHub、第二行「更新日志」/「开源许可」，官网居首位）；
          地址是后端的事实（见 design D6），原型不复刻一份，故这里不接点击行为
          （弹窗内只有版本行的复制键接了行为）。 -->
     <div class="about-links">
+      <button class="btn"><i data-lucide="globe"></i>官网</button>
       <button class="btn"><i data-lucide="github"></i>GitHub</button>
       <button class="btn"><i data-lucide="file-text"></i>更新日志</button>
       <button class="btn"><i data-lucide="scale"></i>开源许可</button>
@@ -1679,12 +1680,12 @@
     const demo = document.getElementById('demoEnvWarn'); if (demo) demo.checked = !envBestFit;
     if (envBestFit){
       el.className = 'pill env ok clickable';
-      el.innerHTML = `<span class="dot"></span>scrcpy v${SCRCPY_VERSION} 就绪`;
-      el.title = `已安装版本 v${SCRCPY_VERSION} 与最佳适配版本一致（点此前往运行环境页）`;
+      el.innerHTML = `<span class="dot"></span>scrcpy 就绪`;
+      el.title = `前往运行环境页`;
     } else {
       el.className = 'pill env warn clickable';
-      el.innerHTML = `<i data-lucide="alert-triangle"></i>scrcpy v${DEMO_INSTALLED_OTHER} 非最佳适配版本`;
-      el.title = `已安装 v${DEMO_INSTALLED_OTHER} ≠ 最佳适配 v${SCRCPY_VERSION}：该版本未经本程序完整适配，可能存在未知问题；不影响继续使用。（点此前往运行环境页查看原因）`;
+      el.innerHTML = `<i data-lucide="alert-triangle"></i>非最佳适配版本`;
+      el.title = `非最佳适配版本，点击前往「运行环境」页查看原因`;
     }
     // 「下载最佳适配版本」仅在非最佳适配（!envBestFit，对应产品侧 !envOk）时出现
     const bf = document.getElementById('bestFitBtn'); if (bf) bf.classList.toggle('hidden', envBestFit);

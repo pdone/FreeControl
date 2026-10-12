@@ -16,7 +16,7 @@
 <p align="center">在PC上控制Android设备</p>
 
 <p align="center">
-  中文 | <a href="README.en.md">English</a>
+  中文 | <a href="README.en.md">English</a> | <a href="https://freecontrol2.pages.dev/">官网</a>
 </p>
 
 ## 功能特性
@@ -53,7 +53,7 @@
 
 **运行要求**：Windows 10 / 11（x64；Windows on ARM 上经 x64 仿真运行）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。
 
-程序是免安装的单文件：从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 下载 `FreeControl2_<版本>.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器。
+从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件 `FreeControl2_<版本>.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物。
 
 1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
 2. **添加设备** —— 在「设备」页新增一台：USB 连接填 `adb devices` 列出的序列号，无线连接填 `IP:端口`。

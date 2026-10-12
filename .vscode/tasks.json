@@ -20,6 +20,21 @@
       "problemMatcher": []
     },
     {
+      "label": "预览：官网页面",
+      "detail": "在 website/ 起站点开发服务器，改文案与样式即时热更新（命令取自 website/package.json 的 dev 脚本）",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "构建：出免安装单文件",
       "detail": "产出与出包流程同口径的 Windows 裸 exe，不产出安装器",
       "type": "shell",
@@ -40,6 +55,7 @@
     },
     {
       "label": "测试：Rust 单测",
+      "detail": "只跑 src-tauri 下的 Rust 单元测试，不含前端检查与打包",
       "type": "shell",
       "command": "npm run test:rs",
       "options": {

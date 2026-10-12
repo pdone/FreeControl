@@ -16,7 +16,7 @@
 <p align="center">Control Android devices on PC</p>
 
 <p align="center">
-  <a href="README.md">中文</a> | English
+  <a href="README.md">中文</a> | English | <a href="https://freecontrol2.pages.dev/">Website</a>
 </p>
 
 
@@ -56,7 +56,7 @@ The app UI is currently in Chinese.
 
 **To run**: Windows 10 / 11 (x64; on Windows on ARM it runs under x64 emulation) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled.
 
-The app is a single portable executable: download `FreeControl2_<version>.exe` from [Releases](https://github.com/pdone/FreeControl2/releases/latest) and run it from any writable directory — there is no installer.
+Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is the single portable `FreeControl2_<version>.exe` — put it in any writable directory and double-click, with no installer; on Linux it ships as AppImage and deb release artifacts.
 
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
 2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, enter `IP:port`.

@@ -32,6 +32,7 @@
     Github,
     FileText,
     Scale,
+    Globe,
     Cpu,
     FileCode,
     Shapes,
@@ -92,11 +93,11 @@
     if (copyTimer) clearTimeout(copyTimer);
   });
 
-  // ── 外链（spec「外链入口」）：只传语义键，地址在后端 `links.rs`（全仓唯一来源）──
-  // 三颗入口共用这一条通道与同一处失败提示。
+  // ── 外链（spec「外链入口与打开方式」）：只传语义键，地址在后端 `links.rs`（全仓唯一来源）──
+  // 四颗入口共用这一条通道与同一处失败提示。
   let linkErr = '';
 
-  async function openLink(link: 'repo' | 'changelog' | 'license'): Promise<void> {
+  async function openLink(link: 'repo' | 'changelog' | 'license' | 'website'): Promise<void> {
     linkErr = '';
     try {
       await openExternalLink(link);
@@ -187,11 +188,12 @@
       <span class="chip"><Shapes />lucide 图标</span>
     </div>
 
-    <!-- 三颗外链入口（spec「外链入口」）：地址是后端的事实，前端只给语义键。
-         落位由两列栅格按 DOM 顺序自动排 —— 第一行 GitHub / 更新日志，第二行只有左下的
-         「开源许可」（即 GitHub 正下方），右下那格留空是验收过的取值。
-         「官网」与「支持」已撤除，地址表与语义键类型里都不再有它们。 -->
+    <!-- 四颗外链入口（spec「外链入口与打开方式」）：地址是后端的事实，前端只给语义键。
+        落位由两列栅格按 DOM 顺序自动排 —— 第一行「官网」/ GitHub，第二行「更新日志」/「开源许可」
+         （「官网」居首位、占第一行左格）。
+        「支持」已撤除，地址表与语义键类型里都不再有它。 -->
     <div class="about-links">
+      <button class="btn" on:click={() => openLink('website')}><Globe />官网</button>
       <button class="btn" on:click={() => openLink('repo')}><Github />GitHub</button>
       <button class="btn" on:click={() => openLink('changelog')}><FileText />更新日志</button>
       <button class="btn" on:click={() => openLink('license')}><Scale />开源许可</button>

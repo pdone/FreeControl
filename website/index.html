@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 品牌标识引用镜像进来的资产包成品位图（与产品界面同源） -->
+    <link rel="icon" type="image/png" href="/assets/icons/desktop/128x128.png" />
+    <title>FreeControl2 — 在 PC 上控制 Android 设备</title>
+    <meta
+      name="description"
+      content="FreeControl2 是 scrcpy 的图形启动器：设备清单、参数面板、连接控制与运行环境，都在一个免安装的 Windows 桌面程序里。"
+    />
+    <meta name="theme-color" content="#0b0d11" />
+    <!-- 首帧底色：与 tokens.css 的 --bg 同一份深色，避免白底一闪 -->
+    <style>
+      html {
+        background-color: #0b0d11;
+      }
+    </style>
+    <!-- 图标库取自 CDN 的 lucide（与产品 package.json 的 lucide-svelte 同版 0.456.0）：
+         站内与内嵌原型同用一份图标定义。用同步脚本（无 defer）确保 main.ts 执行前 window.lucide 已就绪；
+         取不到时站点优雅降级（图标为空，不影响其余内容）。 -->
+    <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
