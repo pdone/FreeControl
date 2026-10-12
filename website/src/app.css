@@ -235,15 +235,21 @@ code {
   overflow: hidden;
   box-shadow: var(--shadow);
 }
-/* hero 主图是内嵌的原型页面（src/App.svelte 的 iframe）。原型是 100vh 的整应用：
-   窗口高度即 iframe 高度，内容放不下时原型自己内滚。高度固定 700px：原型内多数页
-   自然高度 ≤697px（实测），故都不出现纵向滚动条；仅「窗口」(743) 与「运行环境」(805)
-   超出、由原型自行内滚。窄屏再压低。 */
+/* hero 主图二分（见 src/App.svelte）：宽屏是内嵌的原型页面 iframe，窄屏是设备页截图。
+   原型是 100vh 的整应用：窗口高度即 iframe 高度，内容放不下时原型自己内滚。高度固定 700px：
+   原型内多数页自然高度 ≤697px（实测），故都不出现纵向滚动条；仅「窗口」(743) 与「运行环境」(805)
+   超出、由原型自行内滚。窄屏走截图分支（无 iframe），故高度不再随断点调整。 */
 .hero-frame {
   display: block;
   width: 100%;
   height: 700px;
   border: 0;
+}
+/* 窄屏截图：按容器宽等比铺满，不裁切、不拉伸（原图 2200×1440，长宽比≈1.53，与版位相当）。 */
+.hero-shot-img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* ---------- 功能特性 ---------- */
@@ -625,8 +631,5 @@ code {
   }
   .nav {
     display: none;
-  }
-  .hero-frame {
-    height: 660px;
   }
 }

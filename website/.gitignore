@@ -3,5 +3,6 @@ dist/
 # 由 scripts/sync-assets.mjs 在构建前从仓库唯一来源镜像而来，不入库
 public/assets/
 public/preview/
+public/screenshots/
 # 由 scripts/fetch-release.mjs 在构建前解析最新发行生成（直链，含版本），不入库
 src/lib/release.json

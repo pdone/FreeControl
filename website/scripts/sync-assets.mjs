@@ -11,13 +11,15 @@ const repoRoot = resolve(siteRoot, '..');
 const outRoot = resolve(siteRoot, 'public');
 
 // 清单即唯一事实来源：源（相对仓库根）-> 站点内相对 public/ 的目标路径
-// 末尾一条是 hero 内嵌的原型页面 —— 设计稿只有一份，站点在构建期镜像它，不留副本。
+// 原型页面是 hero 宽屏分支内嵌的界面，设备页截图是 hero 窄屏分支的回退图 ——
+// 两者都只有一份来源，站点在构建期镜像它们，不留副本。
 const MANIFEST = [
   ['assets/icons/desktop/64x64.png', 'assets/icons/desktop/64x64.png'],
   ['assets/icons/desktop/128x128.png', 'assets/icons/desktop/128x128.png'],
   ['assets/icons/desktop/256x256.png', 'assets/icons/desktop/256x256.png'],
   ['assets/icons/desktop/512x512.png', 'assets/icons/desktop/512x512.png'],
   ['ui-design/launcher-prototype.html', 'preview/launcher-prototype.html'],
+  ['assets/screenshots/devices.png', 'screenshots/devices.png'],
 ];
 
 // 先清空再拷贝

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { readable } from 'svelte/store';
   import { t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
   // 构建期由 scripts/fetch-release.mjs 解析最新发行生成（.gitignore 排除）。站点源码里没有版本字面量：
@@ -11,6 +12,20 @@
   const CHANGELOG = `${REPO}/blob/main/Update.md`;
   // hero 内嵌的原型页面（构建期由 scripts/sync-assets.mjs 从 ui-design/ 镜像进站点）。
   const PREVIEW = '/preview/launcher-prototype.html';
+  // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点）。
+  const DEVICE_SHOT = '/screenshots/devices.png';
+  // hero 的分界：视口够宽才内嵌可交互原型；手机与窄桌面窗口改为静态截图。
+  // 该阈值只在 JS 出现一次 —— CSS 不为它写媒体查询（截图取流式尺寸），避免两处数字漂移。
+  const WIDE_QUERY = '(min-width: 1024px)';
+
+  // 客户端渲染，无 SSR：初始化时即可同步取值，首帧就落在正确分支，不会先渲 iframe 再切换。
+  const isWide = readable(window.matchMedia(WIDE_QUERY).matches, (set) => {
+    const mql = window.matchMedia(WIDE_QUERY);
+    const onChange = (e: MediaQueryListEvent) => set(e.matches);
+    set(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  });
 
   const rel = release as { ok: boolean; windows: string | null; appimage: string | null; deb: string | null };
   const ASSETS: Record<string, string | null> = { windows: rel.windows, appimage: rel.appimage, deb: rel.deb };
@@ -55,16 +70,22 @@
       <a class="btn btn-primary" href={RELEASES}><Icon name="Download" />{$t.hero.downloadCta}</a>
       <a class="btn btn-ghost" href={REPO}><Icon name="Github" />{$t.hero.sourceCta}</a>
     </div>
-    <!-- hero 主图是内嵌的原型页面（spec「品牌与视觉与产品同源」的 hero 预览场景）：
-         原型本身即完整可操作的应用界面，读者在 hero 里就能真点。层级由 .hero-shot 提供边框/圆角/阴影。
-         原型界面是中文的，与本页语言无关，故 iframe 标题按原型界面写中文。 -->
+    <!-- hero 主图按视口宽度二分（spec「品牌与视觉与产品同源」的 hero 预览场景）：
+         视口够宽时内嵌原型页面 —— 原型本身即完整可操作的应用界面，读者在 hero 里就能真点；
+         窄屏（手机 / 窄桌面窗口）下把桌面版式压成一条反而不堪读，故改为同一页（设备页）的截图。
+         窄屏不渲染 iframe，也就不加载原型。层级由 .hero-shot 提供边框/圆角/阴影。
+         原型界面是中文的，与本页语言无关，故 iframe 标题与截图 alt 均按界面内容写中文。 -->
     <div class="hero-shot">
-      <iframe
-        class="hero-frame"
-        src={PREVIEW}
-        title="FreeControl2 界面预览"
-        loading="lazy"
-      ></iframe>
+      {#if $isWide}
+        <iframe
+          class="hero-frame"
+          src={PREVIEW}
+          title="FreeControl2 界面预览"
+          loading="lazy"
+        ></iframe>
+      {:else}
+        <img class="hero-shot-img" src={DEVICE_SHOT} alt="FreeControl2 设备页" />
+      {/if}
     </div>
   </section>
 
