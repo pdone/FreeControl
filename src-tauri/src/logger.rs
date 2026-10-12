@@ -16,6 +16,7 @@
 //! 本模块零新依赖，且命名 / 超期 / 清理都是可单测的纯函数。
 
 use crate::config;
+use crate::shell;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -445,6 +446,7 @@ pub fn log(level: &str, source: &str, msg: &str) {
 ///
 /// 与 `assets::open_scrcpy_dir` 同款行为：界面只给「打开日志目录」这一个入口，
 /// 故不提供「把日志目录路径交给前端」的命令 —— 没有第二处用途。
+/// 打开动作本身见 `shell`（Windows 上是一次 `ShellExecuteW`，`explore` 动词）。
 #[tauri::command]
 pub fn open_log_dir(app: AppHandle) -> Result<(), String> {
     let root = config::app_data_root(&app)?;
@@ -452,7 +454,7 @@ pub fn open_log_dir(app: AppHandle) -> Result<(), String> {
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
-    open::that(&dir).map_err(|e| e.to_string())
+    shell::open_dir(&dir)
 }
 
 #[cfg(test)]

@@ -11,6 +11,7 @@ mod download;
 mod session;
 mod links;
 mod logger;
+mod shell;
 mod window_icon;
 
 use std::collections::HashMap;

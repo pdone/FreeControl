@@ -10,6 +10,7 @@
 //! `assets::get_scrcpy_dir()` / `assets::open_scrcpy_dir()`。
 
 use crate::scrcpy;
+use crate::shell;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -100,13 +101,15 @@ pub fn get_env_status(app: AppHandle) -> Result<EnvStatus, String> {
 ///
 /// 目录不存在时先创建：该操作也是「首启手动放置二进制」的入口，先建目录可省掉用户手工建目录，
 /// 且空目录不会被判为就绪（见 `build_env_status`）。
+///
+/// 打开动作见 `shell`：Windows 上是一次 `ShellExecuteW`（`explore` 动词，打开该目录本身）。
 #[tauri::command]
 pub fn open_scrcpy_dir(app: AppHandle) -> Result<(), String> {
     let dir = scrcpy::scrcpy_dir(&app)?;
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     }
-    open::that(&dir).map_err(|e| e.to_string())
+    shell::open_dir(&dir)
 }
 
 #[cfg(test)]

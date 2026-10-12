@@ -562,7 +562,7 @@
      图标加 flex: none 免得被压扁。 */
   .about-modal .chip { display: inline-flex; align-items: center; gap: 7px; background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
   .about-modal .chip svg { flex: none; width: 15px; height: 15px; stroke: currentColor; }
-  /* 外链栅格：两列四颗（官网 / GitHub / 更新日志 / 支持），正好铺满两行，不留空格 */
+  /* 外链栅格：两列三颗 —— 第一行 GitHub / 更新日志，第二行只有左下的「开源许可」（GitHub 正下方），右下留空 */
   .about-links { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .about-links .btn { justify-content: center; padding: 12px 14px; }
   /* 页脚：居中一行版权；属这个弹窗自身，不是全局页脚 */
@@ -1072,13 +1072,13 @@
       <span class="chip"><i data-lucide="file-code"></i>Svelte + Vite + TypeScript</span>
       <span class="chip"><i data-lucide="shapes"></i>lucide 图标</span>
     </div>
-    <!-- 四颗按钮的形态即本弹窗要交付的呈现；地址是后端的事实（见 design D6），
-         原型不复刻一份，故这里不接点击行为（弹窗内只有版本行的复制键接了行为）。 -->
+    <!-- 三颗按钮的形态与落位即本弹窗要交付的呈现（第一行两颗、第二行只有左下那颗）；
+         地址是后端的事实（见 design D6），原型不复刻一份，故这里不接点击行为
+         （弹窗内只有版本行的复制键接了行为）。 -->
     <div class="about-links">
-      <button class="btn"><i data-lucide="globe"></i>官网</button>
       <button class="btn"><i data-lucide="github"></i>GitHub</button>
       <button class="btn"><i data-lucide="file-text"></i>更新日志</button>
-      <button class="btn"><i data-lucide="heart"></i>支持</button>
+      <button class="btn"><i data-lucide="scale"></i>开源许可</button>
     </div>
     <div class="about-foot">© 2026 pdone</div>
   </div>

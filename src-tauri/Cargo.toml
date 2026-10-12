@@ -13,7 +13,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-open = "5"
 # HTTP 客户端：下载通道走 https，Windows 上用系统 schannel（native-tls），无需额外 C 工具链。
 # 只用 async 客户端：blocking 版既没有 `read_timeout`（停滞预算），也无法中断在途读
 # （「切换通道 / 取消」要立刻生效），见 design D1。
@@ -34,22 +33,32 @@ tar = "0.4"
 # 读取主显示器工作区矩形（`SystemParametersInfoW(SPI_GETWORKAREA)`，扣除任务栏）——
 # 多设备窗口排列的基准（design D6）；`GetLocalTime`（SystemInformation）供日志取**本地**日期与时刻
 # （文件名与行时间戳要与用户看到的「今天」一致，故不能用 UTC）；`GetModuleHandleW`（LibraryLoader）
-# 供窗口图标按 DPI 从产物内嵌资源里取原生层（design D1）。只启用所需四个命名空间，
-# 与 tauri 已用的版本一致。
+# 供窗口图标按 DPI 从产物内嵌资源里取原生层（design D1）；`ShellExecuteW`（Shell）与
+# `CoInitializeEx`（Com）供「把地址 / 目录交给系统处理器」——2026-10-12 起不再经 `open` crate
+# 的 PowerShell 启动路径（见 `src/shell.rs` 与 shell-execute-launcher design D1）。
+# 只启用所需命名空间，与 tauri 已用的版本一致。
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
+    "Win32_System_Com",
     "Win32_System_SystemInformation",
     "Win32_System_LibraryLoader",
 ] }
 
-# 非 Windows 平台的**本地时区**取时（日志按本地日期切天、行时间戳用本地时刻）。
-# `Local` 经 iana-time-zone 读系统时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖；
-# 关掉 default-features 以免拉入用不到的序列化栈。Windows 侧走 `GetLocalTime`（SystemInformation）
-# 根本用不到它，故按目标平台门控 —— 与上面 `windows-sys`、下面 `libc` 的写法一致。
+# 非 Windows 平台的两件小事，故按目标平台门控 —— 与上面 `windows-sys`、下面 `libc` 的写法一致：
+# - **本地时区**取时（日志按本地日期切天、行时间戳用本地时刻）。`Local` 经 iana-time-zone 读系统
+#   时区（`/etc/localtime` 或 `TZ`），纯 Rust 无 C 构建依赖；关掉 default-features 以免拉入用不到
+#   的序列化栈。Windows 侧走 `GetLocalTime`（SystemInformation）根本用不到它；
+# - **打开地址 / 目录**继续交给 `open` crate（Linux 上即 `xdg-open`，毫秒级）。Windows 侧改走原生
+#   `ShellExecuteW`（`src/shell.rs`）：该 crate 在 Windows 上要起 `powershell.exe` 并等它退出，
+#   实测每次点击固定多花 0.49–0.52 s，而调用它的命令是同步命令（函数体跑在事件循环线程上），
+#   表现为「点了半秒才跳转、期间窗口不响应」。门控还有个好处：Windows 构建若误留 `open::` 调用
+#   会在编译期就失败。
 [target.'cfg(not(windows))'.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+open = "5"
 
 # 向会话进程发 `SIGTERM`（Linux 的优雅结束，design D6 的平台实现）。
 # libc 只是符号绑定，不引入构建期 C 依赖。

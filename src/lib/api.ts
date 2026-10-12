@@ -131,7 +131,7 @@ export const cancelScrcpyInstall = (): Promise<void> => invoke('cancel_scrcpy_in
  * 前端既拿不到地址、也无法请求打开任意 URL。未知键由后端拒绝，并回一句可直接展示的原因。
  */
 export const openExternalLink = (
-  link: 'website' | 'repo' | 'changelog' | 'support',
+  link: 'repo' | 'changelog' | 'license',
 ): Promise<void> => invoke('open_external_link', { link });
 
 // ── 日志持久化（log-persistence / tasks 6.1）──

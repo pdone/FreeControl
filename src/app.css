@@ -2000,7 +2000,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   height: 15px;
   stroke: currentColor;
 }
-/* 外链栅格：两列四颗（官网 / GitHub / 更新日志 / 支持），正好铺满两行 */
+/* 外链栅格：两列三颗 —— 第一行 GitHub / 更新日志，第二行只有左下的「开源许可」
+   （即 GitHub 正下方），右下那格留空是验收过的取值。
+   栅格定义本身不动：落位由 DOM 顺序自动排，三颗仍等宽。 */
 .about-links {
   margin-top: 16px;
   display: grid;
