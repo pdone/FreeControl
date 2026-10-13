@@ -11,6 +11,12 @@
 # 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
 # `scripts/**` 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/`
 # 这个仅被 README 引用的截图目录，不扩到整个 `assets/**`。
+#
+# 各 `uses:` 一律取**声明 node24** 的那一档大版本：只声明 `node20` 的 action 会被
+# GitHub 强制改在 node24 上运行，并每次报一条弃用警告（Node20 已于 2026-09-23 从
+# runner 移除）。runner 标签同样显式写死，不用会自行迁移的 `ubuntu-latest`
+# （自 2026-10-19 起灰度指向 26.04）：`ubuntu-22.04` 是 AppImage 的 glibc 基线，
+# `release` 不编译、钉 `ubuntu-24.04`。
 
 name: build
 
@@ -44,9 +50,9 @@ jobs:
           - os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -100,9 +106,9 @@ jobs:
             args: --bundles appimage,deb
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -144,7 +150,7 @@ jobs:
 
       - name: 上传 Windows 产物
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: FreeControl2-windows
           path: src-tauri/target/release/FreeControl2_*.exe
@@ -152,7 +158,7 @@ jobs:
 
       - name: 上传 Linux 产物
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: FreeControl2-linux
           path: |
@@ -171,18 +177,18 @@ jobs:
     name: 汇集成草稿发行
     needs: build
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 读应用版本（单一来源：`tauri.conf.json`）
         id: version
         run: echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: 下载两平台产物（合并到一个目录）
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
