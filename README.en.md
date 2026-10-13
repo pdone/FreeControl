@@ -1,14 +1,14 @@
 # FreeControl
 
-[![](https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/pdone/FreeControl/actions/workflows/build-and-release.yml)
-[![](https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/releases/latest)
-[![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
-[![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
-[![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
+[![](https://img.shields.io/github/actions/workflow/status/lzw981731/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/lzw981731/FreeControl/actions/workflows/build-and-release.yml)
+[![](https://img.shields.io/github/release/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl/releases/latest)
+[![](https://img.shields.io/github/downloads/lzw981731/FreeControl/total?style=for-the-badge)](https://github.com/lzw981731/FreeControl/releases)
+[![](https://img.shields.io/github/stars/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl)
+[![](https://img.shields.io/github/issues/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl/issues)
 
 ## Introduction
 
-[ English | [中文](https://github.com/pdone/FreeControl/blob/master/README.md) ]
+[ English | [中文](https://github.com/lzw981731/FreeControl/blob/master/README.md) ]
 
 Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrcpy), it provides a simple interactive interface.
 
@@ -27,19 +27,31 @@ Based on the open source project [**scrcpy**](https://github.com/Genymobile/scrc
 ## Download
 ### GitHub Release
 
-https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://github.com/lzw981731/FreeControl/releases/latest/download/FreeControl.exe
 
 ### My Proxy
 
-https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://cdn.awaw.cc/gh/lzw981731/FreeControl/releases/latest/download/FreeControl.exe
+
+## IPv6 Support
+
+This fork adds IPv6 address support, suitable for Android devices with only IPv6 public addresses (e.g., car headunits).
+
+- Automatically detects IPv6 addresses in wireless connection mode, wrapping them in brackets `[ipv6]:port` for ADB and scrcpy
+- IPv4 addresses work as before, no changes needed
+- Usage: Enter an IPv6 address (e.g., `240e:438:xxxx:xxxx::1`) or IPv6 domain (e.g., `byd.car.example.com`) in FreeControl settings, port `5555`
+
+### Download
+
+[GitHub Release (IPv6)](https://github.com/lzw981731/FreeControl/releases/latest)
 
 ## Code Repository
 
-[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/lzw981731/FreeControl)
 
 ## Update Record
 
-[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/FreeControl/Update.en.md)
+[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/lzw981731/FreeControl/blob/master/FreeControl/Update.en.md)
 
 ## FAQ
 
@@ -213,11 +225,5 @@ Audio forwarding is supported on devices using 'Android 11 'or higher and is ena
 - For `Android 11` , you need to make sure that the device screen is unlocked when starting scrcpy. The fake pop-up window will appear briefly, making the system think that the shell application is in the foreground. Without this, audio capture will fail.
 - For `Android 10` or earlier, audio cannot be captured and is automatically disabled.
 
-## Donate
-
-If you think this project is helpful, please invite the author to have a cup of coffee.☕
-
-[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge)](https://paypal.me/alexpdone)
-
 ## Stargazers Over Time
-[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg?variant=adaptive)](https://starchart.cc/pdone/FreeControl)
+[![Stargazers over time](https://starchart.cc/lzw981731/FreeControl.svg?variant=adaptive)](https://starchart.cc/lzw981731/FreeControl)

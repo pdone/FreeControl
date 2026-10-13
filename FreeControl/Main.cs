@@ -425,7 +425,13 @@ namespace FreeControl
                 // 无线访问
                 if (_Setting.UseWireless)
                 {
-                    StartParameters.Add($"--tcpip={_Setting.IPAddress}:{_Setting.Port}");
+                    string address = _Setting.IPAddress;
+                    // IPv6 地址需要用方括号包裹，否则冒号会和端口分隔符混淆
+                    if (address.Contains(":") && !address.StartsWith("["))
+                    {
+                        address = $"[{address}]";
+                    }
+                    StartParameters.Add($"--tcpip={address}:{_Setting.Port}");
                     ADBConnectFunc.BeginInvoke(ADBConnectCallback, ADBConnectFunc);
                 }
                 else
@@ -445,9 +451,13 @@ namespace FreeControl
         /// </summary>
         private readonly Func<string> ADBConnectFunc = () =>
         {
-            // 不再验证adb连接状态
-            // return ADB.Execute($"connect {_Setting.IPAddress}:{_Setting.Port}");
-            return string.Empty;
+            // IPv6 地址需要用方括号包裹
+            string address = _Setting.IPAddress;
+            if (address.Contains(":") && !address.StartsWith("["))
+            {
+                address = $"[{address}]";
+            }
+            return ADB.Execute($"connect {address}:{_Setting.Port}");
         };
 
         /// <summary>

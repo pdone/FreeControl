@@ -1,0 +1,30 @@
+name: Build FreeControl
+
+on:
+  push:
+    branches: [ ipv6-support ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
+    - name: Restore NuGet packages
+      run: nuget restore FreeControl.sln
+
+    - name: Build
+      run: msbuild FreeControl.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FreeControl-IPv6
+        path: FreeControl/bin/Release/

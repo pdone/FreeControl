@@ -3,15 +3,15 @@
 
 # FreeControl
 
-[![](https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/pdone/FreeControl/actions/workflows/build-and-release.yml)
-[![](https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/releases/latest)
-[![](https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge)](https://github.com/pdone/FreeControl/releases)
-[![](https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl)
-[![](https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge)](https://github.com/pdone/FreeControl/issues)
+[![](https://img.shields.io/github/actions/workflow/status/lzw981731/FreeControl/build-and-release.yml?style=for-the-badge)](https://github.com/lzw981731/FreeControl/actions/workflows/build-and-release.yml)
+[![](https://img.shields.io/github/release/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl/releases/latest)
+[![](https://img.shields.io/github/downloads/lzw981731/FreeControl/total?style=for-the-badge)](https://github.com/lzw981731/FreeControl/releases)
+[![](https://img.shields.io/github/stars/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl)
+[![](https://img.shields.io/github/issues/lzw981731/FreeControl?style=for-the-badge)](https://github.com/lzw981731/FreeControl/issues)
 
 ## 介绍
 
-[ 中文 | [English](https://github.com/pdone/FreeControl/blob/master/README.en.md) ]
+[ 中文 | [English](https://github.com/lzw981731/FreeControl/blob/master/README.en.md) ]
 
 基于开源项目[**scrcpy**](https://github.com/Genymobile/scrcpy)，提供简洁的交互界面。
 
@@ -30,19 +30,31 @@
 ## 下载
 ### GitHub Release
 
-https://github.com/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://github.com/lzw981731/FreeControl/releases/latest/download/FreeControl.exe
 
 ### My Proxy
 
-https://cdn.awaw.cc/gh/pdone/FreeControl/releases/latest/download/FreeControl.exe
+https://cdn.awaw.cc/gh/lzw981731/FreeControl/releases/latest/download/FreeControl.exe
+
+## IPv6 支持
+
+本 Fork 版本新增了 IPv6 地址支持，适用于仅有 IPv6 公网地址的 Android 设备（如车载车机等）。
+
+- 无线连接时自动检测 IPv6 地址，用方括号 `[ipv6]:port` 格式传递给 ADB 和 scrcpy
+- IPv4 地址保持原有行为不变
+- 使用方式：在 FreeControl 设置中直接填写 IPv6 地址（如 `240e:438:xxxx:xxxx::1`）或 IPv6 域名（如 `byd.car.example.com`），端口填 `5555`
+
+### 下载
+
+[GitHub Release (IPv6)](https://github.com/lzw981731/FreeControl/releases/latest)
 
 ## 代码存储库
 
-[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/pdone/FreeControl)
+[![](https://img.shields.io/badge/github-Free_Control-blue?style=for-the-badge&logo=github)](https://github.com/lzw981731/FreeControl)
 
 ## 更新记录
 
-[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/pdone/FreeControl/blob/master/FreeControl/Update.md)
+[![](https://img.shields.io/badge/updete-record-fedcba?style=for-the-badge)](https://github.com/lzw981731/FreeControl/blob/master/FreeControl/Update.md)
 
 ## 常见问题
 
@@ -243,16 +255,5 @@ Android 11 及更高版本支持使用 Android 调试桥 (adb) 从工作站以�
 - 对于 `Android 11` ，您需要确保在启动scrcpy时设备屏幕已解锁。假的弹出窗口将短暂出现，使系统认为shell应用程序处于前台。没有这个，音频捕获将失败。
 - 对于 `Android 10` 或更早版本，无法捕获音频并自动禁用。
 
-## 捐赠
-如果您觉得这个项目对您有帮助，欢迎请作者喝杯咖啡。☕
-
-<details>
-<summary>展开</summary>
-
-![](https://raw.githubusercontent.com/pdone/static/master/img/donate/zfb_wx.jpg)
-
-爱发电❤ https://afdian.net/a/pdone
-</details>
-
 ## Stargazers Over Time
-[![Stargazers over time](https://starchart.cc/pdone/FreeControl.svg?variant=adaptive)](https://starchart.cc/pdone/FreeControl)
+[![Stargazers over time](https://starchart.cc/lzw981731/FreeControl.svg?variant=adaptive)](https://starchart.cc/lzw981731/FreeControl)
