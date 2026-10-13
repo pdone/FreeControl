@@ -99,43 +99,35 @@ const zh = {
   download: {
     title: '获取 FreeControl2',
     lead: '免费开源，MIT 许可 · Windows 免安装单文件，Linux 提供 AppImage 与 deb。',
+    metaLinks: [
+      { label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
+    ],
     cta: '下载',
     osHint: 'Windows · x64 · .exe · 免安装单文件',
-    allReleases: '所有发行',
-    changelog: '更新日志',
     yours: '你的系统',
     dlLabel: '下载',
     plats: [
       {
         os: 'windows',
-        icon: 'Monitor',
         name: 'Windows',
         packages: [{ key: 'windows', format: '.exe', note: '免安装单文件' }],
         help: '依赖系统自带的 WebView2。',
-        helpHref: '',
       },
       {
         os: 'linux',
-        icon: 'Terminal',
         name: 'Linux',
         packages: [
           { key: 'appimage', format: 'AppImage', note: '便携版，通用发行版' },
           { key: 'deb', format: '.deb', note: 'Debian、Ubuntu' },
         ],
-        help: '也可从源码构建。',
-        helpHref: '#quickstart',
       },
     ],
     note: 'Windows 免安装、不产出安装器；Linux 提供 AppImage 与 deb 发行产物。',
   },
   footer: {
-    builtWith: '投屏与设备控制由 scrcpy 完成，本项目是它的图形外壳；应用外壳与界面用 Tauri、Svelte、Vite 与 lucide。',
-    links: [
-      { icon: 'Github', label: 'GitHub', href: 'https://github.com/pdone/FreeControl2' },
-      { icon: 'History', label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
-      { icon: 'Scale', label: '开源许可', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
-    ],
-    license: 'MIT 许可 · © 2026 pdone',
+    builtLabel: '构建技术',
+    license: { label: 'MIT 开源许可', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
+    copyright: '© 2026~至今 pdone',
   },
 };
 
@@ -239,43 +231,35 @@ const en: Dict = {
   download: {
     title: 'Get FreeControl2',
     lead: 'Free and open source, MIT licensed · one portable file on Windows, AppImage and deb on Linux.',
+    metaLinks: [
+      { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
+    ],
     cta: 'Download',
     osHint: 'Windows · x64 · .exe · portable file',
-    allReleases: 'All releases',
-    changelog: 'Changelog',
     yours: 'Your system',
     dlLabel: 'Download',
     plats: [
       {
         os: 'windows',
-        icon: 'Monitor',
         name: 'Windows',
         packages: [{ key: 'windows', format: '.exe', note: 'Single portable file' }],
         help: 'Uses the WebView2 runtime that ships with the system.',
-        helpHref: '',
       },
       {
         os: 'linux',
-        icon: 'Terminal',
         name: 'Linux',
         packages: [
           { key: 'appimage', format: 'AppImage', note: 'Portable, any distro' },
           { key: 'deb', format: '.deb', note: 'Debian, Ubuntu' },
         ],
-        help: 'You can also build from source.',
-        helpHref: '#quickstart',
       },
     ],
     note: 'Portable on Windows with no installer; AppImage and deb release artifacts on Linux.',
   },
   footer: {
-    builtWith: 'Mirroring and device control are entirely scrcpy’s doing; this project is a shell around it. The app shell and UI use Tauri, Svelte, Vite and lucide.',
-    links: [
-      { icon: 'Github', label: 'GitHub', href: 'https://github.com/pdone/FreeControl2' },
-      { icon: 'History', label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
-      { icon: 'Scale', label: 'License', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
-    ],
-    license: 'MIT licensed · © 2026 pdone',
+    builtLabel: 'Built with',
+    license: { label: 'MIT License', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
+    copyright: '© 2026–present pdone',
   },
 };
 

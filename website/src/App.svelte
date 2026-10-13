@@ -3,13 +3,13 @@
   import { readable } from 'svelte/store';
   import { t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
+  import { BUILT_WITH, OS_MARKS } from './lib/brand-marks';
   // 构建期由 scripts/fetch-release.mjs 解析最新发行生成（.gitignore 排除）。站点源码里没有版本字面量：
   // 具体产物的直链只存在于这里带进来的取值中，取不到时一律回退到发行页。
   import release from './lib/release.json';
 
   const REPO = 'https://github.com/pdone/FreeControl2';
   const RELEASES = `${REPO}/releases/latest`;
-  const CHANGELOG = `${REPO}/blob/main/Update.md`;
   // hero 内嵌的原型页面（构建期由 scripts/sync-assets.mjs 从 ui-design/ 镜像进站点）。
   const PREVIEW = '/preview/launcher-prototype.html';
   // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点）。
@@ -27,7 +27,7 @@
     return () => mql.removeEventListener('change', onChange);
   });
 
-  const rel = release as { ok: boolean; windows: string | null; appimage: string | null; deb: string | null };
+  const rel = release as { ok: boolean; tag: string | null; windows: string | null; appimage: string | null; deb: string | null };
   const ASSETS: Record<string, string | null> = { windows: rel.windows, appimage: rel.appimage, deb: rel.deb };
   const asset = (key: string): string => ASSETS[key] ?? RELEASES;
 
@@ -67,7 +67,9 @@
     <p class="tagline">{$t.hero.tagline}</p>
     <p class="lede">{$t.hero.lede}</p>
     <div class="hero-actions">
-      <a class="btn btn-primary" href={RELEASES}><Icon name="Download" />{$t.hero.downloadCta}</a>
+      <!-- hero 主按钮是页内锚点，落到「下载」一节：那里才按平台列出各发行产物的一键直链，
+           读者不必为了拿产物先离开本页（与顶栏的「下载」同一去处） -->
+      <a class="btn btn-primary" href="#download"><Icon name="Download" />{$t.hero.downloadCta}</a>
       <a class="btn btn-ghost" href={REPO}><Icon name="Github" />{$t.hero.sourceCta}</a>
     </div>
     <!-- hero 主图按视口宽度二分（spec「品牌与视觉与产品同源」的 hero 预览场景）：
@@ -214,17 +216,24 @@
             <Icon name="Download" size={20} />
             <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint}</small></span>
           </a>
-          <p class="get-meta">
-            <a href={RELEASES}>{$t.download.allReleases}</a>
-            <a href={CHANGELOG}>{$t.download.changelog}</a>
-          </p>
+          <!-- 标徽一行：构建期解析到的发行版本号（前面是标签图标，指到最新发行页），「更新日志」随后。
+               两颗同为可点标徽、同一形态与悬停反馈；解析不到发行时不渲染版本号那颗。
+               版本号本身与语言无关，故那颗不配语言文案（见 design D4） -->
+          <div class="get-badges">
+            {#if rel.ok && rel.tag}
+              <a class="badge" href={RELEASES}><Icon name="Tag" size={14} /><b>{rel.tag}</b></a>
+            {/if}
+            {#each $t.download.metaLinks as link}
+              <a class="badge" href={link.href}><Icon name="History" size={14} />{link.label}</a>
+            {/each}
+          </div>
         </div>
       </div>
       <div class="plats">
         {#each $t.download.plats as plat}
           <article class="plat" class:is-yours={plat.os === detectedOs}>
             <header>
-              <Icon name={plat.icon} size={20} />
+              <span class="plat-mark" aria-hidden="true">{@html OS_MARKS[plat.os]}</span>
               <h4>{plat.name}</h4>
               {#if plat.os === detectedOs}<span class="plat-badge">{$t.download.yours}</span>{/if}
             </header>
@@ -236,9 +245,7 @@
                 </div>
               {/each}
             </div>
-            <p class="plat-help">
-              {#if plat.helpHref}<a href={plat.helpHref}>{plat.help}</a>{:else}{plat.help}{/if}
-            </p>
+            {#if plat.help}<p class="plat-help">{plat.help}</p>{/if}
           </article>
         {/each}
       </div>
@@ -248,13 +255,19 @@
 </main>
 
 <footer class="site-footer">
-  <div class="wrap">
-    <nav class="foot-links">
-      {#each $t.footer.links as link}
-        <a href={link.href}><Icon name={link.icon} size={15} />{link.label}</a>
+  <!-- 两组：许可与版权居左、「构建技术」居右（详见 .foot-row）。
+       导航链接不在这里 —— 「所有发行」「更新日志」已并入下载一节的标徽行，GitHub 在 hero 已有入口 -->
+  <div class="wrap foot-row">
+    <p class="foot-license">
+      <a href={$t.footer.license.href}>{$t.footer.license.label}</a> · {$t.footer.copyright}
+    </p>
+    <!-- 「构建技术」一行：标签 + 各项目的官方 mark 与名称（mark 见 lib/brand-marks.ts，按第三方品牌原样呈现） -->
+    <div class="foot-built">
+      <span class="built-label">{$t.footer.builtLabel}</span>
+      {#each BUILT_WITH as brand, i}
+        {#if i > 0}<span class="built-dot">·</span>{/if}
+        <a href={brand.href}><img src={brand.logo} alt="" width="16" height="16" />{brand.name}</a>
       {/each}
-    </nav>
-    <p>{$t.footer.builtWith}</p>
-    <p>{$t.footer.license}</p>
+    </div>
   </div>
 </footer>

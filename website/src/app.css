@@ -18,6 +18,9 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* 浏览器默认在正文文字上给 I 形光标；本页是落地页而非文档，除可交互元素外一律用普通箭头
+     （cursor 可继承，故这一条即可；a / button 各自的 pointer 见下方规则与浏览器默认样式） */
+  cursor: default;
 }
 
 a {
@@ -218,7 +221,7 @@ code {
   margin-top: 10px;
 }
 .hero .lede {
-  max-width: 620px;
+  max-width: 800px;
   margin: 16px auto 0;
   color: var(--text-dim);
 }
@@ -514,11 +517,49 @@ code {
   font-size: 12px;
   opacity: 0.85;
 }
-.get-meta {
+/* 标徽一行：版本号标徽 + 「更新日志」，居中排在下载按钮下方 */
+.get-badges {
   display: flex;
-  gap: 18px;
-  font-size: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+/* 标徽：页面底色上的小胶囊。版本号那颗是图标 + mono 取值（标签文字换成图标，
+   版本号本身与语言无关）；「更新日志」那颗是图标 + 文字。两者都可点、同一形态与悬停反馈。
+   底是页面深色，故用站点既有的描边与文字色阶 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text-dim);
+  white-space: nowrap;
+  transition: transform 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.badge:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-line);
+}
+a.badge:hover {
+  color: var(--accent-text);
+}
+.badge b {
+  font-family: var(--font-mono);
+  color: var(--text);
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge {
+    transition: none;
+  }
+  .badge:hover {
+    transform: none;
+  }
 }
 .plats {
   display: grid;
@@ -541,8 +582,18 @@ code {
   align-items: center;
   gap: 10px;
 }
-.plat header .ico {
+/* 平台卡首行那颗标识取各平台所属项目的官方图形（Windows 四格旗 / Linux 的 Tux，见 lib/brand-marks.ts），
+   但为**单色**：颜色由这里给成站点强调色，图形内一律 fill=currentColor —— 故是内联 SVG 标记
+   （data URI 图里的 currentColor 继承不到页面配色） */
+.plat header .plat-mark {
+  display: inline-flex;
+  flex: none;
   color: var(--accent-text);
+}
+.plat header .plat-mark svg {
+  display: block;
+  width: 22px;
+  height: 22px;
 }
 .plat header h4 {
   font-size: 16px;
@@ -611,18 +662,47 @@ code {
   color: var(--text-dim);
   font-size: 14px;
 }
-.foot-links {
+/* 页脚两组：许可与版权居左、「构建技术」居右；窄屏折行后两组各占一行并各自居中。
+   （导航不在这里：「所有发行」「更新日志」在下载一节的标徽行，GitHub 在 hero 已有入口） */
+.foot-row {
   display: flex;
-  gap: 20px;
-  margin-bottom: 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
 }
-.foot-links a {
+/* 左组：许可链接 + 版权，一行、贴左 */
+.foot-license {
+  color: var(--text-dim);
+}
+/* 「构建技术」一行：标签 + 各项目的官方 mark 与名称，用间隔点串起（署名用，不参与站点配色）。
+   它在页脚右侧、贴右；`margin-left: auto` 让它在折行独占一行时仍停在右边，
+   折行时续行也贴右（flex-end），读起来仍是「居右的一组」。
+   内间距收到 6px：8px 下这一组刚好差十几像素就要折行 */
+.foot-built {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.foot-built .built-label {
+  color: var(--text-faint);
+}
+.foot-built a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.site-footer p + p {
-  margin-top: 8px;
+.foot-built a:hover {
+  color: var(--text);
+}
+.foot-built img {
+  display: block;
+}
+.foot-built .built-dot {
+  color: var(--text-faint);
 }
 
 @media (max-width: 720px) {
@@ -631,5 +711,18 @@ code {
   }
   .nav {
     display: none;
+  }
+  /* 页脚两组在窄屏各占一行、各自居中（显式竖排，不靠内容宽度凑巧折行） */
+  .foot-row {
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+  }
+  .foot-license {
+    text-align: center;
+  }
+  .foot-built {
+    margin-left: 0;
+    justify-content: center;
   }
 }
