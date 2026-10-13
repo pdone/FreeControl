@@ -8,6 +8,7 @@ const zh = {
     features: '功能特性',
     compare: '对比',
     quickstart: '快速开始',
+    faq: '常见问题',
     download: '下载',
     switchLabel: 'EN',
     switchTitle: 'Switch to English',
@@ -127,7 +128,7 @@ const zh = {
   footer: {
     builtLabel: '构建技术',
     license: { label: 'MIT 开源许可', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
-    copyright: '© 2026~至今 pdone',
+    copyright: '© 2026 pdone',
   },
 };
 
@@ -140,6 +141,7 @@ const en: Dict = {
     features: 'Features',
     compare: 'Comparison',
     quickstart: 'Quick Start',
+    faq: 'FAQ',
     download: 'Download',
     switchLabel: '中文',
     switchTitle: '切换到中文',
@@ -259,7 +261,7 @@ const en: Dict = {
   footer: {
     builtLabel: 'Built with',
     license: { label: 'MIT License', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
-    copyright: '© 2026–present pdone',
+    copyright: '© 2026 pdone',
   },
 };
 

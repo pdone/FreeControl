@@ -3,7 +3,7 @@
   import { readable } from 'svelte/store';
   import { t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
-  import { BUILT_WITH, OS_MARKS } from './lib/brand-marks';
+  import { BUILT_WITH, GITHUB_MARK, OS_MARKS } from './lib/brand-marks';
   // 构建期由 scripts/fetch-release.mjs 解析最新发行生成（.gitignore 排除）。站点源码里没有版本字面量：
   // 具体产物的直链只存在于这里带进来的取值中，取不到时一律回退到发行页。
   import release from './lib/release.json';
@@ -43,20 +43,31 @@
 </script>
 
 <header class="site-header">
+  <!-- 顶栏内部沿用正文的全局 .wrap，宽度契约与各节一致（不做全宽特例）。
+       左组＝品牌块 + 四个纯文字章节锚点；右组＝语言 / GitHub 两颗控件（顶栏不放下载入口）。
+       贴右由 .head-actions 的 margin-left:auto 承载，左组因此贴左。见 spec「顶栏的构成与行为」 -->
   <div class="wrap">
     <a class="brand" href="#top">
       <img src="/assets/icons/desktop/128x128.png" alt="FreeControl2" width="28" height="28" />
       <span>FreeControl2</span>
     </a>
     <nav class="nav">
-      <a href="#features"><Icon name="LayoutGrid" size={15} />{$t.nav.features}</a>
-      <a href="#compare"><Icon name="GitCompareArrows" size={15} />{$t.nav.compare}</a>
-      <a href="#quickstart"><Icon name="Rocket" size={15} />{$t.nav.quickstart}</a>
-      <a href="#download"><Icon name="Download" size={15} />{$t.nav.download}</a>
+      <a href="#features">{$t.nav.features}</a>
+      <a href="#compare">{$t.nav.compare}</a>
+      <a href="#quickstart">{$t.nav.quickstart}</a>
+      <a href="#faq">{$t.nav.faq}</a>
     </nav>
-    <button class="lang-btn" type="button" on:click={toggleLang} title={$t.nav.switchTitle}>
-      {$t.nav.switchLabel}
-    </button>
+    <div class="head-actions">
+      <!-- 语言按钮：图标 + 短标签 —— 短标签承载「会切成哪种语言」这一状态，图标只作语义提示 -->
+      <button class="lang-btn" type="button" on:click={toggleLang} title={$t.nav.switchTitle}>
+        <Icon name="Languages" size={15} />
+        <span>{$t.nav.switchLabel}</span>
+      </button>
+      <!-- GitHub 图标入口：仅含图标，故可访问名取两语言同值的 hero.sourceCta；图形与 hero 那颗同源 -->
+      <a class="gh-btn" href={REPO} aria-label={$t.hero.sourceCta} title={$t.hero.sourceCta}>
+        <span class="gh-mark">{@html GITHUB_MARK}</span>
+      </a>
+    </div>
   </div>
 </header>
 
@@ -68,9 +79,10 @@
     <p class="lede">{$t.hero.lede}</p>
     <div class="hero-actions">
       <!-- hero 主按钮是页内锚点，落到「下载」一节：那里才按平台列出各发行产物的一键直链，
-           读者不必为了拿产物先离开本页（与顶栏的「下载」同一去处） -->
+           读者不必为了拿产物先离开本页 -->
       <a class="btn btn-primary" href="#download"><Icon name="Download" />{$t.hero.downloadCta}</a>
-      <a class="btn btn-ghost" href={REPO}><Icon name="Github" />{$t.hero.sourceCta}</a>
+      <!-- GitHub 入口的图形取 brand-marks.ts 的官方 mark（单色、继承文字色），与顶栏那颗同源 -->
+      <a class="btn btn-ghost" href={REPO}><span class="gh-mark">{@html GITHUB_MARK}</span>{$t.hero.sourceCta}</a>
     </div>
     <!-- hero 主图按视口宽度二分（spec「品牌与视觉与产品同源」的 hero 预览场景）：
          视口够宽时内嵌原型页面 —— 原型本身即完整可操作的应用界面，读者在 hero 里就能真点；
@@ -216,17 +228,22 @@
             <Icon name="Download" size={20} />
             <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint}</small></span>
           </a>
-          <!-- 标徽一行：构建期解析到的发行版本号（前面是标签图标，指到最新发行页），「更新日志」随后。
-               两颗同为可点标徽、同一形态与悬停反馈；解析不到发行时不渲染版本号那颗。
-               版本号本身与语言无关，故那颗不配语言文案（见 design D4） -->
-          <div class="get-badges">
+          <!-- 发行信息一行：主按钮正下方、同一中线的一行小字 —— 版本在前（标签图标 + 构建期
+               解析到的发行标记，整颗指最新发行页），「更新日志」随后。它紧邻按钮，但不再是胶囊
+               （那会让按钮之下再并出两颗「按钮」）；发行的标记与版本号本身与语言无关，故整颗不配
+               语言文案，图标只作「这是个发行标记」的提示。解析不到发行时整颗不渲染。 -->
+          <p class="get-meta">
             {#if rel.ok && rel.tag}
-              <a class="badge" href={RELEASES}><Icon name="Tag" size={14} /><b>{rel.tag}</b></a>
+              <a href={RELEASES}>
+                <Icon name="Tag" size={14} />
+                <b>{rel.tag}</b>
+              </a>
             {/if}
-            {#each $t.download.metaLinks as link}
-              <a class="badge" href={link.href}><Icon name="History" size={14} />{link.label}</a>
+            {#each $t.download.metaLinks as link, i}
+              {#if (rel.ok && rel.tag) || i > 0}<span class="sep" aria-hidden="true">·</span>{/if}
+              <a href={link.href}>{link.label}</a>
             {/each}
-          </div>
+          </p>
         </div>
       </div>
       <div class="plats">
@@ -256,7 +273,7 @@
 
 <footer class="site-footer">
   <!-- 两组：许可与版权居左、「构建技术」居右（详见 .foot-row）。
-       导航链接不在这里 —— 「所有发行」「更新日志」已并入下载一节的标徽行，GitHub 在 hero 已有入口 -->
+       导航链接不在这里 —— 「所有发行」「更新日志」已并入下载一节的发行信息一行，GitHub 在 hero 已有入口 -->
   <div class="wrap foot-row">
     <p class="foot-license">
       <a href={$t.footer.license.href}>{$t.footer.license.label}</a> · {$t.footer.copyright}

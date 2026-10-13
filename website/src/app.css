@@ -127,6 +127,8 @@ code {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
+/* 顶栏内层：沿用正文的全局 .wrap（居中 1080px），顶栏与各节同一宽度契约，不做全宽特例。
+   见 spec「顶栏的构成与行为」 */
 .site-header .wrap {
   display: flex;
   align-items: center;
@@ -145,34 +147,67 @@ code {
   height: 28px;
   border-radius: 7px;
 }
+/* 章节锚点：纯文字、贴左紧跟品牌块（右组贴右由 .head-actions 的 margin-left:auto 承载） */
 .nav {
   display: flex;
   gap: 20px;
-  margin-left: auto;
   font-size: 14px;
 }
 .nav a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   color: var(--text-dim);
 }
 .nav a:hover {
   color: var(--text);
 }
+/* 右侧控件组：语言 / GitHub 两颗，整组贴右 */
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* 语言按钮：图标 + 短标签，透明底；悬停给文字色提亮加一层由既有令牌派生的淡底 */
 .lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
   font: inherit;
   font-size: 13px;
-  padding: 5px 12px;
+  border: 0;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
 }
 .lang-btn:hover {
   color: var(--text);
-  border-color: var(--accent-line);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+/* GitHub 入口：仅含图标（可访问名由 aria-label 给），透明底、与语言按钮同一悬停反馈 */
+.gh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+}
+.gh-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+/* 内联品牌标识（数据来源见 brand-marks.ts）：尺寸统一在此给，颜色由 color 继承 —— 顶栏与 hero 两处共用 */
+.gh-mark {
+  display: inline-flex;
+  flex: none;
+}
+.gh-mark svg {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 /* ---------- 按钮 ---------- */
@@ -517,49 +552,36 @@ code {
   font-size: 12px;
   opacity: 0.85;
 }
-/* 标徽一行：版本号标徽 + 「更新日志」，居中排在下载按钮下方 */
-.get-badges {
+/* 发行信息一行：主按钮正下方、与按钮同一中线的一行小字（版本号 + 更新日志）。
+   它紧邻按钮，但不再是胶囊 —— 按钮之下只留一行注脚，读者不会把一个事实（这一版是什么）
+   与一个次要入口（它改了什么）再读成两颗按钮。版本号走 mono（语言无关的标记）、
+   指最新发行页；两颗都是文字链接、同一悬停反馈（文字转强调色）。 */
+.get-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
 }
-/* 标徽：页面底色上的小胶囊。版本号那颗是图标 + mono 取值（标签文字换成图标，
-   版本号本身与语言无关）；「更新日志」那颗是图标 + 文字。两者都可点、同一形态与悬停反馈。
-   底是页面深色，故用站点既有的描边与文字色阶 */
-.badge {
+.get-meta a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  font-size: 13px;
-  line-height: 1.5;
   color: var(--text-dim);
-  white-space: nowrap;
-  transition: transform 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
-.badge:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-line);
-}
-a.badge:hover {
+.get-meta a:hover,
+.get-meta a:hover b {
   color: var(--accent-text);
 }
-.badge b {
+.get-meta b {
   font-family: var(--font-mono);
-  color: var(--text);
   font-weight: 600;
+  color: var(--text);
 }
-@media (prefers-reduced-motion: reduce) {
-  .badge {
-    transition: none;
-  }
-  .badge:hover {
-    transform: none;
-  }
+.get-meta .sep {
+  color: var(--border-strong);
 }
 .plats {
   display: grid;
