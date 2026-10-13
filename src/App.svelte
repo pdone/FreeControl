@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page, collapsed, aboutOpen, initApp, windowDecorated, windowMaximized } from './lib/store';
+  import { page, collapsed, aboutOpen, initApp, windowDecorated, windowMaximized, windowTopEdgeBySystem } from './lib/store';
   import Sidebar from './components/Sidebar.svelte';
   import Topbar from './components/Topbar.svelte';
   import LaunchBar from './components/LaunchBar.svelte';
@@ -12,6 +12,7 @@
   import EnvGuide from './components/EnvGuide.svelte';
   import UnverifiedConfirm from './components/UnverifiedConfirm.svelte';
   import AboutDialog from './components/AboutDialog.svelte';
+  import TooltipLayer from './components/TooltipLayer.svelte';
 
   // 6 个纯参数页（一个 key 对应一个分组、由 `ParamPage` 铺满）。
   // 「高级」/「日志」/「运行环境」三页各自单独渲染：它们都跨组或承载非参数字段
@@ -101,7 +102,13 @@
 {/if}
 
 <!-- 无装饰窗口的上沿边线（app-shell 规格「无装饰窗口的上沿边线」）：补上系统只在左、右、下
-     三边画的那条边框在顶边缺的一格。判据取窗口事实（无系统装饰且未最大化），不按平台名硬编码
-     —— 与自绘标题栏同一套口径。横跨整个视口（侧栏之上与右侧主界面之上都有）；样式、按 dpr
-     反算高度、以及「只作呈现、不拦截指针」两条都由 app.css 的 .win-frame-top 承担。 -->
-<div class="win-frame-top" class:show={!$windowDecorated && !$windowMaximized} style:--dpr={dpr}></div>
+     三边画的那条边框在顶边缺的一格 —— 只在系统没在顶边画时补（Win11 系统已画了一条，再补就叠成
+     2px）。三条判据全部取窗口事实（无系统装饰、未最大化、系统未在顶边绘制），不按平台名或版本号
+     硬编码 —— 与自绘标题栏同一套口径。横跨整个视口（侧栏之上与右侧主界面之上都有）；样式、按
+     dpr 反算高度、以及「只作呈现、不拦截指针」两条都由 app.css 的 .win-frame-top 承担。 -->
+<div class="win-frame-top" class:show={!$windowDecorated && !$windowMaximized && !$windowTopEdgeBySystem} style:--dpr={dpr}></div>
+
+<!-- hover 提示层（规格 `hover-tooltip`）：挂在应用级、以视口定位，故不受任何容器的滚动与裁剪
+     影响 —— 侧边栏收起态的导航项提示正需要这一点（`.sidebar` 的 `overflow` 会把它裁掉）。
+     层叠高于 `.win-frame-top` 的 60，故「关于」弹窗打开时其控件的提示仍可见。 -->
+<TooltipLayer />

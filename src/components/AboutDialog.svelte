@@ -22,6 +22,7 @@
   import { openExternalLink } from '../lib/api';
   import { copyText } from '../lib/clipboard';
   import { errText } from '../lib/install';
+  import { tip } from '../lib/tooltip';
   // 品牌图形取资产包 desktop/ 分区的成品位图（含方底），与窗口 / 任务栏图标同一份资产，母版层次不压平涂。
   // 取 256 是为覆盖到 2.5× 缩放档（72 CSS px × 2.5 = 180 ≤ 256），该尺寸由生成流程原生产出。
   import logoMark from '../../assets/icons/desktop/256x256.png';
@@ -137,7 +138,7 @@
     aria-label="关于 FreeControl2"
     transition:scale={scaleParams}
   >
-    <button class="about-close" title="关闭" aria-label="关闭" on:click={close}><X /></button>
+    <button class="about-close" aria-label="关闭" on:click={close}><X /></button>
 
     <!-- 品牌图形与侧边栏品牌行、窗口图标同源（同一母版派生的成品位图，各按显示尺寸取用） -->
     <div class="about-logo"><img src={logoMark} alt="FreeControl2" on:error={hideImg} />F</div>
@@ -151,7 +152,7 @@
         class="about-ver-row"
         role="button"
         tabindex="0"
-        title={appVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
+        use:tip={appVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
         aria-label={copiedKey === 'app' ? '已复制应用版本号' : '复制应用版本号'}
         on:click={() => copyVersion('app', appVer)}
         on:keydown={(e) => onRowKeydown(e, 'app', appVer)}
@@ -166,7 +167,7 @@
         class="about-ver-row"
         role="button"
         tabindex="0"
-        title={scrcpyVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
+        use:tip={scrcpyVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
         aria-label={copiedKey === 'scrcpy' ? '已复制 scrcpy 版本号' : '复制 scrcpy 版本号'}
         on:click={() => copyVersion('scrcpy', scrcpyVer)}
         on:keydown={(e) => onRowKeydown(e, 'scrcpy', scrcpyVer)}

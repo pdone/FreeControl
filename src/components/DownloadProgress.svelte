@@ -11,6 +11,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { Shuffle, X } from 'lucide-svelte';
   import { proxies } from '../lib/store';
+  import { tip } from '../lib/tooltip';
   import {
     installRunning,
     installPhase,
@@ -115,13 +116,13 @@
     <!-- 通道信息与进度文案同行展示（不另起一行）：通道那格吃掉剩余宽度，
          百分比恒钉最右；容器窄到放不下时在各自格内换行而不是溢出。 -->
     <div class="dl-head">
-      <!-- 两个可变格都恒为单行、超出部分省略（见 app.css 的 `.dl-head` 规则），
-           故这里必须把全文放进 title，否则省略掉的那截信息就再也看不到。 -->
+      <!-- 两个可变格都恒为单行、超出部分省略（见 app.css 的 `.dl-head` 规则）。被省略的那截
+           不靠 title 看：这两格在可拖选白名单里（app.css 的 `user-select: text`），拖选即得全文。 -->
       {#if $installText}
-        <span class="dl-text" title={$installText}>{$installText}</span>
+        <span class="dl-text">{$installText}</span>
       {/if}
       {#if channelLine}
-        <span class="dl-channel" title={channelLine}>{channelLine}</span>
+        <span class="dl-channel">{channelLine}</span>
       {/if}
       <span class="dl-percent">{$installPercent}%</span>
     </div>
@@ -132,7 +133,7 @@
           <button
             class="btn ghost sm"
             on:click={switchChannel}
-            title="中断当前通道的下载，改用其他通道重新下载（当前进度会作废）"
+            use:tip={'中断当前通道的下载，改用其他通道重新下载（当前进度会作废）'}
           >
             <Shuffle /> 切换通道
           </button>
@@ -141,7 +142,7 @@
           <button
             class="btn ghost sm"
             on:click={cancelInstall}
-            title="停止这次获取：清掉临时文件，现有运行环境保持不变"
+            use:tip={'停止这次获取：清掉临时文件，现有运行环境保持不变'}
           >
             <X /> 取消
           </button>

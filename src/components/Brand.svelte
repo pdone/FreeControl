@@ -36,7 +36,6 @@
   class="brand clickable"
   role="button"
   tabindex="0"
-  title="关于 FreeControl2"
   on:click={openAbout}
   on:keydown={onKeydown}
 >

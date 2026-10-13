@@ -38,6 +38,7 @@
   import { installRunning, installError, runInstall, errText } from '../lib/install';
   import DownloadProgress from './DownloadProgress.svelte';
   import HelpTip from './HelpTip.svelte';
+  import { tip } from '../lib/tooltip';
   import {
     Folder,
     FolderOpen,
@@ -207,8 +208,12 @@
       </HelpTip></span>
       <div class="path-row">
         <Folder />
-        <input type="text" readonly value={$scrcpyDir} title="点击右侧按钮可在资源管理器中定位该目录" />
-        <button class="btn sm" on:click={openDir} title="在资源管理器中打开该目录">
+        <input
+          type="text"
+          readonly
+          value={$scrcpyDir}
+        />
+        <button class="btn sm" on:click={openDir}>
           <FolderOpen /> 打开目录
         </button>
       </div>
@@ -233,7 +238,6 @@
             class="btn ghost sm"
             on:click={() => (reasonOpen = !reasonOpen)}
             aria-expanded={reasonOpen}
-            title="查看「非最佳适配版本」的原因"
           >
             <AlertTriangle />{reasonOpen ? '收起原因' : '查看原因'}
           </button>
@@ -273,28 +277,27 @@
                **不使用强调色**（2026-10-10 决定，覆盖 2026-09-23「行首并给 primary」那版设计）：
                它的可辨识性由「在场 = 当前探测到非最佳适配」这一显隐条件与行首位置承担，
                颜色留给本页真正的主操作。 -->
-          <button
-            class="btn sm"
-            on:click={() => runInstall('bestFit')}
-            disabled={$installRunning}
-            title="获取构建期锁定的最佳适配版本（不依赖官方最新发布查询）"
+          <span
+            class="tip-host"
+            use:tip={'获取构建期锁定的最佳适配版本（不依赖官方最新发布查询）'}
           >
-            <Download /> 下载最佳适配版本
-          </button>
+            <button class="btn sm" on:click={() => runInstall('bestFit')} disabled={$installRunning}>
+              <Download /> 下载最佳适配版本
+            </button>
+          </span>
         {/if}
-        <button
-          class="btn sm"
-          on:click={() => runInstall('latest')}
-          disabled={$installRunning}
-          title="下载官方最新发布版本（会替换运行环境目录内的全部文件）"
+        <span
+          class="tip-host"
+          use:tip={'下载官方最新发布版本（会替换运行环境目录内的全部文件）'}
         >
-          <Download /> 下载最新版本
-        </button>
+          <button class="btn sm" on:click={() => runInstall('latest')} disabled={$installRunning}>
+            <Download /> 下载最新版本
+          </button>
+        </span>
         <button
           class="btn ghost sm"
           on:click={onCheckUpdate}
           disabled={$installRunning || updating}
-          title="检查官方是否存在更新版本"
         >
           <RefreshCw /> {updating ? '检查中…' : '检查更新'}
         </button>
@@ -320,21 +323,21 @@
       <div class="proxy-list">
         <!-- 首行：GitHub 直连地址。它是**只读展示项**，因此不在可管理的代理列表里
              （由后端单独下发 `proxies.direct`），也不提供删除，且**没有任何点击跳转** ——
-             与下面的代理行一样只是文本（同一个 `.proxy-url` 类，故呈现完全一致）；
-             `title` 与代理行同法承载被省略掉的全量地址。 -->
+             与下面的代理行一样只是文本（同一个 `.proxy-url` 类，故呈现完全一致）。
+             两处都恒为单行、超出部分省略（见 app.css 的 `.proxy-url` 规则）；被省略的那截
+             不靠 title 看：`.proxy-url` 在可拖选白名单里，拖选即得全文。 -->
         <div class="proxy-item">
           <span class="tag direct">直连</span>
-          <span class="proxy-url" title={$proxies.direct}>{$proxies.direct}</span>
+          <span class="proxy-url">{$proxies.direct}</span>
           <span class="proxy-ro">只读</span>
         </div>
         {#each $proxies.proxies as url (url)}
           <div class="proxy-item">
             <span class="tag proxy">代理</span>
-            <span class="proxy-url" title={url}>{url}</span>
+            <span class="proxy-url">{url}</span>
             <button
               class="btn ghost sm"
               on:click={() => onRemoveProxy(url)}
-              title="删除该代理地址"
             >
               <Trash2 /> 删除
             </button>

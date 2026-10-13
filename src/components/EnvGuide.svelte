@@ -39,7 +39,7 @@
       </p>
       <div class="field">
         <span class="flabel" style="font-weight: 800;">scrcpy 目录</span>
-        <div class="env-path" title={$scrcpyDir}>{$scrcpyDir}</div>
+        <div class="env-path">{$scrcpyDir}</div>
         <div class="hint">
           缺少：<b>{missingText}</b> —— 下载并安装会把 scrcpy 与 adb 一并解压到该目录。
         </div>

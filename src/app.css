@@ -169,9 +169,10 @@ select,
 }
 
 /* ---------- 无装饰窗口的上沿边线 ----------
-   系统只在左、右、下三边画边框：tao 在 Win10 下把客户区的上沿对齐到窗口外缘（顶上只要留出
-   非客户区，Windows 就会补画一整条原生标题栏），顶边因此没有落点（机制取证见变更 design）。
-   这一格由界面补上：一层横跨整个视口的 1px 覆盖层 —— 侧栏之上与右侧主界面之上都有。
+   系统只在左、右、下三边画边框 —— 顶边有没有落点由 Windows 版本决定：Win10 上 tao 把客户区的
+   上沿对齐到窗口外缘（顶上只要留出非客户区，Windows 就会补画一整条原生标题栏），顶边因此没有
+   落点；Win11 上 tao 留出 1 逻辑像素的顶内缩，系统在顶边**已经画了一条**（机制取证见变更 design）。
+   这一格只在系统没画时由界面补上：一层横跨整个视口的 1px 覆盖层 —— 侧栏之上与右侧主界面之上都有。
    它只作呈现：没有 border / padding，不挤占任何布局高度、不使既有元素位移；
    且 MUST 保持 pointer-events: none —— 客户区顶边那一条同时是窗口的缩放热区，不能截走命中。
    z-index 取 60（高于模态遮罩 .overlay 的 50）：与系统画的其余三边同层，弹窗打开时也不被压暗。 */
@@ -188,7 +189,7 @@ select,
   background: var(--win-frame);
   display: none;
 }
-/* 呈现与否由构件给（无系统装饰且未最大化）——与 .overlay / .overlay.show 同款两态写法 */
+/* 呈现与否由构件给（无系统装饰、未最大化、且系统未在顶边绘制）——与 .overlay / .overlay.show 同款两态写法 */
 .win-frame-top.show {
   display: block;
 }
@@ -821,17 +822,11 @@ select,
   width: 14px;
   height: 14px;
 }
-/* 宽度按内容自适应、上限「440px 与字段可用宽取小」：短说明得到窄面板，长说明被上限截住后正常换行；
-   窗口一窄，字段可用宽随之变小、面板跟着收窄，不会撞出窗口。
-   （`100%` 的解析基准是上面那个定位祖先 —— 标签行。） */
-.fhelp-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 5;
-  display: none;
-  width: max-content;
-  max-width: min(440px, 100%);
+/* 浮层「面」的唯一定义处：帮助面板的详情面板与 hover 提示层共用同一套取值 ——
+   「与帮助面板风格一致」必须是**同源**；抄一份字面量过去只会各自漂移。
+   各用途只在自己那条规则里补定位与宽度。 */
+.fhelp-panel,
+.tip-panel {
   padding: 10px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -843,6 +838,18 @@ select,
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
+}
+/* 宽度按内容自适应、上限「440px 与字段可用宽取小」：短说明得到窄面板，长说明被上限截住后正常换行；
+   窗口一窄，字段可用宽随之变小、面板跟着收窄，不会撞出窗口。
+   （`100%` 的解析基准是上面那个定位祖先 —— 标签行。） */
+.fhelp-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: none;
+  width: max-content;
+  max-width: min(440px, 100%);
 }
 .fhelp-panel::before {
   content: "";
@@ -872,6 +879,120 @@ select,
   margin-bottom: 4px;
   color: var(--text);
   font-weight: 600;
+}
+
+/* ---------- 交互控件的 hover 提示层（规格 `hover-tooltip`） ----------
+   为什么不像帮助面板那样把面板嵌进触发元素里：`.sidebar` 有 `overflow-y: auto`（一轴 auto 会让
+   另一轴的 visible 解析成 auto ⇒ 横向也裁），收起态导航项的提示要伸到栏外，嵌在容器里必被裁掉；
+   命令条与弹窗的 `backdrop-filter` 还会给 fixed 后代另立包含块。
+   故提示层挂在**应用级**（`App.svelte`）、以视口定位；`position: fixed` 也不参与任何布局，
+   满足「悬停不改动几何」。提示面自身 `pointer-events: none`：不拦截其下方的点击与悬停，
+   因此不需要帮助面板那条「盖住缝的透明桥」。
+   层叠取 70：高于 `.win-frame-top` 的 60，使「关于」弹窗（`.overlay` 为 50）打开时，
+   其关闭键与复制入口的提示仍可见。
+   面的取值（内边距 / 边框 / 圆角 / 底色 / 阴影 / 字号 / 行高）与 `.fhelp-panel` 同一条规则，
+   这里只给定位与宽度：`max-width` 用视口口径，`100vw` 减掉两侧的边距（脚本里那份 M × 2）。 */
+.tip-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+.tip-panel {
+  position: fixed;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 16px));
+  /* 错误详情这类文本里带 `\n`（多行），按行呈现；命令 / URL 这类长词在 440px 内强制断行。 */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  /* 首帧还没测出尺寸，先不显形（否则会在上一个提示的坐标上闪一下）。 */
+  visibility: hidden;
+  pointer-events: none;
+}
+.tip-panel.on {
+  visibility: visible;
+  /* 入场：淡入 + 从锚点那一侧轻推 4px（方向随落位换，见下面的 side-* 档）。 */
+  animation: tip-in 120ms ease-out;
+}
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--tip-dx, 0px), var(--tip-dy, 0px)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* 箭头：9px 方块转 45°，与面板同底、只给**朝外**的那两条边描边（旋转后正好是露在外面的两条），
+   压在面板边上半格，用同色底盖住面板自己的边框。沿边的偏移由提示层给的 `--tip-shift` 决定。
+   四档 side-* 只做两件事：摆箭头、定入场的方向位移。 */
+.tip-panel::before {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: var(--panel-2);
+  transform: rotate(45deg);
+}
+.tip-panel.side-top {
+  --tip-dx: 0px;
+  --tip-dy: -4px;
+}
+.tip-panel.side-top::before {
+  top: -5px;
+  left: var(--tip-shift);
+  border-top: 1px solid var(--border-strong);
+  border-left: 1px solid var(--border-strong);
+}
+.tip-panel.side-bottom {
+  --tip-dx: 0px;
+  --tip-dy: 4px;
+}
+.tip-panel.side-bottom::before {
+  bottom: -5px;
+  left: var(--tip-shift);
+  border-right: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.tip-panel.side-left {
+  --tip-dx: -4px;
+  --tip-dy: 0px;
+}
+.tip-panel.side-left::before {
+  left: -5px;
+  top: var(--tip-shift);
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.tip-panel.side-right {
+  --tip-dx: 4px;
+  --tip-dy: 0px;
+}
+.tip-panel.side-right::before {
+  right: -5px;
+  top: var(--tip-shift);
+  border-right: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+}
+/* 「减少动态效果」下只保留淡入、不留位移（与「关于」弹窗同口径）。 */
+@media (prefers-reduced-motion: reduce) {
+  .tip-panel.side-top,
+  .tip-panel.side-bottom,
+  .tip-panel.side-left,
+  .tip-panel.side-right {
+    --tip-dx: 0px;
+    --tip-dy: 0px;
+  }
+}
+/* 禁用控件上的提示承载层：`disabled` 元素不派发指针事件、`:hover` 也不匹配，故这些位置的接线
+   挂在控件**外面**这一层上。它必须有自己的盒子（不能用 `display: contents`：那样没有盒子就
+   命中不到），但尺寸与排布全部交给内部控件决定 —— `inline-flex` 让它在 flex 行里与原来那颗
+   按钮占同一格；`flex: none` 与 `.path-row > .btn` 对按钮本身的既有取值一致，避免整行在窄窗口
+   下挤压这对承载层/控件。 */
+.tip-host {
+  display: inline-flex;
+  flex: none;
 }
 
 /* ---------- scrcpy 运行环境（「运行环境」页） ---------- */

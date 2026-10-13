@@ -22,6 +22,7 @@
   import { buildCommandParts, commandText } from '../lib/command';
   import { copyText } from '../lib/clipboard';
   import { errText } from '../lib/install';
+  import { tip } from '../lib/tooltip';
   import type { DeviceStatusView } from '../lib/types';
 
   /** 选中设备的运行期状态；未选中或尚未探测出结果时按「未知」处理（与设备页一致）。 */
@@ -121,12 +122,13 @@
 </script>
 
 <div class="launchbar">
-  <!-- 标签仅保留图标（config.yaml ④：控件标签的存废）：文字撤除后靠 title 提供提示与可访问名称。 -->
-  <span class="lb-label" title="命令"><Terminal /></span>
+  <!-- 标签仅保留图标（config.yaml ④：控件标签的存废）：图标是纯装饰，命令本身就在右侧预览里，
+       故标记 aria-hidden，不给它可访问名称、也不给提示。 -->
+  <span class="lb-label" aria-hidden="true"><Terminal /></span>
   {#if parts}
     <!-- 参数之间必须显式写空格：Svelte 的 each 块不会自动插入空白节点，
          直接相邻的 <b> 会连成 `...h265-b 16M` 这样不可读的命令。 -->
-    <div class="cmd-preview" title={commandText(parts)}>
+    <div class="cmd-preview">
       {parts.bin} -s <span class="dev">{parts.serial}</span>
       {#each parts.args as a}<b>{a}</b>{' '}{/each}
     </div>
@@ -138,38 +140,45 @@
     <div class="cmd-preview">选择一台设备查看命令</div>
   {/if}
   {#if errors.length > 0}
-    <span class="lb-warn" title={errors.join('\n')}>
+    <span class="lb-warn" use:tip={errors.join('\n')}>
       <AlertTriangle /> {errors.length} 项参数非法，已不参与拼装
     </span>
   {/if}
   {#if copyErr}
-    <span class="lb-warn" title={copyErr}><AlertTriangle /> 复制失败</span>
+    <span class="lb-warn" use:tip={copyErr}><AlertTriangle /> 复制失败</span>
   {/if}
   {#if actionFail}
-    <span class="lb-warn" title={actionFail.detail}><AlertTriangle /> {actionFail.label}</span>
+    <span class="lb-warn" use:tip={actionFail.detail}><AlertTriangle /> {actionFail.label}</span>
   {/if}
-  <button
-    class="copy-btn"
-    class:ok={copied}
-    disabled={!parts}
-    title={!parts
+  <!-- 两枚按钮都会条件禁用，而 `disabled` 元素不派发指针事件：故提示的接线挂在外层承载元素上
+       （见 app.css 的 `.tip-host`），由它代表内部那枚按钮。 -->
+  <span
+    class="tip-host"
+    use:tip={!parts
       ? '尚未生成命令，无可复制内容'
       : copied
         ? '已复制到剪贴板'
         : '复制命令（纯文本）'}
-    aria-label={copied ? '已复制命令' : '复制命令'}
-    on:click={copyCommand}
   >
-    {#if copied}<Check />{:else}<Copy />{/if}
-  </button>
+    <button
+      class="copy-btn"
+      class:ok={copied}
+      disabled={!parts}
+      aria-label={copied ? '已复制命令' : '复制命令'}
+      on:click={copyCommand}
+    >
+      {#if copied}<Check />{:else}<Copy />{/if}
+    </button>
+  </span>
   <!-- 会话入口：仅图标，排在复制按钮之后；随选中设备状态在「连接 / 断开」间切换（见 entryTitle 的判定）。 -->
-  <button
-    class="connect-btn"
-    disabled={!entryEnabled}
-    title={entryTitle}
-    aria-label={entryLabel}
-    on:click={toggleSession}
-  >
-    {#if isConnected}<ZapOff />{:else}<Zap />{/if}
-  </button>
+  <span class="tip-host" use:tip={entryTitle}>
+    <button
+      class="connect-btn"
+      disabled={!entryEnabled}
+      aria-label={entryLabel}
+      on:click={toggleSession}
+    >
+      {#if isConnected}<ZapOff />{:else}<Zap />{/if}
+    </button>
+  </span>
 </div>

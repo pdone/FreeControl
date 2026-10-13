@@ -14,6 +14,7 @@
     installRunning,
   } from '../lib/install';
   import { AlertTriangle, Download } from 'lucide-svelte';
+  import { tip } from '../lib/tooltip';
 </script>
 
 {#if $pendingInstall}
@@ -27,7 +28,7 @@
       </p>
       <div class="field">
         <span class="flabel">下载来源</span>
-        <div class="env-path" title={$pendingInstall.channelUrl}>{$pendingInstall.channel}</div>
+        <div class="env-path" use:tip={$pendingInstall.channelUrl}>{$pendingInstall.channel}</div>
         <div class="hint">
           资产 <code>{$pendingInstall.asset}</code> 已下载完成但尚未校验。继续安装将解压并替换
           <code>{$scrcpyDir}</code> 中的全部文件。

@@ -15,6 +15,7 @@
     ChevronsLeft,
   } from 'lucide-svelte';
   import Brand from './Brand.svelte';
+  import { tip } from '../lib/tooltip';
 
   // 11 个平级导航入口：设备 + 8 个默认参数页 + 日志页 + 「关于」。
   // 页键即「页面身份」，与入口名一致（`advanced` = 高级、`environment` = 运行环境）；
@@ -60,13 +61,14 @@
       {#if 'sep' in it}
         <div class="nav-sep"></div>
       {:else}
-        <!-- 收起态下只剩图标，hover 时以宿主原生 title 提示该入口的标题；
+        <!-- 收起态下只剩图标，hover（或键盘聚焦）时以自绘提示显示该入口的标题（规格 `hover-tooltip`）；
              取值复用与下方 nav-text 同一个 label，不另立一份标题表。
-             展开态置 undefined 即移除该属性：文字本已可见，再挂同名提示只是重复。 -->
+             展开态传空即不挂这条提示：文字本已可见，再来一条只是重复。
+             提示落到栏外（`placement: 'right'`）—— 侧边栏自身会横向裁剪，提示层挂在应用级才不被裁。 -->
         <div
           class="nav-item"
           class:active={!it.dialog && $page === it.key}
-          title={$collapsed ? it.label : undefined}
+          use:tip={$collapsed ? { text: it.label, placement: 'right' } : null}
           on:click={() => select(it)}
           on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && select(it)}
           role="button"
@@ -78,7 +80,7 @@
       {/if}
     {/each}
   </nav>
-  <button class="collapse-btn" on:click={toggle} title="收起 / 展开侧边栏">
+  <button class="collapse-btn" on:click={toggle}>
     <ChevronsLeft />
     <span class="nav-text">收起</span>
   </button>

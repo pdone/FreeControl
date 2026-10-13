@@ -291,7 +291,11 @@
   .fhelp-btn svg { width: 14px; height: 14px; }
   /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
      原固定值 440px 退居上限，且上限定为 `min(440px, 100%)`，随字段可用宽收窄，window 窄了不截断。 */
-  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: none; width: max-content; max-width: min(440px, 100%); padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); box-shadow: var(--shadow); color: var(--text-dim); font-size: 12px; line-height: 1.6; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  /* 浮层「面」的唯一定义处：帮助面板的详情面板与 hover 提示层共用同一套取值 ——
+     「与帮助面板风格一致」必须是**同源**；抄一份字面量过去只会各自漂移（与产品侧 app.css 同构）。 */
+  .fhelp-panel,
+  .tip-panel { padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); box-shadow: var(--shadow); color: var(--text-dim); font-size: 12px; line-height: 1.6; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: none; width: max-content; max-width: min(440px, 100%); }
   .fhelp-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
   /* 详情分段的每一段（config ④）：块级；段间留白与 `.hint` 那一档同值（5px 上下取整）。 */
   .fhelp-p { display: block; }
@@ -301,6 +305,33 @@
   .fhelp:hover .fhelp-panel { display: block; }
   .fhelp:focus-within .fhelp-panel { display: block; }
   .fhelp-title { display: block; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+
+  /* ---------- 交互控件的 hover 提示层（config ㉓；与产品侧 app.css 同构） ----------
+     为什么不像帮助面板那样把面板嵌进触发元素里：`.sidebar` 有 `overflow-y: auto`（一轴 auto 会让
+     另一轴的 visible 解析成 auto ⇒ 横向也裁），收起态导航项的提示要伸到栏外，嵌在容器里必被裁掉；
+     命令条与弹窗的 `backdrop-filter` 还会给 fixed 后代另立包含块。
+     故提示层挂在文档顶层、以视口定位；`position: fixed` 也不参与任何布局，满足「悬停不改动几何」。
+     面取值来自上面那条共享规则，这里只给定位与宽度；层叠取 70（高于界面顶部那条边线的 60）。 */
+  .tip-layer { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+  .tip-panel { position: fixed; width: max-content; max-width: min(440px, calc(100vw - 16px)); white-space: pre-line; overflow-wrap: anywhere; visibility: hidden; pointer-events: none; }
+  /* 入场：淡入 + 从锚点那一侧轻推 4px（方向随 side-* 换）；「减少动态效果」下只留淡入。 */
+  .tip-panel.on { visibility: visible; animation: tip-in 120ms ease-out; }
+  @keyframes tip-in { from { opacity: 0; transform: translate(var(--tip-dx,0px), var(--tip-dy,0px)) scale(.98); } to { opacity: 1; transform: none; } }
+  /* 箭头：9px 方块转 45°，与面板同底、只给**朝外**那两条边描边（旋转后正好是露在外面的两条），
+     压在面板边上半格、用同色底盖住面板自己的边框；沿边偏移由提示层给的 --tip-shift 决定。 */
+  .tip-panel::before { content: ""; position: absolute; width: 9px; height: 9px; background: var(--panel-2); transform: rotate(45deg); }
+  .tip-panel.side-top { --tip-dx: 0px; --tip-dy: -4px; }
+  .tip-panel.side-top::before { top: -5px; left: var(--tip-shift); border-top: 1px solid var(--border-strong); border-left: 1px solid var(--border-strong); }
+  .tip-panel.side-bottom { --tip-dx: 0px; --tip-dy: 4px; }
+  .tip-panel.side-bottom::before { bottom: -5px; left: var(--tip-shift); border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); }
+  .tip-panel.side-left { --tip-dx: -4px; --tip-dy: 0px; }
+  .tip-panel.side-left::before { left: -5px; top: var(--tip-shift); border-left: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); }
+  .tip-panel.side-right { --tip-dx: 4px; --tip-dy: 0px; }
+  .tip-panel.side-right::before { right: -5px; top: var(--tip-shift); border-right: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong); }
+  @media (prefers-reduced-motion: reduce) { .tip-panel.side-top, .tip-panel.side-bottom, .tip-panel.side-left, .tip-panel.side-right { --tip-dx: 0px; --tip-dy: 0px; } }
+  /* 禁用控件上的提示承载层：`disabled` 元素不派发指针事件、`:hover` 也不匹配，故接线挂在这一层上
+     （与产品侧 .tip-host 同款）。它必须有盒子（不能用 display:contents），尺寸全交给内部控件决定。 */
+  .tip-host { display: inline-flex; flex: none; }
 
   /* ---------- scrcpy 运行环境（「更多」页） ---------- */
   .path-row { display: flex; align-items: center; gap: 10px; }
@@ -603,7 +634,7 @@
   <aside class="sidebar">
     <!-- 品牌行也是「关于」弹窗的入口（spec `about-page`「弹窗的打开入口」）：整行可点、键盘可达，
          收起态只剩图形标记时仍可点。提示文案说明这一行的作用（不是导航项，故不参与收起态标题提示）。 -->
-    <div class="brand clickable" id="brandRow" role="button" tabindex="0" title="关于 FreeControl2">
+    <div class="brand clickable" id="brandRow" role="button" tabindex="0">
       <!-- 品牌图形标记：源资产为 assets/icons/desktop/128x128.png（含品牌方底与母版明暗层次，与应用图标同源）。
            ① 成品位图取 128 是为覆盖到 2.5× 缩放档（45 CSS px × 2.5 = 112.5 ≤ 128）；该尺寸由生成流程原生产出，不是放大低位图凑的。
            ② 这里用 data URI 内嵌【仅为原型可预览】：预览服务只吐单个 HTML 文件，取不到同级/上级资源。
@@ -631,7 +662,7 @@
            新入口归在后一组里，不再引入第三组语义。 -->
       <div class="nav-item" data-dialog="about"><i data-lucide="info"></i><span class="nav-text">关于</span></div>
     </nav>
-    <button class="collapse-btn" id="collapseBtn" title="收起 / 展开侧边栏"><i data-lucide="chevrons-left"></i><span class="nav-text">收起</span></button>
+    <button class="collapse-btn" id="collapseBtn"><i data-lucide="chevrons-left"></i><span class="nav-text">收起</span></button>
   </aside>
 
   <!-- Main -->
@@ -643,15 +674,15 @@
     <div class="topbar" data-tauri-drag-region="deep">
       <div class="title" id="pageTitle">设备</div>
       <div class="spacer"></div>
-      <span class="pill clickable" id="devPill" title="回到设备页"><span class="dot"></span>0 台设备</span>
-      <span class="pill env ok clickable" id="envPill" title="前往运行环境页"><span class="dot"></span>scrcpy 就绪</span>
+      <span class="pill clickable" id="devPill" data-tip="回到设备页"><span class="dot"></span>0 台设备</span>
+      <span class="pill env ok clickable" id="envPill" data-tip="前往运行环境页"><span class="dot"></span>scrcpy 就绪</span>
       <!-- 窗口控件：自左至右 最小化 / 最大化（向下还原）/ 关闭。
            原型里没有窗口可控，故只呈现外观 —— 最小化与关闭无动作，最大化键点击切一次图标
            （见脚本：便于核对「最大化」与「向下还原」两枚图形）；产品侧由窗口实际状态驱动。 -->
       <div class="win-controls">
-        <button class="win-btn" id="winMin" type="button" title="最小化" aria-label="最小化"><i data-lucide="minus"></i></button>
-        <button class="win-btn" id="winMax" type="button" title="最大化" aria-label="最大化"><i data-lucide="square"></i></button>
-        <button class="win-btn close" id="winClose" type="button" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+        <button class="win-btn" id="winMin" type="button" data-tip="最小化" aria-label="最小化"><i data-lucide="minus"></i></button>
+        <button class="win-btn" id="winMax" type="button" data-tip="最大化" aria-label="最大化"><i data-lucide="square"></i></button>
+        <button class="win-btn close" id="winClose" type="button" data-tip="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
       </div>
     </div>
 
@@ -914,7 +945,7 @@
               </span></span>
               <div class="path-row">
                 <i data-lucide="folder"></i>
-                <input type="text" id="scrcpyPath" readonly value="" title="点击右侧按钮可在资源管理器中定位该目录" />
+                <input type="text" id="scrcpyPath" readonly value="" />
                 <button class="btn sm" id="openDirBtn"><i data-lucide="folder-open"></i>打开目录</button>
               </div>
             </div>
@@ -1001,11 +1032,11 @@
     <!-- Launch bar -->
     <div class="launchbar">
       <!-- 标签仅保留图标（config.yaml ④：控件标签的存废）：文字撤除后靠 title 提供提示。 -->
-      <span class="lb-label" title="命令"><i data-lucide="terminal"></i></span>
+      <span class="lb-label" aria-hidden="true"><i data-lucide="terminal"></i></span>
       <div class="cmd-preview" id="cmdPreview">选择一台设备查看命令</div>
-      <button class="copy-btn" id="copyBtn" title="复制命令"><i data-lucide="copy"></i></button>
+      <span class="tip-host" data-tip="复制命令"><button class="copy-btn" id="copyBtn"><i data-lucide="copy"></i></button></span>
       <!-- 连接入口（config.yaml ㉑）：仅图标，排在复制按钮之后；选中且可连接的设备才可点。 -->
-      <button class="connect-btn" id="connectBtn" title="连接该设备" disabled><i data-lucide="zap"></i></button>
+      <span class="tip-host" id="connectTipHost" data-tip="连接该设备"><button class="connect-btn" id="connectBtn" disabled><i data-lucide="zap"></i></button></span>
     </div>
   </main>
 </div>
@@ -1048,7 +1079,7 @@
      版本值不加 v 前缀（与「运行环境」页同口径）。外链四颗，与参考图的四颗一一对应。 -->
 <div class="overlay about-overlay" id="aboutModal">
   <div class="modal about-modal">
-    <button class="about-close" id="aboutClose" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+    <button class="about-close" id="aboutClose" aria-label="关闭"><i data-lucide="x"></i></button>
     <!-- 品牌图形复用品牌行那一份（JS 里取同一个 src，不复制 base64），与窗口图标同源 -->
     <div class="about-logo"><img alt="FreeControl2" id="aboutLogo" onerror="this.remove()" />F</div>
     <div class="about-name">FreeControl2</div>
@@ -1089,6 +1120,11 @@
      原先写 `@latest`，实测 CDN 已把品牌图标（`github`）从新版里移除，导致原型上「关于」弹窗的
      GitHub 入口少一个图标、与产品不一致 —— 浮动版本会让原型悄悄漂离产品，故改为定版引用。 -->
 <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.js"></script>
+<!-- hover 提示层（config ㉓）：挂在文档顶层、以视口定位，故不受任何容器的滚动与裁剪影响
+     —— 侧边栏收起态的导航项提示正需要这一点（`.sidebar` 的 overflow 会把它裁掉）。
+     层叠高于界面顶部那条边线的 60，故「关于」弹窗打开时其控件的提示仍可见。 -->
+<div class="tip-layer" id="tipLayer"></div>
+
   <script>
   /* ===================== 状态模型 ===================== */
   // 全局默认参数（param tabs 编辑）
@@ -1347,10 +1383,12 @@
     const connected = !!d && d.status==='connected';
     const ok = !!d && (connected || canConnectDevice(d));
     btn.disabled = !ok;
-    btn.title = !d ? '请先选择一台设备'
+    // 提示挂在外层承载层上（`disabled` 元素不派发指针事件，见 .tip-host）。
+    document.getElementById('connectTipHost').dataset.tip = !d ? '请先选择一台设备'
               : connected ? '断开该设备的会话'
               : ok ? '连接该设备'
               : '当前无法连接该设备';
+    if (window.__tipRefresh) window.__tipRefresh();
     // 图标随状态切换（连接 zap / 断开 zap-off）；只在取值变化时重渲染，避免每次刷新都重建图标。
     const icon = connected ? 'zap-off' : 'zap';
     if (btn.dataset.icon !== icon){
@@ -1386,8 +1424,8 @@
           <div class="dev-id">
             <div class="dev-alias">
               <span class="a-text">${escapeHtml(d.alias)}</span>
-              <span class="edit" data-edit="${d.id}" title="重命名"><i data-lucide="pencil"></i></span>
-              ${oc&&ovOn?`<span class="tag over" title="该设备的参数覆盖已启用，优先于默认参数">已启用设备覆盖</span>`:''}
+              <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名"><i data-lucide="pencil"></i></span>
+              ${oc&&ovOn?`<span class="tag over">已启用设备覆盖</span>`:''}
             </div>
             <div class="dev-meta">
               <span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>
@@ -1456,7 +1494,7 @@
     panel.innerHTML=`
       <div class="ov-head">
         <span class="lab">${ovLabelHtml(d, enabled)}</span>
-        <label class="switch" title="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" data-ovenable ${enabled?'checked':''}><span class="slider"></span></label>
+        <label class="switch" data-tip="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" data-ovenable ${enabled?'checked':''}><span class="slider"></span></label>
       </div>
       <div class="ov-grid" data-ovgrid style="${enabled?'':'opacity:.45;pointer-events:none'}">
         <div class="field"><label>长边分辨率（--max-size）</label>
@@ -1515,7 +1553,6 @@
     if (active){
       if(!tag){ tag=document.createElement('span'); tag.className='tag over'; alias.appendChild(tag); }
       tag.textContent = '已启用设备覆盖';
-      tag.title = '该设备的参数覆盖已启用，优先于默认参数';
     }
     else if (tag){ tag.remove(); }
   }
@@ -1651,9 +1688,9 @@
   const dlPct        = document.getElementById('dlPct');
   const dlLabel      = document.getElementById('dlLabel');
   const dlChannel    = document.getElementById('dlChannel');
-  /* 进度块里的文案与通道两格恒为单行、超出部分省略（见 .dl-head 规则），故全文必须同时写进
-     title，否则被截掉的那截信息就再也看不到 —— 与产品侧 DownloadProgress.svelte 同法。 */
-  function setDlText(el, text){ el.textContent = text; el.title = text; }
+  /* 进度块里的文案与通道两格恒为单行、超出部分省略（见 .dl-head 规则）。被省略的那截不靠
+     title 看：这两格在可拖选白名单里（见上方 user-select 规则），拖选即得全文 —— 与产品侧同法。 */
+  function setDlText(el, text){ el.textContent = text; }
 
   /* ---- 版本信息统一注入：页面所有版本展示都取自上面那两处版本常量（scrcpy 与应用各一处）---- */
   scrcpyPathEl.value = SCRCPY_DIR;
@@ -1681,11 +1718,11 @@
     if (envBestFit){
       el.className = 'pill env ok clickable';
       el.innerHTML = `<span class="dot"></span>scrcpy 就绪`;
-      el.title = `前往运行环境页`;
+      el.dataset.tip = `前往运行环境页`;
     } else {
       el.className = 'pill env warn clickable';
       el.innerHTML = `<i data-lucide="alert-triangle"></i>非最佳适配版本`;
-      el.title = `非最佳适配版本，点击前往「运行环境」页查看原因`;
+      el.dataset.tip = `非最佳适配版本，点击前往「运行环境」页查看原因`;
     }
     // 「下载最佳适配版本」仅在非最佳适配（!envBestFit，对应产品侧 !envOk）时出现
     const bf = document.getElementById('bestFitBtn'); if (bf) bf.classList.toggle('hidden', envBestFit);
@@ -1848,17 +1885,23 @@
     renderDeviceList(); renderPreview(); updatePills();
     devNotice.textContent = n ? `已结束 ${n} 个会话` : '当前没有正在运行的会话';
   });
-  /* 收起态下只剩图标，hover 时以原生 title 提示该入口的标题（规格「侧边栏收起与展开」）。
-     原型是静态 HTML：把 title 写死在标签上会让展开态也弹提示 —— 与产品相反，
+  /* 收起态下只剩图标，hover 时以**自绘提示**显示该入口的标题（规格「侧边栏收起与展开」/ config ㉓）。
+     原型是静态 HTML：把 data-tip 写死在标签上会让展开态也弹提示 —— 与产品相反，
      故必须按当前状态派生。取值直接读该节点内的 .nav-text（不另抄一份标签表，
      否则会与可见文字分叉）；展开态移除该属性（文字本已可见，再挂同名提示只是重复）。 */
   function syncNavTitles(){
     const isCollapsed=document.getElementById('app').classList.contains('collapsed');
     document.querySelectorAll('.nav-item').forEach(n=>{
       const label=n.querySelector('.nav-text');
-      if (isCollapsed && label) n.title=label.textContent.trim();
-      else n.removeAttribute('title');
+      if (isCollapsed && label){
+        n.dataset.tip=label.textContent.trim();
+        n.dataset.tipPlace='right';   // 提示落到栏外（侧边栏自身会横向裁剪）
+      } else {
+        n.removeAttribute('data-tip');
+        n.removeAttribute('data-tip-place');
+      }
     });
+    if (window.__tipRefresh) window.__tipRefresh();   // 悬停中的那条提示随之收起
   }
   document.getElementById('collapseBtn').addEventListener('click', ()=>{
     document.getElementById('app').classList.toggle('collapsed');
@@ -1941,13 +1984,13 @@
     // title 与代理行同法承载被省略掉的全量地址。
     const direct=document.createElement('div'); direct.className='proxy-item';
     direct.innerHTML=`<span class="tag direct">直连</span>`
-      +`<span class="proxy-url" title="${escapeHtml(DIRECT_URL)}">${escapeHtml(DIRECT_URL)}</span>`
+      +`<span class="proxy-url">${escapeHtml(DIRECT_URL)}</span>`
       +`<span class="proxy-ro">只读</span>`;
     box.appendChild(direct);
     proxyList.forEach(url=>{
       const it=document.createElement('div'); it.className='proxy-item';
-      it.innerHTML=`<span class="tag proxy">代理</span><span class="proxy-url" title="${escapeHtml(url)}">${escapeHtml(url)}</span>`
-        +`<button class="btn ghost sm" data-proxy-del="${escapeHtml(url)}" title="删除该代理地址"><i data-lucide="trash-2"></i> 删除</button>`;
+      it.innerHTML=`<span class="tag proxy">代理</span><span class="proxy-url">${escapeHtml(url)}</span>`
+        +`<button class="btn ghost sm" data-proxy-del="${escapeHtml(url)}"><i data-lucide="trash-2"></i> 删除</button>`;
       box.appendChild(it);
     });
     if (!proxyList.length){
@@ -1991,12 +2034,118 @@
     btn.addEventListener('click', () => {
       maxed = !maxed;
       const label = maxed ? '向下还原' : '最大化';
-      btn.title = label; btn.setAttribute('aria-label', label);
+      btn.dataset.tip = label; btn.setAttribute('aria-label', label);
       const ph = document.createElement('i');
       ph.setAttribute('data-lucide', maxed ? 'copy' : 'square');
       btn.replaceChildren(ph);   // 丢掉旧 svg 再放占位符，createIcons 只处理这一处
       lucide.createIcons();
     });
+  })();
+
+  /* ===================== hover 提示层（config ㉓） =====================
+     形式与面样式与产品侧同一套（见上方 .tip-layer / .tip-panel / .tip-host）。产品侧把接线做成
+     Svelte action；原型是单文件，这里用同一套事件的委托版：`data-tip` 承载提示文本，
+     `data-tip-place="right"` 表示把面板落在锚点右侧（侧边栏收起态用）。
+     落位与产品一致：面板**贴着触发元素**择侧落下（下 → 上 → 右 → 左，放不下换侧），
+     箭头落在朝向控件的那条边上、沿边对准控件中心；指针悬停要停住 DELAY 才显示，键盘聚焦立即
+     显示；两者都逐帧跟锚点，锚点移出视口即收起。
+     产品侧另把提示文本与触发元素经 aria-describedby 关联；原型只维护形式与交互，不重复那套接线。 */
+  (function(){
+    const layer=document.getElementById('tipLayer');
+    const M=8, GAP=8, DELAY=700;   // 视口边距 / 控件与提示之间的缝 / 出现延迟
+    let host=null, pending=null, raf=0, timer=0;
+    function hide(){
+      host=null;
+      layer.innerHTML='';
+      if (raf){ cancelAnimationFrame(raf); raf=0; }
+    }
+    function cancelTimer(){ if (timer){ clearTimeout(timer); timer=0; } }
+    // 箭头贴哪条边 = 面板所在侧的反面（面板在下方 ⇒ 箭头在上边，朝上指）。
+    const EDGE={bottom:'top',top:'bottom',left:'right',right:'left'};
+    const cl=(v,lo,hi)=>Math.min(Math.max(v,lo),Math.max(lo,hi));
+    function frame(){
+      const el=layer.firstElementChild;
+      if (!host || !el){ hide(); return; }
+      // 逐帧跟锚点：滚动 / 窗口缩放 / 侧栏收起 / 列表重排都会改它的位置，其中一些没有事件可接。
+      const a=host.getBoundingClientRect();
+      const out=a.bottom<0||a.top>innerHeight||a.right<0||a.left>innerWidth;
+      if (!host.isConnected || out){ hide(); return; }
+      const w=el.offsetWidth, h=el.offsetHeight;
+      // 各侧可用空间（已扣掉缝与视口边距）：放得下整块面板才算「可落」。
+      const room={bottom:innerHeight-a.bottom-GAP-M, top:a.top-GAP-M, right:innerWidth-a.right-GAP-M, left:a.left-GAP-M};
+      const need={bottom:h, top:h, right:w, left:w};
+      // 候选顺序：锚点自己声明的偏好在前（侧栏收起态用 right），其余按 下 → 上 → 右 → 左。
+      const order=host.dataset.tipPlace==='right' ? ['right','bottom','top','left'] : ['bottom','top','right','left'];
+      const fits=s=>room[s]>=need[s];
+      // 都放不下时挑最宽裕的一侧，交给下面的夹紧兜底。
+      const dir=order.find(fits) || order.reduce((b,s)=>room[s]>room[b]?s:b, order[0]);
+      const acx=a.left+a.width/2, acy=a.top+a.height/2;
+      let x, y, sh;
+      if (dir==='bottom'||dir==='top'){
+        // 面板在控件上/下：横向居中于控件；箭头沿上/下边，对准控件的横向中心。
+        x=cl(acx-w/2, M, innerWidth-M-w);
+        y=cl(dir==='bottom'?a.bottom+GAP:a.top-GAP-h, M, innerHeight-M-h);
+        sh=Math.round(cl(acx-x-4.5, 10, Math.max(10,w-20)));
+      } else {
+        // 面板在控件左/右：纵向居中于控件；箭头沿左/右边，对准控件的纵向中心。
+        x=cl(dir==='right'?a.right+GAP:a.left-GAP-w, M, innerWidth-M-w);
+        y=cl(acy-h/2, M, innerHeight-M-h);
+        sh=Math.round(cl(acy-y-4.5, 10, Math.max(10,h-20)));
+      }
+      el.style.left=x+'px';
+      el.style.top=y+'px';
+      el.style.setProperty('--tip-shift', sh+'px');
+      el.className='tip-panel side-'+EDGE[dir];
+      el.classList.add('on');   // 首帧测完尺寸再显形，避免在旧坐标上闪一下、动画也从错处开跑
+      raf=requestAnimationFrame(frame);
+    }
+    function show(node){
+      if (!node.dataset.tip) return;
+      hide();
+      host=node;
+      const el=document.createElement('span');
+      el.className='tip-panel'; el.setAttribute('role','tooltip'); el.textContent=node.dataset.tip;
+      layer.appendChild(el);
+      raf=requestAnimationFrame(frame);
+    }
+    /** 供脚本改过 data-tip 之后回调：宿主丢了 data-tip 就收起，换了文本就换文本
+       （产品侧这一条由 Svelte action 的 update 承担）。 */
+    function refresh(){
+      if (!host) return;
+      if (!host.dataset.tip){ hide(); return; }
+      const el=layer.firstElementChild;
+      if (el && el.textContent!==host.dataset.tip) el.textContent=host.dataset.tip;
+    }
+    window.__tipRefresh=refresh;
+    const pick=e=>e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+    document.addEventListener('pointerover', e=>{
+      const n=pick(e);
+      if (!n){ pending=null; cancelTimer(); if (host) hide(); return; }
+      if (n===host || n===pending) return;   // 同一节点内继续移动：不重启计时
+      // 停住一拍才显示；延迟期间继续移动不重启计时。
+      pending=n; cancelTimer();
+      const node=n;
+      timer=setTimeout(()=>{ timer=0; pending=null; show(node); }, DELAY);
+    });
+    document.addEventListener('pointerout', e=>{
+      // 只看「指针去了哪」：宿主可能已经不再是 [data-tip]（如展开态把导航项的提示摘掉），
+      // 这时 pick 返回 null，不能靠它判断是否该收起。
+      const to=e.relatedTarget;
+      const inside=n=>to instanceof Node && n.contains(to);
+      if (host && !inside(host)) hide();
+      if (pending && !inside(pending)){ pending=null; cancelTimer(); }
+    });
+    // 键盘聚焦立即显示、贴着控件（产品侧只在 `:focus-visible` 时算数，避免点击留下的焦点挂着不走）。
+    document.addEventListener('focusin', e=>{
+      const t=e.target;
+      if (!(t instanceof Element) || !t.matches(':focus-visible')) return;
+      const n=t.closest('[data-tip]');
+      if (n) show(n);
+    });
+    document.addEventListener('focusout', ()=>{ cancelTimer(); hide(); });
+    document.addEventListener('keydown', e=>{ if (e.key==='Escape'){ cancelTimer(); hide(); } });
+    // 指针按下即收起：点下去之后控件多半要开弹窗 / 换页，提示不该继续挂着。
+    document.addEventListener('pointerdown', ()=>{ cancelTimer(); hide(); }, true);
   })();
 
   /* ===================== 初始化 ===================== */

@@ -11,6 +11,7 @@
     closeWindow,
   } from '../lib/store';
   import { AlertTriangle, Minus, Square, Copy, X } from 'lucide-svelte';
+  import { tip } from '../lib/tooltip';
 
   // 页键 ↔ 标题（页键是「页面身份」，取自侧边栏入口名；与默认参数的**分组键**
   // `apps` / `advanced` 无关 —— 后者是落盘配置的字段名，不随页键改名）。
@@ -87,7 +88,7 @@
     class:ok={online > 0}
     role="button"
     tabindex="0"
-    title="回到设备页"
+    use:tip={'回到设备页'}
     on:click={goDevices}
     on:keydown={(e) => onPillKeydown(e, goDevices)}
   >
@@ -98,7 +99,7 @@
       class="pill clickable"
       role="button"
       tabindex="0"
-      title="前往运行环境页"
+      use:tip={'前往运行环境页'}
       on:click={goEnvironment}
       on:keydown={(e) => onPillKeydown(e, goEnvironment)}
     >
@@ -109,7 +110,7 @@
       class="pill env ok clickable"
       role="button"
       tabindex="0"
-      title="前往运行环境页"
+      use:tip={'前往运行环境页'}
       on:click={goEnvironment}
       on:keydown={(e) => onPillKeydown(e, goEnvironment)}
     >
@@ -120,7 +121,7 @@
       class="pill env warn clickable"
       role="button"
       tabindex="0"
-      title={envWarnTitle}
+      use:tip={envWarnTitle}
       on:click={goEnvironment}
       on:keydown={(e) => onPillKeydown(e, goEnvironment)}
     >
@@ -132,19 +133,31 @@
        界面上不会出现两组窗口控件。 -->
   {#if !$windowDecorated}
     <div class="win-controls">
-      <button class="win-btn" type="button" title="最小化" aria-label="最小化" on:click={minimizeWindow}>
+      <button
+        class="win-btn"
+        type="button"
+        use:tip={'最小化'}
+        aria-label="最小化"
+        on:click={minimizeWindow}
+      >
         <Minus />
       </button>
       <button
         class="win-btn"
         type="button"
-        title={maxLabel}
+        use:tip={maxLabel}
         aria-label={maxLabel}
         on:click={toggleWindowMaximize}
       >
         {#if $windowMaximized}<Copy />{:else}<Square />{/if}
       </button>
-      <button class="win-btn close" type="button" title="关闭" aria-label="关闭" on:click={closeWindow}>
+      <button
+        class="win-btn close"
+        type="button"
+        use:tip={'关闭'}
+        aria-label="关闭"
+        on:click={closeWindow}
+      >
         <X />
       </button>
     </div>

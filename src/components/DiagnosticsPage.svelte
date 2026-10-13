@@ -28,6 +28,7 @@
   import { ADVANCED_GROUP, RUN_LOG_CARD, refKey } from '../lib/params';
   import type { SessionInfo } from '../lib/types';
   import { FolderOpen, ZapOff, RefreshCw, Eraser } from 'lucide-svelte';
+  import { tip } from '../lib/tooltip';
 
   type GroupValues = Record<string, unknown>;
   type GroupMap = Record<string, GroupValues>;
@@ -226,7 +227,7 @@
               <button
                 class="sess-pick"
                 on:click={() => pickSession(s.deviceId)}
-                title="查看该会话的输出"
+                use:tip={'查看该会话的输出'}
               >
                 <span class="status-dot {s.running ? 'connected' : 'idle'}"></span>
                 <span class="sess-name">{s.alias}</span>
@@ -238,7 +239,6 @@
                 <button
                   class="btn ghost sm"
                   on:click={() => stopSession(s.deviceId)}
-                  title="结束该会话"
                 >
                   <ZapOff /> 断开
                 </button>
@@ -248,7 +248,7 @@
         </div>
 
         {#if selSession}
-          <div class="sess-cmd" title="该会话实际执行的命令（含自动排列写入的窗口位置）">
+          <div class="sess-cmd">
             <code>{selSession.command}</code>
           </div>
           <div class="sess-meta">{sessionMeta(selSession)}</div>
@@ -257,14 +257,13 @@
             <button
               class="btn ghost sm"
               on:click={refreshLog}
-              title="立即取一次最新输出"
             >
               <RefreshCw /> 刷新
             </button>
             <button
               class="btn ghost sm"
               on:click={clearLog}
-              title="清空该会话已保留的输出（不可恢复）"
+              use:tip={'清空该会话已保留的输出（不可恢复）'}
             >
               <Eraser /> 清空
             </button>
@@ -313,7 +312,7 @@
             >
           {/each}
         </div>
-        <button class="btn sm" on:click={openLogDirNow} title="在资源管理器中定位日志目录">
+        <button class="btn sm" on:click={openLogDirNow}>
           <FolderOpen /> 打开日志目录
         </button>
         <span class="status-text {logDirCls}">{logDirMsg}</span>

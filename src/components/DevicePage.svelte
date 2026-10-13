@@ -37,6 +37,7 @@
     page,
   } from '../lib/store';
   import { errText } from '../lib/install';
+  import { tip } from '../lib/tooltip';
   import { OVERRIDE_FIELD_REFS, fieldOf, refKey, type FieldRef } from '../lib/params';
   import ParamField from './ParamField.svelte';
   import type {
@@ -432,25 +433,26 @@
 
 <div class="dev-toolbar">
   <button class="btn sm primary" on:click={openAdd}><Plus /> 添加设备</button>
-  <button
-    class="btn sm"
-    on:click={onConnectAll}
-    disabled={toolBusy || connectableCount === 0}
-    title="连接所有在线且未连接的设备（离线设备不会被尝试连接）"
+  <span
+    class="tip-host"
+    use:tip={'连接所有在线且未连接的设备（离线设备不会被尝试连接）'}
   >
-    <Zap /> 全部连接{toolBusy ? '…' : ''}
-  </button>
-  <button
-    class="btn sm"
-    on:click={onDisconnectAll}
-    disabled={toolBusy || runningCount === 0}
-    title="结束所有正在运行的会话"
-  >
-    <ZapOff /> 全部断开
-  </button>
+    <button
+      class="btn sm"
+      on:click={onConnectAll}
+      disabled={toolBusy || connectableCount === 0}
+    >
+      <Zap /> 全部连接{toolBusy ? '…' : ''}
+    </button>
+  </span>
+  <span class="tip-host" use:tip={'结束所有正在运行的会话'}>
+    <button class="btn sm" on:click={onDisconnectAll} disabled={toolBusy || runningCount === 0}>
+      <ZapOff /> 全部断开
+    </button>
+  </span>
   <div class="spacer"></div>
   {#if summary}
-    <span class="status-text" title={$deviceStatusMeta.error ?? ''}>{summary}</span>
+    <span class="status-text" use:tip={$deviceStatusMeta.error || null}>{summary}</span>
   {/if}
   <!-- 批量操作的结果**就地**呈现在本行内（不另起一行）：与设备概况并排，概况在前、结果在后。
        两者语义不同（前者是探测异常的长驻提醒、后者是动作回执），故并排而不互相覆盖。 -->
@@ -479,7 +481,6 @@
           class="dev-main"
           role="button"
           tabindex="0"
-          title="点选该设备以查看其拼装命令"
           on:click={() => selectDevice(d.id)}
           on:keydown={(e) => onCardKeydown(e, d.id)}
         >
@@ -500,7 +501,7 @@
                   class="edit"
                   role="button"
                   tabindex="0"
-                  title="重命名"
+                  aria-label="重命名"
                   on:click|stopPropagation={() => startEdit(d)}
                   on:keydown={(e) => e.key === 'Enter' && startEdit(d)}
                 >
@@ -511,7 +512,7 @@
                    （判据在 store 的 `isOverrideActive`）。禁用态与"一项取值都没填"
                    都不在此表达 —— 前者只在展开面板的标题里说。 -->
               {#if isOverrideActive(ovById[d.id])}
-                <span class="tag over" title="该设备的参数覆盖已启用，优先于默认参数">
+                <span class="tag over">
                   已启用设备覆盖
                 </span>
               {/if}
@@ -527,7 +528,7 @@
               <!-- 连接标识是技术值，要保持可复制（scrcpy 的 -s 取值）：
                    用语义类名进白名单，而不是靠 `:nth-child` 这类结构选择器指它 ——
                    后者在 .dev-meta 增删任一 span 时会静默指错元素。 -->
-              <span class="dev-cid" title="该设备的连接标识（scrcpy 的 -s 参数）">
+              <span class="dev-cid">
                 {d.connectionId || '（待检测）'}
               </span>
               <span>·</span>
@@ -544,10 +545,10 @@
               {#if sess && s === 'connected'}
                 <!-- 会话的真实位置：自动排列给出的坐标、让位说明，或空间不足的降级提示 -->
                 <span>·</span>
-                <span class="sess-hint" title={sess.command}>PID {sess.pid} · {win}</span>
+                <span class="sess-hint">PID {sess.pid} · {win}</span>
               {:else if sess}
                 <span>·</span>
-                <span class="sess-hint" title={sess.command}>
+                <span class="sess-hint">
                   上次会话已结束（退出码 {sess.exitCode ?? '-'}）
                 </span>
               {/if}
@@ -558,29 +559,31 @@
           </div>
           <div class="dev-actions">
             {#if s === 'connected'}
-              <button
-                class="btn sm"
-                disabled={busy[d.id]}
-                on:click|stopPropagation={() => onDisconnect(d)}
-                title={connectHint(d, s)}
-              >
-                <ZapOff /> {busy[d.id] ? '断开中…' : '断开'}
-              </button>
+              <span class="tip-host" use:tip={connectHint(d, s)}>
+                <button
+                  class="btn sm"
+                  disabled={busy[d.id]}
+                  on:click|stopPropagation={() => onDisconnect(d)}
+                >
+                  <ZapOff /> {busy[d.id] ? '断开中…' : '断开'}
+                </button>
+              </span>
             {:else}
-              <button
-                class="btn sm primary"
-                disabled={!canConnect(d, s) || busy[d.id]}
-                on:click|stopPropagation={() => onConnect(d)}
-                title={connectHint(d, s)}
-              >
-                <Zap /> {busy[d.id] ? '连接中…' : '连接'}
-              </button>
+              <span class="tip-host" use:tip={connectHint(d, s)}>
+                <button
+                  class="btn sm primary"
+                  disabled={!canConnect(d, s) || busy[d.id]}
+                  on:click|stopPropagation={() => onConnect(d)}
+                >
+                  <Zap /> {busy[d.id] ? '连接中…' : '连接'}
+                </button>
+              </span>
             {/if}
             {#if sess}
               <button
                 class="btn sm ghost"
                 on:click|stopPropagation={() => openLog(d.id)}
-                title="在「日志」页查看该会话输出（用于排查问题）"
+                use:tip={'在「日志」页查看该会话输出（用于排查问题）'}
               >
                 <ScrollText /> 日志
               </button>
@@ -588,14 +591,14 @@
             <button
               class="btn sm ghost"
               on:click|stopPropagation={() => togglePanel(d.id)}
-              title="为该设备单独设置参数（覆盖默认参数）"
+              use:tip={'为该设备单独设置参数（覆盖默认参数）'}
             >
               <SlidersHorizontal /> 参数
             </button>
             <button
               class="btn sm danger"
               on:click|stopPropagation={() => askDelete(d)}
-              title="删除该设备（连带清除其参数覆盖与覆盖开关）"
+              use:tip={'删除该设备（连带清除其参数覆盖与覆盖开关）'}
             >
               <Trash2 /> 删除
             </button>
@@ -613,7 +616,7 @@
               </span>
               <label
                 class="switch"
-                title="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"
+                use:tip={'启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）'}
               >
                 <input
                   type="checkbox"
