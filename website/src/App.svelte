@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { readable } from 'svelte/store';
   import { t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
@@ -31,12 +30,21 @@
   const ASSETS: Record<string, string | null> = { windows: rel.windows, appimage: rel.appimage, deb: rel.deb };
   const asset = (key: string): string => ASSETS[key] ?? RELEASES;
 
-  // 下载一节的平台卡片里给当前系统标「你的系统」。只在客户端判一次；判不出（其它系统 / 未知 UA）就不标。
-  let detectedOs = 'other';
-  onMount(() => {
+  // 访客系统的判定：下载一节主按钮取哪一档产物、平台卡标不标「你的系统」，都读这一处结果。
+  // 客户端渲染、无 SSR，模块初始化时 window 已可用 —— 同步求值使首帧即落在正确档位（与 isWide 同法），
+  // 不出现先渲 Windows 档再切到 Linux 的翻转。判不出（其它系统 / 未知 UA）落 'other'，一律沿用 Windows 档。
+  const detectedOs = (() => {
     const ua = navigator.userAgent;
-    detectedOs = /Android/i.test(ua) ? 'other' : /Windows/i.test(ua) ? 'windows' : /Linux|X11/i.test(ua) ? 'linux' : 'other';
-  });
+    return /Android/i.test(ua) ? 'other' : /Windows/i.test(ua) ? 'windows' : /Linux|X11/i.test(ua) ? 'linux' : 'other';
+  })();
+
+  // 下载一节主按钮的取值：产物直链与那行提示由同一个档位派生 —— 提示讲哪一档，链接就指向哪一档。
+  // Windows 取免安装单文件、Linux 取 AppImage（便携、通用发行版，优先于 deb）；判不出者落到 Windows 档。
+  const dlTarget = detectedOs === 'linux'
+    ? { asset: 'appimage', hint: 'linux' as const }
+    : { asset: 'windows', hint: 'windows' as const };
+  const DL_HREF = asset(dlTarget.asset);
+  const DL_HINT = dlTarget.hint;
 
   $: document.title = $t.metaTitle;
   $: document.documentElement.lang = $t.htmlLang;
@@ -223,10 +231,12 @@
         <img class="get-logo" src="/assets/icons/desktop/128x128.png" alt="FreeControl2" width="88" height="88" />
         <h2 class="title">{$t.download.title}</h2>
         <p class="lead">{$t.download.lead}</p>
+        <!-- 主按钮按访客系统取档（见脚本里的 dlTarget/DL_HREF/DL_HINT）：Windows 取免安装单文件、
+             Linux 取 AppImage，判不出者沿用 Windows。提示行与直链同出一档，不出现提示讲一套、链接指另一套。 -->
         <div class="get-main">
-          <a class="btn btn-primary btn-xl" href={asset('windows')}>
+          <a class="btn btn-primary btn-xl" href={DL_HREF}>
             <Icon name="Download" size={20} />
-            <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint}</small></span>
+            <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint[DL_HINT]}</small></span>
           </a>
           <!-- 发行信息一行：主按钮正下方、同一中线的一行小字 —— 版本在前（标签图标 + 构建期
                解析到的发行标记，整颗指最新发行页），「更新日志」随后。它紧邻按钮，但不再是胶囊

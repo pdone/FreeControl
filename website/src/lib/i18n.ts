@@ -108,7 +108,11 @@ const zh = {
       { label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
     cta: '下载',
-    osHint: 'Windows · x64 · .exe · 免安装单文件',
+    // 主按钮那行提示按访客系统取（键与平台条目的 os 同名）；没有真实产物的档位一律落到 Windows。
+    osHint: {
+      windows: 'Windows · x64 · .exe · 免安装单文件',
+      linux: 'Linux · x64 · AppImage · 便携版',
+    },
     yours: '你的系统',
     dlLabel: '下载',
     plats: [
@@ -245,7 +249,10 @@ const en: Dict = {
       { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
     cta: 'Download',
-    osHint: 'Windows · x64 · .exe · portable file',
+    osHint: {
+      windows: 'Windows · x64 · .exe · portable file',
+      linux: 'Linux · x64 · AppImage · portable',
+    },
     yours: 'Your system',
     dlLabel: 'Download',
     plats: [
