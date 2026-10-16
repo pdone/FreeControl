@@ -88,6 +88,10 @@ const zh = {
         a: '确认系统已装 WebView2 运行时（Windows 10 / 11 一般自带）。',
       },
       {
+        q: 'Linux 上启动后界面不再更新',
+        a: '虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2 启动即可 —— 判定是启发式的，有些环境会落空。',
+      },
+      {
         q: '怎么恢复出厂设置',
         a: '删掉 config.json 再启动即可：设备清单、参数与保留策略都回到出厂默认。',
       },
@@ -219,6 +223,10 @@ const en: Dict = {
       {
         q: 'The window is blank after launch on Windows',
         a: 'Make sure the WebView2 runtime is installed (usually included with Windows 10 / 11).',
+      },
+      {
+        q: 'The window stops updating after launch on Linux',
+        a: 'On setups such as virtual machines, software rendering or remote sessions, the window may draw its first frame and then stop updating (clicks still take effect). The app detects this at launch and avoids that rendering path on its own, so most such setups need nothing from you; if you still hit it, start the app with WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2 — the detection is heuristic, so some setups fall through.',
       },
       {
         q: 'How do I reset to the factory defaults',

@@ -131,6 +131,10 @@ FreeControl2/
 
 确认系统已装 WebView2 运行时（Windows 10 / 11 一般自带）。
 
+### Linux 上启动后界面不再更新
+
+虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 `WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2` 启动即可 —— 判定是启发式的，有些环境会落空。
+
 ### 数据都存在哪
 
 都在应用数据根下（Windows 为 `%APPDATA%/FreeControl2`，Linux 为 XDG 数据根下的同名目录）：

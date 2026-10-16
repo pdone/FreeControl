@@ -13,6 +13,7 @@ mod links;
 mod logger;
 mod shell;
 mod window_icon;
+mod webview_env;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -182,6 +183,10 @@ fn disable_system_decorations(window: &tauri::WebviewWindow) {
 }
 
 fn main() {
+    // Linux：按需关掉 WebKit 的 DMA-BUF 渲染器（本变更 design D12）。必须早于 `tauri::Builder`
+    // —— 窗口在 `setup` 之前创建、web 进程更晚，而 WebKit 是在自身初始化时读这个变量，之后再设
+    // 就没用了。判定所需的读操作失败一律退化为「该信号未命中」，不影响启动（见 `webview_env`）。
+    webview_env::prepare();
     tauri::Builder::default()
         // 兜底之一：页面加载完成后仍未显示窗口（锚点选择见 `spawn_reveal_fallback`）。
         .on_page_load(|webview, payload| {
@@ -201,6 +206,9 @@ fn main() {
                 // 日志落盘（design D12）：必须在配置加载之后 —— 保留策略来自配置；
                 // 也必须早于其余清理，使失败原因也能进日志。
                 logger::init(&root, cfg.logging.retention_days());
+                // 上一行判定才落盘：`prepare()` 早于日志初始化，而日志未初始化时写入被静默丢弃
+                // （design D12 的留痕）。
+                webview_env::log_decision();
                 if let Err(e) = &loaded {
                     logger::warn("config", format!("读取配置失败，按出厂默认启动：{e}"));
                 }

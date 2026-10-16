@@ -134,6 +134,10 @@ A failed direct connection falls back to the next channel; you can also switch c
 
 Make sure the WebView2 runtime is installed (usually included with Windows 10 / 11).
 
+### The window stops updating after launch on Linux
+
+On setups such as virtual machines, software rendering or remote sessions, the window may draw its first frame and then stop updating (clicks still take effect). The app detects this at launch and avoids that rendering path on its own, so most such setups need nothing from you; if you still hit it, start the app with `WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2` — the detection is heuristic, so some setups fall through.
+
 ### Where does the data live
 
 All of it is under the application data root (`%APPDATA%/FreeControl2` on Windows, a directory of the same name under the XDG data root on Linux):
