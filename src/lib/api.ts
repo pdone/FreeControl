@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AppConfig,
+  AppUpdateCheck,
+  AppUpdateOutcome,
+  AppUpdateProgress,
   CompatStatus,
   ConnectRequest,
   ConnectResult,
@@ -131,8 +134,22 @@ export const cancelScrcpyInstall = (): Promise<void> => invoke('cancel_scrcpy_in
  * 前端既拿不到地址、也无法请求打开任意 URL。未知键由后端拒绝，并回一句可直接展示的原因。
  */
 export const openExternalLink = (
-  link: 'repo' | 'changelog' | 'license' | 'website',
+  link: 'repo' | 'license' | 'website',
 ): Promise<void> => invoke('open_external_link', { link });
+
+// ── 应用自身更新（app-update）──
+
+/** 更新进度事件名（与后端 `app_update::PROGRESS_EVENT` 对齐，和运行环境下载分开）。 */
+export const EVENT_APP_UPDATE_PROGRESS = 'app-update-progress';
+
+/** 打开更新视图即调用：后端负责查询发行、比较版本与判断是否有待应用的包。 */
+export const checkAppUpdate = (): Promise<AppUpdateCheck> => invoke('check_app_update');
+/** 下载并校验当前平台资产；返回 `ready`（已就绪）或 `canceled`（用户取消）。 */
+export const startAppUpdate = (): Promise<AppUpdateOutcome> => invoke('start_app_update');
+/** 中断在途下载；已校验完成的待应用包保留。 */
+export const cancelAppUpdate = (): Promise<void> => invoke('cancel_app_update');
+/** 应用更新：Windows / AppImage 替换并重启；deb 交给系统安装器。 */
+export const applyAppUpdate = (): Promise<void> => invoke('apply_app_update');
 
 // ── 日志持久化（log-persistence / tasks 6.1）──
 

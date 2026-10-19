@@ -161,6 +161,33 @@ export interface UpdateInfo {
   state: 'upToDate' | 'updateAvailable' | 'installedNewer' | 'notInstalled';
 }
 
+// ── 应用自身更新（spec `app-update`）──
+
+/** 检查结果：只给出界面需要的状态键与两个版本号。 */
+export interface AppUpdateCheck {
+  current: string;
+  latest: string;
+  state: 'upToDate' | 'updateAvailable' | 'installedNewer' | 'ready';
+}
+
+/** 应用更新进度事件（`app-update-progress`）。 */
+export interface AppUpdateProgress {
+  phase: 'download' | 'verify';
+  percent: number;
+  channel: string;
+}
+
+export interface AppUpdateOutcome {
+  status: 'ready' | 'canceled';
+  version: string;
+}
+
+/** 命令失败的类型（界面据此选文案，`message` 只用于日志）。 */
+export interface AppUpdateError {
+  kind: 'check' | 'download' | 'noAsset' | 'write';
+  message: string;
+}
+
 /** 安装阶段（后端事件 `scrcpy-install-progress` 的 phase）。 */
 export type InstallPhase = 'download' | 'verify' | 'extract' | 'replace' | 'done';
 

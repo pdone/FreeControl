@@ -1966,6 +1966,28 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   position: relative;
   padding: 26px 22px 22px;
   text-align: center;
+  /* 壳与两个视图：高度由脚本按当前视图内容写成像素值，这里只负责让变化平滑。 */
+  display: flex;
+  flex-direction: column;
+  transition: width 0.18s ease, height 0.18s ease;
+}
+/* 更新视图宽度取内容所需（与原型同值）；高度不写死，由 AboutDialog 量出当前状态的内容高度。 */
+.modal.about-modal.update-mode {
+  width: min(424px, calc(100vw - 48px));
+}
+/* 品牌图形与产品名在更新视图中收起：给高度 / 外边距加过渡，观感与原型一致。 */
+.modal.about-modal.update-mode .about-logo {
+  height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.modal.about-modal.update-mode .about-name {
+  max-height: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 /* 点遮罩关闭的那一层：纯装饰，铺满遮罩、位于面板之下（面板已 position: relative，按 DOM 顺序在其上） */
 .about-backdrop {
@@ -2008,6 +2030,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-radius: 24%;
   display: grid;
   place-items: center;
+  overflow: hidden;
+  transition: height 0.18s ease, margin 0.18s ease, opacity 0.14s ease;
 }
 .about-logo:not(:has(img)) {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
@@ -2030,6 +2054,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-weight: 700;
   letter-spacing: 0.3px;
   margin-bottom: 16px;
+  max-height: 48px;
+  overflow: hidden;
+  transition: max-height 0.18s ease, margin 0.18s ease, opacity 0.14s ease;
 }
 /* 两行版本行：等宽、左右对齐（不做错位内收）。
    **整行是复制入口**（不是行末那颗图标）：行可点、可键盘聚焦，Enter / 空格与点击等价，
@@ -2141,4 +2168,177 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   text-align: center;
   font-size: 12px;
   color: var(--text-faint);
+}
+
+/* ---------- 更新视图（spec `app-update`；与原型同名同值） ----------
+   两个视图叠在同一栅格；隐藏视图绝对定位，避免把面板撑到另一视图的高度。
+   内容顶部对齐：切换状态时图标 / 标题 / 说明不漂移；版本行始终占位，进度块不预留。 */
+.about-views {
+  position: relative;
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+}
+.about-view {
+  grid-area: 1 / 1;
+  width: 100%;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.about-view.is-hidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s linear 0.14s;
+}
+.about-view:focus {
+  outline: none;
+}
+.about-view-update {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14px;
+}
+.update-inner {
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+.update-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.update-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+}
+.update-icon.accent {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.update-icon.ok {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+.update-icon.warn {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--warn);
+}
+.update-icon.checking svg {
+  animation: update-spin 1.1s linear infinite;
+}
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.update-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+.update-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.update-versions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+/* 失败态不展示版本值，但保留位置：标题与说明不会因版本行消失而跳动。 */
+.update-versions.is-invisible {
+  visibility: hidden;
+}
+.update-ver {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.update-ver b {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.update-progress {
+  margin-top: 16px;
+}
+.update-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.update-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+.update-progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.12s linear;
+}
+.update-channel {
+  margin-top: 7px;
+  text-align: left;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  /* 通道标签可能带完整代理地址：固定一行，避免它换行把进度块撑高、而弹窗高度已定。 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.update-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.update-actions .btn {
+  min-width: 128px;
+  justify-content: center;
+}
+.update-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--warn);
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-modal,
+  .about-logo,
+  .about-name,
+  .about-view,
+  .update-progress-bar {
+    transition-duration: 0.01ms;
+  }
+  .update-icon.checking svg {
+    animation: none;
+  }
 }

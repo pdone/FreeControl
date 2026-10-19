@@ -1,42 +1,53 @@
 <script lang="ts">
-  // 「关于」弹窗（spec `about-page`）。它**不是页面**：没有页键、不切页、不参与顶部标题，
-  // 两个入口（侧边栏末位的「关于」与顶部品牌行）共用 `store` 的 `aboutOpen`，
-  // 弹窗本身挂在应用级（`App.svelte`），与首启引导 / 未校验确认同处。
+  // 「关于」弹窗（spec `about-page` + `app-update`）。它**不是页面**：没有页键、不切页、
+  // 不参与顶部标题，两个入口（侧边栏末位的「关于」与顶部品牌行）共用 `store` 的 `aboutOpen`。
   //
-  // 类名与版式与原型 `ui-design/launcher-prototype.html` 逐一同名（`about-*`；药丸复用
-  // `chips` / `chip`，按钮复用 `btn`，骨架复用既有 `.overlay` / `.modal`）。
+  // 面板是一个固定壳（关闭键 / 品牌图形 / 产品名）+ 两个内容视图：
+  // - 关于视图：版本行、技术栈、三颗外链 + 「检查更新」；
+  // - 更新视图：打开即检查，按结果切换到已是最新 / 发现新版 / 下载中 / 可重启 / 失败。
+  // 两个视图叠在同一栅格里；隐藏的那个脱离栅格流，避免把弹窗撑到另一视图的高度。
+  // 宽高由脚本按当前视图内容定值（`animateModalHeight`），与原型同一套观感。
   //
-  // 两处实现技法与原型不同、渲染观感同值（design D10 已记账）：
-  //   1. 弹出 / 关闭动画用 Svelte 的 `transition:fade` / `transition:scale`，原型是 CSS keyframes
-  //      + `.closing` 类。Svelte 的过渡天然「播完 out 才移除节点」，且中途重开会打断旧过渡 ——
-  //      正好对上 spec 的「先播完动画再消失」与「关闭动画中重开不卡住」，且不必手管定时器。
-  //   2. 「减少动态效果」偏好下把时长压到 1ms（Svelte 不会自动处理该偏好）。
-  //
-  // 版本值的单一来源（spec「版本信息的单一来源」）：应用版本取 `appVersion`（来自 Tauri 的
-  // `getVersion()`），适配的 scrcpy 版本取 `compat.bestFit`（后端下发）。两者一律**逐字**渲染：
-  // 本文件里 MUST NOT 出现版本字面量，也不做比较或格式化（不加 `v` 前缀）。
-  import { onDestroy } from 'svelte';
+  // 类名与版式与原型 `ui-design/launcher-prototype.html` 逐一同名（`about-*` / `update-*`）；
+  // 弹出 / 关闭动画仍用 Svelte 过渡（原型用 CSS keyframes）。
+  import { onDestroy, onMount, tick } from 'svelte';
   import { fade, scale } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { aboutOpen, appVersion, compat } from '../lib/store';
-  import { openExternalLink } from '../lib/api';
+  import { listen } from '@tauri-apps/api/event';
+  import {
+    aboutOpen,
+    appVersion,
+    compat,
+    deviceCounts,
+  } from '../lib/store';
+  import {
+    applyAppUpdate,
+    cancelAppUpdate,
+    checkAppUpdate,
+    openExternalLink,
+    startAppUpdate,
+    EVENT_APP_UPDATE_PROGRESS,
+  } from '../lib/api';
+  import type { AppUpdateCheck, AppUpdateProgress } from '../lib/types';
   import { copyText } from '../lib/clipboard';
   import { errText } from '../lib/install';
   import { tip } from '../lib/tooltip';
-  // 品牌图形取资产包 desktop/ 分区的成品位图（含方底），与窗口 / 任务栏图标同一份资产，母版层次不压平涂。
-  // 取 256 是为覆盖到 2.5× 缩放档（72 CSS px × 2.5 = 180 ≤ 256），该尺寸由生成流程原生产出。
   import logoMark from '../../assets/icons/desktop/256x256.png';
   import {
     X,
     Copy,
     Check,
     Github,
-    FileText,
     Scale,
     Globe,
     Cpu,
     FileCode,
     Shapes,
+    RefreshCw,
+    CircleCheck,
+    CircleAlert,
+    CloudDownload,
+    RotateCw,
   } from 'lucide-svelte';
 
   /** 值未就绪时的占位：不是空值，也不是一个错误版本号。 */
@@ -44,7 +55,6 @@
   /** 复制成功反馈时长 —— 与 `LaunchBar` 的命令复制同一档（同一套反馈，不新造第二套）。 */
   const COPIED_MS = 1400;
 
-  // 减少动态效果偏好：压到 1ms（近乎瞬时），且过渡仍会走完（节点照常被移除，不会卡住）。
   const reduceMotion =
     typeof window !== 'undefined' &&
     !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -54,19 +64,17 @@
   $: appVer = $appVersion ?? PLACEHOLDER;
   $: scrcpyVer = $compat?.bestFit ?? PLACEHOLDER;
 
-  // ── 复制版本号（spec「版本行的复制入口」）：复制的是该行**显示的值**，复制到的与看到的一致 ──
+  // ── 复制版本号（spec「版本行的复制入口」）──
   let copiedKey = '';
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
   let copyErr = '';
 
   async function copyVersion(key: string, text: string): Promise<void> {
-    // 未就绪（占位）时不写剪贴板、也不给成功反馈。
     if (!text || text === PLACEHOLDER) return;
     copyErr = '';
     try {
       await copyText(text);
     } catch (e) {
-      // 失败不得停在成功态：调用方据此不给成功反馈，绝不「假装已复制」。
       copiedKey = '';
       copyErr = errText(e);
       return;
@@ -79,10 +87,6 @@
     }, COPIED_MS);
   }
 
-  /**
-   * 整行是复制入口（不是行末那颗图标）：Enter / 空格与点击等价 ——
-   * 与导航入口、品牌行、顶部两个指示同一套键盘约定，不新造第二种。
-   */
   function onRowKeydown(e: KeyboardEvent, key: string, text: string): void {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -90,124 +94,445 @@
     }
   }
 
-  onDestroy(() => {
-    if (copyTimer) clearTimeout(copyTimer);
-  });
-
-  // ── 外链（spec「外链入口与打开方式」）：只传语义键，地址在后端 `links.rs`（全仓唯一来源）──
-  // 四颗入口共用这一条通道与同一处失败提示。
+  // ── 外链：只传语义键，地址在后端 `links.rs`（全仓唯一来源）──
   let linkErr = '';
 
-  async function openLink(link: 'repo' | 'changelog' | 'license' | 'website'): Promise<void> {
+  async function openLink(link: 'repo' | 'license' | 'website'): Promise<void> {
     linkErr = '';
     try {
       await openExternalLink(link);
     } catch (e) {
-      // 失败要给可见反馈，不能出现「点了没反应」。
       linkErr = errText(e);
     }
   }
 
-  // ── 关闭（spec「弹窗的关闭方式」）：✕ / Esc / 点遮罩三种；点弹窗内部不关 ──
+  // ── 视图切换 ─────────────────────────────────────────────
+  type View = 'about' | 'update';
+  type UpdateKind =
+    | 'checking'
+    | 'upToDate'
+    | 'installedNewer'
+    | 'available'
+    | 'downloading'
+    | 'ready'
+    | 'failed';
+  type FailureKind = 'check' | 'download' | 'noAsset' | 'write';
+
+  interface UpdateModel {
+    kind: UpdateKind;
+    current: string;
+    latest: string;
+    percent: number;
+    channel: string;
+    phase: 'download' | 'verify';
+    failure: FailureKind | null;
+  }
+
+  const FAILURE_COPY: Record<FailureKind, { title: string; desc: string }> = {
+    check: { title: '没能连上更新服务', desc: '请检查网络连接后再试一次。' },
+    download: {
+      title: '更新包没有下载完成',
+      desc: '已尝试直连与代理通道，请稍后重试。',
+    },
+    noAsset: {
+      title: '暂时没有可用的更新包',
+      desc: '这个版本还没有适合当前系统的安装包，请稍后再试。',
+    },
+    write: {
+      title: '当前安装位置不可写',
+      desc: '无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本。',
+    },
+  };
+
+  function initialUpdate(current: string): UpdateModel {
+    return {
+      kind: 'checking',
+      current,
+      latest: '',
+      percent: 0,
+      channel: '',
+      phase: 'download',
+      failure: null,
+    };
+  }
+
+  let view: View = 'about';
+  let update: UpdateModel = initialUpdate('');
+  let modalEl: HTMLDivElement;
+  let updateViewEl: HTMLDivElement;
+  let updateInnerEl: HTMLDivElement;
+  let disposed = false;
+  let downloading = false;
+  let checkSeq = 0;
+  let unlistenProgress: (() => void) | null = null;
+
+  $: currentLabel = update.current || appVer;
+  $: latestLabel =
+    update.kind === 'checking' ? '获取中…' : update.latest || PLACEHOLDER;
+  $: failureCopy = update.failure ? FAILURE_COPY[update.failure] : FAILURE_COPY.check;
+  $: hasActions =
+    update.kind === 'available' ||
+    update.kind === 'downloading' ||
+    update.kind === 'ready' ||
+    update.kind === 'checking' ||
+    update.kind === 'upToDate' ||
+    update.kind === 'installedNewer' ||
+    (update.kind === 'failed' && update.failure !== 'write');
+
+  /**
+   * 把弹窗高度从当前值平滑过渡到更新内容所需高度。
+   *
+   * 高度直接由 `.update-inner` 量出：不量整个面板，是因为品牌图形 / 产品名的收起过渡
+   * 还在进行中，量面板会读到中间值、把更新视图留出一截空白。
+   * 26 + 22 是弹窗上下内边距，1 + 1 是边框，14 是更新视图顶部内边距，最后 1px 防亚像素裁边。
+   */
+  async function animateModalHeight(): Promise<void> {
+    await tick();
+    if (!modalEl || !updateInnerEl) return;
+    const next = updateInnerEl.offsetHeight + 26 + 22 + 1 + 1 + 14 + 1;
+    modalEl.style.height = `${next}px`;
+  }
+
+  async function setUpdate(next: UpdateModel): Promise<void> {
+    update = next;
+    await animateModalHeight();
+  }
+
+  function errorKind(e: unknown, fallback: FailureKind): FailureKind {
+    const kind = (e as { kind?: unknown } | null)?.kind;
+    return kind === 'check' || kind === 'download' || kind === 'noAsset' || kind === 'write'
+      ? kind
+      : fallback;
+  }
+
   function close(): void {
+    // 下载中关闭即取消（与原型一致）；已校验完成的包由后端保留。
+    if (downloading) void cancelAppUpdate().catch(() => {});
     aboutOpen.set(false);
   }
 
-  /** Esc 只在本弹窗打开时生效（其它弹窗与页面输入不受影响）。 */
   function onKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape' && $aboutOpen) close();
   }
 
-  /** 品牌图形加载失败时移除自身：与 `.about-logo:not(:has(img))` 的兜底层联动，避免破图。 */
   function hideImg(e: Event): void {
     (e.target as HTMLImageElement).remove();
   }
+
+  // ── 更新流程 ─────────────────────────────────────────────
+
+  async function applyCheck(res: AppUpdateCheck): Promise<void> {
+    const kind: UpdateKind =
+      res.state === 'updateAvailable'
+        ? 'available'
+        : res.state === 'ready'
+          ? 'ready'
+          : res.state === 'installedNewer'
+            ? 'installedNewer'
+            : 'upToDate';
+    await setUpdate({
+      kind,
+      current: res.current,
+      latest: res.latest,
+      percent: 0,
+      channel: '',
+      phase: 'download',
+      failure: null,
+    });
+  }
+
+  async function runCheck(): Promise<void> {
+    const seq = ++checkSeq;
+    const current = appVer === PLACEHOLDER ? '' : appVer;
+    await setUpdate(initialUpdate(current));
+    try {
+      const res = await checkAppUpdate();
+      if (disposed || seq !== checkSeq) return;
+      await applyCheck(res);
+    } catch (e) {
+      if (disposed || seq !== checkSeq) return;
+      await setUpdate({
+        ...initialUpdate(current),
+        kind: 'failed',
+        failure: errorKind(e, 'check'),
+      });
+    }
+  }
+
+  /** 「检查更新」入口：先锁住关于视图的高度，再切视图并立即发起检查。 */
+  async function openUpdate(): Promise<void> {
+    if (modalEl) modalEl.style.height = `${modalEl.offsetHeight}px`;
+    view = 'update';
+    await animateModalHeight();
+    updateViewEl?.focus({ preventScroll: true });
+    void runCheck();
+  }
+
+  function recheck(): void {
+    void runCheck();
+  }
+
+  async function beginDownload(): Promise<void> {
+    if (downloading) return;
+    downloading = true;
+    await setUpdate({ ...update, kind: 'downloading', percent: 0, channel: '', phase: 'download' });
+    try {
+      const outcome = await startAppUpdate();
+      downloading = false;
+      if (disposed) return;
+      if (outcome.status === 'ready') {
+        await setUpdate({
+          ...update,
+          kind: 'ready',
+          latest: outcome.version || update.latest,
+          percent: 100,
+          phase: 'verify',
+        });
+      } else {
+        close();
+      }
+    } catch (e) {
+      downloading = false;
+      if (disposed) return;
+      await setUpdate({ ...update, kind: 'failed', failure: errorKind(e, 'download') });
+    }
+  }
+
+  function retry(): void {
+    if (update.failure === 'download') {
+      void beginDownload();
+    } else {
+      void runCheck();
+    }
+  }
+
+  function cancelDownload(): void {
+    void cancelAppUpdate().catch(() => {});
+    close();
+  }
+
+  async function applyUpdate(): Promise<void> {
+    try {
+      await applyAppUpdate();
+      // exe / AppImage 会在后端重启进程；deb 已交给系统安装器，界面停在可重启。
+    } catch (e) {
+      if (disposed) return;
+      await setUpdate({ ...update, kind: 'failed', failure: errorKind(e, 'write') });
+    }
+  }
+
+  // ── 生命周期 ─────────────────────────────────────────────
+
+  onMount(() => {
+    let active = true;
+    void listen<AppUpdateProgress>(EVENT_APP_UPDATE_PROGRESS, (e) => {
+      if (!active || update.kind !== 'downloading') return;
+      update = {
+        ...update,
+        percent: e.payload.percent,
+        channel: e.payload.channel,
+        phase: e.payload.phase,
+      };
+    }).then((unlisten) => {
+      if (active) unlistenProgress = unlisten;
+      else unlisten();
+    });
+    return () => {
+      active = false;
+    };
+  });
+
+  onDestroy(() => {
+    disposed = true;
+    if (copyTimer) clearTimeout(copyTimer);
+    unlistenProgress?.();
+    unlistenProgress = null;
+    if (downloading) void cancelAppUpdate().catch(() => {});
+  });
+
+  let primaryLabel = '';
+  $: primaryLabel =
+    update.kind === 'ready' ? '立即重启并更新' : update.kind === 'available' ? '立即更新' : '';
 </script>
 
 <svelte:window on:keydown={onKeydown} />
 
-<!-- 弹窗骨架：遮罩（淡入淡出）+ 面板（轻微缩放上浮）。遮罩与点遮罩关闭的那一层分成两个元素：
-     点遮罩的那层是纯装饰（role="presentation"），真正的 dialog 语义挂在面板上。 -->
 <div class="overlay about-overlay show" transition:fade={fadeParams}>
-  <!-- 点遮罩关闭：判据是「点到的就是这一层」，点弹窗内部不会走到这里 -->
   <div class="about-backdrop" role="presentation" on:click={close} />
   <div
     class="modal about-modal"
+    class:update-mode={view === 'update'}
     role="dialog"
     aria-modal="true"
-    aria-label="关于 FreeControl2"
+    aria-label={view === 'about' ? '关于 FreeControl2' : '检查更新'}
+    bind:this={modalEl}
     transition:scale={scaleParams}
   >
     <button class="about-close" aria-label="关闭" on:click={close}><X /></button>
 
-    <!-- 品牌图形与侧边栏品牌行、窗口图标同源（同一母版派生的成品位图，各按显示尺寸取用） -->
     <div class="about-logo"><img src={logoMark} alt="FreeControl2" on:error={hideImg} />F</div>
     <div class="about-name">FreeControl2</div>
 
-    <!-- 两行版本行等宽对齐；值逐字取自来源，界面不改写。
-         **整行是复制入口**（不是行末那颗图标）：行可点、可键盘聚焦，Enter / 空格与点击等价；
-         行末图标是反馈载体（成功后转 ✓、1.4 秒复原），自身不可点 —— 一行只有一个入口。 -->
-    <div class="about-ver">
+    <div class="about-views">
+      <!-- 关于视图 -->
       <div
-        class="about-ver-row"
-        role="button"
-        tabindex="0"
-        use:tip={appVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
-        aria-label={copiedKey === 'app' ? '已复制应用版本号' : '复制应用版本号'}
-        on:click={() => copyVersion('app', appVer)}
-        on:keydown={(e) => onRowKeydown(e, 'app', appVer)}
+        class="about-view"
+        class:is-hidden={view === 'update'}
+        aria-hidden={view === 'update'}
       >
-        <span class="about-ver-name">FreeControl2<span class="about-ver-tag">版本</span></span>
-        <span class="about-ver-val">{appVer}</span>
-        <span class="about-copy" class:ok={copiedKey === 'app'} aria-hidden="true">
-          {#if copiedKey === 'app'}<Check />{:else}<Copy />{/if}
-        </span>
+        <div class="about-ver">
+          <div
+            class="about-ver-row"
+            role="button"
+            tabindex="0"
+            use:tip={appVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
+            aria-label={copiedKey === 'app' ? '已复制应用版本号' : '复制应用版本号'}
+            on:click={() => copyVersion('app', appVer)}
+            on:keydown={(e) => onRowKeydown(e, 'app', appVer)}
+          >
+            <span class="about-ver-name">FreeControl2<span class="about-ver-tag">版本</span></span>
+            <span class="about-ver-val">{appVer}</span>
+            <span class="about-copy" class:ok={copiedKey === 'app'} aria-hidden="true">
+              {#if copiedKey === 'app'}<Check />{:else}<Copy />{/if}
+            </span>
+          </div>
+          <div
+            class="about-ver-row"
+            role="button"
+            tabindex="0"
+            use:tip={scrcpyVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
+            aria-label={copiedKey === 'scrcpy' ? '已复制 scrcpy 版本号' : '复制 scrcpy 版本号'}
+            on:click={() => copyVersion('scrcpy', scrcpyVer)}
+            on:keydown={(e) => onRowKeydown(e, 'scrcpy', scrcpyVer)}
+          >
+            <span class="about-ver-name">scrcpy<span class="about-ver-tag">适配版本</span></span>
+            <span class="about-ver-val">{scrcpyVer}</span>
+            <span class="about-copy" class:ok={copiedKey === 'scrcpy'} aria-hidden="true">
+              {#if copiedKey === 'scrcpy'}<Check />{:else}<Copy />{/if}
+            </span>
+          </div>
+        </div>
+
+        <div class="about-chips-title">技术栈</div>
+        <div class="chips">
+          <span class="chip"><Cpu />Rust + Tauri 2</span>
+          <span class="chip"><FileCode />Svelte + Vite + TypeScript</span>
+          <span class="chip"><Shapes />lucide 图标</span>
+        </div>
+
+        <!-- 三颗外链 + 一颗应用内动作；「更新日志」已由「检查更新」取代。 -->
+        <div class="about-links">
+          <button class="btn" on:click={() => openLink('website')}><Globe />官网</button>
+          <button class="btn" on:click={() => openLink('repo')}><Github />GitHub</button>
+          <button class="btn" on:click={openUpdate}><RefreshCw />检查更新</button>
+          <button class="btn" on:click={() => openLink('license')}><Scale />开源许可</button>
+        </div>
+        {#if linkErr}
+          <div class="hint dl-error">{linkErr}</div>
+        {/if}
+        {#if copyErr}
+          <div class="hint dl-error">复制失败：{copyErr}</div>
+        {/if}
+
+        <div class="about-foot">© 2026 pdone</div>
       </div>
+
+      <!-- 更新视图 -->
       <div
-        class="about-ver-row"
-        role="button"
-        tabindex="0"
-        use:tip={scrcpyVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
-        aria-label={copiedKey === 'scrcpy' ? '已复制 scrcpy 版本号' : '复制 scrcpy 版本号'}
-        on:click={() => copyVersion('scrcpy', scrcpyVer)}
-        on:keydown={(e) => onRowKeydown(e, 'scrcpy', scrcpyVer)}
+        class="about-view about-view-update"
+        class:is-hidden={view !== 'update'}
+        aria-hidden={view !== 'update'}
+        tabindex="-1"
+        aria-live="polite"
+        bind:this={updateViewEl}
       >
-        <span class="about-ver-name">scrcpy<span class="about-ver-tag">适配版本</span></span>
-        <span class="about-ver-val">{scrcpyVer}</span>
-        <span class="about-copy" class:ok={copiedKey === 'scrcpy'} aria-hidden="true">
-          {#if copiedKey === 'scrcpy'}<Check />{:else}<Copy />{/if}
-        </span>
+        <div class="update-inner" bind:this={updateInnerEl}>
+          <div
+            class="update-icon"
+            class:checking={update.kind === 'checking'}
+            class:ok={update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
+            class:accent={update.kind === 'available' || update.kind === 'downloading'}
+            class:warn={update.kind === 'failed'}
+            aria-hidden="true"
+          >
+            {#if update.kind === 'failed'}
+              <CircleAlert />
+            {:else if update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
+              <CircleCheck />
+            {:else if update.kind === 'checking'}
+              <RefreshCw />
+            {:else}
+              <CloudDownload />
+            {/if}
+          </div>
+
+          {#if update.kind === 'checking'}
+            <div class="update-title">正在检查更新…</div>
+            <div class="update-desc">正在连接更新服务，请稍候。</div>
+          {:else if update.kind === 'upToDate'}
+            <div class="update-title">已是最新版本</div>
+            <div class="update-desc">你正在使用最新版本 {update.current}。</div>
+          {:else if update.kind === 'installedNewer'}
+            <div class="update-title">当前版本已高于线上版本</div>
+            <div class="update-desc">你正在使用 {update.current}，线上最新为 {update.latest}。</div>
+          {:else if update.kind === 'available'}
+            <div class="update-title">发现新版本 {update.latest}</div>
+            <div class="update-desc">下载完成后重启应用即可生效。</div>
+          {:else if update.kind === 'downloading'}
+            <div class="update-title">正在下载新版本 {update.latest}</div>
+            <div class="update-desc">下载完成后会自动校验文件完整性。</div>
+          {:else if update.kind === 'ready'}
+            <div class="update-title">更新已下载</div>
+            <div class="update-desc">重启应用后即可使用新版本。</div>
+          {:else}
+            <div class="update-title">{failureCopy.title}</div>
+            <div class="update-desc">{failureCopy.desc}</div>
+          {/if}
+
+          <div class="update-versions" class:is-invisible={update.kind === 'failed'}>
+            <div class="update-ver"><span>当前版本</span><b>{currentLabel}</b></div>
+            <div class="update-ver"><span>最新版本</span><b>{latestLabel}</b></div>
+          </div>
+
+          {#if update.kind === 'downloading'}
+            <div class="update-progress">
+              <div class="update-progress-head">
+                <span>{update.phase === 'verify' ? '正在校验文件…' : '正在下载新版本…'}</span>
+                <span>{update.phase === 'verify' ? 100 : update.percent}%</span>
+              </div>
+              <div class="update-progress-track">
+                <div
+                  class="update-progress-bar"
+                  style:width={`${update.phase === 'verify' ? 100 : update.percent}%`}
+                />
+              </div>
+              <div class="update-channel">下载通道：{update.channel || '正在连接…'}</div>
+            </div>
+          {/if}
+
+          {#if hasActions}
+            <div class="update-actions">
+              {#if update.kind === 'available' || update.kind === 'ready'}
+                <button class="btn primary" on:click={update.kind === 'available' ? beginDownload : applyUpdate}>
+                  {#if update.kind === 'ready'}<RotateCw />{:else}<CloudDownload />{/if}{primaryLabel}
+                </button>
+              {:else if update.kind === 'downloading'}
+                <button class="btn" on:click={cancelDownload}>取消下载</button>
+              {:else if update.kind === 'checking'}
+                <button class="btn" disabled><RefreshCw />重新检查</button>
+              {:else if update.kind === 'upToDate' || update.kind === 'installedNewer'}
+                <button class="btn" on:click={recheck}><RefreshCw />重新检查</button>
+              {:else if update.kind === 'failed'}
+                <button class="btn" on:click={retry}><RefreshCw />重试</button>
+              {/if}
+            </div>
+          {/if}
+
+          {#if update.kind === 'ready' && $deviceCounts.connected > 0}
+            <div class="update-hint">重启会断开 {$deviceCounts.connected} 台正在投屏的设备。</div>
+          {/if}
+        </div>
       </div>
     </div>
-
-    
-
-    <div class="about-chips-title">技术栈</div>
-    <div class="chips">
-      <span class="chip"><Cpu />Rust + Tauri 2</span>
-      <span class="chip"><FileCode />Svelte + Vite + TypeScript</span>
-      <span class="chip"><Shapes />lucide 图标</span>
-    </div>
-
-    <!-- 四颗外链入口（spec「外链入口与打开方式」）：地址是后端的事实，前端只给语义键。
-        落位由两列栅格按 DOM 顺序自动排 —— 第一行「官网」/ GitHub，第二行「更新日志」/「开源许可」
-         （「官网」居首位、占第一行左格）。
-        「支持」已撤除，地址表与语义键类型里都不再有它。 -->
-    <div class="about-links">
-      <button class="btn" on:click={() => openLink('website')}><Globe />官网</button>
-      <button class="btn" on:click={() => openLink('repo')}><Github />GitHub</button>
-      <button class="btn" on:click={() => openLink('changelog')}><FileText />更新日志</button>
-      <button class="btn" on:click={() => openLink('license')}><Scale />开源许可</button>
-    </div>
-    <!-- 失败原因直接取自后端/剪贴板实现，它们已经是可读的一句话，不再套一层前缀 -->
-    {#if linkErr}
-      <div class="hint dl-error">{linkErr}</div>
-    {/if}
-    {#if copyErr}
-      <div class="hint dl-error">复制失败：{copyErr}</div>
-    {/if}
-
-    <!-- 页脚只有这一行版权（spec「页脚版权」）：属这个弹窗自身，MUST NOT 成为全局页脚。 -->
-    <div class="about-foot">© 2026 pdone</div>
   </div>
 </div>

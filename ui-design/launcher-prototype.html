@@ -535,7 +535,9 @@
      520px 与产品侧 `.modal` 的默认宽度同值，产品侧因此不必写宽度。
      写成两个类（.modal.about-modal）是为了压过既有的 .modal —— 那条规则在样式表后段，
      若只写单类 .about-modal，会由「谁在后面」定胜负，改一处顺序就失效。 */
-  .modal.about-modal { position: relative; width: min(520px, calc(100vw - 48px)); padding: 26px 22px 22px; text-align: center; }
+  .modal.about-modal { position: relative; width: min(520px, calc(100vw - 48px)); height: 555px; padding: 26px 22px 22px; text-align: center; display: flex; flex-direction: column; transition: width .18s ease, height .18s ease; }
+  /* 检查更新视图不再与关于同尺寸：宽度取内容所需宽度，高度由脚本按当前状态内容量出；两者都平滑过渡。 */
+  .about-modal.update-mode { width: min(424px, calc(100vw - 48px)); }
   /* 弹出与关闭动画：遮罩淡入淡出 + 面板轻微缩放上浮。关闭走 .closing（脚本加上），
      动画播完由 animationend 收掉 .show —— 顺序是「先播动画再消失」，不是瞬隐。
      时长与曲线只写在这里；减少动态效果偏好下压到 0.01ms（仍会触发 animationend，逻辑不必分叉）。 */
@@ -560,12 +562,16 @@
      （与其它四个弹窗同理），取不到该变量 —— `calc(var(--logo) * 1.6)` 会整条声明失效，
      实测表现是 logo 被拉成整个弹窗宽（384×21）。圆角与兜底层照品牌行那一套写法
      （img 本身不设圆角：圆角是品牌资产的一部分）。 */
-  .about-logo { position: relative; width: 72px; height: 72px; margin: 4px auto 14px; border-radius: 24%; display: grid; place-items: center; }
+  .about-logo { position: relative; width: 72px; height: 72px; margin: 4px auto 14px; border-radius: 24%; display: grid; place-items: center; overflow: hidden; transition: height .18s ease, margin .18s ease, opacity .14s ease; }
+  /* 检查更新视图不展示产品 logo：壳里的图形平滑收起，名称与内容随之过渡，不瞬跳。 */
+  .about-modal.update-mode .about-logo { height: 0; margin-top: 0; margin-bottom: 0; opacity: 0; pointer-events: none; }
   .about-logo:not(:has(img)) { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: var(--accent-ink); font-weight: 700; font-size: 32px; }
   .about-logo:has(img) { color: transparent; }
   .about-logo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   /* 产品名 */
-  .about-name { font-size: 22px; font-weight: 700; letter-spacing: .3px; margin-bottom: 16px; }
+  .about-name { font-size: 22px; font-weight: 700; letter-spacing: .3px; margin-bottom: 16px; max-height: 48px; overflow: hidden; transition: max-height .18s ease, margin .18s ease, opacity .14s ease; }
+  /* 更新视图不展示产品名（与 logo 一起收起）。 */
+  .about-modal.update-mode .about-name { max-height: 0; margin-bottom: 0; opacity: 0; pointer-events: none; }
   /* 版本行：左侧「名称 + 版本」标签，值右对齐加粗，行末一颗图标作**反馈载体**
      （整行才是复制入口 —— 点整行任意位置都能复制，见下一条的光标与悬停） */
   .about-ver { width: 100%; display: flex; flex-direction: column; gap: 10px; }
@@ -594,11 +600,54 @@
      图标加 flex: none 免得被压扁。 */
   .about-modal .chip { display: inline-flex; align-items: center; gap: 7px; background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
   .about-modal .chip svg { flex: none; width: 15px; height: 15px; stroke: currentColor; }
-  /* 外链栅格：两列四颗 —— 第一行「官网」/ GitHub，第二行「更新日志」/「开源许可」（「官网」居首位、占第一行左格） */
+  /* 入口栅格：两列四颗 —— 第一行「官网」/ GitHub，第二行「检查更新」/「开源许可」（「官网」居首位、占第一行左格） */
   .about-links { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .about-links .btn { justify-content: center; padding: 12px 14px; }
   /* 页脚：居中一行版权；属这个弹窗自身，不是全局页脚 */
   .about-foot { margin-top: 18px; text-align: center; font-size: 12px; color: var(--text-faint); }
+
+  /* ---------- 更新视图：与关于同壳、同尺寸 ----------
+     两个视图叠在同一个栅格里：面板高度由较高的关于视图决定，更新视图在剩余空间里垂直居中；
+     切换只动透明度与 6px 位移，面板不重挂、高度不跳。壳（品牌图形 / 名称 / 关闭键）在栅格外，
+     因而不随视图切换重绘。 */
+  .about-views { position: relative; flex: 1; display: grid; width: 100%; overflow: hidden; }
+  .about-view { grid-area: 1 / 1; width: 100%; transition: opacity .18s ease, transform .18s ease; }
+  /* 隐藏视图必须脱离栅格流：否则它仍按自身内容撑高行，短状态的内容会被挤到裁切区外。 */
+  .about-view.is-hidden { position: absolute; inset: 0; opacity: 0; visibility: hidden; transform: translateY(6px); pointer-events: none; transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s; }
+  .about-view:focus { outline: none; }
+  /* 顶部对齐：状态切换时图标 / 标题 / 说明始终停在原位，不随内容多少上下漂移。 */
+  .about-view-update { height: 100%; display: flex; align-items: flex-start; justify-content: center; padding-top: 14px; }
+  .update-inner { width: 100%; max-width: 380px; text-align: center; }
+  .update-icon { width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 16px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-hover); }
+  .update-icon svg { width: 28px; height: 28px; stroke: currentColor; }
+  .update-icon.accent { background: var(--accent-soft); color: var(--accent-hover); }
+  .update-icon.ok { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+  .update-icon.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+  .update-icon.checking svg { animation: update-spin 1.1s linear infinite; }
+  @keyframes update-spin { to { transform: rotate(360deg); } }
+  .update-title { font-size: 18px; font-weight: 700; margin-bottom: 7px; }
+  .update-desc { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
+  .update-versions { display: flex; gap: 10px; margin-top: 16px; }
+  .update-ver { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-faint); }
+  .update-ver b { color: var(--text); font-size: 13.5px; font-weight: 600; }
+  .update-progress { margin-top: 16px; }
+  .update-progress-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; }
+  .update-progress-track { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+  .update-progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--accent); transition: width .12s linear; }
+  .update-channel { margin-top: 7px; text-align: left; font-size: 11.5px; color: var(--text-faint); }
+  .update-actions { display: flex; justify-content: center; gap: 10px; margin-top: 18px; }
+  .update-actions .btn { min-width: 128px; justify-content: center; }
+  .update-hint { margin-top: 10px; font-size: 12px; color: var(--warn); }
+  /* 版本行始终占位：非适用状态只隐藏内容，避免上方标题与说明跳动。 */
+  .update-versions.hidden { display: flex; visibility: hidden; }
+  /* 进度块不预留：下载时出现并撑高弹窗，结束后随内容收回；其余块直接隐藏。 */
+  .update-progress.hidden, .update-actions.hidden, .update-hint.hidden { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .about-view, .about-view.is-hidden { transition-duration: .01ms; transition-delay: 0s; }
+    .about-modal, .about-logo, .about-name { transition-duration: .01ms; }
+    .update-icon.checking svg { animation: none; }
+    .update-progress-bar { transition-duration: .01ms; }
+  }
 
   /* Launch bar */
   .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: rgba(11,13,17,.88); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
@@ -1108,13 +1157,16 @@
      技术栈药丸（一行排开）→ 外链按钮栅格 → 居中页脚。
      弹出与关闭有过渡动画（`.about-overlay` 上的 keyframes，关闭先加 `.closing` 再由 animationend 收掉）。
      两处刻意不照抄参考图（已记账在 design D9/D10）：药丸只用主色派生色（项目硬约束：不得引入品牌色）、
-     版本值不加 v 前缀（与「运行环境」页同口径）。外链四颗，与参考图的四颗一一对应。 -->
+     版本值不加 v 前缀（与「运行环境」页同口径）。入口四颗：三颗外链 + 一颗检查更新。 -->
 <div class="overlay about-overlay" id="aboutModal">
   <div class="modal about-modal">
     <button class="about-close" id="aboutClose" aria-label="关闭"><i data-lucide="x"></i></button>
     <!-- 品牌图形复用品牌行那一份（JS 里取同一个 src，不复制 base64），与窗口图标同源 -->
     <div class="about-logo"><img alt="FreeControl2" id="aboutLogo" onerror="this.remove()" />F</div>
     <div class="about-name">FreeControl2</div>
+    <!-- 两个视图叠在同一栅格里：壳（品牌图形 / 名称 / 关闭键）不参与切换，下面是关于内容 -->
+    <div class="about-views">
+      <div class="about-view" id="aboutViewAbout">
     <div class="about-ver">
       <!-- 整行是复制入口（**不是**行末那颗图标）：行可点、可键盘聚焦，Enter / 空格与点击等价；
            行末图标降为反馈载体（成功后转勾、1.4s 复原），自身不再可点 —— 一行只有一个入口。 -->
@@ -1135,16 +1187,44 @@
       <span class="chip"><i data-lucide="file-code"></i>Svelte + Vite + TypeScript</span>
       <span class="chip"><i data-lucide="shapes"></i>lucide 图标</span>
     </div>
-    <!-- 四颗按钮的形态与落位即本弹窗要交付的呈现（第一行「官网」/ GitHub、第二行「更新日志」/「开源许可」，官网居首位）；
-         地址是后端的事实（见 design D6），原型不复刻一份，故这里不接点击行为
-         （弹窗内只有版本行的复制键接了行为）。 -->
+    <!-- 四颗入口的形态与落位即本弹窗要交付的呈现（第一行「官网」/ GitHub、第二行「检查更新」/「开源许可」，官网居首位）；
+         三颗外链的地址是后端的事实（见 design D6），原型不复刻一份，故不接点击行为；
+         「检查更新」切换到这个弹窗内的更新视图，与版本行的复制键是原型里仅有的两处行为。 -->
     <div class="about-links">
       <button class="btn"><i data-lucide="globe"></i>官网</button>
       <button class="btn"><i data-lucide="github"></i>GitHub</button>
-      <button class="btn"><i data-lucide="file-text"></i>更新日志</button>
+      <button class="btn" id="aboutCheckUpdate"><i data-lucide="refresh-cw"></i>检查更新</button>
       <button class="btn"><i data-lucide="scale"></i>开源许可</button>
     </div>
     <div class="about-foot">© 2026 pdone</div>
+      </div>
+
+      <!-- 更新视图：与关于同壳同尺寸；所有状态都由脚本切换（原型不发起真实网络请求）。
+           六种主状态由 #update=checking|latest|available|downloading|failed|ready 强制，
+           另有 downloadfailed / noasset / writefail 三个失败细分便于逐条验收。 -->
+      <div class="about-view about-view-update is-hidden" id="aboutViewUpdate" tabindex="-1" aria-hidden="true" aria-live="polite">
+        <div class="update-inner">
+          <div class="update-icon checking" id="updateIcon" aria-hidden="true"><i data-lucide="refresh-cw"></i></div>
+          <div class="update-title" id="updateTitle">正在检查更新…</div>
+          <div class="update-desc" id="updateDesc">正在连接更新服务，请稍候。</div>
+          <div class="update-versions hidden" id="updateVersions">
+            <div class="update-ver"><span>当前版本</span><b id="updateCurrent">—</b></div>
+            <div class="update-ver"><span>最新版本</span><b id="updateLatest">—</b></div>
+          </div>
+          <div class="update-progress hidden" id="updateProgress">
+            <div class="update-progress-head"><span id="updateProgressText">正在下载新版本…</span><span id="updateProgressPct">0%</span></div>
+            <div class="update-progress-track"><div class="update-progress-bar" id="updateProgressBar"></div></div>
+            <div class="update-channel" id="updateChannel">下载通道：GitHub 直连</div>
+          </div>
+          <div class="update-actions hidden" id="updateActions">
+            <button class="btn primary hidden" id="updatePrimary"><i data-lucide="cloud-download"></i><span>立即更新</span></button>
+            <button class="btn hidden" id="updateRetry"><i data-lucide="refresh-cw"></i>重试</button>
+            <button class="btn hidden" id="updateCancel">取消下载</button>
+          </div>
+          <div class="update-hint hidden" id="updateHint"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1193,7 +1273,9 @@
      正式实现中：该值由 Tauri 的 getVersion()（取 tauri.conf.json 的构建期版本）下发，
      前端一律通过该 API 读取，页面里不得写版本字面量（见 about-page design D5）。
      ============================================================ */
-  const APP_VERSION = '0.1.0';
+  const APP_VERSION = '1.0.1';
+  // 原型演示用的模拟最新版；产品侧由 GitHub 最新正式发行下发，不写死在界面里。
+  const UPDATE_LATEST_VERSION = '1.0.2';
 
   // 每台设备的参数覆盖（仅覆盖的字段）
   const overrides = {};
@@ -1664,20 +1746,217 @@
     const dstImg=document.getElementById('aboutLogo');
     if (srcImg && srcImg.src && dstImg) dstImg.src=srcImg.src;
   })();
-  // 开：清掉可能残留的关闭态（关闭动画播到一半又点开时不至于卡住），再加 .show 触发入场动画
+
+  /* ---------- 更新视图：原型状态模拟 ----------
+     产品侧由 Tauri 命令检查、下载与替换；原型不联网、不写文件，只演示状态与切换。
+     六种主状态可用 #update=checking|latest|available|downloading|failed|ready 强制。 */
+  let updateTimers = [];
+  let updateProgressTimer = null;
+  let updateState = 'checking';
+
+  function clearUpdateTimers(){
+    updateTimers.forEach(t => clearTimeout(t));
+    updateTimers = [];
+    if (updateProgressTimer) { clearInterval(updateProgressTimer); updateProgressTimer = null; }
+  }
+
+  const UPDATE_STATES = {
+    checking: {
+      icon:'refresh-cw', tone:'checking',
+      title:'正在检查更新…', desc:'正在连接更新服务，请稍候。',
+      versions:true, latestLoading:true,
+      retry:true, retryLabel:'重新检查', retryDisabled:true
+    },
+    latest: {
+      icon:'circle-check', tone:'ok',
+      title:'已是最新版本', desc:`你正在使用最新版本 ${APP_VERSION}。`,
+      versions:true, latestCurrent:true,
+      retry:true, retryLabel:'重新检查'
+    },
+    available: {
+      icon:'cloud-download', tone:'accent',
+      title:`发现新版本 ${UPDATE_LATEST_VERSION}`,
+      desc:'下载完成后重启应用即可生效。',
+      versions:true, primary:'立即更新', primaryIcon:'cloud-download'
+    },
+    downloading: {
+      icon:'cloud-download', tone:'accent',
+      title:`正在下载新版本 ${UPDATE_LATEST_VERSION}`,
+      desc:'下载完成后会自动校验文件完整性。',
+      versions:true, progress:true, cancel:true
+    },
+    ready: {
+      icon:'circle-check', tone:'ok',
+      title:'更新已下载', desc:'重启应用后即可使用新版本。',
+      versions:true, primary:'立即重启并更新', primaryIcon:'rotate-cw',
+      hint:'重启会断开 2 台正在投屏的设备。'
+    },
+    failed: { icon:'circle-alert', tone:'warn', title:'没能连上更新服务', desc:'请检查网络连接后再试一次。', retry:true },
+    downloadfailed: { icon:'circle-alert', tone:'warn', title:'更新包没有下载完成', desc:'已尝试直连与代理通道，请稍后重试。', retry:true },
+    noasset: { icon:'circle-alert', tone:'warn', title:'暂时没有可用的更新包', desc:'这个版本还没有适合当前系统的安装包，请稍后再试。', retry:true },
+    writefail: { icon:'circle-alert', tone:'warn', title:'当前安装位置不可写', desc:'无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本。' }
+  };
+
+  /* 按当前状态内容定高：上下内边距 26 + 22、弹窗上下边框 1 + 1、更新视图顶部内边距 14，再留 1px 余量防亚像素裁边。 */
+  function updateHeightForCurrentState(){
+    const inner = document.querySelector('.update-inner');
+    /* offsetHeight 取布局高度：按 hash 首次打开时入场缩放动画还没有结束，rect 会量到缩放后的值。 */
+    return Math.max(220, Math.ceil(inner.offsetHeight + 26 + 22 + 1 + 1 + 14 + 1));
+  }
+
+  // 关于视图的内容高度是固定的，量一次后缓存，避免底部留白。
+  let aboutHeight = 0;
+  function computeAboutHeight(){
+    const modal = document.querySelector('.about-modal');
+    const logo = document.querySelector('.about-logo');
+    const name = document.querySelector('.about-name');
+    const saved = { h: modal.style.height, m: modal.style.transition, l: logo.style.transition, n: name.style.transition };
+    modal.style.transition = logo.style.transition = name.style.transition = 'none';
+    modal.style.height = 'auto';
+    /* offsetHeight 只取布局高度，不受入场动画缩放 transform 影响。 */
+    const h = modal.offsetHeight;
+    modal.style.height = saved.h;
+    modal.style.transition = saved.m;
+    logo.style.transition = saved.l;
+    name.style.transition = saved.n;
+    return h;
+  }
+
+  function setAboutView(name, height){
+    const showUpdate = name === 'update';
+    const modal = document.querySelector('.about-modal');
+    const aboutView = document.getElementById('aboutViewAbout');
+    const updateView = document.getElementById('aboutViewUpdate');
+    modal.classList.toggle('update-mode', showUpdate);
+    aboutView.classList.toggle('is-hidden', showUpdate);
+    aboutView.setAttribute('aria-hidden', String(showUpdate));
+    updateView.classList.toggle('is-hidden', !showUpdate);
+    updateView.setAttribute('aria-hidden', String(!showUpdate));
+    if (showUpdate) {
+      updateView.focus({ preventScroll: true });
+      if (height) modal.style.height = height + 'px';
+    } else {
+      modal.style.height = (aboutHeight || 555) + 'px';
+    }
+  }
+
+  function setUpdateProgress(pct){
+    const value = Math.max(0, Math.min(100, Math.round(pct)));
+    document.getElementById('updateProgressPct').textContent = value + '%';
+    document.getElementById('updateProgressBar').style.width = value + '%';
+    document.getElementById('updateProgressText').textContent = value >= 100 ? '正在校验文件…' : '正在下载新版本…';
+    document.getElementById('updateChannel').textContent = value >= 100 ? '校验通过后即可重启更新' : '下载通道：GitHub 直连';
+  }
+
+  function setUpdateState(state){
+    updateState = UPDATE_STATES[state] ? state : 'failed';
+    const cfg = UPDATE_STATES[updateState];
+    const iconBox = document.getElementById('updateIcon');
+    iconBox.className = 'update-icon ' + cfg.tone;
+    iconBox.innerHTML = '<i data-lucide="' + cfg.icon + '"></i>';
+    document.getElementById('updateTitle').textContent = cfg.title;
+    document.getElementById('updateDesc').textContent = cfg.desc;
+    document.getElementById('updateCurrent').textContent = APP_VERSION;
+    document.getElementById('updateLatest').textContent = cfg.latestLoading ? '获取中…' : cfg.latestCurrent ? APP_VERSION : UPDATE_LATEST_VERSION;
+    const versions = document.getElementById('updateVersions');
+    versions.classList.toggle('hidden', !cfg.versions);
+    versions.setAttribute('aria-hidden', String(!cfg.versions));
+    const progress = document.getElementById('updateProgress');
+    progress.classList.toggle('hidden', !cfg.progress);
+    progress.setAttribute('aria-hidden', String(!cfg.progress));
+    document.getElementById('updateHint').classList.toggle('hidden', !cfg.hint);
+    if (cfg.hint) document.getElementById('updateHint').textContent = cfg.hint;
+
+    const primary = document.getElementById('updatePrimary');
+    const retry = document.getElementById('updateRetry');
+    const cancel = document.getElementById('updateCancel');
+    primary.classList.toggle('hidden', !cfg.primary);
+    retry.classList.toggle('hidden', !cfg.retry);
+    cancel.classList.toggle('hidden', !cfg.cancel);
+    if (cfg.primary) {
+      primary.innerHTML = '<i data-lucide="' + cfg.primaryIcon + '"></i><span>' + cfg.primary + '</span>';
+    }
+    if (cfg.retry) {
+      retry.innerHTML = '<i data-lucide="refresh-cw"></i><span>' + (cfg.retryLabel || '重试') + '</span>';
+      retry.disabled = !!cfg.retryDisabled;
+    } else {
+      retry.disabled = false;
+    }
+    document.getElementById('updateActions').classList.toggle('hidden', !cfg.primary && !cfg.retry && !cfg.cancel);
+    if (cfg.progress) setUpdateProgress(0);
+    lucide.createIcons();
+    const modal = document.querySelector('.about-modal');
+    if (modal.classList.contains('update-mode')) modal.style.height = updateHeightForCurrentState() + 'px';
+  }
+
+  function resetUpdateView(){
+    clearUpdateTimers();
+    setUpdateState('checking');
+  }
+
+  function startCheckSimulation(result = 'available'){
+    clearUpdateTimers();
+    setUpdateState('checking');
+    updateTimers.push(setTimeout(() => setUpdateState(result), 700));
+  }
+
+  function startDownloadSimulation(){
+    clearUpdateTimers();
+    setUpdateState('downloading');
+    let pct = 0;
+    setUpdateProgress(pct);
+    updateProgressTimer = setInterval(() => {
+      pct = Math.min(100, pct + 4 + Math.random() * 5);
+      setUpdateProgress(pct);
+      if (pct >= 100) {
+        clearInterval(updateProgressTimer);
+        updateProgressTimer = null;
+        updateTimers.push(setTimeout(() => setUpdateState('ready'), 420));
+      }
+    }, 90);
+  }
+
+  function applyUpdatePreset(mode){
+    clearUpdateTimers();
+    if (mode === 'downloading') {
+      setUpdateState('downloading');
+      setUpdateProgress(42);
+      return;
+    }
+    setUpdateState(mode);
+  }
+
+  function openUpdateView(mode){
+    const isDefault = !mode || mode === 'default';
+    applyUpdatePreset(isDefault ? 'checking' : (UPDATE_STATES[mode] ? mode : 'failed'));
+    const height = updateHeightForCurrentState();
+    if (isDefault) updateTimers.push(setTimeout(() => setUpdateState('available'), 700));
+    setAboutView('update', height);
+  }
+
+  // 开：清掉关闭态与上次更新状态，回到关于视图，再加 .show 触发入场动画
   function openAbout(){
+    clearUpdateTimers();
+    setAboutView('about');
+    resetUpdateView();
     aboutModal.classList.remove('closing');
     aboutModal.classList.add('show');
+    aboutHeight = computeAboutHeight();
+    document.querySelector('.about-modal').style.height = aboutHeight + 'px';
     lucide.createIcons();
   }
   // 关：先加 .closing 播关闭动画，**动画播完**再由 animationend 收掉 .show —— 不是瞬隐。
-  // 用动画结束事件而不是写死的定时器，免得时长改了这里忘改（时长只写在 CSS 里）。
+  // 下载中关闭即取消：清掉模拟定时器；产品侧由更新视图卸载时调用取消命令。
   function closeAbout(){
     if (!aboutModal.classList.contains('show')) return;
+    clearUpdateTimers();
     aboutModal.classList.add('closing');
   }
   aboutModal.querySelector('.modal').addEventListener('animationend', e=>{
-    if (e.animationName==='about-panel-out') aboutModal.classList.remove('show','closing');
+    if (e.animationName==='about-panel-out') {
+      aboutModal.classList.remove('show','closing');
+      setAboutView('about');
+    }
   });
   document.getElementById('aboutClose').addEventListener('click', closeAbout);
   // 点遮罩关闭：判据是「点到的就是遮罩本身」——点弹窗内部（含内容与按钮）不关
@@ -1692,6 +1971,31 @@
   brandRow.addEventListener('keydown', e=>{
     if (e.key==='Enter' || e.key===' '){ e.preventDefault(); openAbout(); }
   });
+
+  // 「检查更新」：关于内容退场、同一弹窗切到更新视图；打开即模拟一次检查
+  document.getElementById('aboutCheckUpdate').addEventListener('click', ()=>openUpdateView('default'));
+  document.getElementById('updatePrimary').addEventListener('click', ()=>{
+    if (updateState === 'available') startDownloadSimulation();
+    else if (updateState === 'ready') closeAbout();
+  });
+  document.getElementById('updateRetry').addEventListener('click', ()=>{
+    if (updateState === 'downloadfailed') startDownloadSimulation();
+    else if (updateState === 'latest') startCheckSimulation('latest');
+    else startCheckSimulation();
+  });
+  document.getElementById('updateCancel').addEventListener('click', closeAbout);
+
+  // 验收用：URL hash 直接打开某个状态（原型预览不需要先手点一遍）
+  function applyUpdateHash(){
+    const m = location.hash.match(/^#update=([a-z]+)$/);
+    if (!m) return;
+    openAbout();
+    openUpdateView(UPDATE_STATES[m[1]] ? m[1] : 'failed');
+  }
+  window.addEventListener('hashchange', applyUpdateHash);
+  // 等页面加载完成再按 hash 打开：首帧前量高度会拿到未稳定的行高，弹窗会偏矮。
+  if (document.readyState === 'complete') applyUpdateHash();
+  else window.addEventListener('load', applyUpdateHash);
 
   /* ===================== 添加设备 Modal ===================== */
   const addModal=document.getElementById('addModal');

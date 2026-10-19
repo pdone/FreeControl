@@ -468,7 +468,7 @@ const CHANNEL_TOTAL_TIMEOUT: Duration = Duration::from_secs(900);
 /// 为什么必须是 async 客户端：blocking `ClientBuilder` 在 reqwest 0.12 里**没有**
 /// `read_timeout`，而且阻塞读无法从外部打断 —— 停滞降级与「点击即取消」两个诉求
 /// 都只在 async 侧存在（design D1）。
-fn http_client() -> Result<reqwest::Client, String> {
+pub(crate) fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .connect_timeout(CHANNEL_CONNECT_TIMEOUT)
         .read_timeout(CHANNEL_IDLE_TIMEOUT)
@@ -575,7 +575,10 @@ fn body_failure(err: &reqwest::Error) -> AttemptFailure {
 }
 
 /// 拉取文本内容（校验值汇总文件与 Releases API 共用）。
-async fn fetch_text(client: &reqwest::Client, url: &str) -> Result<String, AttemptFailure> {
+pub(crate) async fn fetch_text(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<String, AttemptFailure> {
     let resp = client.get(url).send().await.map_err(|e| send_failure(&e))?;
     if !resp.status().is_success() {
         // 限流是瞬时的，官方 403 也不代表链路不通 ⇒ 不记入记忆。
@@ -669,7 +672,7 @@ where
 /// 用户点「切换通道」或「取消」时立刻返回，不等本次读超时。
 /// 循环每轮**先取一次命令字**：`Notify::notify_waiters` 不存 permit，点击可能落在
 /// 「当前没有等待者」的窗口里（如上一块数据刚处理完的间隙）。
-async fn download_to_file(
+pub(crate) async fn download_to_file(
     client: &reqwest::Client,
     url: &str,
     dest: &Path,

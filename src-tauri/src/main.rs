@@ -7,6 +7,7 @@ mod scrcpy;
 mod config;
 mod device;
 mod assets;
+mod app_update;
 mod download;
 mod session;
 mod links;
@@ -55,6 +56,14 @@ pub struct AppState {
     /// 纯内存态、**不写入配置文件**：位置本身就保证每次启动仍以官方通道为第一个尝试对象。
     /// 一次下载成功完成后清空（`download::finish_install`）。
     pub channel_memory: Mutex<download::ChannelMemory>,
+    /// 上次检查确定的应用更新下载计划（版本 / 资产 / 地址 / 校验值）。
+    ///
+    /// 与运行环境的 `install` 完全分开：两者可以各自独立进行，互不覆盖状态。
+    pub app_update_plan: Mutex<Option<app_update::AppUpdatePlan>>,
+    /// 已下载并校验通过、等待「立即重启并更新」的包。
+    pub app_update_pending: Mutex<Option<app_update::PendingAppUpdate>>,
+    /// 在途应用更新下载的控制入口；`None` 表示当前没有下载。
+    pub app_update_ctl: Mutex<Option<Arc<download::InstallCtl>>>,
 }
 
 /// 兜底显示主窗口的两条期限（取值理由见 `spawn_reveal_fallback`）。
@@ -215,6 +224,8 @@ fn main() {
                 // 清理上次运行可能残留的临时文件：下载临时目录（tasks 4.3）与写配置的临时文件（tasks 5.2）。
                 download::cleanup_stale_staging(&root);
                 config::cleanup_stale_tmp(&root);
+                // 应用更新：未应用的待更新包与替换时的旧版本备份只在本次运行内有效。
+                app_update::cleanup_stale(&handle);
             }
             // 窗口图标按显示器 DPI 供给原生层（design D1）。放在这里的前提是 config 声明的窗口
             // 已先于本钩子创建（见 tauri 的 `app::setup`），此时窗口句柄才有效。
@@ -231,6 +242,9 @@ fn main() {
                 adb_probe: Mutex::new(device::AdbProbe::default()),
                 device_status: Mutex::new(None),
                 channel_memory: Mutex::new(download::ChannelMemory::default()),
+                app_update_plan: Mutex::new(None),
+                app_update_pending: Mutex::new(None),
+                app_update_ctl: Mutex::new(None),
             });
             // 兜底之二：自进程启动起算的绝对上限（见 `spawn_reveal_fallback`）。
             spawn_reveal_fallback(
@@ -269,6 +283,10 @@ fn main() {
             download::confirm_scrcpy_install,
             download::cancel_scrcpy_install,
             download::switch_scrcpy_channel,
+            app_update::check_app_update,
+            app_update::start_app_update,
+            app_update::cancel_app_update,
+            app_update::apply_app_update,
             links::open_external_link,
             logger::open_log_dir,
             bring_main_window_to_front,

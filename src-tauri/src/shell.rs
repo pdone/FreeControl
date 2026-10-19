@@ -33,6 +33,18 @@ pub fn open_url(url: &str) -> Result<(), String> {
     open::that(url).map_err(|e| format!("系统未能交给默认处理器（{e}）"))
 }
 
+/// 交给系统默认处理器打开一个文件（deb 更新包）。
+#[cfg(windows)]
+pub fn open_file(path: &Path) -> Result<(), String> {
+    execute("open", &path.to_string_lossy())
+}
+
+/// 非 Windows：交给 `open` crate。
+#[cfg(not(windows))]
+pub fn open_file(path: &Path) -> Result<(), String> {
+    open::that(path).map_err(|e| format!("系统未能交给默认处理器（{e}）"))
+}
+
 /// 在系统文件管理器中打开一个目录（目录本身，不是「在父目录里选中它」）。
 #[cfg(windows)]
 pub fn open_dir(dir: &Path) -> Result<(), String> {
