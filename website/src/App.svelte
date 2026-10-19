@@ -3,6 +3,7 @@
   import { t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
   import { BUILT_WITH, GITHUB_MARK, OS_MARKS } from './lib/brand-marks';
+  import { detectPlatform } from './lib/platform';
   // 构建期由 scripts/fetch-release.mjs 解析最新发行生成（.gitignore 排除）。站点源码里没有版本字面量：
   // 具体产物的直链只存在于这里带进来的取值中，取不到时一律回退到发行页。
   import release from './lib/release.json';
@@ -26,23 +27,41 @@
     return () => mql.removeEventListener('change', onChange);
   });
 
-  const rel = release as { ok: boolean; tag: string | null; windows: string | null; appimage: string | null; deb: string | null };
-  const ASSETS: Record<string, string | null> = { windows: rel.windows, appimage: rel.appimage, deb: rel.deb };
+  const rel = release as {
+    ok: boolean;
+    tag: string | null;
+    windows: string | null;
+    windowsArm64: string | null;
+    appimage: string | null;
+    deb: string | null;
+  };
+  const ASSETS: Record<string, string | null> = {
+    windows: rel.windows,
+    windowsArm64: rel.windowsArm64,
+    appimage: rel.appimage,
+    deb: rel.deb,
+  };
   const asset = (key: string): string => ASSETS[key] ?? RELEASES;
 
-  // 访客系统的判定：下载一节主按钮取哪一档产物、平台卡标不标「你的系统」，都读这一处结果。
+  // 访客平台判定（系统 + 架构）：主按钮取哪一档产物、平台卡标不标「你的系统」，都读这一处结果。
   // 客户端渲染、无 SSR，模块初始化时 window 已可用 —— 同步求值使首帧即落在正确档位（与 isWide 同法），
-  // 不出现先渲 Windows 档再切到 Linux 的翻转。判不出（其它系统 / 未知 UA）落 'other'，一律沿用 Windows 档。
-  const detectedOs = (() => {
-    const ua = navigator.userAgent;
-    return /Android/i.test(ua) ? 'other' : /Windows/i.test(ua) ? 'windows' : /Linux|X11/i.test(ua) ? 'linux' : 'other';
-  })();
+  // 不出现先渲 Windows 档再切到 Linux 的翻转。判定本身在 `lib/platform.ts` 里是纯函数。
+  const platform = detectPlatform({
+    userAgent: navigator.userAgent,
+    architectures: (navigator as Navigator & { userAgentData?: { architectures?: string[] } }).userAgentData
+      ?.architectures,
+  });
+  const detectedOs = platform.os;
 
   // 下载一节主按钮的取值：产物直链与那行提示由同一个档位派生 —— 提示讲哪一档，链接就指向哪一档。
-  // Windows 取免安装单文件、Linux 取 AppImage（便携、通用发行版，优先于 deb）；判不出者落到 Windows 档。
-  const dlTarget = detectedOs === 'linux'
-    ? { asset: 'appimage', hint: 'linux' as const }
-    : { asset: 'windows', hint: 'windows' as const };
+  // Linux 取 AppImage（便携、通用发行版，优先于 deb）；Windows 按访客架构取 x64 或 ARM64，
+  // 判不出架构时回落 x64（该产物在 ARM64 Windows 上可经仿真运行）；其余系统沿用 Windows x64 档。
+  const dlTarget =
+    detectedOs === 'linux'
+      ? { asset: 'appimage', hint: 'linux' as const }
+      : platform.arch === 'arm64'
+        ? { asset: 'windowsArm64', hint: 'windowsArm64' as const }
+        : { asset: 'windows', hint: 'windows' as const };
   const DL_HREF = asset(dlTarget.asset);
   const DL_HINT = dlTarget.hint;
 

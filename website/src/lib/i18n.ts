@@ -45,7 +45,7 @@ const zh = {
       { icon: 'PlugZap', stat: '零配置', label: '开箱即用', desc: 'scrcpy 与 adb 由应用按需获取，不需要手动安装或配置。' },
     ],
     rows: [
-      { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件；Linux 提供 AppImage 与 deb', others: ['仅 Windows', 'Windows / macOS / Linux'] },
+      { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件（x64 / ARM64）；Linux 提供 AppImage 与 deb', others: ['仅 Windows', 'Windows / macOS / Linux'] },
       { aspect: '程序体积（Windows）', fc2: '约 6 MB（免安装单文件）', others: ['约 7 MB（单文件）', '约 116 MB（安装包）'] },
       { aspect: '维护状态', fc2: '活跃', others: ['已归档，让位于 FreeControl2', '活跃'] },
       { aspect: '设备清单', fc2: '别名映射 USB 序列号或 IP:端口，在线状态实时可见', others: ['USB 与无线 ADB', '多设备协同'] },
@@ -56,8 +56,8 @@ const zh = {
   quickstart: {
     title: '快速开始',
     runLabel: '运行要求',
-    requirements: 'Windows 10 / 11（x64；Windows on ARM 上经 x64 仿真运行）· 系统自带的 WebView2 · 一台开启了 USB 调试的 Android 设备。Linux 上另提供 AppImage 与 deb 发行产物。',
-    portable: '程序是免安装的单文件：从发行页下载 FreeControl2_<版本>.exe，放到任意可写目录双击即用 —— 无需安装，也不产出安装器。',
+    requirements: 'Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2 · 一台开启了 USB 调试的 Android 设备。Linux 上另提供 AppImage 与 deb 发行产物。',
+    portable: '程序是免安装的单文件：从发行页下载与系统架构对应的 FreeControl2_<版本>_x64.exe 或 FreeControl2_<版本>_arm64.exe，放到任意可写目录双击即用 —— 无需安装，也不产出安装器。',
     stepsTitle: '四步上手',
     steps: [
       { title: '备好运行环境', desc: '首次启动后到「运行环境」页获取 scrcpy 与 adb。' },
@@ -103,14 +103,16 @@ const zh = {
   },
   download: {
     title: '获取 FreeControl2',
-    lead: '免费开源，MIT 许可 · Windows 免安装单文件，Linux 提供 AppImage 与 deb。',
+    lead: '免费开源，MIT 许可 · Windows 提供 x64 与 ARM64 免安装单文件，Linux 提供 AppImage 与 deb。',
     metaLinks: [
       { label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
     cta: '下载',
-    // 主按钮那行提示按访客系统取（键与平台条目的 os 同名）；没有真实产物的档位一律落到 Windows。
+    // 主按钮那行提示按访客系统与架构取：windows / windowsArm64 是 Windows 的两份产物档，
+    // 与平台条目的 os 键不同名（同一个 os 下按架构分两份）；没有真实产物的档位一律落到 Windows x64。
     osHint: {
       windows: 'Windows · x64 · .exe · 免安装单文件',
+      windowsArm64: 'Windows · ARM64 · .exe · 免安装单文件',
       linux: 'Linux · x64 · AppImage · 便携版',
     },
     yours: '你的系统',
@@ -119,7 +121,10 @@ const zh = {
       {
         os: 'windows',
         name: 'Windows',
-        packages: [{ key: 'windows', format: '.exe', note: '免安装单文件' }],
+        packages: [
+          { key: 'windows', format: '.exe', note: 'x64 · 免安装单文件' },
+          { key: 'windowsArm64', format: '.exe', note: 'ARM64 · 免安装单文件' },
+        ],
         help: '依赖系统自带的 WebView2。',
       },
       {
@@ -131,7 +136,7 @@ const zh = {
         ],
       },
     ],
-    note: 'Windows 免安装、不产出安装器；Linux 提供 AppImage 与 deb 发行产物。',
+    note: 'Windows 免安装、不产出安装器：x64 与 ARM64 各一份。Linux 提供 AppImage 与 deb 发行产物。',
   },
   footer: {
     builtLabel: '构建技术',
@@ -186,7 +191,7 @@ const en: Dict = {
       { icon: 'PlugZap', stat: 'Zero setup', label: 'Works out of the box', desc: 'scrcpy and adb are fetched on demand by the app — no manual install or configuration.' },
     ],
     rows: [
-      { aspect: 'Platforms', fc2: 'Windows 10 / 11 as a single portable file; AppImage and deb on Linux', others: ['Windows only', 'Windows / macOS / Linux'] },
+      { aspect: 'Platforms', fc2: 'Windows 10 / 11 portable single files (x64 / ARM64); AppImage and deb on Linux', others: ['Windows only', 'Windows / macOS / Linux'] },
       { aspect: 'Size (Windows)', fc2: '≈ 6 MB (single portable file)', others: ['≈ 7 MB (single file)', '≈ 116 MB (installer)'] },
       { aspect: 'Maintenance', fc2: 'Active', others: ['Archived, superseded by FreeControl2', 'Active'] },
       { aspect: 'Device list', fc2: 'An alias per device mapped to a USB serial or IP:port, with live online status', others: ['USB and wireless ADB', 'Multi-device control'] },
@@ -197,8 +202,8 @@ const en: Dict = {
   quickstart: {
     title: 'Quick Start',
     runLabel: 'To run',
-    requirements: 'Windows 10 / 11 (x64; on Windows on ARM it runs under x64 emulation) · the WebView2 runtime that ships with the system · an Android device with USB debugging enabled. On Linux the project also provides AppImage and deb release artifacts.',
-    portable: 'The app is a single portable executable: download FreeControl2_<version>.exe from Releases and run it from any writable directory — there is no installer.',
+    requirements: 'Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system · an Android device with USB debugging enabled. On Linux the project also provides AppImage and deb release artifacts.',
+    portable: 'The app is a single portable executable: download FreeControl2_<version>_x64.exe or FreeControl2_<version>_arm64.exe for your architecture from Releases and run it from any writable directory — there is no installer.',
     stepsTitle: 'Four steps',
     steps: [
       { title: 'Get the runtime', desc: 'On first launch, go to the "Runtime" page and fetch scrcpy and adb.' },
@@ -244,13 +249,14 @@ const en: Dict = {
   },
   download: {
     title: 'Get FreeControl2',
-    lead: 'Free and open source, MIT licensed · one portable file on Windows, AppImage and deb on Linux.',
+    lead: 'Free and open source, MIT licensed · portable single files for Windows x64 and ARM64, AppImage and deb on Linux.',
     metaLinks: [
       { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
     cta: 'Download',
     osHint: {
       windows: 'Windows · x64 · .exe · portable file',
+      windowsArm64: 'Windows · ARM64 · .exe · portable file',
       linux: 'Linux · x64 · AppImage · portable',
     },
     yours: 'Your system',
@@ -259,7 +265,10 @@ const en: Dict = {
       {
         os: 'windows',
         name: 'Windows',
-        packages: [{ key: 'windows', format: '.exe', note: 'Single portable file' }],
+        packages: [
+          { key: 'windows', format: '.exe', note: 'x64 · portable file' },
+          { key: 'windowsArm64', format: '.exe', note: 'ARM64 · portable file' },
+        ],
         help: 'Uses the WebView2 runtime that ships with the system.',
       },
       {
@@ -271,7 +280,7 @@ const en: Dict = {
         ],
       },
     ],
-    note: 'Portable on Windows with no installer; AppImage and deb release artifacts on Linux.',
+    note: 'Portable on Windows with no installer: one file each for x64 and ARM64. AppImage and deb release artifacts on Linux.',
   },
   footer: {
     builtLabel: 'Built with',

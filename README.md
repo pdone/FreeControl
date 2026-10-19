@@ -51,9 +51,9 @@
 
 ## 快速开始
 
-**运行要求**：Windows 10 / 11（x64；Windows on ARM 上经 x64 仿真运行）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。
+**运行要求**：Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。
 
-从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件 `FreeControl2_<版本>.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物。
+从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_x64.exe` 或 `FreeControl2_<版本>_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物。
 
 1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
 2. **添加设备** —— 在「设备」页新增一台：USB 连接填 `adb devices` 列出的序列号，无线连接填 `IP:端口`。
@@ -83,6 +83,8 @@ npm run tauri build -- --bundles appimage,deb
 ```
 
 产物在 `src-tauri/target/release/bundle/`。
+
+手动触发 `.github/workflows/build.yml` 出包时，产物先汇集成**草稿发行**（不自动发布）。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**。
 
 ### 本地开发
 

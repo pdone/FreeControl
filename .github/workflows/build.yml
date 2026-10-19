@@ -4,9 +4,10 @@
 #   - 推送到 main：只跑 `check`（编译 + 单测），不打包、不上传任何产物；
 #   - 手动触发：`check` → `build` → `release`，出包并汇集成一次**草稿**发行（不自动发布）。
 #
-# 两个平台的产物都由该平台自己的 runner 原生构建（MUST NOT 依赖交叉编译）：
-#   - Windows：`--no-bundle`，只产出裸 exe（免安装单文件）；
-#   - Linux：`--bundles appimage,deb`。
+# 每个产物的构建主机与它自身的操作系统**与架构**一致（MUST NOT 依赖交叉编译）：
+#   - Windows x64（`windows-latest`）与 Windows ARM64（`windows-11-arm`）：`--no-bundle`，
+#     各产出一份裸 exe（免安装单文件）；
+#   - Linux x86_64：`--bundles appimage,deb`。
 #
 # 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
 # `scripts/**` 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/`
@@ -102,6 +103,13 @@ jobs:
         include:
           - os: windows-latest
             args: --no-bundle
+            arch: x64
+          # ARM64 用 GitHub 托管的原生 ARM64 runner（2026-08 GA）：产物由该架构自己的
+          # 主机原生构建，不碰交叉编译（spec `release-build`）。它跑完后的 exe 里
+          # `std::env::consts::ARCH` 才是 aarch64，运行环境才会取 winarm64 的 scrcpy。
+          - os: windows-11-arm
+            args: --no-bundle
+            arch: arm64
           - os: ubuntu-22.04
             args: --bundles appimage,deb
     runs-on: ${{ matrix.os }}
@@ -135,24 +143,43 @@ jobs:
       - name: 构建（`beforeBuildCommand` 自带 `vite build`）
         run: npm run tauri build -- ${{ matrix.args }}
 
-      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），版本段由这里补上：
+      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），版本段与架构段由这里补上：
       # 从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），只改名、不改内容。
-      - name: Windows 产物按应用版本命名
+      # 两份产物都带架构段（`_x64` / `_arm64`），命名对称、一眼可辨（spec `release-build`）。
+      - name: Windows 产物按应用版本与架构命名
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           $src = "src-tauri/target/release/FreeControl2.exe"
-          $dst = "src-tauri/target/release/FreeControl2_$version.exe"
+          $dst = "src-tauri/target/release/FreeControl2_${version}_${{ matrix.arch }}.exe"
           if (-not (Test-Path $src)) { throw "找不到构建产物 $src" }
           Move-Item $src $dst
           Write-Host "产物：$dst"
 
+      # 无 ARM64 实机时，「构建成功」不等于「产物架构正确」——配置写错会安静地产出 x64
+      # 却叫 arm64。这里读 PE 头的 Machine 字段自证：x64 = 0x8664、ARM64 = 0xAA64
+      # （`IMAGE_FILE_MACHINE_*`），不需要运行二进制，也不依赖实机。
+      - name: 校验产物架构（PE 头 Machine 字段）
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $file = "src-tauri/target/release/FreeControl2_${version}_${{ matrix.arch }}.exe"
+          $expected = @{ x64 = 0x8664; arm64 = 0xAA64 }['${{ matrix.arch }}']
+          $bytes = [IO.File]::ReadAllBytes($file)
+          $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)          # PE 签名在文件中的偏移
+          $machine = [BitConverter]::ToUInt16($bytes, $eLfanew + 4) # IMAGE_FILE_HEADER.Machine
+          Write-Host ("PE Machine = 0x{0:X4}（期望 0x{1:X4}）" -f $machine, $expected)
+          if ($machine -ne $expected) { throw "产物架构不符：$file 的 Machine=0x$('{0:X4}' -f $machine)" }
+
+      # artifact 名按架构区分：upload-artifact v4 起同一 run 内同名会失败；
+      # release 作业用 `merge-multiple` 合并，因此名字不同不影响最终汇集。
       - name: 上传 Windows 产物
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: FreeControl2-windows
+          name: FreeControl2-windows-${{ matrix.arch }}
           path: src-tauri/target/release/FreeControl2_*.exe
           if-no-files-found: error
 
@@ -193,24 +220,58 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: 创建或追加到草稿发行
+      - name: 创建或追加到草稿发行（同版本已发布时不覆盖）
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           TAG="v$VERSION"
-          # 逐个点名三份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
+          # 逐个点名四份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
           # 那两份来自 `bundle/appimage/` 与 `bundle/deb/`，于是 `dist/` 里还多出 `appimage/`、
           # `deb/` 两个目录，一并交给 gh 会报 `read dist/deb: is a directory`
           # （2026-10-10 首次手动触发实测）。少一份时通配符保持字面量，gh 会报「文件不存在」
           # 而失败 —— 与上传步骤的 `if-no-files-found: error` 同一口径，不静默少传。
-          ASSETS=(dist/*.exe dist/appimage/*.AppImage dist/deb/*.deb)
+          ASSETS=(dist/*_x64.exe dist/*_arm64.exe dist/appimage/*.AppImage dist/deb/*.deb)
           ls -l "${ASSETS[@]}"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$TAG" --clobber "${ASSETS[@]}"
-          else
-            gh release create "$TAG" --draft \
-              --title "FreeControl2 v$VERSION" \
-              --notes "自动构建的草稿发行。Windows 产物为免安装单文件；请人工确认后再发布。" \
+
+          # 既有发行的三种状态：none / draft / published。
+          # `--jq '.isDraft'` 对草稿给 true、对已发布给 false；tag 不存在时命令非零退出，按 none 处理。
+          state_of() {
+            if ! out=$(gh release view "$1" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft' 2>/dev/null); then
+              echo none
+            elif [ "$out" = "true" ]; then
+              echo draft
+            else
+              echo published
+            fi
+          }
+
+          # 规则（spec `release-build`「产物以草稿发行汇集且不强制签名」）：
+          #   同 tag 是草稿     -> 覆盖它（同版本重出只留最后一份，既有语义不变）；
+          #   同 tag 已发布     -> 一律不碰已发布的任何产物，本次产物改落 `v{版本}-draft` 取件草稿；
+          #   取件草稿已被发布  -> 按约定它永不发布，直接失败交人处理（绝不覆盖已发布内容）。
+          TARGET="$TAG"
+          STATE=$(state_of "$TAG")
+          if [ "$STATE" = "published" ]; then
+            TARGET="${TAG}-draft"
+            STATE=$(state_of "$TARGET")
+            if [ "$STATE" = "published" ]; then
+              echo "::error::取件草稿 $TARGET 已被发布；它按约定永不发布，请人工确认后再出包。" >&2
+              exit 1
+            fi
+            echo "::warning::$TAG 已发布，本次产物落到取件草稿 $TARGET（该草稿只用于取件，永不发布）。"
+          fi
+
+          if [ "$STATE" = "none" ]; then
+            if [ "$TARGET" = "$TAG" ]; then
+              NOTES="自动构建的草稿发行。Windows 产物为免安装单文件（x64 与 ARM64 各一份）；请人工确认后再发布。"
+            else
+              NOTES="取件草稿：$TAG 已发布，这里只用于取回同版本的新产物 —— 永不发布。确认后如需正式发行，请先升版本再出包。"
+            fi
+            gh release create "$TARGET" --draft \
+              --title "FreeControl2 $TARGET" \
+              --notes "$NOTES" \
               "${ASSETS[@]}"
+          else
+            gh release upload "$TARGET" --clobber "${ASSETS[@]}"
           fi

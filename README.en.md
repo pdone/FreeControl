@@ -54,9 +54,9 @@ The app UI is currently in Chinese.
 
 ## Quick Start
 
-**To run**: Windows 10 / 11 (x64; on Windows on ARM it runs under x64 emulation) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled.
+**To run**: Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled.
 
-Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is the single portable `FreeControl2_<version>.exe` — put it in any writable directory and double-click, with no installer; on Linux it ships as AppImage and deb release artifacts.
+Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is a single portable file — pick `FreeControl2_<version>_x64.exe` or `FreeControl2_<version>_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts.
 
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
 2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, enter `IP:port`.
@@ -86,6 +86,8 @@ npm run tauri build -- --bundles appimage,deb
 ```
 
 The artifacts are written to `src-tauri/target/release/bundle/`.
+
+When you trigger `.github/workflows/build.yml` manually, the artifacts are collected into a **draft release** (never published automatically). If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**.
 
 ### Local development
 

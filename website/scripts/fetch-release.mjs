@@ -23,14 +23,17 @@ async function viaApi() {
   const pick = (re) => rel.assets?.find((a) => re.test(a.name))?.browser_download_url ?? null;
   return {
     tag: rel.tag_name,
-    windows: pick(/\.exe$/i),
+    // Windows 按架构各一份（两份都带 `_x64` / `_arm64` 段），故按名字区分，不能只按 `.exe` 后缀取第一份。
+    windows: pick(/_x64\.exe$/i),
+    windowsArm64: pick(/_arm64\.exe$/i),
     appimage: pick(/\.AppImage$/),
     deb: pick(/\.deb$/),
   };
 }
 
 // 兜底：不占用 API 限额，从 /releases/latest 的 302 读出 tag，再按工作流的产物命名拼直链
-// （见 .github/workflows/build.yml：exe 为 FreeControl2_<v>.exe，AppImage/deb 带 _amd64）。
+// （见 .github/workflows/build.yml：Windows 为 `FreeControl2_<v>_x64.exe` 与 `_arm64.exe`，
+// AppImage/deb 带 `_amd64`）。
 async function viaRedirect() {
   const res = await fetch(PAGE, { redirect: 'manual' });
   const tag = (res.headers.get('location') || '').match(/\/releases\/tag\/(.+)$/)?.[1];
@@ -39,7 +42,8 @@ async function viaRedirect() {
   const base = `https://github.com/${REPO}/releases/download/${tag}`;
   return {
     tag,
-    windows: `${base}/FreeControl2_${v}.exe`,
+    windows: `${base}/FreeControl2_${v}_x64.exe`,
+    windowsArm64: `${base}/FreeControl2_${v}_arm64.exe`,
     appimage: `${base}/FreeControl2_${v}_amd64.AppImage`,
     deb: `${base}/FreeControl2_${v}_amd64.deb`,
   };
@@ -59,11 +63,21 @@ for (const [name, fn] of [
   }
 }
 
-const ok = !!(resolved && resolved.windows && resolved.appimage && resolved.deb);
+// 四档齐备才算完整：与构建侧「缺任一份即失败」同口径，避免半套发行被当成可用版本
+// （少一份时整页回退发行页，而不是给出一个指向 404 的直链）。
+const ok = !!(resolved && resolved.windows && resolved.windowsArm64 && resolved.appimage && resolved.deb);
 if (ok) {
-  write({ ok: true, tag: resolved.tag, windows: resolved.windows, appimage: resolved.appimage, deb: resolved.deb, page: PAGE });
+  write({
+    ok: true,
+    tag: resolved.tag,
+    windows: resolved.windows,
+    windowsArm64: resolved.windowsArm64,
+    appimage: resolved.appimage,
+    deb: resolved.deb,
+    page: PAGE,
+  });
   console.log('[fetch-release] 直链已写入 src/lib/release.json');
 } else {
-  write({ ok: false, tag: null, windows: null, appimage: null, deb: null, page: PAGE });
+  write({ ok: false, tag: null, windows: null, windowsArm64: null, appimage: null, deb: null, page: PAGE });
   console.warn('[fetch-release] 未取到完整产物，回退到发行页（站点构建照常）');
 }
