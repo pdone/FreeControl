@@ -79,6 +79,23 @@ function validateText(field: ParamField, raw: string): string | null {
   }
 }
 
+/**
+ * 选择类字段的取值白名单：界面给出的选项即合法取值域，空串 / 未填写 = 未设置。
+ *
+ * 为什么需要：配置文件可能被手改，也可能带着旧版本遗留的取值。非法取值拼进命令会让
+ * scrcpy 直接拒绝整条命令（如 `--hwdec=foo` 报 "Unsupported hwdec mode" 并以非零码退出），
+ * 比「跳过该字段并在界面上提示」的代价大得多 —— 规格「参数输入校验」要求非法值 MUST NOT
+ * 用于发起会话，剔除由 `command.ts::buildArgs` 的 `invalid` 机制统一完成。
+ */
+function validateSelect(field: ParamField, value: unknown): string | null {
+  if (isBlank(value)) return null;
+  const v = String(value).trim();
+  if (v === '' || !field.options?.length) return null;
+  return field.options.some((o) => o.value === v)
+    ? null
+    : `${field.label} 的取值不在可选项内`;
+}
+
 /** 单字段校验：合法返回 null，非法返回提示文案（tasks 7.3）。 */
 export function validateField(field: ParamField, value: unknown): string | null {
   if (field.type === 'number' || field.type === 'range') {
@@ -93,7 +110,8 @@ export function validateField(field: ParamField, value: unknown): string | null 
     const v = typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
     return validateText(field, v);
   }
-  // toggle / segmented / select / chips：取值由界面给定，不可能格式非法。
+  if (field.type === 'select') return validateSelect(field, value);
+  // toggle / segmented / chips：取值由界面给定，不可能格式非法。
   return null;
 }
 

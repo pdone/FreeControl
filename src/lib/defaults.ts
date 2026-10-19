@@ -22,6 +22,11 @@ export const BUILTIN_DEFAULTS: Defaults = {
   video: {
     // 「自动」：空串 / 0 都不产生对应 flag，编码与码率交给 scrcpy 自身默认。
     videoCodec: '',
+    // 编码器留空 = 不传 `--video-encoder`，由 scrcpy 自动选择。
+    videoEncoder: '',
+    // 硬件解码「自动」（空串）= 不传 `--hwdec`，由 scrcpy 自身默认决定
+    // （优先第一个可用的硬件解码器，失败回退软件解码）。
+    hwdec: '',
     bitrate: 0,
     maxSize: 0,
     maxFps: 0,
@@ -33,6 +38,8 @@ export const BUILTIN_DEFAULTS: Defaults = {
   source: {
     videoSource: 'display',
     displayMode: 'main',
+    // 0 = 主屏（不传 `--display-id`）；虚拟显示器与摄像头源下该参数被剔除。
+    displayId: 0,
     // 尺寸与密度留空 ⇒ 只下发**不带取值**的 `--new-display`（该 flag 是否存在由显示模式决定），
     // 尺寸与密度交给 scrcpy：非 Flex 场合用主屏尺寸与密度，Flex Display 场合用 1280x960/160
     // （doc/scrcpy 的 server/.../video/NewDisplayCapture.java:99-127）。
@@ -56,6 +63,8 @@ export const BUILTIN_DEFAULTS: Defaults = {
     audioOff: true,
     audioSource: 'output',
     audioCodec: 'opus',
+    // 留空 = 不传 `--audio-encoder`，由 scrcpy 自动选择。
+    audioEncoder: '',
     audioDup: false,
     // 「自动」= 不传 `--audio-bit-rate`（与视频码率同形）。
     audioBitrate: 0,
@@ -65,12 +74,16 @@ export const BUILTIN_DEFAULTS: Defaults = {
   control: {
     noControl: false,
     keyboard: 'uhid',
+    // 关 = 不传 `--no-key-repeat`，按住按键时照常转发重复事件（scrcpy 默认）。
+    noKeyRepeat: false,
     mouse: 'uhid',
     gamepad: 'uhid',
     // 空数组 = 不产生 `--shortcut-mod`，快捷键沿用 scrcpy 自身的默认修饰键。
     shortMod: [],
     showTouches: false,
     turnScreenOff: false,
+    // 0 = 不传 `--screen-off-timeout`，不修改设备的息屏超时。
+    screenOffTimeout: 0,
     stayAwake: false,
     keepActive: false,
     powerOffOnClose: false,

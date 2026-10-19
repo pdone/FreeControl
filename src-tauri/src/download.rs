@@ -68,7 +68,7 @@ pub const LATEST_RELEASE_API: &str =
 
 /// 官方校验值汇总文件的**候选名**（按序尝试，取第一个可获取者）。
 ///
-/// 核对 scrcpy v4.1 官方发布资产后确认：实际资产名为 `SHA256SUMS.txt`；
+/// 核对 scrcpy v5.0.1 官方发布资产后确认：实际资产名为 `SHA256SUMS.txt`；
 /// 而 design D4 的写法为 `SHA256SUMS`（无扩展名）。两者同源、内容格式一致
 /// （`<sha256>  <文件名>`，本套以 `.txt` 为准），故按序尝试以免任一方写法变化时失效。
 pub const SUMS_CANDIDATES: [&str; 2] = ["SHA256SUMS.txt", "SHA256SUMS"];
@@ -725,7 +725,7 @@ async fn download_to_file(
 /// 从 `SHA256SUMS` 内容中定位某资产的 SHA-256。
 ///
 /// 每行形如 `<64 位十六进制>  <文件名>`；GNU coreutils 会用 `*` 前缀标记二进制文件
-/// （`*scrcpy-win64-v4.1.zip`），故按空白切分后需剥掉该前缀再比对。
+/// （`*scrcpy-win64-v5.0.1.zip`），故按空白切分后需剥掉该前缀再比对。
 pub fn parse_sha256sums(content: &str, asset: &str) -> Option<String> {
     for line in content.lines() {
         let mut parts = line.split_whitespace();
@@ -2338,11 +2338,11 @@ mod tests {
         let proxy = Channel::Proxy {
             url: "https://gh-proxy.org/".to_string(),
         };
-        let origin = "https://github.com/Genymobile/scrcpy/releases/download/v4.1/x.zip";
+        let origin = "https://github.com/Genymobile/scrcpy/releases/download/v5.0.1/x.zip";
         assert_eq!(official.url_for(origin), origin);
         assert_eq!(
             proxy.url_for(origin),
-            "https://gh-proxy.org/https://github.com/Genymobile/scrcpy/releases/download/v4.1/x.zip"
+            "https://gh-proxy.org/https://github.com/Genymobile/scrcpy/releases/download/v5.0.1/x.zip"
         );
     }
 
@@ -2568,7 +2568,7 @@ mod tests {
         let root = unique_temp_dir("staging-clean");
         fs::create_dir_all(&root).unwrap();
         let stale = root.join(format!("{}111", STAGING_PREFIX));
-        let keep = root.join("scrcpy-win64-v4.1");
+        let keep = root.join(format!("scrcpy-win64-v{}", scrcpy::BEST_FIT_VERSION));
         fs::create_dir_all(&stale).unwrap();
         fs::create_dir_all(&keep).unwrap();
         fs::write(stale.join("part.zip"), b"partial").unwrap();
@@ -2614,57 +2614,71 @@ mod tests {
     // ── 资产名（tasks 2.4） ──
 
     #[test]
-    fn asset_at_covers_both_platforms() {
-        assert_eq!(asset_at(win(), "4.1"), "scrcpy-win64-v4.1.zip");
-        assert_eq!(asset_at(linux(), "4.1"), "scrcpy-linux-x86_64-v4.1.tar.gz");
+    fn asset_at_covers_all_platforms() {
+        // 四段都要对：`scrcpy-<平台标签>-v<版本><后缀>`。版本段取常量，升级时只改常量。
+        let v = scrcpy::BEST_FIT_VERSION;
+        assert_eq!(asset_at(win(), v), format!("scrcpy-win64-v{v}.zip"));
+        assert_eq!(
+            asset_at(scrcpy::label_at("windows", "aarch64").unwrap(), v),
+            format!("scrcpy-winarm64-v{v}.zip")
+        );
+        assert_eq!(
+            asset_at(linux(), v),
+            format!("scrcpy-linux-x86_64-v{v}.tar.gz")
+        );
     }
 
     #[test]
     fn best_fit_target_follows_platform() {
+        let v = scrcpy::BEST_FIT_VERSION;
         let on_win = best_fit_target_at(win());
-        assert_eq!(on_win.version, scrcpy::BEST_FIT_VERSION);
-        assert_eq!(on_win.asset, "scrcpy-win64-v4.1.zip");
+        assert_eq!(on_win.version, v);
+        assert_eq!(on_win.asset, format!("scrcpy-win64-v{v}.zip"));
         assert_eq!(
             on_win.url,
-            format!(
-                "{}/v{}/{}",
-                RELEASES_BASE,
-                scrcpy::BEST_FIT_VERSION,
-                on_win.asset
-            )
+            format!("{}/v{}/{}", RELEASES_BASE, v, on_win.asset)
         );
         assert!(on_win.note.is_none());
 
         let on_linux = best_fit_target_at(linux());
-        assert_eq!(on_linux.asset, "scrcpy-linux-x86_64-v4.1.tar.gz");
+        assert_eq!(on_linux.asset, format!("scrcpy-linux-x86_64-v{v}.tar.gz"));
         assert!(on_linux.url.ends_with(&on_linux.asset));
     }
 
     // ── 4.4 校验 ──
 
-    const SUMS: &str = "6b1a4a0d2f7c0b4c8b2f0a1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5  scrcpy-win64-v4.1.zip\n\
-                        aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa *scrcpy-win64-v4.1.tar.gz\n\
-                        bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  scrcpy-linux-x86_64-v4.1.tar.gz\n";
+    /// 官方 `SHA256SUMS.txt` 的夹具：三段（win64 zip、`*` 前缀写法、linux tar.gz）。
+    /// 版本段取常量，升级时只改常量。
+    fn sums() -> String {
+        let v = scrcpy::BEST_FIT_VERSION;
+        format!(
+            "6b1a4a0d2f7c0b4c8b2f0a1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5  scrcpy-win64-v{v}.zip\n\
+             aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa *scrcpy-win64-v{v}.tar.gz\n\
+             bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  scrcpy-linux-x86_64-v{v}.tar.gz\n"
+        )
+    }
 
     #[test]
     fn parses_sha256sums_entry_by_asset_name() {
         assert_eq!(
-            parse_sha256sums(SUMS, &asset_at(win(), "4.1")).as_deref(),
+            parse_sha256sums(&sums(), &asset_at(win(), scrcpy::BEST_FIT_VERSION)).as_deref(),
             Some("6b1a4a0d2f7c0b4c8b2f0a1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5")
         );
         // 两平台的资产名都能在同一个汇总文件里定位到自己的条目。
         assert_eq!(
-            parse_sha256sums(SUMS, &asset_at(linux(), "4.1")).as_deref(),
+            parse_sha256sums(&sums(), &asset_at(linux(), scrcpy::BEST_FIT_VERSION)).as_deref(),
             Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
         );
     }
 
     #[test]
     fn parses_sha256sums_with_star_prefix() {
-        let content = "\
-c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v4.1.zip\n";
+        let v = scrcpy::BEST_FIT_VERSION;
+        let content = format!(
+            "c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v{v}.zip\n"
+        );
         assert_eq!(
-            parse_sha256sums(content, "scrcpy-win64-v4.1.zip").as_deref(),
+            parse_sha256sums(&content, &format!("scrcpy-win64-v{v}.zip")).as_deref(),
             Some("c0ffee0000000000000000000000000000000000000000000000000000000000")
         );
     }
@@ -2688,19 +2702,19 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
 
     #[test]
     fn verification_covers_match_mismatch_and_missing_entry() {
-        let asset = asset_at(win(), "4.1");
+        let asset = asset_at(win(), scrcpy::BEST_FIT_VERSION);
         let expected = "6b1a4a0d2f7c0b4c8b2f0a1d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5";
 
         assert_eq!(
-            classify_verification(Ok(SUMS.to_string()), &asset, expected),
+            classify_verification(Ok(sums()), &asset, expected),
             Verification::Verified {
                 expected: expected.to_string()
             }
         );
 
-        match classify_verification(Ok(SUMS.to_string()), &asset, "deadbeef") {
+        match classify_verification(Ok(sums()), &asset, "deadbeef") {
             Verification::Mismatch { expected, actual } => {
-                assert_eq!(expected, expected_of(SUMS, &asset));
+                assert_eq!(expected, expected_of(&sums(), &asset));
                 assert_eq!(actual, "deadbeef");
             }
             other => panic!("校验不通过时应判为 Mismatch，实际 {:?}", other),
@@ -2747,20 +2761,20 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         assert!(err.contains(SUMS_CANDIDATES[0]));
 
         // 候选名与实际资产地址同目录（与 zip 同级）。
-        let zip = "https://github.com/Genymobile/scrcpy/releases/download/v4.1/scrcpy-win64-v4.1.zip";
+        let v = scrcpy::BEST_FIT_VERSION;
+        let zip = format!(
+            "https://github.com/Genymobile/scrcpy/releases/download/v{v}/scrcpy-win64-v{v}.zip"
+        );
         assert_eq!(
-            sibling_url(zip, SUMS_ASSET).unwrap(),
-            format!(
-                "https://github.com/Genymobile/scrcpy/releases/download/v4.1/{}",
-                SUMS_ASSET
-            )
+            sibling_url(&zip, SUMS_ASSET).unwrap(),
+            format!("https://github.com/Genymobile/scrcpy/releases/download/v{v}/{}", SUMS_ASSET)
         );
         assert_eq!(SUMS_ASSET, "SHA256SUMS.txt");
     }
 
     #[test]
     fn unverified_when_sums_fetch_failed() {
-        let asset = asset_at(win(), "4.1");
+        let asset = asset_at(win(), scrcpy::BEST_FIT_VERSION);
         match classify_verification(Err("HTTP 403（可能被限流）".to_string()), &asset, "abc") {
             Verification::Unverified { reason } => {
                 assert!(reason.contains("无法获取官方校验值"));
@@ -2776,7 +2790,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
     fn extracts_nested_release_layout_and_finds_payload() {
         // 与上面那条 tar.gz 同源：目录名与二进制名都按当前平台取，使这条用例在两个平台上都成立
         // —— `find_payload_root` 找的是**当前平台**的 `scrcpy` 可执行文件。
-        let dir_name = scrcpy::dir_name_at(here(), "4.1");
+        let dir_name = scrcpy::dir_name_at(here(), scrcpy::BEST_FIT_VERSION);
         let files = [
             format!("{dir_name}/{}", scrcpy::SCRCPY_BIN),
             format!("{dir_name}/{}", assets::ADB_BIN),
@@ -2823,7 +2837,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
     fn extracts_tar_gz_layout_and_finds_payload() {
         // 目录名与二进制名都按当前平台取，使这条用例在两个平台上都能跑：
         // 它验的是「多一层目录 + 深层路径都能铺开、payload 定位得到」，与具体标签无关。
-        let dir_name = scrcpy::dir_name_at(here(), "4.1");
+        let dir_name = scrcpy::dir_name_at(here(), scrcpy::BEST_FIT_VERSION);
         let files = [
             format!("{dir_name}/{}", scrcpy::SCRCPY_BIN),
             format!("{dir_name}/{}", assets::ADB_BIN),
@@ -2879,18 +2893,18 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         write_tar_gz(
             &tarball,
             &[
-                ("scrcpy-linux-x86_64-v4.1/scrcpy", "SC", 0o755),
-                ("scrcpy-linux-x86_64-v4.1/README.md", "hi", 0o644),
+                ("scrcpy-linux-x86_64-v5.0.1/scrcpy", "SC", 0o755),
+                ("scrcpy-linux-x86_64-v5.0.1/README.md", "hi", 0o644),
             ],
         );
 
         extract_tar_gz(&tarball, &raw, |_, _| {}).unwrap();
 
-        let scrcpy_mode = fs::metadata(raw.join("scrcpy-linux-x86_64-v4.1/scrcpy"))
+        let scrcpy_mode = fs::metadata(raw.join("scrcpy-linux-x86_64-v5.0.1/scrcpy"))
             .unwrap()
             .permissions()
             .mode();
-        let readme_mode = fs::metadata(raw.join("scrcpy-linux-x86_64-v4.1/README.md"))
+        let readme_mode = fs::metadata(raw.join("scrcpy-linux-x86_64-v5.0.1/README.md"))
             .unwrap()
             .permissions()
             .mode();
@@ -2905,8 +2919,8 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         // （`tar::Builder` 自己就拒绝写含 `..` 的条目：paths in archives must not have `..`）。
         // 端到端的第二道防线是 `unpack_in` 自身，它对越界条目也会拒绝。
         assert!(escapes_dest(Path::new("../escaped.txt")));
-        assert!(escapes_dest(Path::new("scrcpy-linux-x86_64-v4.1/../../escaped.txt")));
-        assert!(!escapes_dest(Path::new("scrcpy-linux-x86_64-v4.1/scrcpy")));
+        assert!(escapes_dest(Path::new("scrcpy-linux-x86_64-v5.0.1/../../escaped.txt")));
+        assert!(!escapes_dest(Path::new("scrcpy-linux-x86_64-v5.0.1/scrcpy")));
         assert!(!escapes_dest(Path::new("./a/b")));
         // 绝对路径同样越界（Windows 上盘符路径也算）。
         let absolute = if cfg!(windows) {
@@ -2923,11 +2937,11 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         let root = unique_temp_dir("dispatch");
         let tarball = root.join("asset.tar.gz");
         fs::create_dir_all(&root).unwrap();
-        write_tar_gz(&tarball, &[("scrcpy-linux-x86_64-v4.1/scrcpy", "SC", 0o755)]);
+        write_tar_gz(&tarball, &[("scrcpy-linux-x86_64-v5.0.1/scrcpy", "SC", 0o755)]);
 
         let ok = root.join("ok");
         extract_archive(&tarball, linux(), &ok, |_, _| {}).unwrap();
-        assert!(ok.join("scrcpy-linux-x86_64-v4.1/scrcpy").is_file());
+        assert!(ok.join("scrcpy-linux-x86_64-v5.0.1/scrcpy").is_file());
         let _ = fs::remove_dir_all(&root);
     }
 
@@ -2935,7 +2949,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
     fn atomic_replace_keeps_old_env_when_zip_is_broken() {
         // 「解压中途失败」场景：原运行环境必须保持可用。
         let root = unique_temp_dir("replace-broken");
-        let target = root.join("scrcpy-win64-v4.1");
+        let target = root.join("scrcpy-win64-v5.0.1");
         fs::create_dir_all(&target).unwrap();
         fs::write(target.join("scrcpy.exe"), b"OLD").unwrap();
         fs::write(target.join("adb.exe"), b"OLD").unwrap();
@@ -2956,7 +2970,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
     #[test]
     fn atomic_replace_moves_payload_into_place_and_drops_backup() {
         let root = unique_temp_dir("replace-ok");
-        let target = root.join("scrcpy-win64-v4.1");
+        let target = root.join("scrcpy-win64-v5.0.1");
         let payload = root.join("payload");
         fs::create_dir_all(&target).unwrap();
         fs::create_dir_all(&payload).unwrap();
@@ -2983,7 +2997,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
     fn payload_without_required_bins_is_rejected() {
         // 只放 `scrcpy`、不放 `adb`：夹具的名字按当前平台取，否则 Linux 上 `find_payload_root`
         // 连 payload 都定位不到，测的就不是「缺 adb 被拒」而是别的东西。
-        let dir_name = scrcpy::dir_name_at(here(), "4.1");
+        let dir_name = scrcpy::dir_name_at(here(), scrcpy::BEST_FIT_VERSION);
         let only_scrcpy = format!("{dir_name}/{}", scrcpy::SCRCPY_BIN);
 
         let root = unique_temp_dir("payload-partial");
@@ -3186,11 +3200,12 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
 
     #[test]
     fn classifies_update_results() {
-        assert_eq!(classify_update(Some("4.1"), "4.1").0, "upToDate");
-        assert_eq!(classify_update(Some("4.0"), "4.1").0, "updateAvailable");
-        assert_eq!(classify_update(Some("4.2"), "4.1").0, "installedNewer");
-        assert_eq!(classify_update(None, "4.1").0, "notInstalled");
-        assert_eq!(classify_update(None, "4.1").1, scrcpy::UNKNOWN_VERSION);
+        let v = scrcpy::BEST_FIT_VERSION;
+        assert_eq!(classify_update(Some(v), v).0, "upToDate");
+        assert_eq!(classify_update(Some("4.0"), v).0, "updateAvailable");
+        assert_eq!(classify_update(Some("6.0"), v).0, "installedNewer");
+        assert_eq!(classify_update(None, v).0, "notInstalled");
+        assert_eq!(classify_update(None, v).1, scrcpy::UNKNOWN_VERSION);
     }
 
     #[test]
@@ -3834,7 +3849,7 @@ c0ffee0000000000000000000000000000000000000000000000000000000000 *scrcpy-win64-v
         println!("资产根目录：{}", payload.display());
         assert!(assets::missing_bins(&payload).is_empty());
 
-        let installed = root.join("scrcpy-win64-v4.1");
+        let installed = root.join("scrcpy-win64-v5.0.1");
         replace_dir(&payload, &installed).unwrap();
         assert!(installed.join(scrcpy::SCRCPY_BIN).is_file());
         assert!(installed.join(assets::ADB_BIN).is_file());

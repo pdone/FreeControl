@@ -2,7 +2,7 @@
 //!
 //! ## 版本号单一来源（design D2 / tasks 2.1）
 //! 本模块的 `BEST_FIT_VERSION` 是全仓库**唯一**出现 scrcpy 版本字面量的地方，
-//! 取值以只读参考源码 `doc/scrcpy/meson.build` 的 `version: '4.1'` 为准。
+//! 取值以只读参考源码 `doc/scrcpy/meson.build` 的 `version: '5.0.1'` 为准。
 //! 前端一律通过 `get_compat_status` 等命令读取，Svelte / HTML 中不得出现 `4.1` 等版本串；
 //! 升级最佳适配版本时只改 `BEST_FIT_VERSION` 一处即可。
 //!
@@ -46,9 +46,14 @@ pub struct Platform {
     pub ext: &'static str,
 }
 
-/// 受支持的平台表。本次只落 Windows 与 Linux 的 x86_64 两行；macOS 的行留到实现那一平台时再补。
+/// 受支持的平台表。落 Windows（x86_64 与 ARM64）与 Linux x86_64 三行；
+/// macOS 的行留到实现那一平台时再补。
+///
+/// Windows ARM64 的官方标签是 `winarm64`（scrcpy 5.0 起提供该资产，
+/// 见 `doc/scrcpy/release/generate_checksums.sh`），压缩格式同为 `.zip`。
 const PLATFORMS: &[Platform] = &[
     Platform { os: "windows", arch: "x86_64", tag: "win64", ext: "zip" },
+    Platform { os: "windows", arch: "aarch64", tag: "winarm64", ext: "zip" },
     Platform { os: "linux", arch: "x86_64", tag: "linux-x86_64", ext: "tar.gz" },
 ];
 
@@ -69,9 +74,9 @@ pub fn current() -> Result<&'static Platform, String> {
 /// 命名都据此判定，故此处是唯一来源。
 pub const DIR_PREFIX: &str = "scrcpy-";
 
-/// 最佳适配版本（best-fit）—— 当前取值与 `doc/scrcpy/meson.build` 的 `version: '4.1'` 一致。
+/// 最佳适配版本（best-fit）—— 当前取值与 `doc/scrcpy/meson.build` 的 `version: '5.0.1'` 一致。
 /// 全仓库唯一的版本字面量来源。
-pub const BEST_FIT_VERSION: &str = "4.1";
+pub const BEST_FIT_VERSION: &str = "5.0.1";
 
 /// scrcpy 可执行文件名（按平台分流）。
 pub const SCRCPY_BIN: &str = if cfg!(windows) { "scrcpy.exe" } else { "scrcpy" };
@@ -293,11 +298,11 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     /// 真实 `scrcpy --version` 输出样例（main.c 的 banner + version.c 的依赖清单）。
-    const REAL_OUTPUT: &str = "scrcpy 4.1 <https://github.com/Genymobile/scrcpy>\r\n\
+    const REAL_OUTPUT: &str = "scrcpy 5.0.1 <https://github.com/Genymobile/scrcpy>\r\n\
                                \r\n\
                                Dependencies (compiled / linked):\r\n\
-                               \x20- SDL: 3.2.10 / 3.2.10\r\n\
-                               \x20- libavcodec: 61.19.100 / 61.19.100\r\n";
+                               \x20- SDL: 3.4.18 / 3.4.18\r\n\
+                               \x20- libavcodec: 62.11.100 / 62.11.100\r\n";
 
     fn unique_temp_dir(tag: &str) -> PathBuf {
         let nanos = SystemTime::now()
@@ -314,7 +319,10 @@ mod tests {
 
     #[test]
     fn parses_version_from_real_output() {
-        assert_eq!(parse_version_output(REAL_OUTPUT).as_deref(), Some("4.1"));
+        assert_eq!(
+            parse_version_output(REAL_OUTPUT).as_deref(),
+            Some(BEST_FIT_VERSION)
+        );
     }
 
     #[test]
@@ -348,7 +356,7 @@ mod tests {
 
     #[test]
     fn platform_table_is_two_dimensional() {
-        // tasks 1.1：两行取值 + 未知组合明确报错（MUST NOT 兜底猜一个标签）。
+        // 平台标签由 OS × 架构两个维度共同决定；未知组合明确报错（MUST NOT 兜底猜一个标签）。
         let win = label_at("windows", "x86_64").unwrap();
         assert_eq!((win.tag, win.ext), ("win64", "zip"));
 
@@ -361,37 +369,81 @@ mod tests {
             "错误信息须含 OS 与架构，实际：{err}"
         );
 
+        // 表外组合不得被「就近」映射到某个标签上：win32 与 macos 都不在支持范围。
+        assert!(label_at("windows", "x86").is_err());
+        assert!(label_at("macos", "aarch64").is_err());
+
         // 当前平台必须在表内：否则本应用在这个平台上既定不了目录名也定不了资产名。
         assert!(current().is_ok(), "当前平台不在受支持表内");
     }
 
     #[test]
     fn dir_name_follows_platform_tag() {
-        // tasks 1.2：目录名与平台标签同源；Windows 取值逐字与本变更之前一致。
+        // 目录名与平台标签同源；版本段取最佳适配版本常量 —— 升级时只改常量，不必改这里。
+        let win = dir_name_at(label_at("windows", "x86_64").unwrap(), BEST_FIT_VERSION);
+        assert!(win.starts_with("scrcpy-win64-v"), "实际：{win}");
+        assert_eq!(win.strip_prefix("scrcpy-win64-v"), Some(BEST_FIT_VERSION));
+
+        let linux = dir_name_at(label_at("linux", "x86_64").unwrap(), BEST_FIT_VERSION);
+        assert!(linux.starts_with("scrcpy-linux-x86_64-v"), "实际：{linux}");
         assert_eq!(
-            dir_name_at(label_at("windows", "x86_64").unwrap(), "4.1"),
-            "scrcpy-win64-v4.1"
+            linux.strip_prefix("scrcpy-linux-x86_64-v"),
+            Some(BEST_FIT_VERSION)
+        );
+    }
+
+    #[test]
+    fn windows_arm64_platform_row() {
+        // 规格 `scrcpy-environment` 的 Windows ARM64 场景：官方标签 winarm64 + zip，
+        // 目录名与 win64 各行同构（同一份下载、校验、解压与替换规则）。
+        let arm = label_at("windows", "aarch64").unwrap();
+        assert_eq!((arm.tag, arm.ext), ("winarm64", "zip"));
+        assert_eq!(
+            dir_name_at(arm, BEST_FIT_VERSION),
+            format!("scrcpy-winarm64-v{BEST_FIT_VERSION}")
+        );
+    }
+
+    #[test]
+    fn arm64_dir_is_not_read_as_win64() {
+        // 平台标签不得互相串读：ARM64 的目录不属于 win64 的运行环境（反之亦然）。
+        let name = format!("/x/scrcpy-winarm64-v{BEST_FIT_VERSION}");
+        assert_eq!(
+            parse_version_from_dir_name_at(Path::new(&name), "win64"),
+            None,
+            "winarm64 目录不得被 win64 标签解析"
         );
         assert_eq!(
-            dir_name_at(label_at("linux", "x86_64").unwrap(), "4.1"),
-            "scrcpy-linux-x86_64-v4.1"
+            parse_version_from_dir_name_at(Path::new(&name), "winarm64").as_deref(),
+            Some(BEST_FIT_VERSION)
+        );
+        let win64 = format!("/x/scrcpy-win64-v{BEST_FIT_VERSION}");
+        assert_eq!(
+            parse_version_from_dir_name_at(Path::new(&win64), "winarm64"),
+            None,
+            "win64 目录不得被 winarm64 标签解析"
         );
     }
 
     #[test]
     fn parses_version_from_dir_name_both_spellings() {
-        // 两平台标签各自都要能解析：带 / 不带 `v`、附加后缀，以及只有一个 `v` 的非法写法。
-        for tag in ["win64", "linux-x86_64"] {
+        // 各平台标签都要能解析：带 / 不带 `v`、附加后缀，以及只有一个 `v` 的非法写法。
+        for tag in ["win64", "winarm64", "linux-x86_64"] {
             let at = |name: &str| parse_version_from_dir_name_at(Path::new(name), tag);
             assert_eq!(
                 at(&format!("/x/scrcpy-{tag}-v3.1")).as_deref(),
                 Some("3.1"),
                 "标签 {tag}"
             );
-            assert_eq!(at(&format!("/x/scrcpy-{tag}-4.1")).as_deref(), Some("4.1"));
             assert_eq!(
-                at(&format!("/x/scrcpy-{tag}-v4.1-portable")).as_deref(),
-                Some("4.1")
+                at(&format!("/x/scrcpy-{tag}-{BEST_FIT_VERSION}")).as_deref(),
+                Some(BEST_FIT_VERSION),
+                "标签 {tag}"
+            );
+            assert_eq!(
+                at(&format!("/x/scrcpy-{tag}-v{BEST_FIT_VERSION}-portable")).as_deref(),
+                Some(BEST_FIT_VERSION),
+                "标签 {tag}"
             );
             assert_eq!(at(&format!("/x/scrcpy-{tag}-v")).as_deref(), None);
         }
@@ -421,7 +473,7 @@ mod tests {
 
     #[test]
     fn compat_status_covers_four_cases() {
-        let same = build_compat_status(Some("4.1"));
+        let same = build_compat_status(Some(BEST_FIT_VERSION));
         assert_eq!((same.status.as_str(), same.direction.as_str()), ("ok", "equal"));
 
         let older = build_compat_status(Some("4.0"));
@@ -430,7 +482,7 @@ mod tests {
             ("mismatch", "older")
         );
 
-        let newer = build_compat_status(Some("5.2"));
+        let newer = build_compat_status(Some("6.2"));
         assert_eq!(
             (newer.status.as_str(), newer.direction.as_str()),
             ("mismatch", "newer")
@@ -465,7 +517,7 @@ mod tests {
     fn absent_or_empty_dir_is_unknown() {
         // 全新机器：目录不存在 → unknown（不得用目录名回退出「与最佳适配一致」的假象）。
         let dir = unique_temp_dir("absent");
-        let target = dir.join(dir_name_at(current().unwrap(), "4.1"));
+        let target = dir.join(dir_name_at(current().unwrap(), BEST_FIT_VERSION));
         assert_eq!(detect_installed_version(&target).as_deref(), None);
 
         // 空目录（仅由「打开目录」创建的空壳）同样不算已安装。
@@ -512,6 +564,6 @@ mod tests {
         let got = read_version(&mut cmd);
 
         let _ = fs::remove_dir_all(&dir);
-        assert_eq!(got.as_deref(), Some("4.1"));
+        assert_eq!(got.as_deref(), Some(BEST_FIT_VERSION));
     }
 }

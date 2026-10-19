@@ -25,7 +25,9 @@
      它刻意不进上面这套调色板：--border / --border-strong 是界面内部分隔线用的，用途不同，
      拿 --border-strong（#353c49）顶替会偏蓝、在角上与原生竖线看出色差。 */
   --win-frame: #333333;
-  --text: #e7eaf0;
+  /* 主文字色：比早先的 #e7eaf0 略低一档（用户 2026-10-19：与深色底搭配偏刺眼），
+     与 --text-dim / --text-faint 仍保持明显的层级差。 */
+  --text: #dcdfe6;
   --text-dim: #9aa3b2;
   --text-faint: #6b7382;
 

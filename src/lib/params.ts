@@ -30,6 +30,12 @@ export interface ParamField {
   autoZero?: string;
   placeholder?: string;
   hint?: string;
+  /**
+   * 详情段落：较长、或带前置条件 / 平台限制的说明按语义拆段，收进标签右侧 `?` 的详情面板
+   * （`HelpTip.svelte`，展开全由 CSS 承担）；字段下方只留一句短 `hint`。
+   * 分配口径见 config.yaml ④：常驻短句与详情之间的分配可变，但信息不得丢。
+   */
+  detail?: string[];
   /** hint 中以警示色呈现的片段（如可读性不足）。 */
   hintWarn?: string;
   /**
@@ -93,6 +99,22 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // 设置生效了 —— 与原型 `toggleSourceUI()` 的行为一致。
             showWhen: (g) => g.videoSource !== 'camera',
             hint: '虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）。',
+          },
+          {
+            key: 'displayId',
+            label: '--display-id',
+            type: 'number',
+            min: 0,
+            max: 9999,
+            // 只在镜像主屏时生效：虚拟显示器 / Flex 下 scrcpy 拒绝「两者同时指定」
+            // （Cannot specify both --display-id and --new-display），摄像头源下该 flag 不可用。
+            // 取值仍保留在配置里，切回主屏后照常生效（与 flex / 摄像头那几项的剔除同一模式）。
+            showWhen: (g) => g.videoSource !== 'camera' && g.displayMode === 'main',
+            hint: '0 = 主屏；虚拟显示器与摄像头源下不生效',
+            detail: [
+              '镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。',
+              '非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。',
+            ],
           },
         ],
       },
@@ -226,6 +248,38 @@ export const PARAM_GROUPS: ParamGroup[] = [
             step: 1,
             autoZero: '不限制',
           },
+          // 以下两项后置：新增参数排在既有字段之后，不打断原有阅读顺序。
+          {
+            key: 'videoEncoder',
+            label: '--video-encoder',
+            type: 'text',
+            placeholder: 'OMX.qcom.video.encoder.avc',
+            hint: '留空由 scrcpy 自动选择',
+            detail: [
+              '指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。',
+              '可用 scrcpy --list-encoders 列出设备上可用的编码器。',
+            ],
+          },
+          {
+            key: 'hwdec',
+            label: '--hwdec',
+            type: 'select',
+            options: [
+              // 「自动」= 不传该 flag（scrcpy 自身默认 auto：优先第一个可用的硬件解码器，
+              // 无法解码时回退软件解码）。以下三项才是显式指定。
+              { label: '自动', value: '' },
+              { label: 'disabled', value: 'disabled' },
+              { label: 'vaapi', value: 'vaapi' },
+              { label: 'd3d11va', value: 'd3d11va' },
+            ],
+            hint: '「后台录制」开启时不生效',
+            detail: [
+              '「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。',
+              'disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。',
+              '与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。',
+              '需要 scrcpy 5.0 及以上。',
+            ],
+          },
         ],
       },
       {
@@ -310,6 +364,18 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--audio-dup',
             type: 'toggle',
             hint: '边播边录',
+          },
+          // 后置：新增参数排在既有字段之后。
+          {
+            key: 'audioEncoder',
+            label: '--audio-encoder',
+            type: 'text',
+            placeholder: 'c2.android.opus.encoder',
+            hint: '留空由 scrcpy 自动选择',
+            detail: [
+              '指定 MediaCodec 音频编码器（可用的编码器名随 --audio-codec 的编码格式而定）。',
+              '可用 scrcpy --list-encoders 列出设备上可用的编码器。',
+            ],
           },
         ],
       },
@@ -398,6 +464,13 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'rsuper', value: 'rsuper' },
             ],
           },
+          // 后置：新增参数排在既有字段之后。
+          {
+            key: 'noKeyRepeat',
+            label: '--no-key-repeat',
+            type: 'toggle',
+            hint: '按住按键时不转发重复事件',
+          },
         ],
       },
       {
@@ -414,8 +487,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--turn-screen-off',
             type: 'toggle',
             // 与「视频源为摄像头」互斥：摄像头源下画面不来自设备屏幕，熄屏无处可谈。
-            // 这一句是**唯一**的说明出口（参数页与设备覆盖面板共用本定义），拼装层同时把它剔除。
-            hint: '镜像时熄灭手机屏；视频源为摄像头时不生效',
+            // 说明分两层（config ④）：常驻只留「熄灭手机屏」，互斥条件收进 `?` 详情。
+            // 本定义是**唯一**的说明出口（参数页与设备覆盖面板共用同一份文字），拼装层同时把它剔除。
+            hint: '镜像时熄灭手机屏',
+            detail: ['视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。'],
           },
           {
             key: 'stayAwake',
@@ -440,6 +515,16 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--no-clipboard-autosync（关闭时）',
             type: 'toggle',
             hint: '双向同步',
+          },
+          // 后置：新增参数排在既有字段之后。
+          {
+            key: 'screenOffTimeout',
+            label: '--screen-off-timeout（秒）',
+            type: 'number',
+            min: 0,
+            max: 86400,
+            hint: '留空不修改设备设置',
+            detail: ['scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。'],
           },
         ],
       },

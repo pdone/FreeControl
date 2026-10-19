@@ -90,10 +90,22 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   // 取值原样保留在配置里（同 isFlex 那几项），视频源切回主屏幕后照常下发。
   const isCamera = str(s.videoSource) === 'camera';
 
-  // ── 视频（--video-codec / --video-bit-rate / --max-size / --max-fps / --crop /
-  //    --angle / --render-fit / --video-buffer，见 doc/scrcpy/app/src/cli.c）──
+  // ── 视频（--video-codec / --video-encoder / --hwdec / --video-bit-rate / --max-size /
+  //    --max-fps / --crop / --angle / --render-fit / --video-buffer，见 doc/scrcpy/app/src/cli.c）──
   if (str(v.videoCodec) && !bad('video', 'videoCodec')) {
     a.push(`--video-codec=${str(v.videoCodec)}`);
+  }
+  if (str(v.videoEncoder) && !bad('video', 'videoEncoder')) {
+    a.push(`--video-encoder=${str(v.videoEncoder)}`);
+  }
+  // `--hwdec` 与「后台录制」互斥：`--no-window` 隐含 `--no-video-playback`
+  // （doc/scrcpy 的 app/src/cli.c 帮助文本原文），而硬件解码要求 video playback ——
+  // 该组合会被 scrcpy 以 "Hardware decoding requires video playback" 直接拒绝。
+  // 故后台录制下只放行 `disabled`（合法），显式硬件模式剔除但取值保留。
+  if (str(v.hwdec) && !bad('video', 'hwdec')) {
+    if (str(v.hwdec) === 'disabled' || !bool(r.noWindow)) {
+      a.push(`--hwdec=${str(v.hwdec)}`);
+    }
   }
   if (num(v.bitrate) > 0 && !bad('video', 'bitrate')) {
     a.push(`-b ${num(v.bitrate)}M`);
@@ -120,7 +132,7 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   }
 
   // ── 显示源（--video-source / --camera-* / --new-display / --no-vd-destroy-content /
-  //    --flex-display）──
+  //    --flex-display / --display-id）──
   //
   // 「虚拟显示器」与「Flex Display」共用一段拼装：Flex **不是**第三种显示模式，而是虚拟显示器的
   // 一个修饰开关（scrcpy 的 `-x`）—— 它必须建立在 `--new-display` 之上（doc/scrcpy 的
@@ -151,9 +163,17 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
     a.push(spec ? `--new-display=${spec}` : '--new-display');
     if (bool(s.noVdDestroy)) a.push('--no-vd-destroy-content');
     if (isFlex) a.push('--flex-display');
+  } else {
+    // 主屏镜像：`--display-id` 只在此时有效 —— 非 0 与 `--new-display` 互斥
+    // （scrcpy 报 "Cannot specify both --display-id and --new-display"），摄像头源下
+    // 该 flag 也不可用（"only available with --video-source=display"）。另外两个分支
+    // 都不下发它，取值原样保留在配置里（同 flex / 摄像头那几项的剔除模式）。
+    if (num(s.displayId) > 0 && !bad('source', 'displayId')) {
+      a.push(`--display-id=${num(s.displayId)}`);
+    }
   }
 
-  // ── 音频（--no-audio / --audio-source / --audio-codec / --audio-dup /
+  // ── 音频（--no-audio / --audio-source / --audio-codec / --audio-encoder / --audio-dup /
   //    --audio-bit-rate / --audio-buffer / --audio-output-buffer）──
   // 开关语义是「禁用音频转发」（出厂即开），因此开 ⇒ 下发 `--no-audio`。
   if (bool(au.audioOff)) {
@@ -164,6 +184,9 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
     }
     if (str(au.audioCodec) && str(au.audioCodec) !== 'opus') {
       a.push(`--audio-codec=${str(au.audioCodec)}`);
+    }
+    if (str(au.audioEncoder) && !bad('audio', 'audioEncoder')) {
+      a.push(`--audio-encoder=${str(au.audioEncoder)}`);
     }
     if (bool(au.audioDup)) a.push('--audio-dup');
     if (num(au.audioBitrate) > 0 && !bad('audio', 'audioBitrate')) {
@@ -186,12 +209,13 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
     }
   }
 
-  // ── 控制（--no-control / --keyboard / --mouse / --gamepad / --shortcut-mod /
-  //    --show-touches / --turn-screen-off / --stay-awake / --keep-active /
-  //    --power-off-on-close / --no-clipboard-autosync）──
+  // ── 控制（--no-control / --keyboard / --no-key-repeat / --mouse / --gamepad /
+  //    --shortcut-mod / --show-touches / --turn-screen-off / --screen-off-timeout /
+  //    --stay-awake / --keep-active / --power-off-on-close / --no-clipboard-autosync）──
   // `-n/--no-control` 与 Flex Display 不兼容（doc/scrcpy 的 app/src/cli.c:3272）：flex 档不下发。
   if (bool(c.noControl) && !isFlex) a.push('--no-control');
   if (str(c.keyboard) && str(c.keyboard) !== 'uhid') a.push(`--keyboard=${str(c.keyboard)}`);
+  if (bool(c.noKeyRepeat)) a.push('--no-key-repeat');
   if (str(c.mouse) && str(c.mouse) !== 'uhid') a.push(`--mouse=${str(c.mouse)}`);
   if (str(c.gamepad) && str(c.gamepad) !== 'uhid') a.push(`--gamepad=${str(c.gamepad)}`);
   const mods = Array.isArray(c.shortMod) ? (c.shortMod as unknown[]).map(str).filter(Boolean) : [];
@@ -199,6 +223,9 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   if (bool(c.showTouches)) a.push('--show-touches');
   // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
   if (bool(c.turnScreenOff) && !isCamera) a.push('--turn-screen-off');
+  if (num(c.screenOffTimeout) > 0 && !bad('control', 'screenOffTimeout')) {
+    a.push(`--screen-off-timeout=${num(c.screenOffTimeout)}`);
+  }
   if (bool(c.stayAwake)) a.push('--stay-awake');
   if (bool(c.keepActive)) a.push('--keep-active');
   if (bool(c.powerOffOnClose)) a.push('--power-off-on-close');

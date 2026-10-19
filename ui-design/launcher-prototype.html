@@ -18,7 +18,8 @@
     --code-bg: color-mix(in srgb, var(--text) 9%, var(--panel-2));
     --border: #272d38;
     --border-strong: #353c49;
-    --text: #e7eaf0;
+    /* 主文字色：与产品同值（略低于早先的 #e7eaf0，避免深色底上偏刺眼）。 */
+    --text: #dcdfe6;
     --text-dim: #9aa3b2;
     --text-faint: #6b7382;
     /* 强调色：固定为产品默认色（indigo），不提供用户自定义入口。
@@ -712,6 +713,12 @@
             <div class="field" id="displayModeField"><label>显示模式</label>
               <div class="seg" data-g="source" data-k="displayMode" data-t="seg"><button class="active" data-v="main">主屏</button><button data-v="new">虚拟显示器</button><button data-v="flex">Flex Display</button></div>
               <div class="hint">虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）。</div></div>
+            <div class="field" id="displayIdField"><span class="flabel">显示 id（--display-id）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="显示 id（--display-id）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">显示 id（--display-id）</span><span class="fhelp-p">镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。</span><span class="fhelp-p">非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。</span></span>
+            </span></span>
+              <input type="number" min="0" max="9999" value="0" data-g="source" data-k="displayId" data-t="number" />
+              <div class="hint">0 = 主屏；虚拟显示器与摄像头源下不生效</div></div>
           </div>
           <div class="card" id="newDispCard">
             <h3>虚拟显示器</h3>
@@ -753,6 +760,16 @@
               <div class="range-row"><input type="range" min="0" max="64" value="0" data-g="video" data-k="bitrate" data-t="range" id="vBitrate" /><span class="range-val" id="vBitrateVal">自动</span></div></div>
             <div class="field"><label>最大帧率（--max-fps）</label>
               <div class="range-row"><input type="range" min="0" max="240" value="0" data-g="video" data-k="maxFps" data-t="range" id="vFps" /><span class="range-val" id="vFpsVal">不限制</span></div></div>
+            <div class="field"><span class="flabel">视频编码器（--video-encoder）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="视频编码器（--video-encoder）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">视频编码器（--video-encoder）</span><span class="fhelp-p">指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。</span><span class="fhelp-p">可用 scrcpy --list-encoders 列出设备上可用的编码器。</span></span>
+            </span></span><input type="text" data-g="video" data-k="videoEncoder" data-t="text" value="" placeholder="OMX.qcom.video.encoder.avc" />
+              <div class="hint">留空由 scrcpy 自动选择</div></div>
+            <div class="field"><span class="flabel">硬件解码（--hwdec）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="硬件解码（--hwdec）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">硬件解码（--hwdec）</span><span class="fhelp-p">「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。</span><span class="fhelp-p">disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。</span><span class="fhelp-p">与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。</span><span class="fhelp-p">需要 scrcpy 5.0 及以上。</span></span>
+            </span></span><select data-g="video" data-k="hwdec" data-t="select"><option value="" selected>自动</option><option>disabled</option><option>vaapi</option><option>d3d11va</option></select>
+              <div class="hint">「后台录制」开启时不生效</div></div>
           </div>
           <div class="card">
             <h3>画面与适配</h3>
@@ -776,6 +793,11 @@
             <div class="field"><label>音频编码（--audio-codec）</label><select data-g="audio" data-k="audioCodec" data-t="select"><option>opus</option><option>aac</option><option>flac</option><option>raw</option></select></div>
             <div class="field"><label>复制音频（--audio-dup，设备同时播放）</label>
               <div class="toggle"><span class="t-label">边播边录</span><label class="switch"><input type="checkbox" data-g="audio" data-k="audioDup" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><span class="flabel">音频编码器（--audio-encoder）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="音频编码器（--audio-encoder）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">音频编码器（--audio-encoder）</span><span class="fhelp-p">指定 MediaCodec 音频编码器（可用的编码器名随 --audio-codec 的编码格式而定）。</span><span class="fhelp-p">可用 scrcpy --list-encoders 列出设备上可用的编码器。</span></span>
+            </span></span><input type="text" data-g="audio" data-k="audioEncoder" data-t="text" value="" placeholder="c2.android.opus.encoder" />
+              <div class="hint">留空由 scrcpy 自动选择</div></div>
           </div>
           <div class="card">
             <h3>码率与缓冲</h3>
@@ -800,13 +822,18 @@
             <div class="field"><label>游戏手柄（--gamepad）</label><select data-g="control" data-k="gamepad" data-t="select"><option>uhid</option><option>aoa</option><option>disabled</option></select></div>
             <div class="field"><label>快捷键修饰键（--shortcut-mod）</label>
               <div class="chips" id="shortMod" data-g="control" data-k="shortMod" data-t="multichips"><span class="chip">lalt</span><span class="chip">lsuper</span><span class="chip">lctrl</span><span class="chip">rctrl</span><span class="chip">ralt</span><span class="chip">rsuper</span></div></div>
+            <div class="field"><label>不转发重复按键（--no-key-repeat）</label>
+              <div class="toggle"><span class="t-label">按住按键时不转发重复事件</span><label class="switch"><input type="checkbox" data-g="control" data-k="noKeyRepeat" data-t="bool" /><span class="slider"></span></label></div></div>
           </div>
           <div class="card">
             <h3>屏幕与剪贴板</h3>
             <div class="field"><label>显示触摸点（--show-touches）</label>
               <div class="toggle"><span class="t-label">演示可见点击</span><label class="switch"><input type="checkbox" data-g="control" data-k="showTouches" data-t="bool" id="cTouches" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>关闭屏幕（--turn-screen-off）</label>
-              <div class="toggle"><span class="t-label">镜像时熄灭手机屏；视频源为摄像头时不生效</span><label class="switch"><input type="checkbox" data-g="control" data-k="turnScreenOff" data-t="bool" id="cScreenOff" /><span class="slider"></span></label></div></div>
+            <div class="field"><span class="flabel">关闭屏幕（--turn-screen-off）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="关闭屏幕（--turn-screen-off）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭屏幕（--turn-screen-off）</span><span class="fhelp-p">视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。</span></span>
+            </span></span>
+              <div class="toggle"><span class="t-label">镜像时熄灭手机屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="turnScreenOff" data-t="bool" id="cScreenOff" /><span class="slider"></span></label></div></div>
             <div class="field"><label>保持唤醒（--stay-awake）</label>
               <div class="toggle"><span class="t-label">充电时保持亮屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="stayAwake" data-t="bool" id="cAwake" /><span class="slider"></span></label></div></div>
             <div class="field"><label>保持活跃（--keep-active）</label>
@@ -815,6 +842,11 @@
               <div class="toggle"><span class="t-label">退出即熄屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="powerOffOnClose" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><label>剪贴板自动同步（关闭=--no-clipboard-autosync）</label>
               <div class="toggle"><span class="t-label">双向同步</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><span class="flabel">息屏超时（--screen-off-timeout，秒）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="息屏超时（--screen-off-timeout）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">息屏超时（--screen-off-timeout）</span><span class="fhelp-p">scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。</span></span>
+            </span></span><input type="number" min="0" max="86400" value="0" data-g="control" data-k="screenOffTimeout" data-t="number" />
+              <div class="hint">留空不修改设备设置</div></div>
           </div>
         </div>
       </section>
@@ -1129,12 +1161,12 @@
   /* ===================== 状态模型 ===================== */
   // 全局默认参数（param tabs 编辑）
   const defaults = {
-    video:    { videoCodec:'', bitrate:0, maxSize:0, maxFps:0, crop:'', angle:'0', renderFit:'letterbox', videoBuffer:0 },
+    video:    { videoCodec:'', videoEncoder:'', hwdec:'', bitrate:0, maxSize:0, maxFps:0, crop:'', angle:'0', renderFit:'letterbox', videoBuffer:0 },
     // 显示源组不预设（同产品侧）：尺寸 / 密度 / 摄像头朝向·尺寸·帧率出厂都为空串。
     // 注意 `--new-display` 取空时**仍会下发该 flag、只是不带取值**，其余四个取空则不产生 flag（见 buildArgs）。
-    source:   { videoSource:'display', displayMode:'main', newDisplayRes:'', newDisplayDpi:'', noVdDestroy:true, cameraFacing:'', cameraSize:'', cameraFps:'', cameraZoom:1, cameraTorch:false },
-    audio:    { audioOff:true, audioSource:'output', audioCodec:'opus', audioDup:false, audioBitrate:0, audioBuffer:50, audioOutBuffer:10 },
-    control:  { noControl:false, keyboard:'uhid', mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboard:true },
+    source:   { videoSource:'display', displayMode:'main', displayId:0, newDisplayRes:'', newDisplayDpi:'', noVdDestroy:true, cameraFacing:'', cameraSize:'', cameraFps:'', cameraZoom:1, cameraTorch:false },
+    audio:    { audioOff:true, audioSource:'output', audioCodec:'opus', audioEncoder:'', audioDup:false, audioBitrate:0, audioBuffer:50, audioOutBuffer:10 },
+    control:  { noControl:false, keyboard:'uhid', noKeyRepeat:false, mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, screenOffTimeout:0, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboard:true },
     record:   { recordOn:false, recordPath:'D:/Recordings/session.mp4', recordFormat:'mp4', recordOrientation:'0', noWindow:false, timeLimit:0, pauseOnExit:'false' },
     window:   { windowTitle:'', borderless:false, fullscreen:false, alwaysOnTop:false, aspectLock:true, bgColor:'#222222', windowWidth:0, windowHeight:0, windowX:0, windowY:0 },
     apps:     { startApp:'' },
@@ -1147,7 +1179,7 @@
      前端一律通过 Tauri 命令读取（见 openspec/changes/launcher-v1/design.md D1/D2）。
      当前取值与 doc/scrcpy/meson.build 保持一致。
      ============================================================ */
-  const SCRCPY_VERSION = '4.1';
+  const SCRCPY_VERSION = '5.0.1';
   const SCRCPY_DIR     = `%APPDATA%\\FreeControl2\\scrcpy-win64-v${SCRCPY_VERSION}`;
   const SCRCPY_ZIP     = `scrcpy-win64-v${SCRCPY_VERSION}.zip`;
   // 平台标签在产品里由「操作系统 × 架构」二维查表决定（win64 / linux-x86_64 / …，标签
@@ -1249,9 +1281,13 @@
 
   function toggleSourceUI(){
     const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
+    const mode = readControl(document.querySelector('[data-g=source][data-k=displayMode]'));
     document.getElementById('cameraCard').classList.toggle('hidden', !cam);
     document.getElementById('displayModeField').classList.toggle('hidden', cam);
     document.getElementById('newDispCard').classList.toggle('hidden', cam);
+    // display-id 只在镜像主屏时有效：非 0 与 --new-display 互斥、摄像头源下不可用。
+    // 判据与 toggleNewDispUI 里那条各自写全（不依赖调用次序），同上面新显示卡片的做法。
+    document.getElementById('displayIdField').classList.toggle('hidden', cam || mode!=='main');
   }
   function toggleNewDispUI(){
     const v = readControl(document.querySelector('[data-g=source][data-k=displayMode]'));
@@ -1260,6 +1296,7 @@
     // 取值仍在），本函数会把卡片重新显示出来，产品侧不会。两者独立算，谁后调用结果都一样。
     const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
     document.getElementById('newDispCard').classList.toggle('hidden', cam || (v!=='new' && v!=='flex'));
+    document.getElementById('displayIdField').classList.toggle('hidden', cam || v!=='main');
   }
   // range 数值回显
   const bind = (id,valId,fmt)=>{ const e=document.getElementById(id), v=document.getElementById(valId); e.addEventListener('input',()=>v.textContent=fmt(e.value)); };
@@ -1293,6 +1330,11 @@
     const isCamera = p.source.videoSource==='camera';
     // video
     if (p.video.videoCodec) a.push(`--video-codec=${p.video.videoCodec}`);
+    if (p.video.videoEncoder) a.push(`--video-encoder=${p.video.videoEncoder}`);
+    // hwdec 与「后台录制」互斥：--no-window 隐含 --no-video-playback，而硬件解码要求 video playback
+    // （doc/scrcpy 的 app/src/cli.c 会直接拒绝该组合）。后台录制下只放行 disabled，显式硬件模式
+    // 剔除但取值保留 —— 判定与产品侧 command.ts 同形。
+    if (p.video.hwdec && (p.video.hwdec==='disabled' || !p.record.noWindow)) a.push(`--hwdec=${p.video.hwdec}`);
     if (p.video.bitrate>0) a.push(`-b ${p.video.bitrate}M`);
     if (p.video.maxSize>0) a.push(`-m ${p.video.maxSize}`);
     if (p.video.maxFps>0) a.push(`--max-fps=${p.video.maxFps}`);
@@ -1314,24 +1356,31 @@
       a.push(spec ? `--new-display=${spec}` : '--new-display');
       if (p.source.noVdDestroy) a.push('--no-vd-destroy-content');
       if (isFlex) a.push('--flex-display');
+    } else if (p.source.displayId>0){
+      // 主屏镜像：display-id 只在此时有效（非 0 与 --new-display 互斥、摄像头源下不可用），
+      // 另两个分支都不下发它，取值原样保留（同产品侧）。
+      a.push(`--display-id=${p.source.displayId}`);
     }
     // audio
     if (p.audio.audioOff) a.push('--no-audio');
     else {
       if (p.audio.audioSource!=='output') a.push(`--audio-source=${p.audio.audioSource}`);
       if (p.audio.audioCodec!=='opus') a.push(`--audio-codec=${p.audio.audioCodec}`);
+      if (p.audio.audioEncoder) a.push(`--audio-encoder=${p.audio.audioEncoder}`);
       if (p.audio.audioDup) a.push('--audio-dup');
       if (p.audio.audioBitrate>0) a.push(`--audio-bit-rate=${p.audio.audioBitrate}K`);
     }
     // control
     if (p.control.noControl && !isFlex) a.push('--no-control');
     if (p.control.keyboard!=='uhid') a.push(`--keyboard=${p.control.keyboard}`);
+    if (p.control.noKeyRepeat) a.push('--no-key-repeat');
     if (p.control.mouse!=='uhid') a.push(`--mouse=${p.control.mouse}`);
     if (p.control.gamepad!=='uhid') a.push(`--gamepad=${p.control.gamepad}`);
     const mods=p.control.shortMod; if (mods.length) a.push(`--shortcut-mod=${mods.join(',')}`);
     if (p.control.showTouches) a.push('--show-touches');
     // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
     if (p.control.turnScreenOff && !isCamera) a.push('--turn-screen-off');
+    if (p.control.screenOffTimeout>0) a.push(`--screen-off-timeout=${p.control.screenOffTimeout}`);
     if (p.control.stayAwake) a.push('--stay-awake');
     if (p.control.keepActive) a.push('--keep-active');
     if (p.control.powerOffOnClose) a.push('--power-off-on-close');

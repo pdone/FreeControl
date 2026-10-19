@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { ParamField as PF } from '../lib/params';
+  import FieldLabel from './FieldLabel.svelte';
 
   export let field: PF;
   export let value: unknown;
@@ -66,7 +67,7 @@
 
 {#if field.type === 'toggle'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <div class="toggle">
       <span class="t-label">{error ?? field.hint ?? ''}</span>
       <label class="switch">
@@ -78,7 +79,7 @@
   </div>
 {:else if field.type === 'segmented'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <div class="seg">
       {#each field.options ?? [] as o}
         <button class:active={value === o.value} on:click={() => set(o.value)}>{o.label}</button>
@@ -92,7 +93,7 @@
   </div>
 {:else if field.type === 'select'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <select on:change={onSelect}>
       {#each field.options ?? [] as o}
         <option value={o.value} selected={value === o.value}>{o.label}</option>
@@ -106,7 +107,7 @@
   </div>
 {:else if field.type === 'chips'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <div class="chips">
       {#each field.options ?? [] as o}
         <span
@@ -125,7 +126,7 @@
   </div>
 {:else if field.type === 'range'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <div class="range-row">
       <input
         type="range"
@@ -147,7 +148,7 @@
   </div>
 {:else if field.type === 'textarea'}
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <textarea
       rows="3"
       placeholder={field.placeholder}
@@ -164,7 +165,7 @@
 {:else}
   <!-- text / number -->
   <div class="field">
-    <span class="flabel"><code>{field.label}</code></span>
+    <FieldLabel {field} />
     <input
       type={field.type === 'number' ? 'number' : 'text'}
       min={field.min}
