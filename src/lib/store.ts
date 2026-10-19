@@ -6,6 +6,12 @@ import { BUILTIN_DEFAULTS } from './defaults';
 import { buildArgs, mergeParams } from './command';
 import { validateParams, validateOverrideValues, type ParamErrors } from './validate';
 import {
+  applyAppearance,
+  installSystemThemeWatcher,
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
+} from './theme';
+import {
   getConfig,
   saveConfig,
   getCompatStatus,
@@ -44,9 +50,48 @@ import type {
   OverrideEntry,
   ProxyList,
   SessionInfo,
+  UiPrefs,
 } from './types';
 
 export const config = writable<AppConfig | null>(null);
+
+// ── 外观偏好（主题模式 / 主题色）──────────────────────────────
+//
+// 生效方式：配置一到就应用（模块加载时先应用出厂默认 —— 与 CSS 的
+// `prefers-color-scheme` 兜底同一结果，配置读完后换成盘上的取值）。
+// 同一份取值只应用一次：设备写命令会整体替换 config，但 ui 段没变，不必重复写样式。
+const PENDING_UI: UiPrefs = { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT };
+
+function uiOf(c: AppConfig | null): UiPrefs {
+  return c?.ui ?? PENDING_UI;
+}
+
+let appliedUiKey = '';
+config.subscribe((c) => {
+  const ui = uiOf(c);
+  const key = `${ui.theme}|${ui.accent}`;
+  if (key === appliedUiKey) return;
+  appliedUiKey = key;
+  applyAppearance(ui);
+});
+
+// 系统深浅色变化：只有当前为「跟随系统」时才会真正重算并重挂 data-theme。
+installSystemThemeWatcher(() => uiOf(get(config)));
+
+/** 主题模式（设置页）：改配置 → 订阅立即应用 → 去抖落盘。 */
+export function setThemeMode(theme: UiPrefs['theme']): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), theme } } : c));
+  scheduleSave();
+}
+
+/**
+ * 主题色（设置页）：调用方负责给出合法的小写 `#rrggbb`（预设值或 RGB 归一化结果）。
+ * 与其它设置同一条写入路径：改配置 → 订阅立即应用 → 去抖落盘。
+ */
+export function setAccent(accent: string): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), accent } } : c));
+  scheduleSave();
+}
 export const devices = writable<Device[]>([]);
 /**
  * 设备运行期状态表（design D13）：由后端统一判定后经事件下发，前端只渲染。
@@ -411,7 +456,7 @@ export function clearSessionLog(deviceId: string): Promise<void> {
 /**
  * 当前页面 key。
  *
- * 注意**入口数与页键数不是同一个数**：侧边栏有 11 个入口（末尾是「关于」），而页键只有 10 个 ——
+ * 注意**入口数与页键数不是同一个数**：侧边栏有 12 个入口（末尾是「关于」），而页键只有 11 个 ——
  * 「关于」不是页面，点它只开弹窗、不切页（见 app-shell 规格「统一导航入口」）。
  */
 export const page = writable<string>('devices');
@@ -855,8 +900,9 @@ export async function initApp(): Promise<void> {
       overrides: {},
       channels: { proxies: [] },
       // 读配置都失败时用的兜底快照：保留策略取出厂默认（`config::RETENTION_7D`），
-      // 与后端「缺字段即 7 天」一致。
+      // 与后端「缺字段即 7 天」一致；外观偏好同理（跟随系统 + indigo）。
       logging: { retention: '7d' },
+      ui: { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT },
     });
   }
   try {

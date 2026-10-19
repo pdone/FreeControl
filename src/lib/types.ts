@@ -121,6 +121,20 @@ export interface Logging {
   retention: string;
 }
 
+/**
+ * 外观偏好（后端 `config::Ui`）：主题模式与主题色。
+ *
+ * - `theme`：`system`（跟随系统，出厂默认）/ `dark` / `light`；
+ * - `accent`：`#rrggbb`（小写；预设值与自定义 RGB 归一化后的结果同形）。
+ *
+ * 后端把未知主题与非法主题色一律退化为出厂默认，因此前端不必为「读到没见过的值」
+ * 准备分支。这两个字段**不属于** `defaults.*`（scrcpy 参数），改动不经过参数组。
+ */
+export interface UiPrefs {
+  theme: 'system' | 'dark' | 'light';
+  accent: string;
+}
+
 export interface AppConfig {
   schemaVersion: number;
   /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
@@ -130,6 +144,7 @@ export interface AppConfig {
   overrides: Record<string, OverrideEntry>;
   channels: Channels;
   logging: Logging;
+  ui: UiPrefs;
 }
 
 /** 8 组默认参数（前端拥有字段模型；后端透明存储为 JSON）。 */

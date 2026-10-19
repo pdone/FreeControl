@@ -26,6 +26,7 @@
     advanced: '高级',
     diagnostics: '日志',
     environment: '运行环境',
+    settings: '设置',
   };
 
   $: title = titles[$page] ?? '设备';

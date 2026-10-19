@@ -30,7 +30,7 @@
 - **Download channels** — direct, built-in proxy and your own proxies, tried in order, with the channel in use shown in the UI and downloads verified against the official checksums
 - **Logs** — per-session output persisted, kept for 7 days / 30 days / forever
 - **Command preview** — the exact command about to run, shown at the bottom and copyable
-- **Appearance** — dark-first, with a sidebar that collapses to an icon rail
+- **Appearance** — light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail
 
 ## Interface
 

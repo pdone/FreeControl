@@ -22,11 +22,12 @@
     --text: #dcdfe6;
     --text-dim: #9aa3b2;
     --text-faint: #6b7382;
-    /* 强调色：固定为产品默认色（indigo），不提供用户自定义入口。
-       只有 --accent 是字面量，其余一律由它派生（CSS 用 color-mix）—— 界面里不留第二处硬编码，
-       否则调整主色必漏（历史上 tag 描边、code 文字、选中项文字就是这类漏点）。
-       --accent-ink 是压在「强调色实底」上的文字色（主按钮 / 分段控件选中项 / logo 兜底块）；
-       主色 #6366f1 偏暗（相对亮度远低于翻转阈值 ≈0.20），白字对比度 4.47:1，故固定用白色。 */
+    /* 强调色：出厂为产品默认色 indigo，可在「设置」页从内置预设或自定义取色更换。
+       只有 --accent 是字面量（运行期由脚本写入），其余一律由它派生（CSS 用 color-mix）—— 界面里
+       不留第二处硬编码。--accent-ink 是压在「强调色实底」上的文字色，由脚本按主题色亮度取白或黑
+       （任意自定义色都要保证实底文字可读）。
+       下面这组派生是**深色主题**用的：深底上的高亮色要比主色更亮。浅色主题另有一套（见下方
+       :root[data-theme='light']），同一 --accent 输入、派生方向相反。 */
     --accent: #6366f1;
     --accent-ink: #fff;
     --accent-hover: color-mix(in srgb, var(--accent) 85%, #fff);         /* 压在【深底】上的高亮色：图标 / 文字 / 滑块手柄，须比主色更亮 */
@@ -34,6 +35,11 @@
     --accent-soft:  color-mix(in srgb, var(--accent) 14%, transparent);  /* 选中背景（含弹窗图标底） */
     --accent-weak:  color-mix(in srgb, var(--accent) 5%,  transparent);  /* 极淡提示条背景 */
     --accent-line:  color-mix(in srgb, var(--accent) 40%, transparent);  /* tag 描边 */
+    /* 半透明面：顶栏 / 命令条 / 模态遮罩。进 token 是为了浅色主题能换一份取值 ——
+       写死深色 rgba 的话，浅色下会露出三块深色。 */
+    --topbar-bg: rgba(20,23,29,.6);
+    --launchbar-bg: rgba(11,13,17,.88);
+    --overlay-bg: rgba(5,7,10,.7);
     --danger: #f87171;
     --success: #34d399;
     --warn: #fbbf24;
@@ -54,6 +60,43 @@
        textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。
        注：这一行只影响"系统绘制"的部件；下面自绘的滚动条与滑块不受它约束。 */
     color-scheme: dark;
+  }
+  /* ---------- 浅色主题 ----------
+     与深色**对等的一套 token**，不是把 --bg / --text 对调：文字层级、语义色、阴影、轨道色都要
+     重新取值，否则会得到一块灰白刺眼、状态色发虚的界面。
+     切换只改 <html data-theme="light">；--accent 仍由用户选择的主题色给出（脚本写在行内样式上），
+     这里只换它的派生方向与其余中性色。 */
+  :root[data-theme='light'] {
+    --bg: #f2f4f7;
+    --bg-elev: #f8f9fb;
+    --panel: #fff;
+    --panel-2: #f1f3f6;
+    --code-bg: color-mix(in srgb, var(--text) 7%, var(--panel-2));
+    --border: #dfe3ea;
+    --border-strong: #c8cfda;
+    /* 主文字色避开纯黑：与深色侧「不用 #e7eaf0」同一条理由（刺眼）。 */
+    --text: #1f2430;
+    --text-dim: #5a6377;
+    --text-faint: #8b93a5;
+    /* 浅色底上的「高亮 / 浅色文字」要更沉，方向与深色相反。 */
+    --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+    --accent-text:  color-mix(in srgb, var(--accent) 72%, #000);
+    --accent-soft:  color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-line:  color-mix(in srgb, var(--accent) 45%, transparent);
+    /* 语义色在浅色下作文字用，需要更深的取值（12px 药丸文字须可读）。 */
+    --danger: #dc2626;
+    --success: #047857;
+    --warn: #b45309;
+    --teal: #0e7490;
+    --shadow: 0 8px 30px rgba(16, 24, 40, .10);
+    --track: #e3e7ee;
+    --scroll-track: #f0f2f5;
+    --scroll-thumb: #c3c9d4;
+    --scroll-thumb-hover: #a8b0bf;
+    --topbar-bg: rgba(255,255,255,.72);
+    --launchbar-bg: rgba(242,244,247,.9);
+    --overlay-bg: rgba(15,23,42,.35);
+    color-scheme: light;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -80,7 +123,7 @@
      .sess-cmd code 的宿主、.env-path、.env-reason-cmp、.flabel code —— 原型没有会话输出那一块
      与运行环境原因块，参数标签也未用 <code> 承载 flag 名。产品侧落规则时以产品侧那份为准。 */
   .dev-cid, .proxy-url, .cmd-preview, #scrcpyPath,
-  .dl-text, .dl-channel, .hint code, .modal code
+  .dl-text, .dl-channel, .hint code, .accent-hex, .modal code
   { user-select: text; cursor: text; }
   /* 关于弹窗的两处**不在**白名单里：
      · 技术栈药丸是纯静态标签（不是会被带走的"值"），回到外壳文字态；
@@ -173,33 +216,34 @@
 
   /* ---------- Main ---------- */
   /* 命令条为内容区让出的底部留白：取值在 .main 上单点定义，与命令条是否呈现同步
-     —— 日志 / 运行环境两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
+     —— 日志 / 运行环境 / 设置三页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
   .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; --bar-reserve: 120px; }
   .main.no-bar { --bar-reserve: 26px; }
-  .topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 0 0 22px; border-bottom: 1px solid var(--border); background: rgba(20,23,29,.6); backdrop-filter: blur(8px); }
+  .topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 0 0 22px; border-bottom: 1px solid var(--border); background: var(--topbar-bg); backdrop-filter: blur(8px); }
   .topbar .title { font-weight: 600; }
   .topbar .spacer { flex: 1; }
   /* 自绘标题栏的窗口控件（右端三枚）：46px 宽 × 顶栏全高，**贴窗口右缘** —— 故 .topbar 的右内边距为 0，
      与左内边距不再对称（左 22px / 右 0）。控件与左边那颗状态指示的间隔由 .topbar 的 gap 给。
      悬停取 Windows 原生口径：最小化 / 最大化用中性叠加，关闭用破坏性实底（红底白图标）。
      两处都不新造颜色常量：中性叠加由 --text 混出（与 --code-bg 同一手法），破坏底由 --danger 压暗得到，
-     白色取自 --accent-ink（调色板里表示「压在实底上的白色」的那一个取值）。 */
+     前景固定白色 —— 不能取 --accent-ink：它在亮主题色下会变成黑色，而这里压的是破坏性
+     实底（红底），只用白字。 */
   .win-controls { display: flex; align-self: stretch; }
   .win-btn { width: 46px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; transition: background-color .12s, color .12s; }
   .win-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
   .win-btn:active { background: color-mix(in srgb, var(--text) 14%, transparent); }
-  .win-btn.close:hover { background: color-mix(in srgb, var(--danger) 55%, #000); color: var(--accent-ink); }
+  .win-btn.close:hover { background: color-mix(in srgb, var(--danger) 55%, #000); color: #fff; }
   .win-btn.close:active { background: color-mix(in srgb, var(--danger) 42%, #000); }
   .win-btn svg { width: 16px; height: 16px; stroke-width: 1.7; flex: none; }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); color: var(--text-dim); background: var(--panel); }
   .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
-  .pill.ok { color: var(--success); border-color: rgba(52,211,153,.35); }
+  .pill.ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
   .pill.ok .dot { background: var(--success); box-shadow: 0 0 8px var(--success); }
   /* 非最佳适配版本：黄色叹号警示（不阻断任何操作）。
      这里**不给**指针光标 —— 指针只由下面的 .pill.clickable 给：顶栏那颗确实可点，
      而「运行环境」页的状态指示用的是同一个 .pill.env.warn 却不可点，
      写在 warn 上会让那颗不可点的指示也显示手形光标（光标与可点击性必须一致）。 */
-  .pill.env.warn { color: var(--warn); border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.08); }
+  .pill.env.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: color-mix(in srgb, var(--warn) 8%, transparent); }
   .pill.env.warn svg { width: 13px; height: 13px; stroke: var(--warn); flex: none; }
   /* 顶栏两个状态指示可点击跳转：点设备概况回「设备」页，点运行环境指示去「运行环境」页 */
   .pill.clickable { cursor: pointer; }
@@ -379,7 +423,7 @@
   .dl .dl-head .dl-channel { flex: 1 1 auto; }
   .dl .dl-head .dl-percent { flex: none; margin-left: auto; }
   .dl .dl-bar { height: 6px; border-radius: 999px; background: var(--track); box-shadow: inset 0 0 0 1px var(--border); overflow: hidden; }
-  .dl .dl-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--teal)); transition: width .2s ease; }
+  .dl .dl-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent-hover), var(--teal)); transition: width .2s ease; }
   /* 「切换通道 / 取消」在进度条**下方新起一行**（与产品侧 app.css 的 .dl-actions 同值）：
      通道行三格已实测超宽，再塞按钮会破掉「整行恒为单行」的约定。 */
   .dl .dl-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
@@ -389,7 +433,7 @@
     border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .12s;
   }
   textarea { resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-hover); }
   select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
@@ -400,7 +444,7 @@
   .switch input { opacity: 0; width: 0; height: 0; }
   .slider { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; transition: .18s; }
   .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: var(--text-faint); border-radius: 50%; transition: .18s; }
-  .switch input:checked + .slider { background: var(--accent-soft); border-color: var(--accent); }
+  .switch input:checked + .slider { background: var(--accent-soft); border-color: var(--accent-hover); }
   .switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent-hover); }
 
   .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
@@ -409,7 +453,32 @@
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); padding: 6px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer; user-select: none; transition: .12s; }
-  .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+  .chip.active { background: var(--accent-soft); border-color: var(--accent-hover); color: var(--accent-text); }
+
+  /* ---------- 主题色选择（「设置」页「外观」卡） ----------
+     色块是按钮：选中态用外环 + 勾选图标表达（不只靠颜色），可键盘聚焦。
+     色块底色就是该预设本身，故勾选固定用白色加一点阴影 —— 预设都偏暗，白勾最稳。 */
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: box-shadow .12s, transform .12s; }
+  .swatch:hover { transform: translateY(-1px); }
+  .swatch.sel { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent-line); }
+  .swatch svg { width: 15px; height: 15px; stroke-width: 2.4; filter: drop-shadow(0 1px 1px rgba(0,0,0,.45)); }
+  .color-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .color-pick { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; }
+  /* 自定义取色的色块：原生 input 不能放子元素，故用一层包装承载选中外环与对号。 */
+  .color-swatch-wrap { position: relative; display: inline-flex; width: 30px; height: 30px; }
+  .color-swatch-wrap.sel { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent-line); border-radius: 50%; }
+  .swatch-check { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .swatch-check.hidden { display: none; }
+  .swatch-check svg { width: 15px; height: 15px; stroke-width: 2.4; filter: drop-shadow(0 1px 1px rgba(0,0,0,.45)); }
+  /* 当前主题色的十六进制值：与参数 code 同一套样式（底色 / 内边距 / 圆角 / 11px 无衬线）。 */
+  .accent-hex { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: var(--accent-text); font-size: 11px; font-family: inherit; }
+  /* 原生取色控件只保留圆形色块本体：面板由内核绘制、随 color-scheme 走。
+     `::-webkit-color-swatch-wrapper` 默认有内边距，不去掉会缩成中间一个小方块。 */
+  input[type=color] { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; background: transparent; cursor: pointer; }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+  input[type=color]:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
   .range-row { display: flex; align-items: center; gap: 12px; }
   /* ---------- 滑块（range）暗色适配 ---------- */
@@ -421,7 +490,7 @@
   input[type=range]:focus-visible { outline: none; }
   input[type=range]::-webkit-slider-runnable-track {
     height: 6px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
+    background: linear-gradient(90deg, var(--accent-hover) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
     box-shadow: inset 0 0 0 1px var(--border);   /* 不用 border：不吃布局宽度，也不会让 --p 渐变与轨道错位 */
   }
   input[type=range]::-webkit-slider-thumb {
@@ -433,7 +502,7 @@
   input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 2px var(--bg-elev); }
   input[type=range]::-moz-range-track {
     height: 6px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
+    background: linear-gradient(90deg, var(--accent-hover) 0 var(--p, 0%), var(--track) var(--p, 0%) 100%);
     box-shadow: inset 0 0 0 1px var(--border);
   }
   input[type=range]::-moz-range-thumb {
@@ -488,7 +557,7 @@
      无线那枚此前用的是硬编码青色（#7fe3f0 / rgba(34,211,238,.4)），本次撤掉。 */
   .tag.usb { color: var(--accent-text); border-color: var(--accent-line); }
   .tag.wifi { color: var(--accent-text); border-color: var(--accent-line); }
-  .tag.over { color: var(--warn); border-color: rgba(251,191,36,.4); }
+  .tag.over { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
   /* 下载通道（与产品侧 app.css 的同名类一致）：只读的**直连**项与可删的**代理**项
      在样式上可区分；代理地址一律可删，唯一的只读项是首行的 GitHub 直连。
      只用既有调色板变量，不引入新颜色。 */
@@ -520,7 +589,7 @@
   .pill.env.ok svg { width: 13px; height: 13px; stroke: var(--success); flex: none; }
   /* 「非最佳适配版本」的原因说明（与产品侧 .env-reason / .in-card 同值）：
      原先只挂在顶栏指示的 title 上，现就地展开在这张卡里。 */
-  .env-reason { display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; margin-top: 10px; border: 1px solid rgba(251,191,36,.35); border-radius: var(--radius-sm); background: rgba(251,191,36,.08); }
+  .env-reason { display: flex; align-items: flex-start; gap: 11px; padding: 10px 12px; margin-top: 10px; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warn) 8%, transparent); }
   /* 收起态必须显式赢过上面的 display:flex —— 通用 `.hidden`（本文件更靠前、同权重）会被它盖掉。 */
   .env-reason.hidden { display: none; }
   .env-reason > svg { width: 16px; height: 16px; stroke: var(--warn); flex: none; margin-top: 2px; }
@@ -537,8 +606,8 @@
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }   /* 压暗而非提亮：提亮会把白字对比度压到 ~3.5:1，压暗反而升到 ~5.4:1 */
   .btn.ghost { background: transparent; }
-  .btn.danger { color: var(--danger); border-color: rgba(248,113,113,.35); }
-  .btn.danger:hover { background: rgba(248,113,113,.1); }
+  .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+  .btn.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
   .btn.sm { padding: 7px 11px; font-size: 12.5px; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
   /* 带 `hidden` 的按钮必须显式关掉显示：通用 `.hidden`（更靠前、同权重）会被本块的
@@ -674,7 +743,7 @@
   }
 
   /* Launch bar */
-  .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: rgba(11,13,17,.88); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
+  .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: var(--launchbar-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
   .launchbar .cmd-preview { flex: 1; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .launchbar .cmd-preview b { color: var(--accent-hover); font-weight: 600; }
   .launchbar .cmd-preview .dev { color: var(--teal); }
@@ -689,12 +758,12 @@
   .launchbar .connect-btn:disabled, .launchbar .connect-btn:disabled:hover { opacity: .4; border-color: var(--border); color: var(--text-dim); cursor: not-allowed; }
 
   /* Modal */
-  .overlay { position: fixed; inset: 0; background: rgba(5,7,10,.7); backdrop-filter: blur(4px); display: none; place-items: center; z-index: 50; }
+  .overlay { position: fixed; inset: 0; background: var(--overlay-bg); backdrop-filter: blur(4px); display: none; place-items: center; z-index: 50; }
   .overlay.show { display: grid; }
   .modal { width: 460px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
   .modal .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); display: grid; place-items: center; margin-bottom: 16px; }
   .modal .ico svg { width: 24px; height: 24px; stroke: var(--accent-hover); stroke-width: 1.8; fill: none; }
-  .modal .ico.warn { background: rgba(251,191,36,.14); }
+  .modal .ico.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); }
   .modal .ico.warn svg { stroke: var(--warn); }
   .modal h2 { font-size: 18px; margin-bottom: 8px; }
   .modal p { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
@@ -729,10 +798,13 @@
       <div class="nav-item" data-sec="advanced"><i data-lucide="layout-grid"></i><span class="nav-text">高级</span></div>
       <div class="nav-sep"></div>
       <div class="nav-item" data-sec="diagnostics"><i data-lucide="scroll-text"></i><span class="nav-text">日志</span></div>
-      <div class="nav-item" data-sec="environment"><i data-lucide="settings"></i><span class="nav-text">运行环境</span></div>
+      <div class="nav-item" data-sec="environment"><i data-lucide="container"></i><span class="nav-text">运行环境</span></div>
+      <!-- 「设置」是应用自身偏好的页面（外观），排在末位功能入口；图标 settings 由原「运行环境」让出，
+           运行环境改用 container（容器/环境语义）。 -->
+      <div class="nav-item" data-sec="settings"><i data-lucide="settings"></i><span class="nav-text">设置</span></div>
       <!-- 末位入口「关于」不是页面：点它**不切页**（不动选中态与标题），只打开关于弹窗，
            故用 data-dialog 而不是 data-sec（页键里没有 about）。与品牌行是同一个弹窗的两个入口。
-           不加 .nav-sep —— 仅存的那条分隔线把「设备 + 8 个参数页」与「日志 / 运行环境 / 关于」分开，
+           不加 .nav-sep —— 仅存的那条分隔线把「设备 + 8 个参数页」与「日志 / 运行环境 / 设置 / 关于」分开，
            新入口归在后一组里，不再引入第三组语义。 -->
       <div class="nav-item" data-dialog="about"><i data-lucide="info"></i><span class="nav-text">关于</span></div>
     </nav>
@@ -1137,6 +1209,43 @@
               <label>兼容性演示</label>
               <div class="toggle"><span class="t-label">预览非最佳适配版本样式</span><label class="switch"><input type="checkbox" id="demoEnvWarn" /><span class="slider"></span></label></div>
               <div class="hint">原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 设置（应用自身偏好） ============ -->
+      <section class="section" id="sec-settings">
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观：深浅色主题与主题色。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="grid">
+          <div class="card col2">
+            <h3>外观</h3>
+            <div class="field">
+              <span class="flabel">主题模式<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="主题模式的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">主题模式</span><span class="fhelp-p">出厂默认跟随系统：取系统深浅色，运行期间随系统变化；选「深色」或「浅色」则固定，不再跟随系统。</span></span>
+              </span></span>
+              <div class="seg" id="themeMode">
+                <button class="active" data-v="system">跟随系统</button>
+                <button data-v="dark">深色</button>
+                <button data-v="light">浅色</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">主题色<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="主题色的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">主题色</span><span class="fhelp-p">预设经过挑选，自定义主题色以可读性优先；点「自定义主题色」用系统或内核取色器取色。</span><span class="fhelp-p">实底文字自动取白或黑，高亮与浅色文字按当前主题派生。</span></span>
+              </span></span>
+              <div class="swatches" id="accentSwatches"></div>
+              <div class="color-row">
+                <label class="color-pick"><span>自定义主题色</span>
+                  <span class="color-swatch-wrap" id="accentCustomWrap">
+                    <input type="color" id="accentPicker" value="#6366f1" aria-label="自定义主题色" />
+                    <span class="swatch-check hidden" id="accentCustomCheck"><i data-lucide="check"></i></span>
+                  </span>
+                </label>
+                <code class="accent-hex" id="accentValue">#6366f1</code>
+              </div>
             </div>
           </div>
         </div>
@@ -1745,7 +1854,7 @@
   // 页键即「页面身份」：与导航项的 data-sec、section 的 id 一致（advanced=高级、environment=运行环境）。
   // 别与数据里的**分组键**（defaults 的 apps / advanced、data-g 属性）混为一谈 —— 那是字段名，不随页面改名。
   // 「关于」不在其中：它不是页面（点它开弹窗、不切页），故导航项挂 data-dialog 而非 data-sec。
-  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',diagnostics:'日志',environment:'运行环境'};
+  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',diagnostics:'日志',environment:'运行环境',settings:'设置'};
   // 页面跳转：导航点击与顶栏两个状态指示共用同一份判定（不新增过渡 / 滚动逻辑）
   function gotoSection(sec){
     const item=document.querySelector(`.nav-item[data-sec="${sec}"]`); if(!item) return;
@@ -1754,8 +1863,8 @@
     item.classList.add('active');
     document.getElementById('sec-'+sec).classList.add('active');
     document.getElementById('pageTitle').textContent=titles[sec];
-    // 命令预览只在设备页与各参数页呈现：日志 / 运行环境两页整条不呈现，底部留白也随之收掉。
-    const noBar = sec==='diagnostics' || sec==='environment';
+    // 命令预览只在设备页与各参数页呈现：日志 / 运行环境 / 设置三页整条不呈现，底部留白也随之收掉。
+    const noBar = sec==='diagnostics' || sec==='environment' || sec==='settings';
     document.querySelector('.main').classList.toggle('no-bar', noBar);
     document.querySelector('.launchbar').style.display = noBar ? 'none' : '';
   }
@@ -2593,6 +2702,138 @@
 
   /* ===================== 初始化 ===================== */
   toggleSourceUI(); toggleNewDispUI();
+  /* ===================== 外观（主题模式 / 主题色） =====================
+     原型里的主题与主题色只存在页面内（不落盘）：它演示的是产品的取值与切换方式，
+     持久化由产品侧的配置文件承担（ui.theme / ui.accent）。
+     - 主题模式：system 时读 matchMedia 并监听变化；dark / light 固定。
+     - 主题色：预设 + 自定义取色（原生 input[type=color]）；--accent 写到 :root 行内样式，
+       --accent-ink 按亮度取白/黑。
+     - 强调色系其余变量留在 CSS 里按主题派生，脚本只写这两个变量。 */
+  /* 预设（2026-10-19 用户选定）：出厂 indigo 不变，其余为 Flat UI 色系。
+     亮度差得较大，实底文字由 inkFor 逐色取白/黑（indigo 与紫水晶用白字，其余偏亮的色用黑字）。 */
+  const ACCENTS=[
+    {v:'#6366f1',n:'靛蓝'},
+    {v:'#1abc9c',n:'绿松石色'},
+    {v:'#2ecc71',n:'翡翠绿'},
+    {v:'#3498db',n:'彼得河蓝'},
+    {v:'#9b59b6',n:'紫水晶色'},
+    {v:'#f1c40f',n:'向日葵黄'},
+    {v:'#e67e22',n:'胡萝卜橙'},
+    {v:'#e74c3c',n:'茜草红'},
+  ];
+  let themeMode='system';
+  let accentHex=ACCENTS[0].v;
+
+  function relLuminance(hex){
+    const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255)
+      .map(v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+    return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+  }
+  /* 实底文字取白或黑：按相对亮度走 0.22 的阈值（与产品既有口径一致 —— indigo #6366f1 的亮度
+     0.184 用白字，正是现在主按钮与分段选中项的观感）。不按「白/黑对比度谁高」逐色比较：
+     那样 indigo 会因 0.04 的差值翻成黑字，与既有界面相反。 */
+  function inkFor(hex){ return relLuminance(hex) <= 0.22 ? '#fff' : '#000'; }
+  /* 强调色派生：与产品 theme.ts 同一套算法 —— 先按既定比例混白/黑，再向极值推到 4.5:1。
+     浅色主题下黄 / 绿等亮色的 raw 派生值不够（最低约 2.5:1），原型必须同样兜底，
+     否则演示不出产品的真实观感。 */
+  const DARK_SURFACES={soft:[0x14,0x17,0x1d],code:[0x2d,0x32,0x3c],panel:[0x17,0x1b,0x22]};
+  const LIGHT_SURFACES={soft:[0xf8,0xf9,0xfb],code:[0xe2,0xe5,0xe8],panel:[0xff,0xff,0xff]};
+  function hexToRgb(hex){ return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)); }
+  function mixRgb(a,b,wa){ return [a[0]*wa+b[0]*(1-wa),a[1]*wa+b[1]*(1-wa),a[2]*wa+b[2]*(1-wa)]; }
+  function overRgb(fg,alpha,bg){ return [fg[0]*alpha+bg[0]*(1-alpha),fg[1]*alpha+bg[1]*(1-alpha),fg[2]*alpha+bg[2]*(1-alpha)]; }
+  function contrastRgb(a,b){
+    const lum=(rgb)=>{
+      const c=rgb.map(v=>{ const x=v/255; return x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4); });
+      return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+    };
+    const hi=Math.max(lum(a),lum(b)), lo=Math.min(lum(a),lum(b));
+    return (hi+0.05)/(lo+0.05);
+  }
+  function minContrast(rgb,bgs){ return Math.min(...bgs.map(bg=>contrastRgb(rgb,bg))); }
+  function ensureContrast(base,bgs,target,toward){
+    if(minContrast(base,bgs)>=target) return base;
+    let lo=0,hi=1;
+    for(let i=0;i<24;i++){
+      const t=(lo+hi)/2;
+      const c=mixRgb(base,toward,1-t);
+      if(minContrast(c,bgs)>=target) hi=t; else lo=t;
+    }
+    return mixRgb(base,toward,1-hi);
+  }
+  function rgbCss(rgb){ return `rgb(${rgb.map(v=>Math.round(v)).join(', ')})`; }
+  function derivedColors(hex,theme){
+    const accent=hexToRgb(hex);
+    const dark=theme==='dark';
+    const toward=dark?[255,255,255]:[0,0,0];
+    const s=dark?DARK_SURFACES:LIGHT_SURFACES;
+    const soft=overRgb(accent,dark?0.14:0.12,s.soft);
+    const hoverBase=mixRgb(accent,toward,dark?0.85:0.82);
+    const textBase=mixRgb(accent,toward,dark?0.35:0.72);
+    return {
+      // 目标 4.6：最终值取整到整数 RGB，留余量避免舍入后跌破 4.5。
+      hover:rgbCss(ensureContrast(hoverBase,[soft,s.panel],4.6,toward)),
+      text:rgbCss(ensureContrast(textBase,[soft,s.code,s.panel],4.6,toward)),
+    };
+  }
+  const prefersLight=window.matchMedia('(prefers-color-scheme: light)');
+  function applyTheme(){
+    const resolved = themeMode==='system' ? (prefersLight.matches?'light':'dark') : themeMode;
+    document.documentElement.dataset.theme=resolved;
+    applyAccent(accentHex);   // 派生色依赖生效主题，切主题要重算
+  }
+  function normalizeHex(v){ const s=(v||'').trim().toLowerCase(); return /^#[0-9a-f]{6}$/.test(s)?s:null; }
+  function syncAccentPicker(){ const el=document.getElementById('accentPicker'); if(el) el.value=accentHex; }
+  function renderSwatches(){
+    const box=document.getElementById('accentSwatches'); if(!box) return;
+    box.innerHTML=ACCENTS.map(a=>{
+      const sel=a.v.toLowerCase()===accentHex.toLowerCase();
+      return `<button type="button" class="swatch${sel?' sel':''}" data-accent="${a.v}" style="background:${a.v};color:${inkFor(a.v)}" aria-label="${a.n}" aria-pressed="${sel}">${sel?'<i data-lucide="check"></i>':''}</button>`;
+    }).join('');
+    lucide.createIcons();
+  }
+  function applyAccent(hex){
+    accentHex=hex;
+    const theme=document.documentElement.dataset.theme || 'dark';
+    const d=derivedColors(hex,theme);
+    document.documentElement.style.setProperty('--accent',hex);
+    document.documentElement.style.setProperty('--accent-ink',inkFor(hex));
+    document.documentElement.style.setProperty('--accent-hover',d.hover);
+    document.documentElement.style.setProperty('--accent-text',d.text);
+    const v=document.getElementById('accentValue'); if(v) v.textContent=hex;
+    // 当前色不与任何预设重合 ⇒ 自定义色块承担选中标记（外环 + 对号，对号取该色的 ink）
+    const isCustom=!ACCENTS.some(a=>a.v.toLowerCase()===hex.toLowerCase());
+    const wrap=document.getElementById('accentCustomWrap');
+    if(wrap){
+      wrap.classList.toggle('sel',isCustom);
+      const check=document.getElementById('accentCustomCheck');
+      if(check){
+        check.classList.toggle('hidden',!isCustom);
+        check.style.color=inkFor(hex);
+      }
+    }
+    syncAccentPicker(); renderSwatches();
+  }
+  document.getElementById('themeMode').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-v]'); if(!b) return;
+    themeMode=b.dataset.v;
+    document.querySelectorAll('#themeMode button').forEach(x=>x.classList.toggle('active', x===b));
+    applyTheme();
+  });
+  prefersLight.addEventListener('change', ()=>{ if(themeMode==='system') applyTheme(); });
+
+  /* 自定义取色：控件的值由系统/内核取色器给出，形状本就是 #rrggbb；
+     只在 change（确认）时写入 —— 拖动中由取色器自己预览。 */
+  document.getElementById('accentPicker').addEventListener('change', e=>{
+    const hex=normalizeHex(e.target.value);
+    if(hex) applyAccent(hex);
+  });
+  document.getElementById('accentSwatches').addEventListener('click', e=>{
+    const b=e.target.closest('[data-accent]'); if(!b) return;
+    applyAccent(b.dataset.accent);
+  });
+
+  applyTheme(); applyAccent(accentHex);
+
   renderDeviceList(); renderPreview(); updatePills(); syncNavTitles();
   renderProxyList(); syncProxyAddBtn();
   lucide.createIcons();

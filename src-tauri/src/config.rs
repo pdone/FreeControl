@@ -1,7 +1,8 @@
 //! 配置持久化层（design D5 / D7；tasks 5.1–5.4）。
 //!
 //! 单一配置文件 `%APPDATA%/FreeControl2/config.json`，含 `schemaVersion` 字段。
-//! 内容：设备列表（别名 ⇄ 连接标识）、默认参数、设备覆盖及其启用/禁用开关、下载通道偏好。
+//! 内容：设备列表（别名 ⇄ 连接标识）、默认参数、设备覆盖及其启用/禁用开关、下载通道偏好、
+//! 日志保留策略与外观偏好（主题模式 / 主题色）。
 //!
 //! ## 初始化（tasks 5.1）
 //! 文件不存在时按默认值初始化并立即落盘一次；`schemaVersion` 由此写入（老文件缺失时补默认值）。
@@ -208,6 +209,81 @@ impl Logging {
     }
 }
 
+/// 主题模式取值（自描述字符串，不用数字档位）。
+pub const THEME_SYSTEM: &str = "system";
+pub const THEME_DARK: &str = "dark";
+pub const THEME_LIGHT: &str = "light";
+
+/// 出厂默认主题模式：跟随系统。
+pub const DEFAULT_THEME: &str = THEME_SYSTEM;
+
+/// 出厂默认主题色：产品默认 indigo（与 `app.css` 的 `--accent` 同一份取值）。
+pub const DEFAULT_ACCENT: &str = "#6366f1";
+
+/// 外观设置（`ui` 段）：主题模式与主题色。
+///
+/// 两者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
+/// 取值模型与生效方式归前端所有（与 8 组默认参数的分工一致）。
+///
+/// - `theme`：`system` / `dark` / `light`；
+/// - `accent`：`#RRGGBB`（前端把自定义 RGB 归一化成这一形状后再存，大小写不敏感）。
+///
+/// 未知取值一律退化为出厂默认 —— 与保留策略同一条哲学：手工改错一个字段不该让界面
+/// 「变脸」到不可用。缺字段同样取出厂默认，老配置文件照常可读。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Ui {
+    /// "system" | "dark" | "light"
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// 主题色，形如 "#6366f1"
+    #[serde(default = "default_accent")]
+    pub accent: String,
+}
+
+fn default_theme() -> String {
+    DEFAULT_THEME.to_string()
+}
+
+fn default_accent() -> String {
+    DEFAULT_ACCENT.to_string()
+}
+
+impl Default for Ui {
+    fn default() -> Self {
+        Ui {
+            theme: default_theme(),
+            accent: default_accent(),
+        }
+    }
+}
+
+impl Ui {
+    /// 加载时归一化：未知主题退 `system`，非法主题色退默认；
+    /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」。
+    pub fn normalize(&mut self) {
+        if !matches!(
+            self.theme.as_str(),
+            THEME_SYSTEM | THEME_DARK | THEME_LIGHT
+        ) {
+            self.theme = default_theme();
+        }
+        self.accent = normalize_hex(&self.accent).unwrap_or_else(default_accent);
+    }
+}
+
+/// 合法 `#RRGGBB` → 小写；其它形状（相对短写、缺 `#`、非十六进制）返回 `None`。
+fn normalize_hex(raw: &str) -> Option<String> {
+    let s = raw.trim();
+    if s.len() != 7 || !s.starts_with('#') {
+        return None;
+    }
+    if !s[1..].chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(s.to_ascii_lowercase())
+}
+
 /// 应用配置根对象。
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -234,6 +310,9 @@ pub struct AppConfig {
     /// 日志设置（保留策略）。缺字段时取出厂默认，老配置文件照常可读。
     #[serde(default)]
     pub logging: Logging,
+    /// 外观设置（主题模式 / 主题色）。缺字段时取出厂默认，老配置文件照常可读。
+    #[serde(default)]
+    pub ui: Ui,
 }
 
 /// 兜底默认值与 [`AppConfig::fresh`] 保持一致：`main.rs` 在配置真的读不出来时
@@ -254,6 +333,7 @@ impl AppConfig {
             overrides: HashMap::new(),
             channels: Channels::default(),
             logging: Logging::default(),
+            ui: Ui::default(),
         }
     }
 
@@ -369,6 +449,8 @@ pub fn load_config_from(path: &Path) -> Result<AppConfig, String> {
     if cfg.schema_version == 0 {
         cfg.schema_version = SCHEMA_VERSION;
     }
+    // 外观设置归一化：未知主题 / 非法主题色退化为出厂默认（只影响这两个字段）。
+    cfg.ui.normalize();
     Ok(cfg)
 }
 
@@ -648,6 +730,88 @@ mod tests {
 
         assert_eq!(load_config_from(&path).unwrap().logging.retention_days(), None);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ── 外观偏好（add-appearance-settings tasks 2.1）─────────────
+
+    #[test]
+    fn ui_defaults_when_field_absent() {
+        let dir = unique_temp_dir("ui-default");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        // 老文件（无 ui 字段）：按出厂默认「跟随系统 + indigo」处理，其余字段照常读出。
+        fs::write(
+            &path,
+            br#"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]}}"#,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        assert_eq!(cfg.ui.theme, THEME_SYSTEM);
+        assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_unknown_theme_and_invalid_accent_fall_back() {
+        let dir = unique_temp_dir("ui-fallback");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        fs::write(
+            &path,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"theme":"sepia","accent":"red"}}"##,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        // 手工改错两个字段只影响它们自己：主题回「跟随系统」、主题色回 indigo。
+        assert_eq!(cfg.ui.theme, THEME_SYSTEM);
+        assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_accent_is_normalized_to_lowercase_and_round_trips() {
+        let dir = unique_temp_dir("ui-round");
+        let path = config_path_in(&dir);
+        let mut cfg = load_config_from(&path).unwrap();
+        cfg.ui.theme = THEME_LIGHT.to_string();
+        cfg.ui.accent = "#ABCDEF".to_string();
+        save_config_to(&path, &cfg).unwrap();
+
+        let loaded = load_config_from(&path).unwrap();
+        assert_eq!(loaded.ui.theme, THEME_LIGHT);
+        // 大小写归一：同一颜色不会因写法不同被判成「不是预设」。
+        assert_eq!(loaded.ui.accent, "#abcdef");
+
+        // 落盘结构里带 ui 段（不是只在内存里）。
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"ui\""));
+        assert!(raw.contains("\"theme\""));
+        assert!(raw.contains("\"accent\""));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_normalize_keeps_valid_values_and_rejects_malformed_hex() {
+        let mut ui = Ui {
+            theme: THEME_DARK.to_string(),
+            accent: "#3B82F6".to_string(),
+        };
+        ui.normalize();
+        assert_eq!(ui.theme, THEME_DARK);
+        assert_eq!(ui.accent, "#3b82f6");
+
+        for bad in ["#12345", "6366f1", "#gggggg", "", "#1234567", " #6366f1x "] {
+            let mut ui = Ui {
+                theme: THEME_SYSTEM.to_string(),
+                accent: bad.to_string(),
+            };
+            ui.normalize();
+            assert_eq!(ui.accent, DEFAULT_ACCENT, "accent {bad:?} 应退回默认");
+        }
     }
 
     // ── tasks 5.2：去抖 + 原子替换 ──────────────────────────────

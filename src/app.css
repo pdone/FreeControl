@@ -31,9 +31,13 @@
   --text-dim: #9aa3b2;
   --text-faint: #6b7382;
 
-  /* 强调色：固定为产品默认色（indigo），不提供用户自定义入口（design D9）。
-     只有 --accent 是字面量，其余一律由它派生（CSS 用 color-mix），界面不留第二处硬编码。
-     --accent-ink 是压在「强调色实底」上的文字色：主色偏暗，白字对比度 4.47:1，故固定白色。 */
+  /* 强调色：出厂为产品默认色 indigo，可在「设置」页从内置预设或自定义 RGB 更换。
+     只有 --accent 是字面量（运行期由 theme.ts 写在行内样式上），其余一律由它派生
+     （CSS 用 color-mix），界面不留第二处硬编码。
+     --accent-ink 是压在「强调色实底」上的文字色，由 theme.ts 按主题色亮度取白或黑
+     （任意自定义色都要保证实底文字可读）。
+     下面这组派生是**深色主题**用的：深底上的高亮色要比主色更亮。浅色主题另有一套
+     （见下方 :root[data-theme='light']），同一 --accent 输入、派生方向相反。 */
   --accent: #6366f1;
   --accent-ink: #fff;
   --accent-hover: color-mix(in srgb, var(--accent) 85%, #fff); /* 压在深底上的高亮色：图标/文字/滑块手柄，须比主色更亮 */
@@ -41,6 +45,11 @@
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent); /* 选中背景 */
   --accent-weak: color-mix(in srgb, var(--accent) 5%, transparent); /* 极淡提示条背景 */
   --accent-line: color-mix(in srgb, var(--accent) 40%, transparent); /* tag 描边 */
+  /* 半透明面：顶栏 / 命令条 / 模态遮罩。进 token 是为了浅色主题能换一份取值 ——
+     写死深色 rgba 的话，浅色下会露出三块深色。 */
+  --topbar-bg: rgba(20, 23, 29, 0.6);
+  --launchbar-bg: rgba(11, 13, 17, 0.88);
+  --overlay-bg: rgba(5, 7, 10, 0.7);
 
   --danger: #f87171;
   --success: #34d399;
@@ -66,6 +75,83 @@
   /* 让 WebView2/Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
      textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。 */
   color-scheme: dark;
+}
+
+/* ---------- 浅色主题 ----------
+   与深色**对等的一套 token**，不是把 --bg / --text 对调：文字层级、语义色、阴影、轨道色都要
+   重新取值，否则会得到一块灰白刺眼、状态色发虚的界面。
+   切换只改 <html data-theme="light">（由 theme.ts 写入）；--accent 仍由用户选择的主题色给出
+   （行内样式覆盖），这里只换它的派生方向与其余中性色。
+   第 3 段 `@media` 只服务启动早期：配置尚未读取、data-theme 还没挂上时，按系统深浅色呈现，
+   避免浅色系统先闪一下深色底。 */
+:root[data-theme='light'] {
+  --bg: #f2f4f7;
+  --bg-elev: #f8f9fb;
+  --panel: #fff;
+  --panel-2: #f1f3f6;
+  --code-bg: color-mix(in srgb, var(--text) 7%, var(--panel-2));
+  --border: #dfe3ea;
+  --border-strong: #c8cfda;
+  /* 无装饰窗口上沿那条边线对齐的是系统画的边框像素：浅色下系统画的是浅灰，
+     不能沿用深色主题的 #333333（待实机确认具体取值）。 */
+  --win-frame: #d0d4da;
+  /* 主文字色避开纯黑：与深色侧「不用 #e7eaf0」同一条理由（刺眼）。 */
+  --text: #1f2430;
+  --text-dim: #5a6377;
+  --text-faint: #8b93a5;
+  /* 浅色底上的「高亮 / 浅色文字」要更沉，方向与深色相反。 */
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+  --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+  /* 语义色在浅色下作文字用，需要更深的取值（12px 药丸文字须可读）。 */
+  --danger: #dc2626;
+  --success: #047857;
+  --warn: #b45309;
+  --teal: #0e7490;
+  --shadow: 0 8px 30px rgba(16, 24, 40, 0.1);
+  --track: #e3e7ee;
+  --scroll-track: #f0f2f5;
+  --scroll-thumb: #c3c9d4;
+  --scroll-thumb-hover: #a8b0bf;
+  --topbar-bg: rgba(255, 255, 255, 0.72);
+  --launchbar-bg: rgba(242, 244, 247, 0.9);
+  --overlay-bg: rgba(15, 23, 42, 0.35);
+  color-scheme: light;
+}
+/* 与上一块的浅色取值**逐项同值**（CSS 没有可复用的写法）：改一处必须同步另一处，
+   否则「配置未读到时的首帧」与「配置到达后的浅色」会差一个色。 */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f2f4f7;
+    --bg-elev: #f8f9fb;
+    --panel: #fff;
+    --panel-2: #f1f3f6;
+    --code-bg: color-mix(in srgb, var(--text) 7%, var(--panel-2));
+    --border: #dfe3ea;
+    --border-strong: #c8cfda;
+    --win-frame: #d0d4da;
+    --text: #1f2430;
+    --text-dim: #5a6377;
+    --text-faint: #8b93a5;
+    --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+    --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+    --danger: #dc2626;
+    --success: #047857;
+    --warn: #b45309;
+    --teal: #0e7490;
+    --shadow: 0 8px 30px rgba(16, 24, 40, 0.1);
+    --track: #e3e7ee;
+    --scroll-track: #f0f2f5;
+    --scroll-thumb: #c3c9d4;
+    --scroll-thumb-hover: #a8b0bf;
+    --topbar-bg: rgba(255, 255, 255, 0.72);
+    --launchbar-bg: rgba(242, 244, 247, 0.9);
+    --overlay-bg: rgba(15, 23, 42, 0.35);
+    color-scheme: light;
+  }
 }
 
 * {
@@ -125,6 +211,7 @@ select,
 .flabel code,
 .field > label code,
 .hint code,
+.accent-hex,
 .modal code,
 .env-reason-cmp b,
 .dl-text,
@@ -399,7 +486,7 @@ select,
      过渡期都自动贴合，故展开宽度只需在 --rail-open 一处定义（MUST NOT 在此复写该值）。 */
   position: relative;
   /* 命令条为内容区让出的底部留白：取值在本处单点定义，与命令条是否呈现同步
-     —— 日志 / 运行环境两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
+     —— 日志 / 运行环境 / 设置三页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
   --bar-reserve: 120px;
 }
 /* 命令条不呈现的页面（日志 / 运行环境）：底部留白收到与左右内边距一致的那一档 */
@@ -416,7 +503,7 @@ select,
   gap: 14px;
   padding: 0 0 0 22px;
   border-bottom: 1px solid var(--border);
-  background: rgba(20, 23, 29, 0.6);
+  background: var(--topbar-bg);
   backdrop-filter: blur(8px);
 }
 .topbar .title {
@@ -428,7 +515,8 @@ select,
 /* 窗口控件（右端三枚）：46px 宽 × 顶栏全高，**贴窗口右缘**。
    悬停取 Windows 原生口径：最小化 / 最大化用中性叠加，关闭用破坏性实底（红底白图标）。
    两处都不新造颜色常量：中性叠加由 --text 混出（与 --code-bg 同一手法），破坏底由 --danger
-   压暗得到，白色取自 --accent-ink（调色板里表示「压在实底上的白色」的那一个取值）。 */
+   压暗得到，前景固定白色 —— 不能取 --accent-ink：它在亮主题色下会变成黑色，
+   而这里压的是破坏性实底（红底），只用白字。 */
 .win-controls {
   display: flex;
   align-self: stretch;
@@ -455,7 +543,7 @@ select,
 }
 .win-btn.close:hover {
   background: color-mix(in srgb, var(--danger) 55%, #000);
-  color: var(--accent-ink);
+  color: #fff;
 }
 .win-btn.close:active {
   background: color-mix(in srgb, var(--danger) 42%, #000);
@@ -487,7 +575,7 @@ select,
    圆点绿 + 光晕。两处各写一条规则迟早分叉成两种绿，故合并成这一条。 */
 .pill.ok {
   color: var(--success);
-  border-color: rgba(52, 211, 153, 0.35);
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
 }
 .pill.ok .dot {
   background: var(--success);
@@ -500,8 +588,8 @@ select,
    当前是否可点击一致（⑯ 段的三态之一）。 */
 .pill.env.warn {
   color: var(--warn);
-  border-color: rgba(251, 191, 36, 0.45);
-  background: rgba(251, 191, 36, 0.08);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
 }
 .pill.env.warn svg {
   width: 13px;
@@ -530,8 +618,8 @@ select,
   align-items: flex-start;
   gap: 11px;
   padding: 11px 22px;
-  background: rgba(251, 191, 36, 0.08);
-  border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
 .env-reason > svg {
   width: 16px;
@@ -581,7 +669,7 @@ select,
 .env-reason.in-card {
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
   border-radius: var(--radius-sm);
 }
 
@@ -1170,7 +1258,8 @@ select,
   height: 100%;
   width: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--teal));
+  /* 起点同滑块：亮主题色在浅色轨道上要用对比度兜底后的取值。 */
+  background: linear-gradient(90deg, var(--accent-hover), var(--teal));
   transition: width 0.2s ease;
 }
 /* 「切换通道 / 取消」落在**进度条下方新起的一行**，不进 `.dl-head`。
@@ -1213,12 +1302,14 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--accent);
+  /* 焦点框用对比度兜底后的强调色：亮主题色（黄 / 绿）下 raw --accent 压在白底上
+     几乎看不见，而焦点指示不能靠色相区分。 */
+  border-color: var(--accent-hover);
 }
 /* 参数校验失败（tasks 7.3）：非法输入就地描边，具体原因由同字段下方的 .hint.dl-error 说明 */
 input[aria-invalid='true'],
 textarea[aria-invalid='true'] {
-  border-color: rgba(248, 113, 113, 0.55);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
 }
 select {
   appearance: none;
@@ -1277,7 +1368,7 @@ select {
 }
 .switch input:checked + .slider {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
 }
 .switch input:checked + .slider::before {
   transform: translateX(18px);
@@ -1309,6 +1400,112 @@ select {
   color: var(--accent-ink);
 }
 
+/* ---------- 主题色选择（「设置」页「外观」卡） ----------
+   色块是按钮：选中态用外环 + 勾选图标表达（不只靠颜色），可键盘聚焦。
+   色块底色就是该预设本身，故勾选固定用白色加一点阴影 —— 预设都偏深，白勾最稳。 */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.swatch:hover {
+  transform: translateY(-1px);
+}
+.swatch.sel {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent-line);
+}
+.swatch svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.color-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+/* 自定义取色的色块：原生 input 不能放子元素，故用一层包装承载选中外环与对号。
+   对号颜色由当前主题色的 ink 决定（包装上的行内 color 由组件给出）。 */
+.color-swatch-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+}
+.color-swatch-wrap.sel {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent-line);
+  border-radius: 50%;
+}
+.color-swatch-wrap > svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.4;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+/* 当前主题色的十六进制值：与参数标签里的 flag 名同一套 code 样式
+   （见上方 `.field > label code` / `.field > .flabel code`）。 */
+.accent-hex {
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent-text);
+  font-size: 11px;
+  font-family: var(--font-sans);
+}
+/* 原生取色控件只保留圆形色块本体：弹出的取色面板由 WebView2/Chromium 绘制，
+   并随 `color-scheme` 走深/浅色。`::-webkit-color-swatch-wrapper` 默认有内边距，
+   不去掉的话色块会缩成中间一个小方块。 */
+input[type='color'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+input[type='color']:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -1327,7 +1524,7 @@ select {
 }
 .chip.active {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
   color: var(--accent-text);
 }
 
@@ -1355,9 +1552,11 @@ input[type="range"]:focus-visible {
 input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
+  /* 已填充段用对比度兜底后的强调色：浅色主题下黄色 / 绿色若用 raw --accent，
+     与轨道只差 1.3–1.7:1，几乎看不出「填充到哪」。 */
   background: linear-gradient(
     90deg,
-    var(--accent) 0 var(--p, 0%),
+    var(--accent-hover) 0 var(--p, 0%),
     var(--track) var(--p, 0%) 100%
   );
   box-shadow: inset 0 0 0 1px var(--border);
@@ -1380,7 +1579,7 @@ input[type="range"]::-moz-range-track {
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    var(--accent) 0 var(--p, 0%),
+    var(--accent-hover) 0 var(--p, 0%),
     var(--track) var(--p, 0%) 100%
   );
   box-shadow: inset 0 0 0 1px var(--border);
@@ -1555,7 +1754,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .tag.over {
   color: var(--warn);
-  border-color: rgba(251, 191, 36, 0.4);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
 }
 /* 代理地址列表：只读的**直连**项与可删的**代理**项在样式上可区分。
    没有「内置 / 自定义」的二分 —— 代理地址一律可删，唯一的只读项是首行的 GitHub 直连。 */
@@ -1674,10 +1873,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .btn.danger {
   color: var(--danger);
-  border-color: rgba(248, 113, 113, 0.35);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 .btn.danger:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 .btn.sm {
   padding: 7px 11px;
@@ -1850,7 +2049,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      不与命令框等高 —— 命令框是随字号/内边距漂移的内容容器，按钮是定尺寸控件。 */
   --lb-btn-size: 34px;
   padding: 14px 26px;
-  background: rgba(11, 13, 17, 0.88);
+  background: var(--launchbar-bg);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--border);
 }
@@ -1949,7 +2148,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(5, 7, 10, 0.7);
+  background: var(--overlay-bg);
   backdrop-filter: blur(4px);
   display: none;
   place-items: center;
@@ -1991,7 +2190,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   fill: none;
 }
 .modal .ico.warn {
-  background: rgba(251, 191, 36, 0.14);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
 }
 .modal .ico.warn svg {
   stroke: var(--warn);
