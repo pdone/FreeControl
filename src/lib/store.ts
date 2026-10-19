@@ -15,6 +15,7 @@ import {
   updateDevice as updateDeviceCmd,
   deleteDevice as deleteDeviceCmd,
   getEnvStatus,
+  setScrcpyDir,
   getProxyList,
   addProxyAddress,
   removeProxyAddress,
@@ -817,6 +818,17 @@ export async function refreshEnv(): Promise<void> {
   envStatus.set(env);
 }
 
+/**
+ * 设置 / 清除自定义运行环境目录。
+ *
+ * 后端返回落盘后的完整配置：必须用它替换前端副本，否则下一次去抖保存会把旧目录写回盘上。
+ * 随后刷新运行环境状态，让路径、就绪判定与版本探测同步到新目录。
+ */
+export async function updateScrcpyDir(path: string | null): Promise<void> {
+  applyConfig(await setScrcpyDir(path));
+  await refreshEnv();
+}
+
 /** 应用启动后拉取外壳所需的全部数据。 */
 export async function initApp(): Promise<void> {
   // 关窗前刷未落盘改动的钩子（tasks 5.2）；注册失败只记录，不影响其它初始化。
@@ -837,6 +849,7 @@ export async function initApp(): Promise<void> {
     console.error('加载配置失败', e);
     config.set({
       schemaVersion: 1,
+      scrcpyDir: null,
       devices: [],
       defaults: BUILTIN_DEFAULTS,
       overrides: {},

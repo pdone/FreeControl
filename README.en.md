@@ -126,7 +126,7 @@ FreeControl2/
 
 ### It says scrcpy or adb is missing
 
-Fetch them on the "Runtime" page. Neither ships with the app; both are downloaded into the application data directory on demand.
+Fetch them on the "Runtime" page. Neither ships with the app; both are downloaded into the application data directory on demand, or you can point that page at an existing custom directory.
 
 ### The download fails or hangs on one channel
 
@@ -148,7 +148,7 @@ All of it is under the application data root (`%APPDATA%/FreeControl2` on Window
 |---|---|
 | `config.json` | The single configuration file (with a `schemaVersion`): device list, default parameters, per-device overrides, log retention |
 | `logs/yyyy-MM-dd.log` | Persisted session output and key actions of the app itself |
-| `scrcpy-{OS}-v{version}/` | The scrcpy and adb runtime downloaded on demand |
+| `scrcpy-{OS}-v{version}/` | The scrcpy and adb runtime downloaded on demand (when no custom directory is set) |
 
 Everything you can change in the UI lands in `config.json`.
 

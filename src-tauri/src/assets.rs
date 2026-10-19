@@ -9,12 +9,14 @@
 //! 命名与 `ui-design/launcher-prototype.html` 中的注释保持一致：
 //! `assets::get_scrcpy_dir()` / `assets::open_scrcpy_dir()`。
 
+use crate::config::AppConfig;
 use crate::scrcpy;
 use crate::shell;
+use crate::AppState;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
 /// adb 可执行文件名。adb **不随 exe 分发**，而是由 scrcpy 发布包一并提供（proposal Impact）。
 pub const ADB_BIN: &str = if cfg!(windows) { "adb.exe" } else { "adb" };
@@ -34,6 +36,8 @@ pub struct EnvStatus {
     pub ready: bool,
     /// 缺失的必需可执行文件名（就绪时为空）
     pub missing: Vec<String>,
+    /// 当前是否使用用户自定义目录（界面据此决定是否显示「恢复默认」）
+    pub is_custom: bool,
 }
 
 /// 目录内缺失的必需可执行文件（就绪时为空列表）。
@@ -75,13 +79,14 @@ pub fn dir_hint(data_root_display: &str) -> String {
 ///
 /// 就绪判定只做一次扫描，`ready` 与 `missing` 必然一致（同源于 `missing_bins`）。
 /// 目录不存在时全部必需文件都算缺失，故无需单独判断目录 —— 空目录也不会被当作就绪。
-pub fn build_env_status(dir: &Path, dir_hint: &str) -> EnvStatus {
+pub fn build_env_status(dir: &Path, dir_hint: &str, is_custom: bool) -> EnvStatus {
     let missing = missing_bins(dir);
     EnvStatus {
         dir: dir.to_string_lossy().to_string(),
         dir_hint: dir_hint.to_string(),
         ready: missing.is_empty(),
         missing,
+        is_custom,
     }
 }
 
@@ -94,7 +99,70 @@ pub fn get_scrcpy_dir(app: AppHandle) -> Result<String, String> {
 #[tauri::command(async)]
 pub fn get_env_status(app: AppHandle) -> Result<EnvStatus, String> {
     let dir = scrcpy::scrcpy_dir(&app)?;
-    Ok(build_env_status(&dir, &dir_hint(data_root_display())))
+    let is_custom = scrcpy::custom_dir(&app).is_some();
+    Ok(build_env_status(
+        &dir,
+        &dir_hint(data_root_display()),
+        is_custom,
+    ))
+}
+
+/// 设置 / 清除自定义运行环境目录。
+///
+/// 返回落盘后的完整配置：前端用它整体替换自己的副本，避免随后的去抖保存把旧目录写回盘上。
+/// 安装进行中不允许修改 —— 本次获取的目标目录在开始时已经解析，中途换目录会让
+/// 「下载到 A、替换到 B」这种状态出现。
+#[tauri::command]
+pub fn set_scrcpy_dir(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: Option<String>,
+) -> Result<AppConfig, String> {
+    let install_in_flight = state.install.lock().unwrap().is_some();
+    let pending_confirmation = state.pending.lock().unwrap().is_some();
+    ensure_dir_change_allowed(install_in_flight, pending_confirmation)?;
+    let normalized = normalize_custom_dir(path)?;
+    let mut cfg = state.config.lock().unwrap().clone();
+    cfg.scrcpy_dir = normalized;
+    // 先落盘再改内存：写失败时界面上的目录不会先于磁盘变化。
+    crate::config::save_config_to_disk(&app, &cfg)?;
+    *state.config.lock().unwrap() = cfg.clone();
+    Ok(cfg)
+}
+
+fn ensure_dir_change_allowed(
+    install_in_flight: bool,
+    pending_confirmation: bool,
+) -> Result<(), String> {
+    if install_in_flight {
+        Err("运行环境获取进行中，请等待本次获取结束后再修改目录".to_string())
+    } else if pending_confirmation {
+        // 未经校验的包已下载完、正等用户确认：此刻换目录会让确认后的安装落到另一个目录。
+        Err("本次获取尚待确认，请先完成或取消后再修改目录".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+/// 规范并校验用户输入的目录：空串 = 清除自定义；非空必须是绝对路径且不是既有文件。
+///
+/// 不要求目录已存在：与约定目录一致，未就绪由状态展示表达，安装时再创建。
+fn normalize_custom_dir(path: Option<String>) -> Result<Option<String>, String> {
+    let Some(raw) = path else {
+        return Ok(None);
+    };
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let path = Path::new(raw);
+    if !path.is_absolute() {
+        return Err("scrcpy 目录必须是绝对路径".to_string());
+    }
+    if path.exists() && !path.is_dir() {
+        return Err("该路径指向一个文件，请选择目录".to_string());
+    }
+    Ok(Some(raw.to_string()))
 }
 
 /// 在系统文件管理器中定位运行环境目录（tasks 3.3）。
@@ -135,7 +203,7 @@ mod tests {
     fn absent_dir_is_not_ready() {
         // 情况一：目录不存在 —— 两个必需可执行文件都算缺失。
         let dir = unique_temp_dir("absent");
-        let status = build_env_status(&dir, "");
+        let status = build_env_status(&dir, "", false);
 
         assert!(!status.ready);
         assert_eq!(status.missing.len(), REQUIRED_BINS.len());
@@ -151,7 +219,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join(scrcpy::SCRCPY_BIN), b"stub").unwrap();
 
-        let status = build_env_status(&dir, "");
+        let status = build_env_status(&dir, "", false);
         let _ = fs::remove_dir_all(&dir);
 
         assert!(!status.ready);
@@ -166,7 +234,7 @@ mod tests {
         fs::write(dir.join(scrcpy::SCRCPY_BIN), b"stub").unwrap();
         fs::write(dir.join(ADB_BIN), b"stub").unwrap();
 
-        let status = build_env_status(&dir, "");
+        let status = build_env_status(&dir, "", false);
         let _ = fs::remove_dir_all(&dir);
 
         assert!(status.ready);
@@ -179,10 +247,56 @@ mod tests {
         let dir = unique_temp_dir("empty");
         fs::create_dir_all(&dir).unwrap();
 
-        let ready = build_env_status(&dir, "").ready;
+        let ready = build_env_status(&dir, "", false).ready;
         let _ = fs::remove_dir_all(&dir);
 
         assert!(!ready);
+    }
+
+    #[test]
+    fn env_status_carries_the_custom_flag() {
+        let dir = unique_temp_dir("custom-flag");
+        assert!(!build_env_status(&dir, "", false).is_custom);
+        assert!(build_env_status(&dir, "", true).is_custom);
+    }
+
+    #[test]
+    fn normalizes_custom_dir_input() {
+        // 空值 / 空白 = 清除自定义。
+        assert_eq!(normalize_custom_dir(None).unwrap(), None);
+        assert_eq!(normalize_custom_dir(Some("   ".to_string())).unwrap(), None);
+
+        // 绝对路径（不要求已存在）与既有目录都接受。
+        let dir = unique_temp_dir("normalize-dir");
+        let abs = dir.to_string_lossy().to_string();
+        assert_eq!(normalize_custom_dir(Some(format!("  {abs}  "))).unwrap(), Some(abs));
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(
+            normalize_custom_dir(Some(dir.to_string_lossy().to_string())).unwrap(),
+            Some(dir.to_string_lossy().to_string())
+        );
+
+        // 相对路径拒绝。
+        assert!(normalize_custom_dir(Some("relative/env".to_string())).is_err());
+
+        // 指向既有文件拒绝。
+        let file = dir.join("not-a-dir");
+        fs::write(&file, b"x").unwrap();
+        assert!(normalize_custom_dir(Some(file.to_string_lossy().to_string())).is_err());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn directory_changes_are_rejected_while_installing() {
+        assert!(ensure_dir_change_allowed(false, false).is_ok());
+
+        let err = ensure_dir_change_allowed(true, false).unwrap_err();
+        assert!(err.contains("获取进行中"), "实际：{err}");
+
+        // 下载已完成、等待用户确认的安装同样属于「获取流程进行中」。
+        let err = ensure_dir_change_allowed(false, true).unwrap_err();
+        assert!(err.contains("尚待确认"), "实际：{err}");
     }
 
     #[test]

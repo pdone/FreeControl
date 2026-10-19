@@ -26,22 +26,27 @@
   // 不能「再点一下收起」—— 收起要点页面别处，或用键盘把焦点移走。没有 `.open`、没有 `aria-expanded`：
   // 没有脚本、也就没有展开态，「同一时刻最多一块被固定」由焦点唯一性自然成立。
   import {
-    scrcpyDir,
     envStatus,
     compat,
     refreshEnv,
+    updateScrcpyDir,
     proxies,
     addProxy,
     removeProxy,
   } from '../lib/store';
   import { openScrcpyDir, checkUpdate } from '../lib/api';
   import { installRunning, installError, runInstall, errText } from '../lib/install';
+  import { open } from '@tauri-apps/plugin-dialog';
   import DownloadProgress from './DownloadProgress.svelte';
   import HelpTip from './HelpTip.svelte';
   import { tip } from '../lib/tooltip';
   import {
     Folder,
     FolderOpen,
+    FolderSearch,
+    ChevronDown,
+    Check,
+    RotateCcw,
     Download,
     RefreshCw,
     AlertTriangle,
@@ -189,9 +194,81 @@
     }
   }
 
+  // ── 自定义目录（spec「自定义运行环境目录的设置与恢复」）──
+  // 输入框是草稿：只有「应用」/ Enter / 选择目录才落盘，失焦不自动提交 ——
+  // 目录是全局位置，误触失焦不该改变它。
+  let dirDraft = '';
+  let dirDirty = false;
+  let dirErr = '';
+  let dirBusy = false;
+  let dirMenuOpen = false;
+  let dirMenuEl: HTMLDivElement | null = null;
+
+  // 目录行的操作收在按钮组的下拉里：点外部或按 Esc 收起。
+  function closeDirMenuOnOutside(e: MouseEvent): void {
+    if (dirMenuOpen && dirMenuEl && !dirMenuEl.contains(e.target as Node)) {
+      dirMenuOpen = false;
+    }
+  }
+  // 获取流程一开始就收起菜单，避免菜单里的动作在安装中被误触。
+  $: if ($installRunning && dirMenuOpen) dirMenuOpen = false;
+
+  // 后端刷新路径时同步草稿；用户正在编辑（dirDirty）时不覆盖其输入。
+  $: if ($envStatus && !dirDirty && dirDraft !== $envStatus.dir) {
+    dirDraft = $envStatus.dir;
+  }
+  $: dirChanged = !!$envStatus && dirDraft.trim() !== $envStatus.dir;
+
+  async function applyDir(): Promise<void> {
+    if ($installRunning || dirBusy) return;
+    const value = dirDraft.trim();
+    dirErr = '';
+    dirBusy = true;
+    try {
+      await updateScrcpyDir(value === '' ? null : value);
+      dirDirty = false;
+      setFlash(value === '' ? '已恢复约定目录' : '已切换 scrcpy 目录', 'connected');
+    } catch (e) {
+      dirErr = errText(e);
+    } finally {
+      dirBusy = false;
+    }
+  }
+
+  async function chooseDir(): Promise<void> {
+    if ($installRunning || dirBusy) return;
+    dirErr = '';
+    try {
+      const picked = await open({
+        directory: true,
+        multiple: false,
+        title: '选择 scrcpy 目录',
+      });
+      if (typeof picked === 'string' && picked) {
+        dirDraft = picked;
+        dirDirty = true;
+        await applyDir();
+      }
+    } catch (e) {
+      dirErr = errText(e);
+    }
+  }
+
+  async function resetDir(): Promise<void> {
+    if ($installRunning || dirBusy) return;
+    dirDraft = '';
+    dirDirty = true;
+    await applyDir();
+  }
+
   // `?` 的展开全由 CSS 承担（`.fhelp:hover` / `.fhelp:focus-within`，见 `app.css`）——
   // 本页不再有那套 `pinnedHelp` / `hoveredHelp` / `focusedHelp` 脚本状态。
 </script>
+
+<svelte:window
+  on:click={closeDirMenuOnOutside}
+  on:keydown={(e) => e.key === 'Escape' && (dirMenuOpen = false)}
+/>
 
 <div class="sec-head">
   <h2>运行环境</h2>
@@ -203,20 +280,75 @@
     <!-- 卡片不设标题行：本页只有这一张卡、页标题已表明身份（spec「运行环境卡片的标题呈现」）。 -->
     <div class="field">
       <span class="flabel">scrcpy 目录<HelpTip title="scrcpy 目录" label="scrcpy 目录的说明">
-        <span class="fhelp-p">{#if $envStatus?.dirHint}约定目录为 {$envStatus.dirHint}；{/if}scrcpy 与 adb 都由该目录提供。</span>
+        <span class="fhelp-p">{#if $envStatus?.dirHint}未设置自定义目录时，约定目录为 {$envStatus.dirHint}；{/if}设置了自定义目录时，scrcpy 与 adb 都从自定义目录读取，约定目录不再参与。</span>
         <span class="fhelp-p">首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。</span>
       </HelpTip></span>
       <div class="path-row">
         <Folder />
         <input
           type="text"
-          readonly
-          value={$scrcpyDir}
+          bind:value={dirDraft}
+          on:input={() => {
+            dirDirty = true;
+            dirErr = '';
+          }}
+          on:keydown={(e) => e.key === 'Enter' && applyDir()}
+          disabled={$installRunning || dirBusy}
+          spellcheck="false"
+          aria-label="scrcpy 目录"
         />
-        <button class="btn sm" on:click={openDir}>
-          <FolderOpen /> 打开目录
-        </button>
+        {#if dirChanged}
+          <button class="btn sm" on:click={applyDir} disabled={$installRunning || dirBusy}>
+            <Check /> 应用
+          </button>
+        {/if}
+        <div class="dir-actions" bind:this={dirMenuEl}>
+          <button class="btn sm" on:click={chooseDir} disabled={$installRunning || dirBusy}>
+            <FolderSearch /> 选择目录
+          </button>
+          <button
+            class="btn sm dir-menu-trigger"
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={dirMenuOpen}
+            aria-label="更多目录操作"
+            on:click={() => (dirMenuOpen = !dirMenuOpen)}
+            disabled={$installRunning || dirBusy}
+          >
+            <ChevronDown />
+          </button>
+          {#if dirMenuOpen}
+            <div class="dir-menu-pop" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                on:click={() => {
+                  dirMenuOpen = false;
+                  openDir();
+                }}
+              >
+                <FolderOpen /> 打开目录
+              </button>
+              {#if $envStatus?.isCustom}
+                <button
+                  type="button"
+                  role="menuitem"
+                  on:click={() => {
+                    dirMenuOpen = false;
+                    resetDir();
+                  }}
+                  disabled={$installRunning || dirBusy}
+                >
+                  <RotateCcw /> 恢复默认
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
       </div>
+      {#if dirErr}
+        <div class="hint dl-error">{dirErr}</div>
+      {/if}
     </div>
     <div class="field">
       <span class="flabel">状态<HelpTip title="状态" label="状态的说明">

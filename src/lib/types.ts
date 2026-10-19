@@ -123,6 +123,8 @@ export interface Logging {
 
 export interface AppConfig {
   schemaVersion: number;
+  /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
+  scrcpyDir: string | null;
   devices: Device[];
   defaults: Defaults;
   overrides: Record<string, OverrideEntry>;
@@ -236,7 +238,7 @@ export interface CompatStatus {
  * 就绪判定完全在后端完成，前端只渲染 `ready` / `missing`，不自行检查文件。
  */
 export interface EnvStatus {
-  /** 约定目录的完整路径（未就绪时同样返回，供手动放置） */
+  /** 生效目录的完整路径（自定义优先，否则为约定目录；未就绪时同样返回，供手动放置） */
   dir: string;
   /**
    * 界面「约定目录」的说明文案：后端按平台拼好下发（Windows 为
@@ -247,4 +249,6 @@ export interface EnvStatus {
   ready: boolean;
   /** 缺失的必需可执行文件名 */
   missing: string[];
+  /** 当前是否使用用户自定义目录 */
+  isCustom: boolean;
 }

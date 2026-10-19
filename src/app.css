@@ -1026,14 +1026,83 @@ select,
 .path-row > .btn {
   flex: none;
 }
-/* 紧跟在文本框后面的按钮与它**等高**（「目录」行的「打开目录」）。
-   用 `align-self: stretch` 让它撑到本行的高度 —— 行高由最高的那一件（文本框）决定，
+/* 目录行里文本框后面的按钮都与它**等高**（选择目录 / 应用 / 打开目录 / 恢复默认）。
+   用 `align-self: stretch` 让它们撑到本行的高度 —— 行高由最高的那一件（文本框）决定，
    于是不必写死一个会随字体度量漂移的像素值（原型侧同一条写的是固定值：那边文本框实测 36px，
    两边换算值不同源自字体栈差异，产品侧实测 34px，故改成本写法以免照抄出偏差）。
-   作用域靠 `+` 限定为「同一行里紧跟文本框的那颗 `.btn.sm`」—— 代理追加行是 `.row.proxy-add`
-   而非 `.path-row`，因此不受影响。 */
-.path-row > input + .btn.sm {
+   作用域靠 `~` 限定为「同一行里文本框之后的按钮」—— 代理追加行是 `.row.proxy-add`
+   而非 `.path-row`，且其它 `.path-row` 没有文本框，因此不受影响。 */
+.path-row > input ~ .btn.sm {
   align-self: stretch;
+}
+/* 目录行的按钮组：选择目录 + 下拉触发器；打开目录 / 恢复默认收进菜单，避免挤占同一行。
+   组本身撑满行高，组内两颗按钮各占一半高度并与组同圆角，只在结合处去掉分隔。 */
+.dir-actions {
+  position: relative;
+  display: inline-flex;
+  align-self: stretch;
+  flex: none;
+}
+.dir-actions > .btn {
+  height: 100%;
+  border-radius: 0;
+}
+.dir-actions > .btn:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.dir-actions > .dir-menu-trigger {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  border-left: 0;
+  padding-left: 7px;
+  padding-right: 7px;
+}
+.dir-actions > .dir-menu-trigger svg {
+  width: 14px;
+  height: 14px;
+}
+.dir-menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 148px;
+  padding: 5px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  display: grid;
+  gap: 2px;
+}
+.dir-menu-pop button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dir-menu-pop button:hover {
+  background: var(--panel-2);
+}
+.dir-menu-pop button svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--text-dim);
+}
+.dir-menu-pop button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 /* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
    取值 38px 就是分段控件自己的外框：2px 边框 + 3px 内边距 x2 + 30px 按钮。

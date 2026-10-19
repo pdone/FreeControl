@@ -216,6 +216,11 @@ pub struct AppConfig {
     /// —— 手工编辑过的配置文件少写一个字段不该让整个应用读不出配置。
     #[serde(default)]
     pub schema_version: u32,
+    /// 自定义 scrcpy 运行环境目录（绝对路径）；缺省或空串表示使用约定目录。
+    ///
+    /// 不随 `schemaVersion` 分档：老配置无此字段时读成 `None`，行为与本字段引入前一致。
+    #[serde(default)]
+    pub scrcpy_dir: Option<String>,
     pub devices: Vec<Device>,
     /// 8 组默认参数（前端拥有字段模型；后端以 JSON 透明存储，便于前向兼容）。
     #[serde(default)]
@@ -243,6 +248,7 @@ impl AppConfig {
     pub fn fresh() -> Self {
         AppConfig {
             schema_version: SCHEMA_VERSION,
+            scrcpy_dir: None,
             devices: Vec::new(),
             defaults: serde_json::Value::Null,
             overrides: HashMap::new(),
@@ -589,6 +595,8 @@ mod tests {
         let cfg = load_config_from(&path).unwrap();
 
         assert_eq!(cfg.schema_version, SCHEMA_VERSION);
+        // 老配置没有 `scrcpyDir`：读成 None，继续使用约定目录。
+        assert_eq!(cfg.scrcpy_dir, None);
         let _ = fs::remove_dir_all(&dir);
     }
 

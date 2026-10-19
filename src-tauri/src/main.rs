@@ -197,6 +197,7 @@ fn main() {
     // 就没用了。判定所需的读操作失败一律退化为「该信号未命中」，不影响启动（见 `webview_env`）。
     webview_env::prepare();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         // 兜底之一：页面加载完成后仍未显示窗口（锚点选择见 `spawn_reveal_fallback`）。
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
@@ -223,6 +224,16 @@ fn main() {
                 }
                 // 清理上次运行可能残留的临时文件：下载临时目录（tasks 4.3）与写配置的临时文件（tasks 5.2）。
                 download::cleanup_stale_staging(&root);
+                // 自定义目录的临时目录建在它的父目录下（与目标同卷），启动时一并清理。
+                if let Ok(effective) =
+                    scrcpy::resolve_scrcpy_dir(&root, cfg.scrcpy_dir.as_deref())
+                {
+                    if let Some(parent) = effective.parent() {
+                        if parent != root {
+                            download::cleanup_stale_staging(parent);
+                        }
+                    }
+                }
                 config::cleanup_stale_tmp(&root);
                 // 应用更新：未应用的待更新包与替换时的旧版本备份只在本次运行内有效。
                 app_update::cleanup_stale(&handle);
@@ -261,6 +272,7 @@ fn main() {
             assets::get_scrcpy_dir,
             assets::get_env_status,
             assets::open_scrcpy_dir,
+            assets::set_scrcpy_dir,
             config::get_config,
             config::save_config,
             device::get_devices,

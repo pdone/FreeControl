@@ -25,7 +25,7 @@ use serde::Serialize;
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 /// 一个受支持的平台：**操作系统 × 架构**两个维度共同决定官方平台标签与资产压缩格式。
 ///
@@ -84,17 +84,68 @@ pub const SCRCPY_BIN: &str = if cfg!(windows) { "scrcpy.exe" } else { "scrcpy" }
 /// 探测失败时的占位标记（tasks 2.3）。
 pub const UNKNOWN_VERSION: &str = "unknown";
 
-/// 运行环境目录：`%APPDATA%/FreeControl2/scrcpy-{OS}-v{Version}`（tasks 3.1）。
+/// **生效目录**：用户自定义目录优先，否则为约定目录（tasks 3.1）。
 ///
-/// 版本段带 `v` 前缀，与 scrcpy 官方发布包 / 发布资产同名（`scrcpy-win64-v4.1`），
-/// 也与 UI 基线原型 `ui-design/launcher-prototype.html` 的 `SCRCPY_DIR` 一致 ——
-/// 用户从发布包解压出来即可直接对号入座。
-///
-/// 按「最佳适配版本」拼目录名（正常情况）；若用户替换为其它版本，目录名仍以 best-fit 为准，
-/// 版本探测（`detect_installed_version`）对目录名写法保持宽容（带不带 `v` 都能解析）。
+/// 自定义目录可能指向一份已有的 scrcpy 运行环境（便携版、其它磁盘、多个工具共用），
+/// 因此不要求其目录名符合约定命名；就绪判定与版本探测只看目录内容。
 /// 数据根由 `config::app_data_root` 统一解析，保证与 `config.json` 同根。
 pub fn scrcpy_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    scrcpy_dir_at(&crate::config::app_data_root(app)?)
+    let root = crate::config::app_data_root(app)?;
+    let custom = app
+        .state::<crate::AppState>()
+        .config
+        .lock()
+        .unwrap()
+        .scrcpy_dir
+        .clone();
+    resolve_scrcpy_dir(&root, custom.as_deref())
+}
+
+/// 解析生效目录（纯函数，便于单测）。
+///
+/// 只有**绝对路径**且「不存在或确实是目录」的自定义值才会被采纳；相对路径或指向既有文件的
+/// 值视为配置被手工改坏，记 WARN 后回落到约定目录 —— 一条坏字段不该让应用无法启动。
+pub fn resolve_scrcpy_dir(root: &Path, custom: Option<&str>) -> Result<PathBuf, String> {
+    if let Some(path) = valid_custom_dir(custom) {
+        return Ok(path.to_path_buf());
+    }
+    if custom.map(str::trim).is_some_and(|s| !s.is_empty()) {
+        crate::logger::warn(
+            "env",
+            format!(
+                "配置中的自定义 scrcpy 目录不可用（须为绝对路径且不是文件），已回落到约定目录：{}",
+                custom.unwrap_or_default().trim()
+            ),
+        );
+    }
+    scrcpy_dir_at(root)
+}
+
+/// 当前配置中被采纳的自定义目录；`None` 表示使用约定目录。
+///
+/// 与 [`resolve_scrcpy_dir`] 共用同一条「什么算有效自定义值」的判定，避免界面上的
+/// 「是否为自定义」与实际生效目录各算一套。
+pub fn custom_dir(app: &AppHandle) -> Option<PathBuf> {
+    let raw = app
+        .state::<crate::AppState>()
+        .config
+        .lock()
+        .unwrap()
+        .scrcpy_dir
+        .clone();
+    valid_custom_dir(raw.as_deref()).map(Path::to_path_buf)
+}
+
+fn valid_custom_dir(custom: Option<&str>) -> Option<&Path> {
+    let raw = custom?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let path = Path::new(raw);
+    if !path.is_absolute() || (path.exists() && !path.is_dir()) {
+        return None;
+    }
+    Some(path)
 }
 
 /// 由应用数据根目录派生运行环境目录（纯函数，便于单测 tasks 3.1）。
@@ -352,6 +403,40 @@ mod tests {
         assert!(dir.is_absolute());
         assert!(dir.starts_with(root));
         assert_eq!(dir.parent(), Some(root));
+    }
+
+    #[test]
+    fn resolve_prefers_valid_custom_dir_and_falls_back() {
+        let root = unique_temp_dir("resolve");
+        let conventional = scrcpy_dir_at(&root).unwrap();
+
+        // 未设置或空串 → 约定目录。
+        assert_eq!(resolve_scrcpy_dir(&root, None).unwrap(), conventional);
+        assert_eq!(resolve_scrcpy_dir(&root, Some("   ")).unwrap(), conventional);
+
+        // 绝对路径 → 自定义目录（不要求已存在）。
+        let custom = root.join("custom-env");
+        assert_eq!(
+            resolve_scrcpy_dir(&root, Some(custom.to_str().unwrap())).unwrap(),
+            custom
+        );
+
+        // 相对路径 → 回落约定目录。
+        assert_eq!(
+            resolve_scrcpy_dir(&root, Some("relative/env")).unwrap(),
+            conventional
+        );
+
+        // 指向既有文件 → 回落约定目录。
+        fs::create_dir_all(&root).unwrap();
+        let file = root.join("not-a-dir");
+        fs::write(&file, b"x").unwrap();
+        assert_eq!(
+            resolve_scrcpy_dir(&root, Some(file.to_str().unwrap())).unwrap(),
+            conventional
+        );
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

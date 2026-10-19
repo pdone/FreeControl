@@ -821,10 +821,13 @@ fn unique_suffix() -> String {
     format!("{}-{}", std::process::id(), nanos)
 }
 
-/// 在应用数据根下新建临时目录（与目标目录同盘，保证 rename 原子）。
-fn new_staging_dir(root: &Path) -> Result<PathBuf, String> {
-    fs::create_dir_all(root).map_err(|e| format!("创建应用数据目录失败：{}", e))?;
-    let dir = root.join(format!("{}{}", STAGING_PREFIX, unique_suffix()));
+/// 在**目标目录的父目录**下新建临时目录（与目标同盘，保证 rename 原子）。
+///
+/// 自定义目录可能位于另一块磁盘，临时目录不能再固定建在应用数据根下 —— 跨卷 rename
+/// 会失败。约定目录的父目录本来就是应用数据根，因此默认路径的行为不变。
+fn new_staging_dir(parent: &Path) -> Result<PathBuf, String> {
+    fs::create_dir_all(parent).map_err(|e| format!("创建临时目录的父目录失败：{}", e))?;
+    let dir = parent.join(format!("{}{}", STAGING_PREFIX, unique_suffix()));
     fs::create_dir_all(&dir).map_err(|e| format!("创建临时目录失败：{}", e))?;
     Ok(dir)
 }
@@ -1009,6 +1012,37 @@ pub fn find_payload_root(raw: &Path) -> Option<PathBuf> {
     }
 
     walk(raw, MAX_DEPTH)
+}
+
+/// 自定义目录的安装闸门：只允许替换「不存在 / 空 / 已含 scrcpy」的目录。
+///
+/// 约定目录由应用独占，不需要这道闸门；自定义目录可能是用户随手选的任意目录，
+/// 而 [`replace_dir`] 会删除目录内全部内容 —— 没有这道检查，一次误选就会删掉用户文件。
+pub fn install_target_allowed(dir: &Path) -> Result<(), String> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    let mut entries = fs::read_dir(dir)
+        .map_err(|e| format!("无法读取运行环境目录 {}：{e}", dir.display()))?;
+    if entries.next().is_none() {
+        return Ok(());
+    }
+    if dir.join(scrcpy::SCRCPY_BIN).is_file() {
+        return Ok(());
+    }
+    Err(format!(
+        "目录 {} 内已有其它文件，为避免误删，本次未开始安装。请改选一个空目录，或先备份该目录。",
+        dir.display()
+    ))
+}
+
+/// 只在自定义目录生效时应用闸门；约定目录由应用独占，行为保持不变。
+fn enforce_install_gate(dir: &Path, custom: bool) -> Result<(), String> {
+    if custom {
+        install_target_allowed(dir)
+    } else {
+        Ok(())
+    }
 }
 
 /// 原子替换目录：先把旧目录改名为备份，再把新目录改名到位；后者失败则回滚。
@@ -1611,9 +1645,13 @@ async fn download_and_verify(
         logger::warn("env", format!("下载目标回退：{note}"));
     }
 
-    let root = config::app_data_root(app).map_err(InstallError::Failed)?;
+    // 临时目录必须与目标目录同卷：自定义目录可能在另一块磁盘上。
+    let target_dir = scrcpy::scrcpy_dir(app).map_err(InstallError::Failed)?;
+    let staging_parent = target_dir
+        .parent()
+        .ok_or_else(|| InstallError::Failed("运行环境目录路径异常".to_string()))?;
     let guard = {
-        let staging = new_staging_dir(&root).map_err(InstallError::Failed)?;
+        let staging = new_staging_dir(staging_parent).map_err(InstallError::Failed)?;
         StagingGuard::new(staging)
     };
     let staging = guard.path.clone();
@@ -1789,6 +1827,8 @@ fn apply_pending(app: &AppHandle, pending: PendingInstall) -> Result<(), String>
     let _guard = StagingGuard::new(staging.clone());
 
     let target_dir = scrcpy::scrcpy_dir(app)?;
+    // 下载期间目录内容可能已变：替换前再按闸门检查一次（仅自定义目录）。
+    enforce_install_gate(&target_dir, scrcpy::custom_dir(app).is_some())?;
     // 替换前再检一次（下载耗时较长，期间可能有会话启动）：先确认没有本应用会话在运行，
     // 再结束 adb 服务端，最后确认目录可替换（design D2）。占用状态取在释放之前，
     // 供替换阶段的进度文案说明这次多做了一件事。
@@ -2083,6 +2123,8 @@ pub async fn start_scrcpy_install(
     let latest = mode.as_deref().unwrap_or("bestFit") == "latest";
     let state = app.state::<AppState>();
     let target_dir = scrcpy::scrcpy_dir(&app)?;
+    // 自定义目录的安装闸门：在下载前就失败，避免白下一次、也避免下载完成后才拒绝。
+    enforce_install_gate(&target_dir, scrcpy::custom_dir(&app).is_some())?;
     // ① 这里只确认没有本应用会话在运行（design D1）：有会话时替换会掐断它，必须先断开。
     //    目录被 adb 服务端占用**不在此拦截** —— 它由本应用的探测拉起，用户没有可断的东西；
     //    替换前会自动结束它（见 `prepare_replace`），此处只把这件事记进日志。
@@ -2572,14 +2614,69 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         let stale = root.join(format!("{}111", STAGING_PREFIX));
         let keep = root.join(format!("scrcpy-win64-v{}", scrcpy::BEST_FIT_VERSION));
+        let backup = root.join(format!(".scrcpy-win64-v{}-backup-1", scrcpy::BEST_FIT_VERSION));
         fs::create_dir_all(&stale).unwrap();
         fs::create_dir_all(&keep).unwrap();
+        fs::create_dir_all(&backup).unwrap();
         fs::write(stale.join("part.zip"), b"partial").unwrap();
 
         cleanup_stale_staging(&root);
 
         assert!(!stale.exists());
+        assert!(!backup.exists(), "替换失败的旧目录备份也应被清掉");
         assert!(keep.exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn staging_is_created_next_to_the_target() {
+        // 自定义目录可能在另一块磁盘：staging 必须与目标同父目录，rename 才不跨卷。
+        let root = unique_temp_dir("staging-parent");
+        let staging = new_staging_dir(&root).unwrap();
+
+        assert_eq!(staging.parent(), Some(root.as_path()));
+        assert!(staging
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with(STAGING_PREFIX));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn install_gate_allows_missing_empty_and_scrcpy_dirs() {
+        let root = unique_temp_dir("gate-allow");
+        let missing = root.join("missing");
+        assert!(install_target_allowed(&missing).is_ok());
+
+        let empty = root.join("empty");
+        fs::create_dir_all(&empty).unwrap();
+        assert!(install_target_allowed(&empty).is_ok());
+
+        let env = root.join("env");
+        fs::create_dir_all(&env).unwrap();
+        fs::write(env.join(scrcpy::SCRCPY_BIN), b"stub").unwrap();
+        assert!(install_target_allowed(&env).is_ok());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn install_gate_rejects_unrelated_content() {
+        let root = unique_temp_dir("gate-reject");
+        let dir = root.join("tools");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("notes.txt"), b"keep me").unwrap();
+
+        // 自定义目录：下载前与替换前共用同一个判定，两处都拒绝。
+        let err = enforce_install_gate(&dir, true).unwrap_err();
+        assert!(err.contains("已有其它文件"), "实际：{err}");
+
+        // 约定目录不受闸门影响：行为与变更前一致。
+        assert!(enforce_install_gate(&dir, false).is_ok());
+        assert!(dir.join("notes.txt").is_file());
+
         let _ = fs::remove_dir_all(&root);
     }
 

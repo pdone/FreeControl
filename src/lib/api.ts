@@ -27,6 +27,9 @@ export const getCompatStatus = (): Promise<CompatStatus> =>
 
 export const getScrcpyDir = (): Promise<string> => invoke('get_scrcpy_dir');
 export const openScrcpyDir = (): Promise<void> => invoke('open_scrcpy_dir');
+/** 设置自定义运行环境目录；`null` 表示恢复约定目录。返回落盘后的完整配置。 */
+export const setScrcpyDir = (path: string | null): Promise<AppConfig> =>
+  invoke('set_scrcpy_dir', { path });
 /** 运行环境状态：目录 + 就绪判定 + 缺失清单（首启引导与「重新检测」共用）。 */
 export const getEnvStatus = (): Promise<EnvStatus> => invoke('get_env_status');
 

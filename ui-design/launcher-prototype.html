@@ -79,7 +79,7 @@
      下列选择器在本原型里**没有对应元素**，故不在此列出（产品侧有）：.log-view / .sess-cmd /
      .sess-cmd code 的宿主、.env-path、.env-reason-cmp、.flabel code —— 原型没有会话输出那一块
      与运行环境原因块，参数标签也未用 <code> 承载 flag 名。产品侧落规则时以产品侧那份为准。 */
-  .dev-cid, .proxy-url, .cmd-preview, .path-row > input[readonly],
+  .dev-cid, .proxy-url, .cmd-preview, #scrcpyPath,
   .dl-text, .dl-channel, .hint code, .modal code
   { user-select: text; cursor: text; }
   /* 关于弹窗的两处**不在**白名单里：
@@ -342,7 +342,31 @@
   /* 紧跟在文本框后面的按钮与它**等高**（「目录」行的「打开目录」）。文本框实测 36px
      （9px 上下内边距 ×2 + 13px 行高 + 2px 边框），按钮取同一取值才与它齐平。
      与下面那条 `.seg + .btn` 是一个手法。 */
-  .path-row > input + .btn.sm { height: 36px; }
+  .path-row > input ~ .btn.sm { height: 36px; }
+  /* 目录行的按钮组：选择目录 + 下拉；打开目录 / 恢复默认收进菜单（与产品侧同款）。 */
+  .dir-actions { position: relative; display: inline-flex; align-self: stretch; flex: none; }
+  .dir-actions > .btn { height: 100%; border-radius: 0; }
+  .dir-actions > .btn:first-child {
+    border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm);
+  }
+  .dir-actions > .dir-menu-trigger {
+    border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm);
+    border-left: 0; padding-left: 7px; padding-right: 7px;
+  }
+  .dir-actions > .dir-menu-trigger svg { width: 14px; height: 14px; }
+  .dir-menu-pop {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 148px;
+    padding: 5px; background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); box-shadow: 0 12px 28px rgba(0, 0, 0, .4);
+    display: grid; gap: 2px;
+  }
+  .dir-menu-pop button {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px;
+    border: 0; border-radius: 6px; background: transparent; color: var(--text);
+    font-family: inherit; font-size: 12.5px; text-align: left; white-space: nowrap; cursor: pointer;
+  }
+  .dir-menu-pop button:hover { background: var(--panel-2); }
+  .dir-menu-pop button svg { width: 15px; height: 15px; stroke: var(--text-dim); }
   /* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
      与产品侧同一条选择器、同一个取值：38px 即分段控件自己的外框（2px 边框 + 3px 内边距 x2
      + 30px 按钮）。作用域靠 `+` 限定，运行环境页那三处 `.path-row` 里没有 `.seg`，不受影响。 */
@@ -1022,12 +1046,22 @@
             <div class="field">
               <span class="flabel">scrcpy 目录<span class="fhelp">
                 <button class="fhelp-btn" type="button" aria-label="scrcpy 目录的说明"><i data-lucide="circle-help"></i></button>
-                <span class="fhelp-panel"><span class="fhelp-title">scrcpy 目录</span><span class="fhelp-p">约定目录为 <span id="envDirHint"></span>；scrcpy 与 adb 都由该目录提供。</span><span class="fhelp-p">首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。</span></span>
+                <span class="fhelp-panel"><span class="fhelp-title">scrcpy 目录</span><span class="fhelp-p">未设置自定义目录时，约定目录为 <span id="envDirHint"></span>；设置了自定义目录时，scrcpy 与 adb 都从自定义目录读取，约定目录不再参与。</span><span class="fhelp-p">首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。</span></span>
               </span></span>
               <div class="path-row">
                 <i data-lucide="folder"></i>
-                <input type="text" id="scrcpyPath" readonly value="" />
-                <button class="btn sm" id="openDirBtn"><i data-lucide="folder-open"></i>打开目录</button>
+                <input type="text" id="scrcpyPath" value="" spellcheck="false" aria-label="scrcpy 目录" />
+                <!-- 「选择目录」在原型里不接线：系统文件夹对话框在浏览器里没有对象可施，
+                     与窗口三键同理（config ㉒），只保留产品侧的结构。 -->
+                <button class="btn sm hidden" id="applyDirBtn"><i data-lucide="check"></i>应用</button>
+                <div class="dir-actions" id="dirActions">
+                  <button class="btn sm" id="chooseDirBtn"><i data-lucide="folder-search"></i>选择目录</button>
+                  <button class="btn sm dir-menu-trigger" id="dirMenuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="更多目录操作"><i data-lucide="chevron-down"></i></button>
+                  <div class="dir-menu-pop hidden" id="dirMenuPop" role="menu">
+                    <button type="button" role="menuitem" id="openDirBtn"><i data-lucide="folder-open"></i>打开目录</button>
+                    <button type="button" role="menuitem" id="resetDirBtn" class="hidden"><i data-lucide="rotate-ccw"></i>恢复默认</button>
+                  </div>
+                </div>
               </div>
             </div>
             <!-- 状态字段：产品侧早有、原型一直缺（本次一并补齐，见 config ⑲）。
@@ -2029,6 +2063,11 @@
        assets::download_latest()    → 拉 GitHub Releases 最新版并解压覆盖（失败可手动放置）
      这里只做交互演示。 */
   const scrcpyPathEl  = document.getElementById('scrcpyPath');
+  const applyDirBtn   = document.getElementById('applyDirBtn');
+  const resetDirBtn   = document.getElementById('resetDirBtn');
+  const dirMenuBtn    = document.getElementById('dirMenuBtn');
+  const dirMenuPop    = document.getElementById('dirMenuPop');
+  const dirActions    = document.getElementById('dirActions');
   const envDirHint    = document.getElementById('envDirHint');
   const envStatus     = document.getElementById('envStatus');
   const envFlash      = document.getElementById('envFlash');
@@ -2048,7 +2087,7 @@
   /* ---- 版本信息统一注入：页面所有版本展示都取自上面那两处版本常量（scrcpy 与应用各一处）---- */
   scrcpyPathEl.value = SCRCPY_DIR;
   // 目录字段——约定目录文字（产品侧由后端下发的 dirHint 拼成；原型取同一个目录常量）。
-  // 它现在住在 `?` 详情的第一句里：字段下方不再有常驻说明（该目录的完整路径已由上面的只读输入框展示），
+  // 它现在住在 `?` 详情的第一句里：字段下方不再有常驻说明（该目录的完整路径已由上面的输入框展示），
   // 句子骨架写在 HTML 里，这里只填路径。
   // 路径输入框里贴的是资源管理器/命令行里的写法（反斜杠），说明文字与产品侧一致用正斜杠。
   envDirHint.textContent = SCRCPY_DIR.replace(/\\/g, '/');
@@ -2113,6 +2152,56 @@
     updTimer=setTimeout(()=>{ envStatus.textContent=''; envStatus.className='status-text'; }, 2800);
   }
 
+  /* ---- 自定义 scrcpy 目录（产品侧 config.scrcpyDir + set_scrcpy_dir；这里演示显隐与提交）----
+     目录输入框是草稿：只有 Enter / 「应用」才生效，失焦不自动提交（与产品侧同一套判定）。
+     「选择目录」不接线 —— 系统文件夹对话框在浏览器里没有对象可施。 */
+  let prototypeCustomDir = null;   // null = 使用约定目录
+  let dirDirty = false;
+  function currentDir(){ return prototypeCustomDir || SCRCPY_DIR; }
+  function renderDirControls(){
+    if (!dirDirty) scrcpyPathEl.value = currentDir();
+    applyDirBtn.classList.toggle('hidden', !dirDirty);
+    resetDirBtn.classList.toggle('hidden', !prototypeCustomDir);
+  }
+  function applyDir(){
+    const value = scrcpyPathEl.value.trim();
+    prototypeCustomDir = value || null;
+    dirDirty = false;
+    renderDirControls();
+    flashEnvStatus(value ? '已切换 scrcpy 目录' : '已恢复约定目录','connected');
+  }
+  scrcpyPathEl.addEventListener('input', ()=>{
+    dirDirty = scrcpyPathEl.value.trim() !== currentDir();
+    renderDirControls();
+  });
+  scrcpyPathEl.addEventListener('keydown', e=>{
+    if (e.key === 'Enter'){ e.preventDefault(); applyDir(); }
+  });
+  applyDirBtn.addEventListener('click', applyDir);
+  function closeDirMenu(){
+    dirMenuPop.classList.add('hidden');
+    dirMenuBtn.setAttribute('aria-expanded','false');
+  }
+  dirMenuBtn.addEventListener('click', e=>{
+    e.stopPropagation();
+    const open = !dirMenuPop.classList.toggle('hidden');
+    dirMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', e=>{
+    if (!dirActions.contains(e.target)) closeDirMenu();
+  });
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape') closeDirMenu();
+  });
+  resetDirBtn.addEventListener('click', ()=>{
+    closeDirMenu();
+    prototypeCustomDir = null;
+    dirDirty = false;
+    renderDirControls();
+    flashEnvStatus('已恢复约定目录','connected');
+  });
+  renderDirControls();
+
   /* 重新检测：演示只给一处就地反馈（产品侧此刻会重新探测运行环境与已安装版本）。 */
   document.getElementById('recheckBtn').addEventListener('click', ()=>{
     flashEnvStatus('已检测到可用的运行环境','connected');
@@ -2120,6 +2209,7 @@
 
   /* 查看 / 打开 scrcpy 所在目录 */
   document.getElementById('openDirBtn').addEventListener('click', ()=>{
+    closeDirMenu();
     flashEnvStatus('已在资源管理器中打开该目录','connected');
   });
 
