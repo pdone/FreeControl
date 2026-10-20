@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page, collapsed, aboutOpen } from '../lib/store';
+  import { page, collapsed, openAboutDialog } from '../lib/store';
   import {
     TabletSmartphone,
     Monitor,
@@ -49,7 +49,7 @@
 
   function select(it: NavItem) {
     if (it.dialog) {
-      aboutOpen.set(true);
+      openAboutDialog();
       return;
     }
     page.set(it.key);

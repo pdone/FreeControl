@@ -135,6 +135,21 @@ export interface UiPrefs {
   accent: string;
 }
 
+/**
+ * 更新检查偏好（后端 `config::Update`）：自动检查开关、频率与上次检查时间。
+ *
+ * 频率是前后端契约：`launch` / `daily` / `weekly` / `monthly`；后端把未知取值退为
+ * `launch`，前端不必为未知取值准备分支。`lastCheckedAt` 是 Unix 毫秒，`null` 表示从未检查；
+ * 手动与自动、成功与失败都写同一个时间。
+ */
+export type UpdateFrequency = 'launch' | 'daily' | 'weekly' | 'monthly';
+
+export interface UpdatePrefs {
+  autoCheck: boolean;
+  frequency: UpdateFrequency;
+  lastCheckedAt: number | null;
+}
+
 export interface AppConfig {
   schemaVersion: number;
   /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
@@ -145,6 +160,7 @@ export interface AppConfig {
   channels: Channels;
   logging: Logging;
   ui: UiPrefs;
+  update: UpdatePrefs;
 }
 
 /** 8 组默认参数（前端拥有字段模型；后端透明存储为 JSON）。 */

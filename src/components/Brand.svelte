@@ -4,7 +4,7 @@
   // （45 CSS px × 2.5 = 112.5 ≤ 128）；该尺寸由生成流程原生产出，不是放大低位图凑的。
   // 注意：此处为 Vite 构建期导入（产物哈希化到 dist），源码仍只有一份，并非手工副本。
   import logoMark from '../../assets/icons/desktop/128x128.png';
-  import { aboutOpen } from '../lib/store';
+  import { openAboutDialog } from '../lib/store';
 
   // 品牌行只展示图形标记与产品名 —— 版本信息统一在「关于」弹窗展示（spec「品牌标识」）。
   // 这里原有一条 `$: sub = 'scrcpy ' + $compat.bestFit`：模板里从来没有承载它的元素（纯死代码），
@@ -14,7 +14,7 @@
   // 「弹窗的打开入口」）：整行可点、键盘可达，收起态只剩图形标记时同样可点。
   // 该交互不改品牌行的呈现与几何 —— 除 CSS 里的指针与一处悬停反馈外不动其它。
   function openAbout(): void {
-    aboutOpen.set(true);
+    openAboutDialog();
   }
 
   function onKeydown(e: KeyboardEvent): void {

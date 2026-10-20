@@ -2,7 +2,7 @@
 //!
 //! 单一配置文件 `%APPDATA%/FreeControl2/config.json`，含 `schemaVersion` 字段。
 //! 内容：设备列表（别名 ⇄ 连接标识）、默认参数、设备覆盖及其启用/禁用开关、下载通道偏好、
-//! 日志保留策略与外观偏好（主题模式 / 主题色）。
+//! 日志保留策略、外观偏好（主题模式 / 主题色）与更新检查偏好（自动检查 / 频率 / 上次检查时间）。
 //!
 //! ## 初始化（tasks 5.1）
 //! 文件不存在时按默认值初始化并立即落盘一次；`schemaVersion` 由此写入（老文件缺失时补默认值）。
@@ -284,6 +284,59 @@ fn normalize_hex(raw: &str) -> Option<String> {
     Some(s.to_ascii_lowercase())
 }
 
+/// 自动检查频率取值（自描述字符串，不用数字档位）。
+pub const FREQ_LAUNCH: &str = "launch";
+pub const FREQ_DAILY: &str = "daily";
+pub const FREQ_WEEKLY: &str = "weekly";
+pub const FREQ_MONTHLY: &str = "monthly";
+
+/// 出厂默认检查频率：每次启动。
+pub const DEFAULT_UPDATE_FREQUENCY: &str = FREQ_LAUNCH;
+
+/// 更新检查偏好（`update` 段）：自动检查开关、频率与上次检查时间。
+///
+/// `last_checked_at` 是 Unix 毫秒；前端在每次检查结束（成功或失败）后经既有保存路径写入，
+/// 后端只做透明存取。未知频率在加载时退「每次启动」—— 与保留策略同一条哲学。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Update {
+    /// 出厂关。
+    #[serde(default)]
+    pub auto_check: bool,
+    /// "launch" | "daily" | "weekly" | "monthly"
+    #[serde(default = "default_update_frequency")]
+    pub frequency: String,
+    /// 上次检查时间（Unix 毫秒）；`None` 表示从未检查。
+    #[serde(default)]
+    pub last_checked_at: Option<u64>,
+}
+
+fn default_update_frequency() -> String {
+    DEFAULT_UPDATE_FREQUENCY.to_string()
+}
+
+impl Default for Update {
+    fn default() -> Self {
+        Update {
+            auto_check: false,
+            frequency: default_update_frequency(),
+            last_checked_at: None,
+        }
+    }
+}
+
+impl Update {
+    /// 加载时归一化：未知频率退「每次启动」；开关与时间原样保留。
+    pub fn normalize(&mut self) {
+        if !matches!(
+            self.frequency.as_str(),
+            FREQ_LAUNCH | FREQ_DAILY | FREQ_WEEKLY | FREQ_MONTHLY
+        ) {
+            self.frequency = default_update_frequency();
+        }
+    }
+}
+
 /// 应用配置根对象。
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -313,6 +366,9 @@ pub struct AppConfig {
     /// 外观设置（主题模式 / 主题色）。缺字段时取出厂默认，老配置文件照常可读。
     #[serde(default)]
     pub ui: Ui,
+    /// 更新检查偏好。缺字段时取出厂默认，老配置文件照常可读。
+    #[serde(default)]
+    pub update: Update,
 }
 
 /// 兜底默认值与 [`AppConfig::fresh`] 保持一致：`main.rs` 在配置真的读不出来时
@@ -334,6 +390,7 @@ impl AppConfig {
             channels: Channels::default(),
             logging: Logging::default(),
             ui: Ui::default(),
+            update: Update::default(),
         }
     }
 
@@ -451,6 +508,8 @@ pub fn load_config_from(path: &Path) -> Result<AppConfig, String> {
     }
     // 外观设置归一化：未知主题 / 非法主题色退化为出厂默认（只影响这两个字段）。
     cfg.ui.normalize();
+    // 更新检查偏好归一化：未知频率退「每次启动」。
+    cfg.update.normalize();
     Ok(cfg)
 }
 
@@ -812,6 +871,60 @@ mod tests {
             ui.normalize();
             assert_eq!(ui.accent, DEFAULT_ACCENT, "accent {bad:?} 应退回默认");
         }
+    }
+
+    // ── 更新检查偏好（add-app-self-update tasks 8.5）────────────
+
+    #[test]
+    fn update_prefs_default_when_field_absent() {
+        let dir = unique_temp_dir("update-default");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        // 老文件（无 update 字段）：按出厂默认处理，其余字段照常读出。
+        fs::write(
+            &path,
+            br#"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]}}"#,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        assert!(!cfg.update.auto_check);
+        assert_eq!(cfg.update.frequency, FREQ_LAUNCH);
+        assert_eq!(cfg.update.last_checked_at, None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn update_unknown_frequency_falls_back_and_round_trips() {
+        let dir = unique_temp_dir("update-round");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        fs::write(
+            &path,
+            br#"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"update":{"autoCheck":true,"frequency":"yearly","lastCheckedAt":1729340000123}}"#,
+        )
+        .unwrap();
+
+        let mut cfg = load_config_from(&path).unwrap();
+        assert!(cfg.update.auto_check);
+        assert_eq!(cfg.update.frequency, FREQ_LAUNCH, "未知频率应退回每次启动");
+        assert_eq!(cfg.update.last_checked_at, Some(1_729_340_000_123));
+
+        cfg.update.frequency = FREQ_WEEKLY.to_string();
+        save_config_to(&path, &cfg).unwrap();
+
+        let loaded = load_config_from(&path).unwrap();
+        assert_eq!(loaded.update.frequency, FREQ_WEEKLY);
+        assert!(loaded.update.auto_check);
+        assert_eq!(loaded.update.last_checked_at, Some(1_729_340_000_123));
+
+        // 落盘结构里带 update 段（不是只在内存里）。
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"update\""));
+        assert!(raw.contains("\"autoCheck\""));
+        assert!(raw.contains("\"lastCheckedAt\""));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     // ── tasks 5.2：去抖 + 原子替换 ──────────────────────────────

@@ -286,6 +286,8 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 18px; }
   .card.col2 { grid-column: span 2; }
+  /* 占位块不是 .card，`.card.col2` 的选择器命中不到它；日志页的「会话输出」占位仍要独占整行。 */
+  .ov-empty.col2 { grid-column: span 2; }
   .card h3 { font-size: 11.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
 
   .field { margin-bottom: 14px; }
@@ -411,10 +413,13 @@
   }
   .dir-menu-pop button:hover { background: var(--panel-2); }
   .dir-menu-pop button svg { width: 15px; height: 15px; stroke: var(--text-dim); }
-  /* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
-     与产品侧同一条选择器、同一个取值：38px 即分段控件自己的外框（2px 边框 + 3px 内边距 x2
-     + 30px 按钮）。作用域靠 `+` 限定，运行环境页那三处 `.path-row` 里没有 `.seg`，不受影响。 */
-  .path-row > .seg + .btn.sm { height: 38px; }
+  /* 「自动更新」卡片底部：上次检查靠左、检查按钮钉右；窄窗口下文字先收缩，按钮不被挤压。 */
+  .auto-update-status .status-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .auto-update-status > .btn { margin-left: auto; }
+  /* 「日志文件」卡与「运行日志参数」同排后半宽：保留策略 + 打开目录 + 回显放不下一行时换行，
+     `.path-row` 的横向排布与按钮高度仍沿用既有规则。 */
+  .log-file-row { flex-wrap: wrap; row-gap: 8px; }
+  .log-file-row .status-text { min-width: 0; }
   .dl { margin-top: 14px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); }
   /* 进度文案 / 通道信息 / 百分比三格同行，且整行恒为单行（超出省略、全文进 title）——
      与产品侧 `.dl-head` 同构（产品在那里的取舍：通道那格吃掉剩余宽度、百分比恒钉最右）。 */
@@ -438,8 +443,10 @@
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
 
-  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; }
   .toggle .t-label { font-size: 13px; }
+  /* 开关行里的帮助入口以整行为定位祖先（面板宽度=字段可用宽）；图标到面板的落差大于 6px 桥，加长。 */
+  .toggle .fhelp-panel::before { top: -36px; height: 36px; }
   .switch { position: relative; width: 42px; height: 24px; flex: none; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .slider { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 999px; cursor: pointer; transition: .18s; }
@@ -1078,8 +1085,8 @@
       <section class="section" id="sec-diagnostics">
         <div class="sec-head"><h2>日志</h2><p>查看每个会话的输出（含已结束的会话）以排查异常，并设置与日志相关的默认参数。</p></div>
         <div class="grid">
-          <div class="ov-empty">会话输出仅在产品侧提供，本原型不演示。</div>
-          <div class="card col2">
+          <div class="ov-empty col2">会话输出仅在产品侧提供，本原型不演示。</div>
+          <div class="card">
             <h3>运行日志参数</h3>
             <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
             <div class="field"><label>显示 FPS 计数（--print-fps）</label>
@@ -1091,10 +1098,10 @@
                （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
                「打开日志目录」与保留策略同处一行（同产品侧）：按钮文字已说明它去哪，
                不需要「日志目录」这个独立标签再把同一件事说一遍。 -->
-          <div class="card col2">
+          <div class="card">
             <h3>日志文件</h3>
-            <div class="field"><label>保留策略</label>
-              <div class="path-row">
+            <div class="field"><span class="flabel">保留策略<span class="fhelp"><button class="fhelp-btn" type="button" aria-label="保留策略的说明"><i data-lucide="circle-help"></i></button><span class="fhelp-panel"><span class="fhelp-title">保留策略</span><span class="fhelp-p">日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</span></span></span></span>
+              <div class="path-row log-file-row">
                 <div class="seg" id="logRetention">
                   <button class="active" data-v="7d">保留 7 天</button>
                   <button data-v="30d">保留 30 天</button>
@@ -1102,8 +1109,7 @@
                 </div>
                 <button class="btn sm" id="openLogDirBtn"><i data-lucide="folder-open"></i>打开日志目录</button>
                 <span class="status-text" id="logDirStatus"></span>
-              </div>
-              <div class="hint">日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</div></div>
+              </div></div>
           </div>
         </div>
       </section>
@@ -1216,9 +1222,9 @@
 
       <!-- ============ 设置（应用自身偏好） ============ -->
       <section class="section" id="sec-settings">
-        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观：深浅色主题与主题色。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观与更新：深浅色主题、主题色与自动检查更新。改动即时生效并自动保存，不需要重启。</p></div>
         <div class="grid">
-          <div class="card col2">
+          <div class="card">
             <h3>外观</h3>
             <div class="field">
               <span class="flabel">主题模式<span class="fhelp">
@@ -1245,6 +1251,36 @@
                   </span>
                 </label>
                 <code class="accent-hex" id="accentValue">#6366f1</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自动更新：本程序自身的更新偏好，与 scrcpy 参数无关。开关与频率只存在页面内；
+               后台定时检查不在原型里模拟，自动发现新版后的「结果态直出」用 #update=available|ready 演示。 -->
+          <div class="card">
+            <h3>自动更新</h3>
+            <div class="field">
+              <div class="toggle">
+                <span class="t-label">自动检查更新<span class="fhelp"><button class="fhelp-btn" type="button" aria-label="自动检查更新的说明"><i data-lucide="circle-help"></i></button><span class="fhelp-panel"><span class="fhelp-title">自动检查更新</span><span class="fhelp-p">开启后在后台检查新版本；发现新版本会打开更新窗口，不会自动下载或安装。</span></span></span></span>
+                <label class="switch">
+                  <input type="checkbox" id="autoUpdateToggle" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="field hidden" id="autoUpdateFrequencyField">
+              <span class="flabel">检查频率</span>
+              <div class="seg" id="autoUpdateFrequency">
+                <button class="active" data-v="launch">每次启动</button>
+                <button data-v="daily">每天</button>
+                <button data-v="weekly">每周</button>
+                <button data-v="monthly">每月</button>
+              </div>
+            </div>
+            <div class="field">
+              <div class="path-row auto-update-status">
+                <span class="status-text" id="lastCheckText">上次检查：尚未检查</span>
+                <button class="btn sm" id="settingsCheckUpdate"><i data-lucide="refresh-cw"></i>检查更新</button>
               </div>
             </div>
           </div>
@@ -2037,10 +2073,16 @@
     setUpdateState('checking');
   }
 
+  /* 模拟一次检查完成：设置页的「上次检查」同步更新（原型只演示文案变化，不落盘）。 */
+  function markLastCheckSimulated(){
+    const el=document.getElementById('lastCheckText');
+    if(el) el.textContent='上次检查：刚刚';
+  }
+
   function startCheckSimulation(result = 'available'){
     clearUpdateTimers();
     setUpdateState('checking');
-    updateTimers.push(setTimeout(() => setUpdateState(result), 700));
+    updateTimers.push(setTimeout(() => { setUpdateState(result); markLastCheckSimulated(); }, 700));
   }
 
   function startDownloadSimulation(){
@@ -2073,8 +2115,18 @@
     const isDefault = !mode || mode === 'default';
     applyUpdatePreset(isDefault ? 'checking' : (UPDATE_STATES[mode] ? mode : 'failed'));
     const height = updateHeightForCurrentState();
-    if (isDefault) updateTimers.push(setTimeout(() => setUpdateState('available'), 700));
+    if (isDefault) updateTimers.push(setTimeout(() => { setUpdateState('available'); markLastCheckSimulated(); }, 700));
     setAboutView('update', height);
+  }
+
+  /* 从设置页或 URL hash 直接以更新视图打开：先放出遮罩，再切视图；
+     两件事在同一脚本任务里完成，不会先绘制一帧关于内容。 */
+  function openUpdateDirect(mode){
+    clearUpdateTimers();
+    aboutModal.classList.remove('closing');
+    aboutModal.classList.add('show');
+    openUpdateView(mode);
+    lucide.createIcons();
   }
 
   // 开：清掉关闭态与上次更新状态，回到关于视图，再加 .show 触发入场动画
@@ -2132,8 +2184,7 @@
   function applyUpdateHash(){
     const m = location.hash.match(/^#update=([a-z]+)$/);
     if (!m) return;
-    openAbout();
-    openUpdateView(UPDATE_STATES[m[1]] ? m[1] : 'failed');
+    openUpdateDirect(UPDATE_STATES[m[1]] ? m[1] : 'failed');
   }
   window.addEventListener('hashchange', applyUpdateHash);
   // 等页面加载完成再按 hash 打开：首帧前量高度会拿到未稳定的行高，弹窗会偏矮。
@@ -2831,6 +2882,18 @@
     const b=e.target.closest('[data-accent]'); if(!b) return;
     applyAccent(b.dataset.accent);
   });
+
+  /* ===================== 自动更新（设置页） =====================
+     原型只演示设置形态与「检查更新」入口：开关 / 频率只存在页面内，不落盘。
+     后台定时检查不在原型里模拟；自动发现新版后的结果态用 #update=available|ready 直出。 */
+  document.getElementById('autoUpdateToggle').addEventListener('change', e=>{
+    document.getElementById('autoUpdateFrequencyField').classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('autoUpdateFrequency').addEventListener('click', e=>{
+    const b=e.target.closest('button[data-v]'); if(!b) return;
+    document.querySelectorAll('#autoUpdateFrequency button').forEach(x=>x.classList.toggle('active', x===b));
+  });
+  document.getElementById('settingsCheckUpdate').addEventListener('click', ()=>openUpdateDirect('default'));
 
   applyTheme(); applyAccent(accentHex);
 

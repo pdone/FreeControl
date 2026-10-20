@@ -33,11 +33,13 @@ import {
   getSessionLog,
   clearSessionLog as clearSessionLogCmd,
   bringMainWindowToFront as bringMainWindowToFrontCmd,
+  checkAppUpdate,
   EVENT_DEVICE_STATUS,
   EVENT_SESSION_CHANGED,
 } from './api';
 import type {
   AppConfig,
+  AppUpdateCheck,
   CompatStatus,
   ConnectRequest,
   ConnectResult,
@@ -51,6 +53,8 @@ import type {
   ProxyList,
   SessionInfo,
   UiPrefs,
+  UpdateFrequency,
+  UpdatePrefs,
 } from './types';
 
 export const config = writable<AppConfig | null>(null);
@@ -92,6 +96,86 @@ export function setAccent(accent: string): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), accent } } : c));
   scheduleSave();
 }
+
+// ── 更新检查偏好（add-app-self-update）────────────────────────
+//
+// 开关与频率由设置页写入；上次检查时间由 `runAppUpdateCheck` 在每次检查结束时写入。
+// 三者都落在 `config.update`，复用既有去抖保存路径，不另立状态文件。
+
+const DEFAULT_UPDATE: UpdatePrefs = {
+  autoCheck: false,
+  frequency: 'launch',
+  lastCheckedAt: null,
+};
+
+function updateOf(c: AppConfig | null): UpdatePrefs {
+  return c?.update ?? DEFAULT_UPDATE;
+}
+
+export function setAutoUpdate(autoCheck: boolean): void {
+  config.update((c) =>
+    c ? { ...c, update: { ...updateOf(c), autoCheck } } : c,
+  );
+  scheduleSave();
+}
+
+export function setUpdateFrequency(frequency: UpdateFrequency): void {
+  config.update((c) =>
+    c ? { ...c, update: { ...updateOf(c), frequency } } : c,
+  );
+  scheduleSave();
+}
+
+/** 本次运行内是否完成过检查：`launch` 频率据此判断这个启动是否已经查过。 */
+let checkedAtThisSession: number | null = null;
+
+export function hasCheckedThisSession(): boolean {
+  return checkedAtThisSession !== null;
+}
+
+/**
+ * 上次检查时间（Unix 毫秒）：手动与自动、成功与失败共用这一处。
+ *
+ * 失败也算一次检查并顺延下一个间隔（用户确认的口径）；失败原因由后端写日志，
+ * 这里只更新时间。
+ */
+export function markUpdateChecked(at = Date.now()): void {
+  checkedAtThisSession = at;
+  config.update((c) =>
+    c ? { ...c, update: { ...updateOf(c), lastCheckedAt: at } } : c,
+  );
+  scheduleSave();
+}
+
+let appUpdateCheckInFlight: Promise<AppUpdateCheck> | null = null;
+
+/**
+ * 应用更新的唯一检查入口：手动（关于 / 设置）与自动调度共用。
+ *
+ * 单飞：在途时直接返回同一个 Promise。无论成功或失败，结束都记录 `lastCheckedAt`
+ * 并走去抖保存；失败原因由后端写日志，前端不额外提示。
+ */
+export function runAppUpdateCheck(): Promise<AppUpdateCheck> {
+  if (appUpdateCheckInFlight) return appUpdateCheckInFlight;
+  const run = (async () => {
+    try {
+      return await checkAppUpdate();
+    } finally {
+      markUpdateChecked();
+    }
+  })();
+  appUpdateCheckInFlight = run;
+  // 只为清在途标记；调用方仍拿到 `run` 本身的结果。
+  void run
+    .finally(() => {
+      if (appUpdateCheckInFlight === run) appUpdateCheckInFlight = null;
+    })
+    .catch(() => {
+      /* 失败已由调用方处理；这里避免清理链产生未处理拒绝。 */
+    });
+  return run;
+}
+
 export const devices = writable<Device[]>([]);
 /**
  * 设备运行期状态表（design D13）：由后端统一判定后经事件下发，前端只渲染。
@@ -575,6 +659,30 @@ export async function closeWindow(): Promise<void> {
  */
 export const aboutOpen = writable<boolean>(false);
 
+/** 应用更新下载 / 应用进行中；自动调度据此跳过本轮。 */
+export const appUpdateBusy = writable<boolean>(false);
+
+/** 更新视图的打开意图：手动检查或自动检查结果。 */
+export type UpdateOpenIntent =
+  | { mode: 'check' }
+  | { mode: 'result'; result: AppUpdateCheck };
+
+export const updateOpenIntent = writable<UpdateOpenIntent | null>(null);
+
+/** 打开关于视图（清掉可能残留的更新意图）。 */
+export function openAboutDialog(): void {
+  updateOpenIntent.set(null);
+  aboutOpen.set(true);
+}
+
+/** 打开更新视图：默认手动检查；自动结果用 `{ mode: 'result', result }`。 */
+export function openUpdateDialog(
+  intent: UpdateOpenIntent = { mode: 'check' },
+): void {
+  updateOpenIntent.set(intent);
+  aboutOpen.set(true);
+}
+
 /**
  * 应用自身版本（「关于」弹窗的版本行之一）。
  *
@@ -900,9 +1008,11 @@ export async function initApp(): Promise<void> {
       overrides: {},
       channels: { proxies: [] },
       // 读配置都失败时用的兜底快照：保留策略取出厂默认（`config::RETENTION_7D`），
-      // 与后端「缺字段即 7 天」一致；外观偏好同理（跟随系统 + indigo）。
+      // 与后端「缺字段即 7 天」一致；外观偏好同理（跟随系统 + indigo）；
+      // 更新检查偏好同理（关闭 + 每次启动 + 从未检查）。
       logging: { retention: '7d' },
       ui: { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT },
+      update: DEFAULT_UPDATE,
     });
   }
   try {

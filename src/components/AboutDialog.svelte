@@ -11,19 +11,22 @@
   // 类名与版式与原型 `ui-design/launcher-prototype.html` 逐一同名（`about-*` / `update-*`）；
   // 弹出 / 关闭动画仍用 Svelte 过渡（原型用 CSS keyframes）。
   import { onDestroy, onMount, tick } from 'svelte';
+  import { get } from 'svelte/store';
   import { fade, scale } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { listen } from '@tauri-apps/api/event';
   import {
     aboutOpen,
     appVersion,
+    appUpdateBusy,
     compat,
     deviceCounts,
+    runAppUpdateCheck,
+    updateOpenIntent,
   } from '../lib/store';
   import {
     applyAppUpdate,
     cancelAppUpdate,
-    checkAppUpdate,
     openExternalLink,
     startAppUpdate,
     EVENT_APP_UPDATE_PROGRESS,
@@ -156,8 +159,36 @@
     };
   }
 
-  let view: View = 'about';
-  let update: UpdateModel = initialUpdate('');
+  function modelFromCheck(res: AppUpdateCheck): UpdateModel {
+    const kind: UpdateKind =
+      res.state === 'updateAvailable'
+        ? 'available'
+        : res.state === 'ready'
+          ? 'ready'
+          : res.state === 'installedNewer'
+            ? 'installedNewer'
+            : 'upToDate';
+    return {
+      kind,
+      current: res.current,
+      latest: res.latest,
+      percent: 0,
+      channel: '',
+      phase: 'download',
+      failure: null,
+    };
+  }
+
+  // 打开意图由 store 传入：`check` = 手动入口，`result` = 自动检查已得到的结果。
+  // 读一次即消费，避免下次从关于入口打开时残留更新视图。
+  const openIntent = get(updateOpenIntent);
+  updateOpenIntent.set(null);
+
+  let view: View = openIntent ? 'update' : 'about';
+  let update: UpdateModel =
+    openIntent?.mode === 'result'
+      ? modelFromCheck(openIntent.result)
+      : initialUpdate('');
   let modalEl: HTMLDivElement;
   let updateViewEl: HTMLDivElement;
   let updateInnerEl: HTMLDivElement;
@@ -222,23 +253,7 @@
   // ── 更新流程 ─────────────────────────────────────────────
 
   async function applyCheck(res: AppUpdateCheck): Promise<void> {
-    const kind: UpdateKind =
-      res.state === 'updateAvailable'
-        ? 'available'
-        : res.state === 'ready'
-          ? 'ready'
-          : res.state === 'installedNewer'
-            ? 'installedNewer'
-            : 'upToDate';
-    await setUpdate({
-      kind,
-      current: res.current,
-      latest: res.latest,
-      percent: 0,
-      channel: '',
-      phase: 'download',
-      failure: null,
-    });
+    await setUpdate(modelFromCheck(res));
   }
 
   async function runCheck(): Promise<void> {
@@ -246,7 +261,7 @@
     const current = appVer === PLACEHOLDER ? '' : appVer;
     await setUpdate(initialUpdate(current));
     try {
-      const res = await checkAppUpdate();
+      const res = await runAppUpdateCheck();
       if (disposed || seq !== checkSeq) return;
       await applyCheck(res);
     } catch (e) {
@@ -275,6 +290,7 @@
   async function beginDownload(): Promise<void> {
     if (downloading) return;
     downloading = true;
+    appUpdateBusy.set(true);
     await setUpdate({ ...update, kind: 'downloading', percent: 0, channel: '', phase: 'download' });
     try {
       const outcome = await startAppUpdate();
@@ -295,6 +311,8 @@
       downloading = false;
       if (disposed) return;
       await setUpdate({ ...update, kind: 'failed', failure: errorKind(e, 'download') });
+    } finally {
+      appUpdateBusy.set(false);
     }
   }
 
@@ -312,18 +330,30 @@
   }
 
   async function applyUpdate(): Promise<void> {
+    appUpdateBusy.set(true);
     try {
       await applyAppUpdate();
       // exe / AppImage 会在后端重启进程；deb 已交给系统安装器，界面停在可重启。
     } catch (e) {
       if (disposed) return;
       await setUpdate({ ...update, kind: 'failed', failure: errorKind(e, 'write') });
+    } finally {
+      appUpdateBusy.set(false);
     }
   }
 
   // ── 生命周期 ─────────────────────────────────────────────
 
   onMount(() => {
+    // 直接以更新视图打开时，首帧就按更新内容定高并把焦点移进去；
+    // 预置结果不再发起第二次检查，手动入口才调用 `runCheck`。
+    appUpdateBusy.set(false);
+    if (view === 'update') {
+      void animateModalHeight();
+      updateViewEl?.focus({ preventScroll: true });
+      if (openIntent?.mode === 'check') void runCheck();
+    }
+
     let active = true;
     void listen<AppUpdateProgress>(EVENT_APP_UPDATE_PROGRESS, (e) => {
       if (!active || update.kind !== 'downloading') return;

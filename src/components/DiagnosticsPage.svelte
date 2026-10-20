@@ -25,6 +25,7 @@
   import { errText } from '../lib/install';
   import { openLogDir } from '../lib/api';
   import ParamField from './ParamField.svelte';
+  import HelpTip from './HelpTip.svelte';
   import { ADVANCED_GROUP, RUN_LOG_CARD, refKey } from '../lib/params';
   import type { SessionInfo } from '../lib/types';
   import { FolderOpen, ZapOff, RefreshCw, Eraser } from 'lucide-svelte';
@@ -280,8 +281,9 @@
     </div>
   </div>
 
-  <!-- 「运行日志参数」排在会话输出之下（design D5）：排查时先看输出，参数是顺手调的第二步 -->
-  <div class="card col2">
+  <!-- 「运行日志参数」排在会话输出之下（design D5）：排查时先看输出，参数是顺手调的第二步。
+       与「日志文件」同排、各占一列：两张卡内容都不多，上下叠放会留下大片空白。 -->
+  <div class="card">
     <h3>{RUN_LOG_CARD.title}</h3>
     {#each RUN_LOG_CARD.fields as f (f.key)}
       <ParamField
@@ -293,18 +295,25 @@
     {/each}
   </div>
 
-  <!-- 「日志文件」排在**末位**：既有的「会话输出 → 运行日志参数」顺序与其判定逐字不变
-       （`parameter-configuration` 的「运行日志参数位于会话输出之后」因此不需要 delta）。
+  <!-- 「日志文件」排在**末位**，与「运行日志参数」同排、各占一列：既有的
+       「会话输出 → 运行日志参数」顺序与判定不变（会话输出仍独占整行）。
        卡内不展示日志目录路径与当前日志文件名 —— 查看位置由「打开日志目录」承担。 -->
-  <div class="card col2">
+  <div class="card">
     <h3>日志文件</h3>
     <!-- 「打开日志目录」与保留策略同处一行：两者是同一件事的两半（这份日志留在哪、留多久），
          而按钮的文字已经说明它去哪 —— 不必再有一个「日志目录」标签把同一件事说第二遍。
-         这一行复用既有的 `.path-row`（本仓「一颗按钮 + 就地反馈文字」的横排类），零新样式；
-         `.hint` 仍留在行下方：它讲的是保留期与清理口径，是整行共有的说明。 -->
+         这一行复用既有的 `.path-row`（本仓「一颗按钮 + 就地反馈文字」的横排类）；
+         命名与清理口径收进标签旁的 `?`，不再常驻在卡片下方。 -->
     <div class="field">
-      <span class="flabel">保留策略</span>
-      <div class="path-row">
+      <span class="flabel"
+        >保留策略<HelpTip title="保留策略" label="保留策略的说明">
+          <span class="fhelp-p"
+            >日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs
+            文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</span
+          >
+        </HelpTip></span
+      >
+      <div class="path-row log-file-row">
         <div class="seg">
           {#each RETENTIONS as r (r.value)}
             <button class:active={retention === r.value} on:click={() => setRetention(r.value)}
@@ -316,14 +325,6 @@
           <FolderOpen /> 打开日志目录
         </button>
         <span class="status-text {logDirCls}">{logDirMsg}</span>
-      </div>
-      <!-- 文案里写的是**命名格式**而不是某个具体日期：写死一个示例日期会在当天恰好被当成
-           「当前日志文件名」展示出去，而本卡片不展示当前文件名（只给打开目录这一个入口）。
-           必须是 `div`（块级）而不是 `span`：参数卡片里的提示一直用 `div`（见 `ParamField.svelte`），
-           这里与它保持同一写法。 -->
-      <div class="hint">
-        日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，
-        超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。
       </div>
     </div>
   </div>

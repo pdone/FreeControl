@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page, collapsed, aboutOpen, initApp, windowDecorated, windowMaximized, windowTopEdgeBySystem } from './lib/store';
+  import { startAutoUpdateChecks } from './lib/updateAuto';
   import Sidebar from './components/Sidebar.svelte';
   import Topbar from './components/Topbar.svelte';
   import LaunchBar from './components/LaunchBar.svelte';
@@ -49,7 +50,9 @@
   };
 
   onMount(() => {
-    initApp();
+    // 调度器只读配置、不阻塞外壳：等配置与运行环境都就绪后再启动，
+    // 避免自动弹窗与首启引导抢在同一帧。
+    void initApp().finally(() => startAutoUpdateChecks());
     watchDpr();
     window.addEventListener('resize', watchDpr);
     return () => {

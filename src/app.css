@@ -1114,6 +1114,18 @@ select,
 .path-row > .btn {
   flex: none;
 }
+/* 「设置」页「自动更新」卡底部：上次检查靠左、检查按钮钉右；
+   卡片半宽时文字先收缩，按钮不被挤压。 */
+.auto-update-status .status-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.auto-update-status > .btn {
+  margin-left: auto;
+  flex: none;
+}
 /* 目录行里文本框后面的按钮都与它**等高**（选择目录 / 应用 / 打开目录 / 恢复默认）。
    用 `align-self: stretch` 让它们撑到本行的高度 —— 行高由最高的那一件（文本框）决定，
    于是不必写死一个会随字体度量漂移的像素值（原型侧同一条写的是固定值：那边文本框实测 36px，
@@ -1192,12 +1204,14 @@ select,
   opacity: 0.4;
   cursor: not-allowed;
 }
-/* 紧跟在分段控件后面的按钮与它**等高**（「日志」页合并行：保留策略 + 打开日志目录）。
-   取值 38px 就是分段控件自己的外框：2px 边框 + 3px 内边距 x2 + 30px 按钮。
-   作用域靠 `+` 限定为「同一行里紧跟 `.seg` 的那颗 `.btn.sm`」—— 运行环境页的三处
-   `.path-row` 里没有 `.seg`，因此不受影响；`.btn.sm` 自身的横向内边距与字号一字不动。 */
-.path-row > .seg + .btn.sm {
-  height: 38px;
+/* 「日志文件」卡与「运行日志参数」同排后半宽：保留策略 + 打开目录 + 回显放不下一行时换行，
+   `.path-row` 的横向排布与按钮高度仍沿用既有规则。与原型同名类同值。 */
+.log-file-row {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.log-file-row .status-text {
+  min-width: 0;
 }
 
 .dl {
@@ -1331,9 +1345,18 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* 开关行里的帮助入口以整行为定位祖先：面板宽度才等于字段可用宽，
+     而不是只有标签文字那么宽。 */
+  position: relative;
 }
 .toggle .t-label {
   font-size: 13px;
+}
+/* 图标在行内垂直居中，到面板顶端的落差大于原来的 6px 透明桥，这里加长，
+   指针从图标下移进面板时不会中途断掉悬停。 */
+.toggle .fhelp-panel::before {
+  top: -36px;
+  height: 36px;
 }
 .switch {
   position: relative;

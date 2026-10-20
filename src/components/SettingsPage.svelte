@@ -1,11 +1,19 @@
 <script lang="ts">
-  // 「设置」页（spec `app-preferences`）：本程序自身的外观偏好，与 scrcpy 参数无关。
+  // 「设置」页（spec `app-preferences`）：本程序自身的外观与更新检查偏好，与 scrcpy 参数无关。
   // 页键 `settings`、入口名「设置」、组件文件名三处一致（页面身份三件套）。
   //
-  // 两个字段的写入都走 store 的 setThemeMode / setAccent（改 `config.ui` + 去抖落盘），
-  // 视觉由 theme.ts 的订阅立即应用 —— 本页不自己写 DOM 样式，也不碰 `defaults.*`。
-  // 语言选择不在本次范围内（后续单独提案），故本页只有「外观」一张卡。
-  import { config, setAccent, setThemeMode } from '../lib/store';
+  // 外观两个字段走 setThemeMode / setAccent（改 `config.ui`），视觉由 theme.ts 的订阅立即应用；
+  // 自动更新走 setAutoUpdate / setUpdateFrequency（改 `config.update`），上次检查时间由检查包装写入。
+  // 两者都复用既有去抖保存，不碰 `defaults.*`。页内两张卡同排等宽：外观 + 自动更新。
+  // 语言选择不在本次范围内（后续单独提案）。
+  import {
+    config,
+    openUpdateDialog,
+    setAccent,
+    setAutoUpdate,
+    setThemeMode,
+    setUpdateFrequency,
+  } from '../lib/store';
   import {
     ACCENTS,
     DEFAULT_ACCENT,
@@ -15,13 +23,27 @@
     type ThemeMode,
   } from '../lib/theme';
   import HelpTip from './HelpTip.svelte';
-  import { Check } from 'lucide-svelte';
+  import { Check, RefreshCw } from 'lucide-svelte';
+  import type { UpdateFrequency, UpdatePrefs } from '../lib/types';
 
   const THEMES: Array<{ value: ThemeMode; label: string }> = [
     { value: 'system', label: '跟随系统' },
     { value: 'dark', label: '深色' },
     { value: 'light', label: '浅色' },
   ];
+
+  const UPDATES: Array<{ value: UpdateFrequency; label: string }> = [
+    { value: 'launch', label: '每次启动' },
+    { value: 'daily', label: '每天' },
+    { value: 'weekly', label: '每周' },
+    { value: 'monthly', label: '每月' },
+  ];
+
+  const DEFAULT_UPDATE_PREFS: UpdatePrefs = {
+    autoCheck: false,
+    frequency: 'launch',
+    lastCheckedAt: null,
+  };
 
   $: theme = ($config?.ui?.theme ?? DEFAULT_THEME) as ThemeMode;
   // 配置里的主题色已是合法 #rrggbb（后端归一化过）；这里再小写一次只为让「选中的预设」
@@ -30,8 +52,24 @@
   // 当前主题色不与任何预设重合 ⇒ 算「自定义」，自定义色块显示选中标记。
   $: isCustom = !ACCENTS.some((a) => a.value === accent);
 
+  // 更新检查偏好：与外观同处「设置」，但独立落在 config.update。
+  $: updatePrefs = $config?.update ?? DEFAULT_UPDATE_PREFS;
+  $: lastChecked = formatLastChecked(updatePrefs.lastCheckedAt);
+
   function pickPreset(value: string): void {
     setAccent(value);
+  }
+
+  function onAutoToggle(e: Event): void {
+    setAutoUpdate((e.currentTarget as HTMLInputElement).checked);
+  }
+
+  /** 上次检查时间：本地 YYYY-MM-DD HH:mm；从未检查时由调用处显示「尚未检查」。 */
+  function formatLastChecked(at: number | null): string {
+    if (!at) return '尚未检查';
+    const d = new Date(at);
+    const pad = (n: number): string => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   /**
@@ -46,11 +84,11 @@
 
 <div class="sec-head">
   <h2>设置</h2>
-  <p>管理本程序自身的外观：深浅色主题与主题色。改动即时生效并自动保存，不需要重启。</p>
+  <p>管理本程序自身的外观与更新：深浅色主题、主题色与自动检查更新。改动即时生效并自动保存，不需要重启。</p>
 </div>
 
 <div class="grid">
-  <div class="card col2">
+  <div class="card">
     <h3>外观</h3>
     <div class="field">
       <span class="flabel">主题模式<HelpTip title="主题模式" label="主题模式的说明">
@@ -104,6 +142,47 @@
           </span>
         </label>
         <code class="accent-hex">{accent}</code>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>自动更新</h3>
+    <div class="field">
+      <div class="toggle">
+        <span class="t-label"
+          >自动检查更新<HelpTip title="自动检查更新" label="自动检查更新的说明">
+            <span class="fhelp-p"
+              >开启后在后台检查新版本；发现新版本会打开更新窗口，不会自动下载或安装。</span
+            >
+          </HelpTip></span
+        >
+        <label class="switch">
+          <input type="checkbox" checked={updatePrefs.autoCheck} on:change={onAutoToggle} />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    {#if updatePrefs.autoCheck}
+      <div class="field">
+        <span class="flabel">检查频率</span>
+        <div class="seg">
+          {#each UPDATES as f (f.value)}
+            <button
+              class:active={updatePrefs.frequency === f.value}
+              on:click={() => setUpdateFrequency(f.value)}
+              >{f.label}</button
+            >
+          {/each}
+        </div>
+      </div>
+    {/if}
+    <div class="field">
+      <div class="path-row auto-update-status">
+        <span class="status-text">上次检查：{lastChecked}</span>
+        <button class="btn sm" on:click={() => openUpdateDialog()}>
+          <RefreshCw />检查更新
+        </button>
       </div>
     </div>
   </div>
