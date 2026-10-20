@@ -859,11 +859,14 @@ select,
 .fhelp {
   display: inline-block;
 }
+/* 入口的层叠随展开状态变化（config ㉖）：常驻 4 **低于**面板的 5 —— 展开的面板因此盖住同页
+   其它 `?` 入口（面板高度远超 14px 的字段间距，相邻字段的图标原先会从面板里透出来，且仍可悬停、
+   点击）；只在自己这块展开时（`:hover` / `:focus-within`）上提到 6，压过面板的 6px / 36px 透明桥
+   —— 否则点击会落到桥上、入口拿不到焦点（表现为只有悬浮、点击不固定）。面板若新增第三种展开
+   来源（脚本切类等），此处的上提条件 MUST 同批补上。 */
 .fhelp-btn {
-  /* 高于 `.fhelp-panel` 的 5：`.toggle` 行那条 36px 透明桥会盖住按钮中心，
-     点击会落到面板上、按钮拿不到焦点（表现为只有悬浮、点击不固定）。 */
   position: relative;
-  z-index: 6;
+  z-index: 4;
   margin-left: 6px;
   padding: 0;
   border: none;
@@ -877,6 +880,11 @@ select,
 }
 .fhelp-btn:hover {
   color: var(--text-dim);
+}
+/* 悬停唯一 + 焦点唯一 ⇒ 此刻同页不会有第二块面板处于同一姿态，这次上提不会重新戳穿别人的面板。 */
+.fhelp:hover .fhelp-btn,
+.fhelp:focus-within .fhelp-btn {
+  z-index: 6;
 }
 .fhelp-btn svg {
   width: 14px;

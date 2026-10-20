@@ -332,9 +332,15 @@
   .field > .flabel { position: relative; }
   .fhelp { display: inline-block; }
   /* 入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色 ——
-     再画一圈就成了"圈中圈"。定位祖先是这个行内包裹。与产品侧 .fhelp-btn 同款。 */
-  .fhelp-btn { position: relative; z-index: 6; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+     再画一圈就成了"圈中圈"。`.fhelp` 保持不定位：面板的定位祖先是标签行 / 开关行（见上方注释）。
+     与产品侧 .fhelp-btn 同款。 */
+  /* 入口的层叠随展开状态变化（config ㉖）：常驻 4 低于面板的 5，于是展开的面板盖住同页其它入口；
+     只在自己这块展开时（:hover / :focus-within）上提到 6，压过面板的 6px / 36px 透明桥 ——
+     否则点击会落到桥上、入口拿不到焦点（点击固定失效）。面板若新增第三种展开来源，此处须同批补条件。 */
+  .fhelp-btn { position: relative; z-index: 4; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
   .fhelp-btn:hover { color: var(--text-dim); }
+  .fhelp:hover .fhelp-btn,
+  .fhelp:focus-within .fhelp-btn { z-index: 6; }
   .fhelp-btn svg { width: 14px; height: 14px; }
   /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
      原固定值 440px 退居上限，且上限定为 `min(440px, 100%)`，随字段可用宽收窄，window 窄了不截断。 */
