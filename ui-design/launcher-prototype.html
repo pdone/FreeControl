@@ -333,7 +333,7 @@
   .fhelp { display: inline-block; }
   /* 入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色 ——
      再画一圈就成了"圈中圈"。定位祖先是这个行内包裹。与产品侧 .fhelp-btn 同款。 */
-  .fhelp-btn { margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+  .fhelp-btn { position: relative; z-index: 6; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
   .fhelp-btn:hover { color: var(--text-dim); }
   .fhelp-btn svg { width: 14px; height: 14px; }
   /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
@@ -756,7 +756,8 @@
 
   /* Launch bar */
   .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: var(--launchbar-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
-  .launchbar .cmd-preview { flex: 1; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .launchbar .cmd-preview { flex: 1; font-family: inherit; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+  .launchbar .cmd-preview::-webkit-scrollbar { display: none; }
   .launchbar .cmd-preview b { color: var(--accent-hover); font-weight: 600; }
   .launchbar .cmd-preview .dev { color: var(--teal); }
   .launchbar .lb-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-faint); font-size: 12px; flex: none; }
@@ -1463,6 +1464,13 @@
 
   // 每台设备的参数覆盖（仅覆盖的字段）
   const overrides = {};
+  // 命令条演示（本变更）：默认选中的 d1 带一组覆盖，使命令超出预览宽度，便于验收横向滑动；
+  // 切到 d2 可对照「命令完整可见时不滚」。
+  overrides.d1 = {
+    video:  { videoCodec:'h265', bitrate:32, maxSize:1920, maxFps:60 },
+    window: { windowTitle:'Pixel 8 演示用窗口标题', alwaysOnTop:true, windowWidth:1280, windowHeight:720 },
+    advanced: { customArgs:'--no-clipboard-autosync --video-buffer=500' }
+  };
   // 每台设备覆盖的启用 / 禁用开关（默认启用）——与覆盖值一并持久化，禁用不清值
   const ovEnabled = {};
   // 已展开参数面板的设备（跨重渲染保持）
@@ -1683,18 +1691,26 @@
   function renderPreview(){
     const el = document.getElementById('cmdPreview');
     const d = getDev(selectedId);
-    if(!d){ el.textContent='选择一台设备查看命令'; el.removeAttribute('data-tip'); if (window.__tipRefresh) window.__tipRefresh(); syncConnectBtn(); return; }
+    if(!d){ el.textContent='选择一台设备查看命令'; syncConnectBtn(); return; }
     const p = merged(selectedId);
     const args = buildArgs(p);
-    const plain = ['scrcpy', '-s', devIdentifier(d), ...args].join(' ');
     const cmd = `scrcpy -s <span class="dev">${escapeHtml(devIdentifier(d))}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
     el.innerHTML = cmd;
-    // 单行被省略时才挂全文提示：文本与纯文本命令同源，不含 <b> 高亮。
-    if (el.scrollWidth > el.clientWidth + 1) el.dataset.tip = plain;
-    else el.removeAttribute('data-tip');
-    if (window.__tipRefresh) window.__tipRefresh();
     syncConnectBtn();
   }
+  /* 命令预览的横向滑动（本变更）：普通滚轮的纵向位移转成 scrollLeft；
+     可横向滚动时拦截默认行为，不可滚时完全放行。触控板的横向手势走同一分支。 */
+  (() => {
+    const el = document.getElementById('cmdPreview');
+    el.addEventListener('wheel', e => {
+      if (el.scrollWidth <= el.clientWidth + 1) return;
+      const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const amount = e.deltaMode === 1 ? raw * 16 : e.deltaMode === 2 ? raw * el.clientWidth : raw;
+      const max = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + amount));
+      e.preventDefault();
+    }, { passive: false });
+  })();
   /* 命令条上的会话入口（config.yaml ㉑）：随选中设备状态在「连接 / 断开」间切换 ——
      已连接 → 断开态；未连接且可连接 → 连接态；其余置灰。判定与设备卡片同一处
      canConnectDevice（产品侧同规则见 specs 的「命令条会话入口」）。 */

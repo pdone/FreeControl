@@ -7,7 +7,6 @@
   // 该设备**启用状态**的覆盖（store 里已经按 design D5 的规则合并好）。
   // 校验失败的字段不参与拼装（tasks 7.3），并在右侧给出提示 —— 界面看到的
   // 就是会执行的，非法值不会悄悄溜进命令里。
-  import { afterUpdate, onMount } from 'svelte';
   import { Terminal, Copy, Check, Zap, ZapOff, AlertTriangle } from 'lucide-svelte';
   import {
     devices,
@@ -43,29 +42,18 @@
       : null;
   $: errors = Object.values($effectiveErrors);
 
-  // 命令预览的截断判定（design D6）：单行 `nowrap + ellipsis` 真的省略了内容时，
-  // 才把完整命令挂到 hover 提示上；未截断时传 null，不重复可见文字。
-  // `afterUpdate` 覆盖内容变化，`ResizeObserver` 覆盖侧栏收起/展开与窗口缩放带来的宽度变化。
+  // 命令预览的横向滑动（design D2）：可滚时把滚轮位移转成 scrollLeft，
+  // 不可滚时完全放行 —— 命令条不在内容滚动容器内，放行也不会带来页面滚动。
   let previewEl: HTMLElement | null = null;
-  let previewTruncated = false;
-  let previewObserver: ResizeObserver | null = null;
 
-  function measurePreview(): void {
-    const next = !!previewEl && previewEl.scrollWidth > previewEl.clientWidth + 1;
-    if (next !== previewTruncated) previewTruncated = next;
-  }
-
-  afterUpdate(measurePreview);
-  onMount(() => {
-    previewObserver = new ResizeObserver(measurePreview);
-    return () => {
-      previewObserver?.disconnect();
-      previewObserver = null;
-    };
-  });
-  $: if (previewObserver) {
-    previewObserver.disconnect();
-    if (previewEl) previewObserver.observe(previewEl);
+  function onPreviewWheel(e: WheelEvent): void {
+    const el = previewEl;
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return;
+    const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const amount = e.deltaMode === 1 ? raw * 16 : e.deltaMode === 2 ? raw * el.clientWidth : raw;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + amount));
+    e.preventDefault();
   }
 
   // 会话入口的形态随选中设备状态切换（design D2）：
@@ -157,7 +145,7 @@
     <div
       class="cmd-preview"
       bind:this={previewEl}
-      use:tip={previewTruncated && parts ? commandText(parts) : null}
+      on:wheel|nonpassive={onPreviewWheel}
     >
       {parts.bin} -s <span class="dev">{parts.serial}</span>
       {#each parts.args as a}<b>{a}</b>{' '}{/each}

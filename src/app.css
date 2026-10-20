@@ -894,6 +894,10 @@ select,
   display: inline-block;
 }
 .fhelp-btn {
+  /* 高于 `.fhelp-panel` 的 5：`.toggle` 行那条 36px 透明桥会盖住按钮中心，
+     点击会落到面板上、按钮拿不到焦点（表现为只有悬浮、点击不固定）。 */
+  position: relative;
+  z-index: 6;
   margin-left: 6px;
   padding: 0;
   border: none;
@@ -2104,9 +2108,13 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 9px 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  scrollbar-width: none;
+}
+.launchbar .cmd-preview::-webkit-scrollbar {
+  display: none;
 }
 .launchbar .cmd-preview b {
   color: var(--accent-hover);
