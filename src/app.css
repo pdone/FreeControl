@@ -1137,16 +1137,16 @@ select,
 .path-row > .btn {
   flex: none;
 }
-/* 「设置」页「自动更新」卡底部：上次检查靠左、检查按钮钉右；
-   卡片半宽时文字先收缩，按钮不被挤压。 */
-.auto-update-status .status-text {
+/* 「设置」页「自动更新」卡底部：检查按钮在前、上次检查在其右；
+   时间沿用字段 `.hint` 的小字说明样式（行内故去掉上边距），窄窗口下先收缩。 */
+.auto-update-status .hint {
+  margin-top: 0;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .auto-update-status > .btn {
-  margin-left: auto;
   flex: none;
 }
 /* 目录行里文本框后面的按钮都与它**等高**（选择目录 / 应用 / 打开目录 / 恢复默认）。
@@ -2312,9 +2312,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   position: absolute;
   inset: 0;
 }
-/* 右上角关闭键：裸图标，hover 才给底与色 */
+/* 右上角关闭键：裸图标，hover 才给底与色。
+   `.about-views` 是相对定位且排在按钮之后；不给按钮层级的话，它会盖住按钮下半，
+   点击落在更新内容上、按钮只有上半生效（显示与热区不一致）。 */
 .about-close {
   position: absolute;
+  z-index: 1;
   top: 12px;
   right: 12px;
   display: inline-flex;

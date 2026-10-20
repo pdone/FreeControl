@@ -179,10 +179,10 @@
     {/if}
     <div class="field">
       <div class="path-row auto-update-status">
-        <span class="status-text">上次检查：{lastChecked}</span>
         <button class="btn sm" on:click={() => openUpdateDialog()}>
           <RefreshCw />检查更新
         </button>
+        <span class="hint">上次检查：{lastChecked}</span>
       </div>
     </div>
   </div>

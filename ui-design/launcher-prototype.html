@@ -418,9 +418,9 @@
   }
   .dir-menu-pop button:hover { background: var(--panel-2); }
   .dir-menu-pop button svg { width: 15px; height: 15px; stroke: var(--text-dim); }
-  /* 「自动更新」卡片底部：上次检查靠左、检查按钮钉右；窄窗口下文字先收缩，按钮不被挤压。 */
-  .auto-update-status .status-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .auto-update-status > .btn { margin-left: auto; }
+  /* 「自动更新」卡片底部：检查按钮在前、上次检查在其右；时间沿用 `.hint` 样式（行内去掉上边距），窄窗口下先收缩。 */
+  .auto-update-status .hint { margin-top: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .auto-update-status > .btn { flex: none; }
   /* 「日志文件」卡与「运行日志参数」同排后半宽：保留策略 + 打开目录 + 回显放不下一行时换行，
      `.path-row` 的横向排布与按钮高度仍沿用既有规则。 */
   .log-file-row { flex-wrap: wrap; row-gap: 8px; }
@@ -659,7 +659,7 @@
     .overlay.about-overlay.closing, .overlay.about-overlay.closing .modal { animation-duration: .01ms; }
   }
   /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
-  .about-close { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .12s; }
+  .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .12s; }
   .about-close:hover { background: var(--panel-2); color: var(--text); }
   .about-close svg { width: 17px; height: 17px; stroke: currentColor; }
   /* 品牌图形：与品牌行同一个图形（脚本里取同一个 src，不复制一份数据 URI）。
@@ -1285,8 +1285,8 @@
             </div>
             <div class="field">
               <div class="path-row auto-update-status">
-                <span class="status-text" id="lastCheckText">上次检查：尚未检查</span>
                 <button class="btn sm" id="settingsCheckUpdate"><i data-lucide="refresh-cw"></i>检查更新</button>
+                <span class="hint" id="lastCheckText">上次检查：尚未检查</span>
               </div>
             </div>
           </div>
