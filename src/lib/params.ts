@@ -98,7 +98,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // 视频源为摄像头时这一档不参与拼装（camera 分支优先），显示出来只会让人以为
             // 设置生效了 —— 与原型 `toggleSourceUI()` 的行为一致。
             showWhen: (g) => g.videoSource !== 'camera',
-            hint: '虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）。',
+            hint: '虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）',
           },
           {
             key: 'displayId',
@@ -110,7 +110,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // （Cannot specify both --display-id and --new-display），摄像头源下该 flag 不可用。
             // 取值仍保留在配置里，切回主屏后照常生效（与 flex / 摄像头那几项的剔除同一模式）。
             showWhen: (g) => g.videoSource !== 'camera' && g.displayMode === 'main',
-            hint: '0 = 主屏；虚拟显示器与摄像头源下不生效',
+            hint: '0 / 留空 = 主屏；虚拟显示器与摄像头源下不生效',
             detail: [
               '镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。',
               '非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。',
@@ -130,7 +130,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--new-display',
             type: 'text',
             placeholder: '1920x1080',
-            hint: '留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160。',
+            hint: '留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160',
           },
           {
             key: 'newDisplayDpi',
@@ -138,7 +138,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'number',
             min: 72,
             max: 1000,
-            hint: '留空用上面的默认密度。',
+            hint: '留空用上面的默认密度',
           },
           {
             key: 'noVdDestroy',
@@ -165,14 +165,13 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'back', value: 'back' },
               { label: 'external', value: 'external' },
             ],
-            hint: '不指定时由 scrcpy 使用第一个摄像头。',
           },
           {
             key: 'cameraSize',
             label: '--camera-size',
             type: 'text',
             placeholder: '1920x1080',
-            hint: '留空由 scrcpy 自动选择尺寸。',
+            hint: '留空由 scrcpy 自动选择尺寸',
           },
           {
             key: 'cameraFps',
@@ -181,7 +180,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 1,
             max: 240,
             placeholder: '30',
-            hint: '留空用 Android 默认的 30 fps。',
+            hint: '留空用 Android 默认的 30 fps',
           },
           { key: 'cameraZoom', label: '--camera-zoom', type: 'number', min: 0.1, max: 10, step: 0.1 },
           {
@@ -309,10 +308,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
           },
           {
             key: 'videoBuffer',
-            label: '--video-buffer（毫秒）',
+            label: '--video-buffer',
             type: 'number',
             min: 0,
             max: 60000,
+            hint: '单位：毫秒',
           },
         ],
       },
@@ -393,13 +393,21 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // 最左端即「自动」= 不传该 flag，码率由 scrcpy 自身默认决定；出厂默认即「自动」。
             autoZero: '自动',
           },
-          { key: 'audioBuffer', label: '--audio-buffer（毫秒）', type: 'number', min: 0, max: 10000 },
           {
-            key: 'audioOutBuffer',
-            label: '--audio-output-buffer（毫秒）',
+            key: 'audioBuffer',
+            label: '--audio-buffer',
             type: 'number',
             min: 0,
             max: 10000,
+            hint: '单位：毫秒',
+          },
+          {
+            key: 'audioOutBuffer',
+            label: '--audio-output-buffer',
+            type: 'number',
+            min: 0,
+            max: 10000,
+            hint: '单位：毫秒',
           },
         ],
       },
@@ -512,18 +520,18 @@ export const PARAM_GROUPS: ParamGroup[] = [
           },
           {
             key: 'clipboard',
-            label: '--no-clipboard-autosync（关闭时）',
+            label: '--no-clipboard-autosync',
             type: 'toggle',
-            hint: '双向同步',
+            hint: '双向同步（关闭时）',
           },
           // 后置：新增参数排在既有字段之后。
           {
             key: 'screenOffTimeout',
-            label: '--screen-off-timeout（秒）',
+            label: '--screen-off-timeout',
             type: 'number',
             min: 0,
             max: 86400,
-            hint: '留空不修改设备设置',
+            hint: '单位：秒；0 / 留空 = 不修改设备设置',
             detail: ['scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。'],
           },
         ],
@@ -584,10 +592,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
           },
           {
             key: 'timeLimit',
-            label: '--time-limit（秒）',
+            label: '--time-limit',
             type: 'number',
             min: 0,
             autoZero: '不限时',
+            hint: '单位：秒；0 / 留空 = 不限时',
           },
           {
             key: 'pauseOnExit',
@@ -615,7 +624,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             key: 'windowTitle',
             label: '--window-title',
             type: 'text',
-            hint: '留空则不传，标题用设备名',
+            hint: '留空 = 标题用设备名',
           },
           {
             key: 'borderless',
@@ -637,9 +646,9 @@ export const PARAM_GROUPS: ParamGroup[] = [
           },
           {
             key: 'aspectLock',
-            label: '--no-window-aspect-ratio-lock（关闭时）',
+            label: '--no-window-aspect-ratio-lock',
             type: 'toggle',
-            hint: '保持比例',
+            hint: '保持比例（关闭时）',
           },
           { key: 'bgColor', label: '--background-color', type: 'text' },
         ],
@@ -653,6 +662,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'number',
             min: 0,
             max: 16384,
+            hint: '0 / 留空 = 由 scrcpy 决定窗口大小',
           },
           {
             key: 'windowHeight',
@@ -660,6 +670,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'number',
             min: 0,
             max: 16384,
+            hint: '0 / 留空 = 由 scrcpy 决定窗口大小',
           },
           {
             key: 'windowX',
@@ -667,7 +678,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'number',
             min: 0,
             max: 32767,
-            hint: '0 / auto = 由 scrcpy 自动决定',
+            hint: '0 / 留空 = 由 scrcpy 自动决定',
           },
           {
             key: 'windowY',
@@ -675,7 +686,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'number',
             min: 0,
             max: 32767,
-            hint: '0 / auto = 由 scrcpy 自动决定',
+            hint: '0 / 留空 = 由 scrcpy 自动决定',
           },
         ],
       },
@@ -695,9 +706,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
         fields: [
           {
             key: 'startApp',
-            label: '--start-app（支持 ? 模糊 / + 强制停止）',
+            label: '--start-app',
             type: 'text',
             placeholder: 'org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox',
+            hint: '支持 ? 模糊匹配 / + 强制停止',
           },
         ],
       },
@@ -726,7 +738,7 @@ export const CUSTOM_ARGS_CARD: ParamCard = {
       label: '额外参数',
       type: 'textarea',
       placeholder: '--keyboard=uhid --video-codec=h265',
-      hint: '任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备。',
+      hint: '任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备',
     },
   ],
 };
@@ -750,9 +762,9 @@ export const RUN_LOG_CARD: ParamCard = {
     { key: 'printFps', label: '--print-fps', type: 'toggle', hint: '控制台打印帧率' },
     {
       key: 'cleanup',
-      label: '--no-cleanup（关闭时）',
+      label: '--no-cleanup',
       type: 'toggle',
-      hint: '退出时还原设备状态',
+      hint: '退出时还原设备状态（关闭时）',
     },
   ],
 };
@@ -766,7 +778,7 @@ export const NETWORK_CARD: ParamCard = {
       label: '--port',
       type: 'text',
       placeholder: '27183:27199',
-      hint: '端口或「起始:结束」的端口范围。',
+      hint: '端口或「起始:结束」的端口范围',
     },
     {
       key: 'tunnelHost',

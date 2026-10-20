@@ -46,7 +46,7 @@
     --teal: #22d3ee;
     --radius: 12px;
     --radius-sm: 8px;
-    --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
     /* 轨道色系：滑块未填充段 / 下载进度条槽 / 滚动条槽共用，不进界面主色体系。
        必须【不透明】—— Chromium 自绘滚动条有独立合成层，trough 写 transparent 会被
        当作"未绘制"，露出该层默认底色（浅色），在深色界面里就表现为「白底 + 深色滑块」。
@@ -88,7 +88,7 @@
     --success: #047857;
     --warn: #b45309;
     --teal: #0e7490;
-    --shadow: 0 8px 30px rgba(16, 24, 40, .10);
+    --shadow: 0 10px 30px rgba(16, 24, 40, .14);
     --track: #e3e7ee;
     --scroll-track: #f0f2f5;
     --scroll-thumb: #c3c9d4;
@@ -349,8 +349,13 @@
   .fhelp-p + .fhelp-p { margin-top: 6px; }
   /* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 .fhelp.open ——
      没有脚本、没有状态，入口上也不挂 aria-expanded（静态写死的值在展开时是假的）。 */
-  .fhelp:hover .fhelp-panel { display: block; }
-  .fhelp:focus-within .fhelp-panel { display: block; }
+  .fhelp:hover .fhelp-panel,
+  .fhelp:focus-within .fhelp-panel { --fhelp-dy: -4px; display: block; animation: fhelp-in 120ms ease-out; }
+  @keyframes fhelp-in { from { opacity: 0; transform: translateY(var(--fhelp-dy, -4px)); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fhelp:hover .fhelp-panel,
+    .fhelp:focus-within .fhelp-panel { --fhelp-dy: 0px; }
+  }
   .fhelp-title { display: block; margin-bottom: 4px; color: var(--text); font-weight: 600; }
 
   /* ---------- 交互控件的 hover 提示层（config ㉓；与产品侧 app.css 同构） ----------
@@ -403,7 +408,7 @@
   .dir-menu-pop {
     position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 148px;
     padding: 5px; background: var(--bg-elev); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); box-shadow: 0 12px 28px rgba(0, 0, 0, .4);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow);
     display: grid; gap: 2px;
   }
   .dir-menu-pop button {
@@ -864,20 +869,20 @@
               <div class="seg" data-g="source" data-k="videoSource" data-t="seg"><button class="active" data-v="display">主屏幕</button><button data-v="camera">摄像头</button></div></div>
             <div class="field" id="displayModeField"><label>显示模式</label>
               <div class="seg" data-g="source" data-k="displayMode" data-t="seg"><button class="active" data-v="main">主屏</button><button data-v="new">虚拟显示器</button><button data-v="flex">Flex Display</button></div>
-              <div class="hint">虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）。</div></div>
+              <div class="hint">虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）</div></div>
             <div class="field" id="displayIdField"><span class="flabel">显示 id（--display-id）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="显示 id（--display-id）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">显示 id（--display-id）</span><span class="fhelp-p">镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。</span><span class="fhelp-p">非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。</span></span>
             </span></span>
               <input type="number" min="0" max="9999" value="0" data-g="source" data-k="displayId" data-t="number" />
-              <div class="hint">0 = 主屏；虚拟显示器与摄像头源下不生效</div></div>
+              <div class="hint">0 / 留空 = 主屏；虚拟显示器与摄像头源下不生效</div></div>
           </div>
           <div class="card" id="newDispCard">
             <h3>虚拟显示器</h3>
             <div class="field"><label>分辨率（--new-display）</label><input type="text" data-g="source" data-k="newDisplayRes" data-t="text" value="" placeholder="1920x1080" />
-              <div class="hint">留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160。</div></div>
+              <div class="hint">留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160</div></div>
             <div class="field"><label>密度 DPI</label><input type="number" data-g="source" data-k="newDisplayDpi" data-t="number" value="" />
-              <div class="hint">留空用上面的默认密度。</div></div>
+              <div class="hint">留空用上面的默认密度</div></div>
             <div class="field"><label>关闭时保留内容（--no-vd-destroy-content）</label>
               <div class="toggle"><span class="t-label">移到主屏而非销毁</span><label class="switch"><input type="checkbox" data-g="source" data-k="noVdDestroy" data-t="bool" checked /><span class="slider"></span></label></div></div>
           </div>
@@ -885,11 +890,11 @@
             <h3>摄像头</h3>
             <div class="grid">
               <div class="field"><label>摄像头朝向（--camera-facing）</label><select data-g="source" data-k="cameraFacing" data-t="select"><option value="">自动</option><option>front</option><option>back</option><option>external</option></select>
-                <div class="hint">不指定时由 scrcpy 使用第一个摄像头。</div></div>
+                </div>
               <div class="field"><label>尺寸（--camera-size）</label><input type="text" data-g="source" data-k="cameraSize" data-t="text" value="" placeholder="1920x1080" />
-                <div class="hint">留空由 scrcpy 自动选择尺寸。</div></div>
+                <div class="hint">留空由 scrcpy 自动选择尺寸</div></div>
               <div class="field"><label>帧率（--camera-fps）</label><input type="number" data-g="source" data-k="cameraFps" data-t="number" value="" placeholder="30" />
-                <div class="hint">留空用 Android 默认的 30 fps。</div></div>
+                <div class="hint">留空用 Android 默认的 30 fps</div></div>
               <div class="field"><label>初始缩放（--camera-zoom）</label><input type="number" data-g="source" data-k="cameraZoom" data-t="number" value="1" /></div>
               <div class="field"><label>开启闪光灯（--camera-torch）</label>
                 <div class="toggle"><span class="t-label">启动时点亮</span><label class="switch"><input type="checkbox" data-g="source" data-k="cameraTorch" data-t="bool" /><span class="slider"></span></label></div></div>
@@ -928,7 +933,7 @@
             <div class="field"><label>裁剪（--crop W:H:X:Y）</label><input type="text" data-g="video" data-k="crop" data-t="text" placeholder="1224:1440:0:0" /></div>
             <div class="field"><label>旋转角度（--angle）</label><div class="seg" data-g="video" data-k="angle" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
             <div class="field"><label>渲染适配（--render-fit）</label><select data-g="video" data-k="renderFit" data-t="select"><option>letterbox</option><option>stretched</option><option>unscaled</option></select></div>
-            <div class="field"><label>视频缓冲（--video-buffer，毫秒）</label><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /></div>
+            <div class="field"><label>视频缓冲（--video-buffer）</label><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /><div class="hint">单位：毫秒</div></div>
           </div>
         </div>
       </section>
@@ -955,8 +960,8 @@
             <h3>码率与缓冲</h3>
             <div class="field"><label>音频码率（--audio-bit-rate）</label>
               <div class="range-row"><input type="range" min="0" max="512" step="32" value="0" data-g="audio" data-k="audioBitrate" data-t="range" id="aBitrate" /><span class="range-val" id="aBitrateVal">自动</span></div></div>
-            <div class="field"><label>采集缓冲（--audio-buffer，毫秒）</label><input type="number" data-g="audio" data-k="audioBuffer" data-t="number" value="50" /></div>
-            <div class="field"><label>输出缓冲（--audio-output-buffer，毫秒）</label><input type="number" data-g="audio" data-k="audioOutBuffer" data-t="number" value="10" /></div>
+            <div class="field"><label>采集缓冲（--audio-buffer）</label><input type="number" data-g="audio" data-k="audioBuffer" data-t="number" value="50" /><div class="hint">单位：毫秒</div></div>
+            <div class="field"><label>输出缓冲（--audio-output-buffer）</label><input type="number" data-g="audio" data-k="audioOutBuffer" data-t="number" value="10" /><div class="hint">单位：毫秒</div></div>
           </div>
         </div>
       </section>
@@ -992,13 +997,13 @@
               <div class="toggle"><span class="t-label">模拟活动防息屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="keepActive" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><label>关闭时锁屏（--power-off-on-close）</label>
               <div class="toggle"><span class="t-label">退出即熄屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="powerOffOnClose" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>剪贴板自动同步（关闭=--no-clipboard-autosync）</label>
-              <div class="toggle"><span class="t-label">双向同步</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
-            <div class="field"><span class="flabel">息屏超时（--screen-off-timeout，秒）<span class="fhelp">
+            <div class="field"><label>剪贴板自动同步（--no-clipboard-autosync）</label>
+              <div class="toggle"><span class="t-label">双向同步（关闭时）</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><span class="flabel">息屏超时（--screen-off-timeout）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="息屏超时（--screen-off-timeout）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">息屏超时（--screen-off-timeout）</span><span class="fhelp-p">scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。</span></span>
             </span></span><input type="number" min="0" max="86400" value="0" data-g="control" data-k="screenOffTimeout" data-t="number" />
-              <div class="hint">留空不修改设备设置</div></div>
+              <div class="hint">单位：秒；0 / 留空 = 不修改设备设置</div></div>
           </div>
         </div>
       </section>
@@ -1019,7 +1024,7 @@
             <h3>无头与时限</h3>
             <div class="field"><label>无窗口仅录制（--no-window）</label>
               <div class="toggle"><span class="t-label">后台录制</span><label class="switch"><input type="checkbox" data-g="record" data-k="noWindow" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>时间限制（--time-limit，秒）</label><input type="number" data-g="record" data-k="timeLimit" data-t="number" value="0" /><div class="hint">0 = 不限时</div></div>
+            <div class="field"><label>时间限制（--time-limit）</label><input type="number" data-g="record" data-k="timeLimit" data-t="number" value="0" /><div class="hint">单位：秒；0 / 留空 = 不限时</div></div>
             <div class="field"><label>退出时暂停（--pause-on-exit）</label><select data-g="record" data-k="pauseOnExit" data-t="select"><option>false</option><option>true</option><option>if-error</option></select></div>
           </div>
         </div>
@@ -1031,28 +1036,28 @@
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
-            <div class="field"><label>窗口标题（--window-title）</label><input type="text" data-g="window" data-k="windowTitle" data-t="text" value="" /><div class="hint">留空则不传，标题用设备名</div></div>
+            <div class="field"><label>窗口标题（--window-title）</label><input type="text" data-g="window" data-k="windowTitle" data-t="text" value="" /><div class="hint">留空 = 标题用设备名</div></div>
             <div class="field"><label>无边框（--window-borderless）</label>
               <div class="toggle"><span class="t-label">隐藏装饰</span><label class="switch"><input type="checkbox" data-g="window" data-k="borderless" data-t="bool" id="wBorderless" /><span class="slider"></span></label></div></div>
             <div class="field"><label>全屏（--fullscreen）</label>
               <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-g="window" data-k="fullscreen" data-t="bool" id="wFull" /><span class="slider"></span></label></div></div>
             <div class="field"><label>置顶（--always-on-top）</label>
               <div class="toggle"><span class="t-label">最前显示</span><label class="switch"><input type="checkbox" data-g="window" data-k="alwaysOnTop" data-t="bool" id="wTop" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>锁定宽高比（关闭=--no-window-aspect-ratio-lock）</label>
-              <div class="toggle"><span class="t-label">保持比例</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLock" data-t="bool" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><label>锁定宽高比（--no-window-aspect-ratio-lock）</label>
+              <div class="toggle"><span class="t-label">保持比例（关闭时）</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLock" data-t="bool" checked /><span class="slider"></span></label></div></div>
             <div class="field"><label>背景色（--background-color）</label><input type="text" data-g="window" data-k="bgColor" data-t="text" value="#222222" /></div>
           </div>
           <div class="card">
             <h3>尺寸与位置</h3>
             <div class="row">
-              <div class="field"><label>宽度（--window-width）</label><input type="number" data-g="window" data-k="windowWidth" data-t="number" value="0" /></div>
-              <div class="field"><label>高度（--window-height）</label><input type="number" data-g="window" data-k="windowHeight" data-t="number" value="0" /></div>
+              <div class="field"><label>宽度（--window-width）</label><input type="number" data-g="window" data-k="windowWidth" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
+              <div class="field"><label>高度（--window-height）</label><input type="number" data-g="window" data-k="windowHeight" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
             </div>
             <div class="row">
               <div class="field"><label>X（--window-x）</label><input type="number" data-g="window" data-k="windowX" data-t="number" value="0" /></div>
               <div class="field"><label>Y（--window-y）</label><input type="number" data-g="window" data-k="windowY" data-t="number" value="0" /></div>
             </div>
-            <div class="hint">0 / auto = 由 scrcpy 自动决定</div>
+            <div class="hint">0 / 留空 = 由 scrcpy 自动决定</div>
           </div>
         </div>
       </section>
@@ -1063,9 +1068,9 @@
         <div class="grid">
           <div class="card">
             <h3>启动应用</h3>
-            <div class="field"><label>包名（--start-app，支持 ? 模糊 / + 强制停止）</label>
+            <div class="field"><label>包名（--start-app）</label>
               <div class="row"><input type="text" data-g="apps" data-k="startApp" data-t="text" placeholder="org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox" /><button class="btn ghost" style="flex:none">列出应用</button></div></div>
-            <div class="hint">例如 <code>--start-app=+?firefox</code>：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。</div>
+            <div class="hint">支持 ? 模糊匹配 / + 强制停止；例如 <code>--start-app=+?firefox</code>：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。</div>
           </div>
           <div class="card">
             <h3>网络</h3>
@@ -1076,7 +1081,7 @@
             <h3>自定义参数（直接透传给 scrcpy）</h3>
             <div class="field"><label>额外参数</label>
               <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
-              <div class="hint">任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备。</div></div>
+              <div class="hint">任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备</div></div>
           </div>
         </div>
       </section>
@@ -1091,8 +1096,8 @@
             <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
             <div class="field"><label>显示 FPS 计数（--print-fps）</label>
               <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>关闭时清理（关闭=--no-cleanup）</label>
-              <div class="toggle"><span class="t-label">还原设备状态</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
+            <div class="field"><label>关闭时清理（--no-cleanup）</label>
+              <div class="toggle"><span class="t-label">退出时还原设备状态（关闭时）</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
           </div>
           <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
                （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
@@ -1385,7 +1390,7 @@
         <div class="update-inner">
           <div class="update-icon checking" id="updateIcon" aria-hidden="true"><i data-lucide="refresh-cw"></i></div>
           <div class="update-title" id="updateTitle">正在检查更新…</div>
-          <div class="update-desc" id="updateDesc">正在连接更新服务，请稍候。</div>
+          <div class="update-desc" id="updateDesc">正在连接更新服务，请稍候</div>
           <div class="update-versions hidden" id="updateVersions">
             <div class="update-ver"><span>当前版本</span><b id="updateCurrent">—</b></div>
             <div class="update-ver"><span>最新版本</span><b id="updateLatest">—</b></div>
@@ -1676,12 +1681,18 @@
   }
   function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function renderPreview(){
+    const el = document.getElementById('cmdPreview');
     const d = getDev(selectedId);
-    if(!d){ document.getElementById('cmdPreview').textContent='选择一台设备查看命令'; syncConnectBtn(); return; }
+    if(!d){ el.textContent='选择一台设备查看命令'; el.removeAttribute('data-tip'); if (window.__tipRefresh) window.__tipRefresh(); syncConnectBtn(); return; }
     const p = merged(selectedId);
     const args = buildArgs(p);
+    const plain = ['scrcpy', '-s', devIdentifier(d), ...args].join(' ');
     const cmd = `scrcpy -s <span class="dev">${escapeHtml(devIdentifier(d))}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
-    document.getElementById('cmdPreview').innerHTML = cmd;
+    el.innerHTML = cmd;
+    // 单行被省略时才挂全文提示：文本与纯文本命令同源，不含 <b> 高亮。
+    if (el.scrollWidth > el.clientWidth + 1) el.dataset.tip = plain;
+    else el.removeAttribute('data-tip');
+    if (window.__tipRefresh) window.__tipRefresh();
     syncConnectBtn();
   }
   /* 命令条上的会话入口（config.yaml ㉑）：随选中设备状态在「连接 / 断开」间切换 ——
@@ -1942,38 +1953,38 @@
   const UPDATE_STATES = {
     checking: {
       icon:'refresh-cw', tone:'checking',
-      title:'正在检查更新…', desc:'正在连接更新服务，请稍候。',
+      title:'正在检查更新…', desc:'正在连接更新服务，请稍候',
       versions:true, latestLoading:true,
       retry:true, retryLabel:'重新检查', retryDisabled:true
     },
     latest: {
       icon:'circle-check', tone:'ok',
-      title:'已是最新版本', desc:`你正在使用最新版本 ${APP_VERSION}。`,
+      title:'已是最新版本', desc:`你正在使用最新版本 ${APP_VERSION}`,
       versions:true, latestCurrent:true,
       retry:true, retryLabel:'重新检查'
     },
     available: {
       icon:'cloud-download', tone:'accent',
       title:`发现新版本 ${UPDATE_LATEST_VERSION}`,
-      desc:'下载完成后重启应用即可生效。',
+      desc:'下载完成后重启应用即可生效',
       versions:true, primary:'立即更新', primaryIcon:'cloud-download'
     },
     downloading: {
       icon:'cloud-download', tone:'accent',
       title:`正在下载新版本 ${UPDATE_LATEST_VERSION}`,
-      desc:'下载完成后会自动校验文件完整性。',
+      desc:'下载完成后会自动校验文件完整性',
       versions:true, progress:true, cancel:true
     },
     ready: {
       icon:'circle-check', tone:'ok',
-      title:'更新已下载', desc:'重启应用后即可使用新版本。',
+      title:'更新已下载', desc:'重启应用后即可使用新版本',
       versions:true, primary:'立即重启并更新', primaryIcon:'rotate-cw',
-      hint:'重启会断开 2 台正在投屏的设备。'
+      hint:'重启会断开 2 台正在投屏的设备'
     },
-    failed: { icon:'circle-alert', tone:'warn', title:'没能连上更新服务', desc:'请检查网络连接后再试一次。', retry:true },
-    downloadfailed: { icon:'circle-alert', tone:'warn', title:'更新包没有下载完成', desc:'已尝试直连与代理通道，请稍后重试。', retry:true },
-    noasset: { icon:'circle-alert', tone:'warn', title:'暂时没有可用的更新包', desc:'这个版本还没有适合当前系统的安装包，请稍后再试。', retry:true },
-    writefail: { icon:'circle-alert', tone:'warn', title:'当前安装位置不可写', desc:'无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本。' }
+    failed: { icon:'circle-alert', tone:'warn', title:'没能连上更新服务', desc:'请检查网络连接后再试一次', retry:true },
+    downloadfailed: { icon:'circle-alert', tone:'warn', title:'更新包没有下载完成', desc:'已尝试直连与代理通道，请稍后重试', retry:true },
+    noasset: { icon:'circle-alert', tone:'warn', title:'暂时没有可用的更新包', desc:'这个版本还没有适合当前系统的安装包，请稍后再试', retry:true },
+    writefail: { icon:'circle-alert', tone:'warn', title:'当前安装位置不可写', desc:'无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本' }
   };
 
   /* 按当前状态内容定高：上下内边距 26 + 22、弹窗上下边框 1 + 1、更新视图顶部内边距 14，再留 1px 余量防亚像素裁边。 */
@@ -2655,7 +2666,7 @@
      产品侧另把提示文本与触发元素经 aria-describedby 关联；原型只维护形式与交互，不重复那套接线。 */
   (function(){
     const layer=document.getElementById('tipLayer');
-    const M=8, GAP=8, DELAY=700;   // 视口边距 / 控件与提示之间的缝 / 出现延迟
+    const M=8, GAP=8, DELAY=400;   // 视口边距 / 控件与提示之间的缝 / 出现延迟
     let host=null, pending=null, raf=0, timer=0;
     function hide(){
       host=null;

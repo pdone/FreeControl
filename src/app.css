@@ -57,7 +57,7 @@
   --teal: #22d3ee;
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
 
   /* 轨道色系：滑块未填充段 / 下载进度条槽 / 滚动条槽共用，不进界面主色体系。
      必须【不透明】—— Chromium 自绘滚动条有独立合成层，trough 写 transparent 会被当作
@@ -109,7 +109,7 @@
   --success: #047857;
   --warn: #b45309;
   --teal: #0e7490;
-  --shadow: 0 8px 30px rgba(16, 24, 40, 0.1);
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.14);
   --track: #e3e7ee;
   --scroll-track: #f0f2f5;
   --scroll-thumb: #c3c9d4;
@@ -142,7 +142,7 @@
     --success: #047857;
     --warn: #b45309;
     --teal: #0e7490;
-    --shadow: 0 8px 30px rgba(16, 24, 40, 0.1);
+    --shadow: 0 10px 30px rgba(16, 24, 40, 0.14);
     --track: #e3e7ee;
     --scroll-track: #f0f2f5;
     --scroll-thumb: #c3c9d4;
@@ -957,12 +957,31 @@ select,
   margin-top: 6px;
 }
 /* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 `.open` ——
-   没有脚本、没有状态，入口上也不挂 `aria-expanded`。 */
-.fhelp:hover .fhelp-panel {
-  display: block;
-}
+   没有脚本、没有状态，入口上也不挂 `aria-expanded`。
+   入场：120ms 淡入 + 4px 下落；与 hover 提示同族，不加 scale（大面板缩放会抢眼）。
+   `prefers-reduced-motion` 下把位移归零，只留淡入。退场不做 —— 面板靠 hover 保持，
+   退场期间若仍可命中会把它重新钉住。 */
+.fhelp:hover .fhelp-panel,
 .fhelp:focus-within .fhelp-panel {
+  --fhelp-dy: -4px;
   display: block;
+  animation: fhelp-in 120ms ease-out;
+}
+@keyframes fhelp-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fhelp-dy, -4px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fhelp:hover .fhelp-panel,
+  .fhelp:focus-within .fhelp-panel {
+    --fhelp-dy: 0px;
+  }
 }
 .fhelp-title {
   display: block;
@@ -1172,7 +1191,7 @@ select,
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
   display: grid;
   gap: 2px;
 }

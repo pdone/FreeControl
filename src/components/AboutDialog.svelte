@@ -132,18 +132,18 @@
   }
 
   const FAILURE_COPY: Record<FailureKind, { title: string; desc: string }> = {
-    check: { title: '没能连上更新服务', desc: '请检查网络连接后再试一次。' },
+    check: { title: '没能连上更新服务', desc: '请检查网络连接后再试一次' },
     download: {
       title: '更新包没有下载完成',
-      desc: '已尝试直连与代理通道，请稍后重试。',
+      desc: '已尝试直连与代理通道，请稍后重试',
     },
     noAsset: {
       title: '暂时没有可用的更新包',
-      desc: '这个版本还没有适合当前系统的安装包，请稍后再试。',
+      desc: '这个版本还没有适合当前系统的安装包，请稍后再试',
     },
     write: {
       title: '当前安装位置不可写',
-      desc: '无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本。',
+      desc: '无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本',
     },
   };
 
@@ -498,22 +498,22 @@
 
           {#if update.kind === 'checking'}
             <div class="update-title">正在检查更新…</div>
-            <div class="update-desc">正在连接更新服务，请稍候。</div>
+            <div class="update-desc">正在连接更新服务，请稍候</div>
           {:else if update.kind === 'upToDate'}
             <div class="update-title">已是最新版本</div>
-            <div class="update-desc">你正在使用最新版本 {update.current}。</div>
+            <div class="update-desc">你正在使用最新版本 {update.current}</div>
           {:else if update.kind === 'installedNewer'}
             <div class="update-title">当前版本已高于线上版本</div>
-            <div class="update-desc">你正在使用 {update.current}，线上最新为 {update.latest}。</div>
+            <div class="update-desc">你正在使用 {update.current}，线上最新为 {update.latest}</div>
           {:else if update.kind === 'available'}
             <div class="update-title">发现新版本 {update.latest}</div>
-            <div class="update-desc">下载完成后重启应用即可生效。</div>
+            <div class="update-desc">下载完成后重启应用即可生效</div>
           {:else if update.kind === 'downloading'}
             <div class="update-title">正在下载新版本 {update.latest}</div>
-            <div class="update-desc">下载完成后会自动校验文件完整性。</div>
+            <div class="update-desc">下载完成后会自动校验文件完整性</div>
           {:else if update.kind === 'ready'}
             <div class="update-title">更新已下载</div>
-            <div class="update-desc">重启应用后即可使用新版本。</div>
+            <div class="update-desc">重启应用后即可使用新版本</div>
           {:else}
             <div class="update-title">{failureCopy.title}</div>
             <div class="update-desc">{failureCopy.desc}</div>
@@ -559,7 +559,7 @@
           {/if}
 
           {#if update.kind === 'ready' && $deviceCounts.connected > 0}
-            <div class="update-hint">重启会断开 {$deviceCounts.connected} 台正在投屏的设备。</div>
+            <div class="update-hint">重启会断开 {$deviceCounts.connected} 台正在投屏的设备</div>
           {/if}
         </div>
       </div>

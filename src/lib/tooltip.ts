@@ -79,8 +79,17 @@ export function tip(node: HTMLElement, options?: TipOptions) {
       return;
     }
     if (focusVisible || revealed) {
-      // 已经是自己那条（如文本随状态变化）就不重设，免得提示层的落位重来一遍。
-      if (get(activeTip)?.anchor !== node) activeTip.set({ ...current, anchor: node });
+      // 同一锚点也要在文本 / placement 变化时刷新 store —— 命令预览的全文提示会随命令变化；
+      // 锚点不变时 TooltipLayer 不会重播入场，只按新文本重算尺寸与落位。
+      const shown = get(activeTip);
+      if (
+        !shown ||
+        shown.anchor !== node ||
+        shown.text !== current.text ||
+        shown.placement !== current.placement
+      ) {
+        activeTip.set({ ...current, anchor: node });
+      }
     }
   };
 

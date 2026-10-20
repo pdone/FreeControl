@@ -7,6 +7,7 @@
   // 该设备**启用状态**的覆盖（store 里已经按 design D5 的规则合并好）。
   // 校验失败的字段不参与拼装（tasks 7.3），并在右侧给出提示 —— 界面看到的
   // 就是会执行的，非法值不会悄悄溜进命令里。
+  import { afterUpdate, onMount } from 'svelte';
   import { Terminal, Copy, Check, Zap, ZapOff, AlertTriangle } from 'lucide-svelte';
   import {
     devices,
@@ -41,6 +42,31 @@
       ? buildCommandParts(dev.connectionId, $effectiveParams, $effectiveErrors)
       : null;
   $: errors = Object.values($effectiveErrors);
+
+  // 命令预览的截断判定（design D6）：单行 `nowrap + ellipsis` 真的省略了内容时，
+  // 才把完整命令挂到 hover 提示上；未截断时传 null，不重复可见文字。
+  // `afterUpdate` 覆盖内容变化，`ResizeObserver` 覆盖侧栏收起/展开与窗口缩放带来的宽度变化。
+  let previewEl: HTMLElement | null = null;
+  let previewTruncated = false;
+  let previewObserver: ResizeObserver | null = null;
+
+  function measurePreview(): void {
+    const next = !!previewEl && previewEl.scrollWidth > previewEl.clientWidth + 1;
+    if (next !== previewTruncated) previewTruncated = next;
+  }
+
+  afterUpdate(measurePreview);
+  onMount(() => {
+    previewObserver = new ResizeObserver(measurePreview);
+    return () => {
+      previewObserver?.disconnect();
+      previewObserver = null;
+    };
+  });
+  $: if (previewObserver) {
+    previewObserver.disconnect();
+    if (previewEl) previewObserver.observe(previewEl);
+  }
 
   // 会话入口的形态随选中设备状态切换（design D2）：
   // 已连接 → 「断开」态（结束会话）；未连接且可连接 → 「连接」态（发起会话）；
@@ -128,7 +154,11 @@
   {#if parts}
     <!-- 参数之间必须显式写空格：Svelte 的 each 块不会自动插入空白节点，
          直接相邻的 <b> 会连成 `...h265-b 16M` 这样不可读的命令。 -->
-    <div class="cmd-preview">
+    <div
+      class="cmd-preview"
+      bind:this={previewEl}
+      use:tip={previewTruncated && parts ? commandText(parts) : null}
+    >
       {parts.bin} -s <span class="dev">{parts.serial}</span>
       {#each parts.args as a}<b>{a}</b>{' '}{/each}
     </div>
