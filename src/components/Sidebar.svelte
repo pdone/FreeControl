@@ -9,7 +9,6 @@
     Disc,
     AppWindow,
     LayoutGrid,
-    ScrollText,
     Container,
     Settings,
     Info,
@@ -18,14 +17,13 @@
   import Brand from './Brand.svelte';
   import { tip } from '../lib/tooltip';
 
-  // 12 个平级导航入口：设备 + 8 个默认参数页 + 日志页 + 运行环境页 + 设置页 + 「关于」。
+  // 11 个平级导航入口：设备 + 7 个参数页（承载 8 个默认参数分组）+ 运行环境页 + 设置页 + 「关于」。
   // 页键即「页面身份」，与入口名一致（`advanced` = 高级、`environment` = 运行环境、
   // `settings` = 设置）；注意别与默认参数的**分组键**（同样是 `apps` / `advanced`，
   // 但属落盘配置字段）混为一谈。
-  // 「日志」插在「高级」与「运行环境」之间；「设置」是末位**功能**入口，
-  // 「关于」（`dialog: true`）是最后一个入口 —— **入口数 12 与页键数 11 不是同一个数**：
-  // 「关于」不是页面，点它只开弹窗，不切页、不动选中态与标题（app-shell 规格「统一导航入口」）。
-  // 「日志」的图标与设备页跳往该页的「日志」按钮同源（ScrollText）—— 同一概念不引入两个图标。
+  // 「设置」是末位**功能**入口，「关于」（`dialog: true`）是最后一个入口 ——
+  // **入口数 11 与页键数 10 不是同一个数**：「关于」不是页面，点它只开弹窗，不切页、
+  // 不动选中态与标题（app-shell 规格「统一导航入口」）。
   // 图标与页面身份对齐：「运行环境」用 Container（容器/环境语义），「设置」用 Settings
   // —— 后者由「运行环境」让出，避免同一图标指两个概念。
   type NavItem = { key: string; label: string; icon: typeof Monitor; dialog?: true };
@@ -40,7 +38,6 @@
     { key: 'window', label: '窗口', icon: AppWindow },
     { key: 'advanced', label: '高级', icon: LayoutGrid },
     { sep: true },
-    { key: 'diagnostics', label: '日志', icon: ScrollText },
     { key: 'environment', label: '运行环境', icon: Container },
     { key: 'settings', label: '设置', icon: Settings },
     // 末位：不是页面，只开「关于」弹窗（`aboutOpen` 是它与品牌行共用的开关）

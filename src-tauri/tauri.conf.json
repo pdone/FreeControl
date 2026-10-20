@@ -18,8 +18,8 @@
         "visible": false,
         "width": 1100,
         "height": 720,
-        "minWidth": 880,
-        "minHeight": 700,
+        "minWidth": 1000,
+        "minHeight": 720,
         "resizable": true,
         "backgroundColor": "#0b0d11"
       }

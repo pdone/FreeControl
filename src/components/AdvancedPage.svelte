@@ -12,7 +12,7 @@
   // 启动应用 → 网络 → 自定义参数 —— 两张单列卡一旦被整行卡隔开就会落到两排。
   //
   // 写回纪律：两组各持一份本地副本，写回时**先合入本地副本再整体写回**。`defaults.advanced`
-  // 还会被「日志」页写入，若这里用「只含本卡字段的对象」覆盖整组，会抹掉去抖窗口内
+  // 还会被设置页的日志参数写入，若这里用「只含本卡字段的对象」覆盖整组，会抹掉去抖窗口内
   // 另一页的未落盘改动。
   import { defaults, defaultsErrors, config, scheduleSave } from '../lib/store';
   import { ADVANCED_GROUP, CUSTOM_ARGS_CARD, NETWORK_CARD, groupOf, refKey } from '../lib/params';

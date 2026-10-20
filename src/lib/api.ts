@@ -64,7 +64,7 @@ export const EVENT_SESSION_CHANGED = 'session-changed';
  * 会话列表（含已结束的会话，供查看输出）。
  *
  * 事件只在会话变化时推送，故启动时先取一次 —— 与设备状态同理，避免「首次推送早于
- * 前端注册监听」让「日志」页一直显示空列表。
+ * 前端注册监听」让设置页的「会话输出」一直显示空列表。
  */
 export const listSessions = (): Promise<SessionInfo[]> => invoke('list_sessions');
 /**
@@ -85,7 +85,7 @@ export const disconnectAll = (): Promise<SessionInfo[]> => invoke('disconnect_al
 export const getSessionLog = (deviceId: string): Promise<string> =>
   invoke('get_session_log', { deviceId });
 /**
- * 清空某个会话已保留的输出。「日志」页的「清空」按钮走这里 —— 删的是后端那份缓冲，
+ * 清空某个会话已保留的输出。设置页「会话输出」的「清空」按钮走这里 —— 删的是后端那份缓冲，
  * 不是前端视图：只清视图的话 2 秒一轮的自动刷新会把旧行原样带回来。
  */
 export const clearSessionLog = (deviceId: string): Promise<void> =>

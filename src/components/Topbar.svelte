@@ -24,7 +24,6 @@
     record: '录制',
     window: '窗口',
     advanced: '高级',
-    diagnostics: '日志',
     environment: '运行环境',
     settings: '设置',
   };

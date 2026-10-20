@@ -1,10 +1,11 @@
 <script lang="ts">
-  // 「设置」页（spec `app-preferences`）：本程序自身的外观与更新检查偏好，与 scrcpy 参数无关。
+  // 「设置」页（spec `app-preferences`）：本程序自身的外观、更新与日志内容。
   // 页键 `settings`、入口名「设置」、组件文件名三处一致（页面身份三件套）。
   //
   // 外观两个字段走 setThemeMode / setAccent（改 `config.ui`），视觉由 theme.ts 的订阅立即应用；
   // 自动更新走 setAutoUpdate / setUpdateFrequency（改 `config.update`），上次检查时间由检查包装写入。
-  // 两者都复用既有去抖保存，不碰 `defaults.*`。页内两张卡同排等宽：外观 + 自动更新。
+  // 两者都复用既有去抖保存，不碰 `defaults.*`。页内两张偏好卡同排等宽：外观 + 自动更新。
+  // 日志内容由 `SettingsLogCards` 渲染：运行日志参数 / 日志文件同排在前，会话输出独占整行放在页面底部。
   // 语言选择不在本次范围内（后续单独提案）。
   import {
     config,
@@ -23,6 +24,7 @@
     type ThemeMode,
   } from '../lib/theme';
   import HelpTip from './HelpTip.svelte';
+  import SettingsLogCards from './SettingsLogCards.svelte';
   import { Check, RefreshCw } from 'lucide-svelte';
   import type { UpdateFrequency, UpdatePrefs } from '../lib/types';
 
@@ -84,7 +86,7 @@
 
 <div class="sec-head">
   <h2>设置</h2>
-  <p>管理本程序自身的外观与更新：深浅色主题、主题色与自动检查更新。改动即时生效并自动保存，不需要重启。</p>
+  <p>管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p>
 </div>
 
 <div class="grid">
@@ -186,4 +188,6 @@
       </div>
     </div>
   </div>
+
+  <SettingsLogCards />
 </div>

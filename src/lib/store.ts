@@ -222,8 +222,15 @@ export const selectedDeviceId = writable<string | null>(null);
  * 进程与槽位的事实在后端，前端只渲染。
  */
 export const sessions = writable<SessionInfo[]>([]);
-/** 「日志」页里当前查看的会话（设备 id）。 */
+/** 设置页「会话输出」里当前查看的会话（设备 id）。 */
 export const selectedSessionId = writable<string | null>(null);
+/**
+ * 设备卡「日志」按钮 → 设置页「会话输出」的一次性滚动信号。
+ *
+ * 设置页消费后复位；用信号而不是从设备页直接查 DOM，避免跨组件查询与「section 刚切到
+ * 可见、布局尚未生效」的时序问题。会话输出卡在设置页底部，普通点击「设置」入口不置位。
+ */
+export const revealSessionOutput = writable(false);
 /** 会话相关的一次性提示（批量连接结果、窗口排列降级等）。 */
 export const sessionNotice = writable<string>('');
 export const compat = writable<CompatStatus | null>(null);
@@ -499,7 +506,7 @@ async function bringMainWindowToFront(): Promise<void> {
 /**
  * 监视「最后一个设备离开已连接状态」，据此把主窗口带回前台（app-shell 规格）。
  *
- * **为什么订阅状态而不是在各条界面路径上埋点**：会话可能因为用户点「断开」、在日志页结束、
+ * **为什么订阅状态而不是在各条界面路径上埋点**：会话可能因为用户点「断开」、在设置页结束、
  * **直接关掉投屏窗口（scrcpy 自行退出）**、异常退出、设备掉线、删除设备而结束 —— 埋点只能覆盖
  * 走前端动作的那几条，而「关掉投屏窗口」恰恰是最常见的用法。`deviceCounts` 是设备计数的
  * **唯一来源**（与顶栏设备概况、设备列表同源），它的跃迁正是规格要的「前后对比」。
@@ -528,7 +535,7 @@ export function sessionLog(deviceId: string): Promise<string> {
 }
 
 /**
- * 清空某个会话已保留的输出（「日志」页的「清空」）。
+ * 清空某个会话已保留的输出（设置页「会话输出」的「清空」）。
  *
  * 清的是后端那份缓冲而不是前端视图 —— 只清视图的话，2 秒一轮的自动刷新会把旧行原样带回来。
  * 会话记录本身（运行状态、退出码、实际命令）不受影响，其它会话的输出也不受牵连。
@@ -540,7 +547,7 @@ export function clearSessionLog(deviceId: string): Promise<void> {
 /**
  * 当前页面 key。
  *
- * 注意**入口数与页键数不是同一个数**：侧边栏有 12 个入口（末尾是「关于」），而页键只有 11 个 ——
+ * 注意**入口数与页键数不是同一个数**：侧边栏有 11 个入口（末尾是「关于」），而页键只有 10 个 ——
  * 「关于」不是页面，点它只开弹窗、不切页（见 app-shell 规格「统一导航入口」）。
  */
 export const page = writable<string>('devices');

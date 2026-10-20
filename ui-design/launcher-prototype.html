@@ -195,7 +195,7 @@
   /* 导航/品牌文字：用 max-width + opacity 过渡，与侧栏宽度动画同速，避免挤压闪烁 */
   .nav-text, .brand-text { white-space: nowrap; overflow: hidden; min-width: 0; max-width: 200px; opacity: 1; transition: max-width .18s ease, opacity .15s ease; }
   /* 侧边栏收起按钮：边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
-  .collapse-btn { margin-top: 12px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .12s, color .12s, gap .18s ease; }
+  .collapse-btn { margin-top: 12px; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .12s, color .12s, gap .18s ease; }
   .collapse-btn:hover { box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text); }
   .collapse-btn svg { width: var(--icon); height: var(--icon); stroke: currentColor; stroke-width: 1.7; flex: none; transition: transform .18s ease; }
   /* 收起态：collapsed 加在 .app 容器上。
@@ -216,7 +216,7 @@
 
   /* ---------- Main ---------- */
   /* 命令条为内容区让出的底部留白：取值在 .main 上单点定义，与命令条是否呈现同步
-     —— 日志 / 运行环境 / 设置三页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
+     —— 运行环境 / 设置两页不呈现命令条，留白随之收到与左右内边距一致的那一档。 */
   .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; --bar-reserve: 120px; }
   .main.no-bar { --bar-reserve: 26px; }
   .topbar { height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 0 0 22px; border-bottom: 1px solid var(--border); background: var(--topbar-bg); backdrop-filter: blur(8px); }
@@ -286,7 +286,7 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 18px; }
   .card.col2 { grid-column: span 2; }
-  /* 占位块不是 .card，`.card.col2` 的选择器命中不到它；日志页的「会话输出」占位仍要独占整行。 */
+  /* 占位块不是 .card，`.card.col2` 的选择器命中不到它；设置页的「会话输出」占位仍要独占整行。 */
   .ov-empty.col2 { grid-column: span 2; }
   .card h3 { font-size: 11.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
 
@@ -810,14 +810,13 @@
       <div class="nav-item" data-sec="window"><i data-lucide="app-window"></i><span class="nav-text">窗口</span></div>
       <div class="nav-item" data-sec="advanced"><i data-lucide="layout-grid"></i><span class="nav-text">高级</span></div>
       <div class="nav-sep"></div>
-      <div class="nav-item" data-sec="diagnostics"><i data-lucide="scroll-text"></i><span class="nav-text">日志</span></div>
       <div class="nav-item" data-sec="environment"><i data-lucide="container"></i><span class="nav-text">运行环境</span></div>
-      <!-- 「设置」是应用自身偏好的页面（外观），排在末位功能入口；图标 settings 由原「运行环境」让出，
+      <!-- 「设置」是应用自身偏好与日志的页面，排在末位功能入口；图标 settings 由原「运行环境」让出，
            运行环境改用 container（容器/环境语义）。 -->
       <div class="nav-item" data-sec="settings"><i data-lucide="settings"></i><span class="nav-text">设置</span></div>
       <!-- 末位入口「关于」不是页面：点它**不切页**（不动选中态与标题），只打开关于弹窗，
            故用 data-dialog 而不是 data-sec（页键里没有 about）。与品牌行是同一个弹窗的两个入口。
-           不加 .nav-sep —— 仅存的那条分隔线把「设备 + 8 个参数页」与「日志 / 运行环境 / 设置 / 关于」分开，
+           不加 .nav-sep —— 仅存的那条分隔线把「设备 + 8 个参数页」与「运行环境 / 设置 / 关于」分开，
            新入口归在后一组里，不再引入第三组语义。 -->
       <div class="nav-item" data-dialog="about"><i data-lucide="info"></i><span class="nav-text">关于</span></div>
     </nav>
@@ -1087,39 +1086,6 @@
         </div>
       </section>
 
-      <!-- ============ 日志 ============ -->
-      <section class="section" id="sec-diagnostics">
-        <div class="sec-head"><h2>日志</h2><p>查看每个会话的输出（含已结束的会话）以排查异常，并设置与日志相关的默认参数。</p></div>
-        <div class="grid">
-          <div class="ov-empty col2">会话输出仅在产品侧提供，本原型不演示。</div>
-          <div class="card">
-            <h3>运行日志参数</h3>
-            <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
-            <div class="field"><label>显示 FPS 计数（--print-fps）</label>
-              <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>关闭时清理（--no-cleanup）</label>
-              <div class="toggle"><span class="t-label">退出时还原设备状态（关闭时）</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
-          </div>
-          <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
-               （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
-               「打开日志目录」与保留策略同处一行（同产品侧）：按钮文字已说明它去哪，
-               不需要「日志目录」这个独立标签再把同一件事说一遍。 -->
-          <div class="card">
-            <h3>日志文件</h3>
-            <div class="field"><span class="flabel">保留策略<span class="fhelp"><button class="fhelp-btn" type="button" aria-label="保留策略的说明"><i data-lucide="circle-help"></i></button><span class="fhelp-panel"><span class="fhelp-title">保留策略</span><span class="fhelp-p">日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</span></span></span></span>
-              <div class="path-row log-file-row">
-                <div class="seg" id="logRetention">
-                  <button class="active" data-v="7d">保留 7 天</button>
-                  <button data-v="30d">保留 30 天</button>
-                  <button data-v="forever">保留永久</button>
-                </div>
-                <button class="btn sm" id="openLogDirBtn"><i data-lucide="folder-open"></i>打开日志目录</button>
-                <span class="status-text" id="logDirStatus"></span>
-              </div></div>
-          </div>
-        </div>
-      </section>
-
       <!-- ============ 运行环境 ============ -->
       <section class="section" id="sec-environment">
         <div class="sec-head"><h2>运行环境</h2><p>管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。</p></div>
@@ -1226,9 +1192,9 @@
         </div>
       </section>
 
-      <!-- ============ 设置（应用自身偏好） ============ -->
+      <!-- ============ 设置（应用自身偏好与日志） ============ -->
       <section class="section" id="sec-settings">
-        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观与更新：深浅色主题、主题色与自动检查更新。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
@@ -1290,6 +1256,35 @@
               </div>
             </div>
           </div>
+
+          <!-- 日志内容自原「日志」页迁入（config.yaml ㉕ / ⑦）：「运行日志参数」与「日志文件」同排，
+               会话输出占位独占整行放在页面底部（高度不定，不顶开上方设置）。卡片与判定一律不动。 -->
+          <div class="card">
+            <h3>运行日志参数</h3>
+            <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
+            <div class="field"><label>显示 FPS 计数（--print-fps）</label>
+              <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
+            <div class="field"><label>关闭时清理（--no-cleanup）</label>
+              <div class="toggle"><span class="t-label">退出时还原设备状态（关闭时）</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
+          </div>
+          <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
+               （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
+               「打开日志目录」与保留策略同处一行（同产品侧）：按钮文字已说明它去哪，
+               不需要「日志目录」这个独立标签再把同一件事说一遍。 -->
+          <div class="card">
+            <h3>日志文件</h3>
+            <div class="field"><span class="flabel">保留策略<span class="fhelp"><button class="fhelp-btn" type="button" aria-label="保留策略的说明"><i data-lucide="circle-help"></i></button><span class="fhelp-panel"><span class="fhelp-title">保留策略</span><span class="fhelp-p">日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</span></span></span></span>
+              <div class="path-row log-file-row">
+                <div class="seg" id="logRetention">
+                  <button class="active" data-v="7d">保留 7 天</button>
+                  <button data-v="30d">保留 30 天</button>
+                  <button data-v="forever">保留永久</button>
+                </div>
+                <button class="btn sm" id="openLogDirBtn"><i data-lucide="folder-open"></i>打开日志目录</button>
+                <span class="status-text" id="logDirStatus"></span>
+              </div></div>
+          </div>
+          <div class="ov-empty col2">会话输出仅在产品侧提供，本原型不演示。</div>
         </div>
       </section>
 
@@ -1917,7 +1912,7 @@
   // 页键即「页面身份」：与导航项的 data-sec、section 的 id 一致（advanced=高级、environment=运行环境）。
   // 别与数据里的**分组键**（defaults 的 apps / advanced、data-g 属性）混为一谈 —— 那是字段名，不随页面改名。
   // 「关于」不在其中：它不是页面（点它开弹窗、不切页），故导航项挂 data-dialog 而非 data-sec。
-  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',diagnostics:'日志',environment:'运行环境',settings:'设置'};
+  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',environment:'运行环境',settings:'设置'};
   // 页面跳转：导航点击与顶栏两个状态指示共用同一份判定（不新增过渡 / 滚动逻辑）
   function gotoSection(sec){
     const item=document.querySelector(`.nav-item[data-sec="${sec}"]`); if(!item) return;
@@ -1926,8 +1921,8 @@
     item.classList.add('active');
     document.getElementById('sec-'+sec).classList.add('active');
     document.getElementById('pageTitle').textContent=titles[sec];
-    // 命令预览只在设备页与各参数页呈现：日志 / 运行环境 / 设置三页整条不呈现，底部留白也随之收掉。
-    const noBar = sec==='diagnostics' || sec==='environment' || sec==='settings';
+    // 命令预览只在设备页与各参数页呈现：运行环境 / 设置两页整条不呈现，底部留白也随之收掉。
+    const noBar = sec==='environment' || sec==='settings';
     document.querySelector('.main').classList.toggle('no-bar', noBar);
     document.querySelector('.launchbar').style.display = noBar ? 'none' : '';
   }

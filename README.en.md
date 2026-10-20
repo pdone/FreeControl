@@ -48,9 +48,9 @@ The app UI is currently in Chinese.
 
 <img src="assets/screenshots/environment.png" alt="Runtime page" />
 
-**Logs** — session output:
+**Settings** — log settings and session output:
 
-<img src="assets/screenshots/logs.png" alt="Logs page" />
+<img src="assets/screenshots/logs.png" alt="Settings page: log settings and session output" />
 
 ## Quick Start
 
@@ -103,7 +103,7 @@ That one command starts the whole app, with the frontend dev server brought up b
 ```
 FreeControl2/
 ├─ src/                    Frontend (Svelte + Vite + TypeScript)
-│  ├─ components/          UI components (devices, parameter pages, logs, runtime, about dialog…)
+│  ├─ components/          UI components (devices, parameter pages, settings and logs, runtime, about dialog…)
 │  └─ lib/                 Frontend logic (parameter model, command building, validation, config)
 ├─ src-tauri/              Backend (Rust + Tauri 2)
 │  ├─ src/                 Command layer and platform code (device, scrcpy, config, assets, download, session, logging)
@@ -158,7 +158,7 @@ Delete `config.json` and start the app again: the device list, the parameters an
 
 ### Where are the logs
 
-The "Logs" page has a one-click shortcut to the log directory; the files live under `logs/` in the application data root and are named by date.
+The "Settings" page has a one-click shortcut to the log directory; the files live under `logs/` in the application data root and are named by date.
 
 ### adb is still running after I quit the app
 

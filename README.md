@@ -45,9 +45,9 @@
 
 <img src="assets/screenshots/environment.png" alt="运行环境页" />
 
-**日志** —— 会话输出：
+**设置** —— 日志设置与会话输出：
 
-<img src="assets/screenshots/logs.png" alt="日志页" />
+<img src="assets/screenshots/logs.png" alt="设置页：日志设置与会话输出" />
 
 ## 快速开始
 
@@ -100,7 +100,7 @@ npm run app:dev
 ```
 FreeControl2/
 ├─ src/                    前端（Svelte + Vite + TypeScript）
-│  ├─ components/          界面组件（设备页、各参数页、日志、运行环境、关于弹窗…）
+│  ├─ components/          界面组件（设备页、各参数页、设置与日志、运行环境、关于弹窗…）
 │  └─ lib/                 前端逻辑（参数模型、命令拼装、校验、配置存取）
 ├─ src-tauri/              后端（Rust + Tauri 2）
 │  ├─ src/                 命令层与平台实现（设备、scrcpy、配置、资产、下载、会话、日志）
@@ -155,7 +155,7 @@ FreeControl2/
 
 ### 日志在哪
 
-「日志」页可一键打开日志目录；文件位于应用数据根下的 `logs/`，按日期命名。
+「设置」页可一键打开日志目录；文件位于应用数据根下的 `logs/`，按日期命名。
 
 ### 退出应用后 adb 还在跑
 

@@ -28,6 +28,7 @@
     sessions,
     sessionNotice,
     selectedSessionId,
+    revealSessionOutput,
     connectDevice,
     disconnectDevice,
     connectAll,
@@ -312,13 +313,14 @@
   }
 
   /**
-   * 跳到「日志」页查看该会话输出（tasks 9.4 的界面入口）。
+   * 跳到设置页查看该会话输出（tasks 9.4 的界面入口），并让设置页滚动到页面底部的会话输出卡。
    *
-   * 选择「哪条会话」放在 store 里，设备页与「日志」页读同一份 —— 不靠路由参数传递。
+   * 选择「哪条会话」放在 store 里，设备页与设置页的「会话输出」读同一份 —— 不靠路由参数传递。
    */
   function openLog(deviceId: string): void {
     selectedSessionId.set(deviceId);
-    page.set('diagnostics');
+    page.set('settings');
+    revealSessionOutput.set(true);
   }
 
   // ── 新增设备 ───────────────────────────────────────────────
@@ -583,7 +585,7 @@
               <button
                 class="btn sm ghost"
                 on:click|stopPropagation={() => openLog(d.id)}
-                use:tip={'在「日志」页查看该会话输出（用于排查问题）'}
+                use:tip={'在「设置」页查看该会话输出（用于排查问题）'}
               >
                 <ScrollText /> 日志
               </button>

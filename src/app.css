@@ -387,6 +387,7 @@ select,
    边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
 .collapse-btn {
   margin-top: 12px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1651,7 +1652,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   box-shadow: inset 3px 0 0 var(--success);
 }
 /* 选中态（命令预览的目标）由卡片自身的边框承担：描边色取既有的 --accent-line（tag 描边与
-   日志页会话条选中态同款），外描边与底色抬升已撤。边框宽度仍 1px、底色仍是 --panel，
+   设置页会话条选中态同款），外描边与底色抬升已撤。边框宽度仍 1px、底色仍是 --panel，
    卡内文字与左缘色条都不位移。
    既已连接又被选中时不再需要合并声明 —— 色条走 box-shadow、选中走边框色，两者各占一个属性。 */
 .dev-card.sel {
@@ -1936,7 +1937,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--text-faint);
 }
 
-/* ---------- 会话（Group 9）：窗口位置提示 + 「日志」页的会话输出 ---------- */
+/* ---------- 会话（Group 9）：窗口位置提示 + 设置页的会话输出 ---------- */
 /* 设备卡上的会话说明：PID 与实际窗口位置（自动排列 / 让位 / 空间不足降级） */
 .sess-hint {
   font-size: 12px;
