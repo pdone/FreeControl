@@ -565,22 +565,7 @@ export const windowDecorated = writable(true);
 export const windowMaximized = writable(false);
 
 /**
- * 系统是否已经在该窗口的**顶边**画了边框（Win11 画、Win10 不画）。
- *
- * 判据取窗口的**几何事实**：`outerPosition()` 是窗口外缘、`innerPosition()` 是客户区左上角，
- * 两者 y 之差就是「外缘到客户区上沿」那条非客户带的厚度 —— tao 交给系统的顶内缩正是它
- * （Win10 = 0，Win11 = 1 逻辑像素，见 tao 的 `calculate_insets_for_dpi`）。差值 > 0 ⇒ 系统
- * 已在顶边画了一条 ⇒ 界面不再补第二条（补了就成 Win11 上那条 2px 的粗顶边）。
- *
- * 与自绘标题栏同一套口径：取窗口事实，不写平台清单、不按版本号硬编码 —— 这个几何差量与 tao
- * 判的是**同一个量**，故不存在「两边判不一致」的可能。
- *
- * 默认取 `false`（＝系统没画 → 补画）：查询失败时停在与改动前一致的观感上。
- */
-export const windowTopEdgeBySystem = writable(false);
-
-/**
- * 初始化标题栏与上沿边线所需的窗口状态（挂载时调用一次）。
+ * 初始化标题栏所需的窗口状态（挂载时调用一次）。
  *
  * 最大化状态**订阅窗口尺寸变化**，而不是只在本控件被点击时翻转：双击标题栏、系统快捷键、拖到
  * 屏幕边缘同样会改变最大化状态，只按点击历史推断会让图标与窗口对不上。最大化 / 还原必然伴随
@@ -592,15 +577,6 @@ export async function initWindowChrome(): Promise<void> {
     windowDecorated.set(await win.isDecorated());
   } catch (e) {
     console.error('读取窗口装饰状态失败，将不呈现自绘标题栏', e);
-  }
-  // 顶边边线的判据用两次读数的**差值**，故窗口若在两次调用之间移动（读数整体错位）也无妨 ——
-  // 相减时抵消，不必为此加锁。
-  try {
-    const outer = await win.outerPosition();
-    const inner = await win.innerPosition();
-    windowTopEdgeBySystem.set(inner.y - outer.y > 0);
-  } catch (e) {
-    console.error('读取窗口几何失败，上沿边线将按「系统未绘制顶边」处理（照旧补画）', e);
   }
   const syncMaximized = async (): Promise<void> => {
     try {

@@ -20,11 +20,6 @@
   --code-bg: color-mix(in srgb, var(--text) 9%, var(--panel-2));
   --border: #272d38;
   --border-strong: #353c49;
-  /* 无装饰窗口上沿那条边线的颜色。它对齐的是**系统画的**边框像素 —— Win10 上左侧那条原生边框
-     实测为 1px / #333333（见变更 design 的实机确认表）。正因要与界面之外的系统像素同桌对齐，
-     它刻意不进上面这套调色板：--border / --border-strong 是界面内部分隔线用的，用途不同，
-     拿 --border-strong（#353c49）顶替会偏蓝、在角上与原生竖线看出色差。 */
-  --win-frame: #333333;
   /* 主文字色：比早先的 #e7eaf0 略低一档（用户 2026-10-19：与深色底搭配偏刺眼），
      与 --text-dim / --text-faint 仍保持明显的层级差。 */
   --text: #dcdfe6;
@@ -92,9 +87,6 @@
   --code-bg: color-mix(in srgb, var(--text) 7%, var(--panel-2));
   --border: #dfe3ea;
   --border-strong: #c8cfda;
-  /* 无装饰窗口上沿那条边线对齐的是系统画的边框像素：浅色下系统画的是浅灰，
-     不能沿用深色主题的 #333333（待实机确认具体取值）。 */
-  --win-frame: #d0d4da;
   /* 主文字色避开纯黑：与深色侧「不用 #e7eaf0」同一条理由（刺眼）。 */
   --text: #1f2430;
   --text-dim: #5a6377;
@@ -130,7 +122,6 @@
     --code-bg: color-mix(in srgb, var(--text) 7%, var(--panel-2));
     --border: #dfe3ea;
     --border-strong: #c8cfda;
-    --win-frame: #d0d4da;
     --text: #1f2430;
     --text-dim: #5a6377;
     --text-faint: #8b93a5;
@@ -255,32 +246,6 @@ select,
   height: 100vh;
   overflow: hidden; /* 兜底：任何溢出（含极矮窗口下侧边栏自身滚动）都不外泄到文档级滚动（D14） */
   transition: grid-template-columns 0.18s ease;
-}
-
-/* ---------- 无装饰窗口的上沿边线 ----------
-   系统只在左、右、下三边画边框 —— 顶边有没有落点由 Windows 版本决定：Win10 上 tao 把客户区的
-   上沿对齐到窗口外缘（顶上只要留出非客户区，Windows 就会补画一整条原生标题栏），顶边因此没有
-   落点；Win11 上 tao 留出 1 逻辑像素的顶内缩，系统在顶边**已经画了一条**（机制取证见变更 design）。
-   这一格只在系统没画时由界面补上：一层横跨整个视口的 1px 覆盖层 —— 侧栏之上与右侧主界面之上都有。
-   它只作呈现：没有 border / padding，不挤占任何布局高度、不使既有元素位移；
-   且 MUST 保持 pointer-events: none —— 客户区顶边那一条同时是窗口的缩放热区，不能截走命中。
-   z-index 取 60（高于模态遮罩 .overlay 的 50）：与系统画的其余三边同层，弹窗打开时也不被压暗。 */
-.win-frame-top {
-  position: fixed;
-  inset: 0 0 auto 0;
-  /* 高度按设备像素比反算，使它在**物理**像素上恒为 1 —— 系统在其余三边画的是 1 个物理像素，
-     而 CSS 的 1px 是逻辑像素：缩放 150% 时它落到 1.5 个物理像素，会比那三条粗（实机复核到的
-     就是这个现象）。1px / dpr 恰好等于 1 个物理像素（dpr=1.25 → 0.8、1.5 → 0.6667、2 → 0.5）。
-     --dpr 由构件按 devicePixelRatio 给；缺失时回落到 1，即改动前的行为。 */
-  height: calc(1px / var(--dpr, 1));
-  z-index: 60;
-  pointer-events: none;
-  background: var(--win-frame);
-  display: none;
-}
-/* 呈现与否由构件给（无系统装饰、未最大化、且系统未在顶边绘制）——与 .overlay / .overlay.show 同款两态写法 */
-.win-frame-top.show {
-  display: block;
 }
 
 /* ---------- Sidebar ---------- */
@@ -1001,7 +966,7 @@ select,
    故提示层挂在**应用级**（`App.svelte`）、以视口定位；`position: fixed` 也不参与任何布局，
    满足「悬停不改动几何」。提示面自身 `pointer-events: none`：不拦截其下方的点击与悬停，
    因此不需要帮助面板那条「盖住缝的透明桥」。
-   层叠取 70：高于 `.win-frame-top` 的 60，使「关于」弹窗（`.overlay` 为 50）打开时，
+   层叠取 70：高于模态遮罩 `.overlay` 的 50，使「关于」弹窗打开时，
    其关闭键与复制入口的提示仍可见。
    面的取值（内边距 / 边框 / 圆角 / 底色 / 阴影 / 字号 / 行高）与 `.fhelp-panel` 同一条规则，
    这里只给定位与宽度：`max-width` 用视口口径，`100vw` 减掉两侧的边距（脚本里那份 M × 2）。 */
