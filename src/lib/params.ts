@@ -85,6 +85,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: '主屏幕', value: 'display' },
               { label: '摄像头', value: 'camera' },
             ],
+            detail: [
+              '镜像手机屏幕，或改为采集设备摄像头的画面。',
+              '摄像头镜像需要 Android 12 及以上；摄像头源下画面不来自设备屏幕，--display-id、--new-display 与 --turn-screen-off 等参数不参与拼装。',
+            ],
           },
           {
             key: 'displayMode',
@@ -98,7 +102,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // 视频源为摄像头时这一档不参与拼装（camera 分支优先），显示出来只会让人以为
             // 设置生效了 —— 与原型 `toggleSourceUI()` 的行为一致。
             showWhen: (g) => g.videoSource !== 'camera',
-            hint: '虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）',
+            hint: '两档虚拟屏的分辨率都在下方指定',
+            detail: [
+              '主屏镜像设备当前的显示；虚拟显示器在设备上新开一块独立显示；Flex Display 让虚拟屏随窗口连续缩放。',
+              'Flex Display 下 --crop、--window-width、--window-height 与 --no-control 不参与拼装（scrcpy 判定它们与 --flex-display 不兼容）。',
+            ],
           },
           {
             key: 'displayId',
@@ -131,6 +139,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'text',
             placeholder: '1920x1080',
             hint: '留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160',
+            detail: [
+              '虚拟显示器的分辨率，格式为「宽x高」。',
+              '它与下方的密度一起拼成 --new-display=宽x高/密度：只填密度时分辨率沿用主屏尺寸。',
+            ],
           },
           {
             key: 'newDisplayDpi',
@@ -139,12 +151,20 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 72,
             max: 1000,
             hint: '留空用上面的默认密度',
+            detail: [
+              '虚拟显示器的像素密度，与分辨率一起决定新屏上界面元素的大小。',
+              '同一分辨率下密度越大，界面元素越大、可容纳的内容越少。',
+            ],
           },
           {
             key: 'noVdDestroy',
             label: '--no-vd-destroy-content',
             type: 'toggle',
             hint: '移到主屏而非销毁',
+            detail: [
+              '关闭虚拟显示器时，把其中运行的应用移到主屏，而不是随虚拟屏一起销毁。',
+              '只在虚拟显示器与 Flex Display 下有意义。',
+            ],
           },
         ],
       },
@@ -165,6 +185,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'back', value: 'back' },
               { label: 'external', value: 'external' },
             ],
+            detail: [
+              '按朝向选择设备摄像头：front 前置、back 后置、external 外接。',
+              '不选则由 scrcpy 使用检测到的第一个摄像头。',
+            ],
           },
           {
             key: 'cameraSize',
@@ -172,6 +196,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'text',
             placeholder: '1920x1080',
             hint: '留空由 scrcpy 自动选择尺寸',
+            detail: [
+              '摄像头的采集分辨率，格式为「宽x高」；可选档位由摄像头自身决定，可用 scrcpy --list-camera-sizes 列出。',
+              '摄像头镜像需要 Android 12 及以上。',
+            ],
           },
           {
             key: 'cameraFps',
@@ -181,13 +209,29 @@ export const PARAM_GROUPS: ParamGroup[] = [
             max: 240,
             placeholder: '30',
             hint: '留空用 Android 默认的 30 fps',
+            detail: [
+              '摄像头的采集帧率，可选档位同样取决于摄像头。',
+              '摄像头镜像需要 Android 12 及以上。',
+            ],
           },
-          { key: 'cameraZoom', label: '--camera-zoom', type: 'number', min: 0.1, max: 10, step: 0.1 },
+          {
+            key: 'cameraZoom',
+            label: '--camera-zoom',
+            type: 'number',
+            min: 0.1,
+            max: 10,
+            step: 0.1,
+            detail: [
+              '摄像头的初始缩放倍数，1 表示不缩放。',
+              '可调范围由摄像头自身决定，填超出范围的倍数会由 scrcpy 报错。',
+            ],
+          },
           {
             key: 'cameraTorch',
             label: '--camera-torch',
             type: 'toggle',
             hint: '启动时点亮',
+            detail: ['启动时点亮摄像头的闪光灯（手电筒）。', '只在摄像头源下有效。'],
           },
         ],
       },
@@ -215,6 +259,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'vp8', value: 'vp8' },
               { label: 'vp9', value: 'vp9' },
             ],
+            detail: [
+              '选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。',
+              '选「自动」时按 scrcpy 自身的默认决定。',
+            ],
           },
           {
             key: 'maxSize',
@@ -226,6 +274,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             unit: 'px',
             // 最左端即「自动」（= 不限制），不再另写一行提示。
             autoZero: '自动',
+            detail: [
+              '限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。',
+              '摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。',
+            ],
           },
           {
             key: 'bitrate',
@@ -237,6 +289,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             unit: 'Mbps',
             // 最左端即「自动」= 不传 `-b`，码率由 scrcpy 自身默认决定；出厂默认即「自动」。
             autoZero: '自动',
+            detail: [
+              '视频编码的比特率，scrcpy 默认 8 Mbps。',
+              '越高画面越清晰，占用的带宽与解码资源也越多。',
+            ],
           },
           {
             key: 'maxFps',
@@ -246,6 +302,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             max: 240,
             step: 1,
             autoZero: '不限制',
+            detail: [
+              '限制采集帧率，Android 10 起获得官方支持。',
+              '实际帧率随画面变化：静止画面不会跑满上限。',
+            ],
           },
           // 以下两项后置：新增参数排在既有字段之后，不打断原有阅读顺序。
           {
@@ -289,12 +349,21 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--crop W:H:X:Y',
             type: 'text',
             placeholder: '1224:1440:0:0',
+            detail: [
+              '在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。',
+              '坐标以设备自然方向为基准（手机竖放、平板横放）。',
+              'Flex Display 下不生效。',
+            ],
           },
           {
             key: 'angle',
             label: '--angle',
             type: 'segmented',
             options: SEG_ANGLE,
+            detail: [
+              '按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。',
+              '只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。',
+            ],
           },
           {
             key: 'renderFit',
@@ -305,6 +374,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'stretched', value: 'stretched' },
               { label: 'unscaled', value: 'unscaled' },
             ],
+            detail: [
+              '控制画面在窗口里的适配方式。',
+              'letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。',
+            ],
           },
           {
             key: 'videoBuffer',
@@ -313,6 +386,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 60000,
             hint: '单位：毫秒',
+            detail: [
+              '在显示前增加一段缓冲，用来吸收网络抖动。',
+              '它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。',
+            ],
           },
         ],
       },
@@ -332,6 +409,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'toggle',
             // 开关语义是「禁用音频转发」：开 ⇒ 下发 `--no-audio`；出厂即开（见 `defaults.ts`）。
             hint: '禁用音频转发',
+            detail: [
+              '开关打开时不转发设备音频：画面照常镜像，声音仍从手机发出。',
+              '关掉开关才启用音频转发；音频转发需要 Android 11 及以上。',
+            ],
           },
           {
             key: 'audioSource',
@@ -347,6 +428,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'voice-call', value: 'voice-call' },
               { label: 'voice-performance', value: 'voice-performance' },
             ],
+            detail: [
+              '选择音频采集来源，只在音频转发开启时才有意义。',
+              'output 转发整机音频输出并让设备端静音；playback 只采集应用的播放声音（应用可主动退出采集）；mic 系列采集麦克风 —— mic-unprocessed 取原始信号、mic-camcorder 按录像场景调优、mic-voice-communication 启用回声消除与自动增益；voice-call 与 voice-performance 分别对应通话与演出场景。',
+              '设备实际支持的来源随厂商实现而异。',
+            ],
           },
           {
             key: 'audioCodec',
@@ -358,12 +444,19 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'flac', value: 'flac' },
               { label: 'raw', value: 'raw' },
             ],
+            detail: [
+              '选择音频编码格式：opus 为 scrcpy 默认，aac 兼容性好，flac 无损但体积大，raw 不压缩、体积最大。',
+            ],
           },
           {
             key: 'audioDup',
             label: '--audio-dup',
             type: 'toggle',
             hint: '边播边录',
+            detail: [
+              '转发音频的同时让设备继续外放，而不是转发后设备静音。',
+              '只在音频源为 playback 时可用。',
+            ],
           },
           // 后置：新增参数排在既有字段之后。
           {
@@ -392,6 +485,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             unit: 'Kbps',
             // 最左端即「自动」= 不传该 flag，码率由 scrcpy 自身默认决定；出厂默认即「自动」。
             autoZero: '自动',
+            detail: [
+              '音频编码的比特率，scrcpy 默认 128 Kbps。',
+              '只影响转发到电脑的音频，不影响设备自身的播放。',
+            ],
           },
           {
             key: 'audioBuffer',
@@ -400,6 +497,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 10000,
             hint: '单位：毫秒',
+            detail: [
+              '音频缓冲的时长，用来吸收网络抖动。',
+              '调小会降低延迟，但更容易出现欠载、听感上是断音或爆音。',
+            ],
           },
           {
             key: 'audioOutBuffer',
@@ -408,6 +509,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 10000,
             hint: '单位：毫秒',
+            detail: [
+              '电脑端音频输出缓冲的大小，scrcpy 默认 10 毫秒。',
+              '除非确有需要不要改动：改小更容易出现播放断续。',
+            ],
           },
         ],
       },
@@ -426,6 +531,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--no-control',
             type: 'toggle',
             hint: '禁用设备控制',
+            detail: [
+              '只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。',
+              'Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。',
+            ],
           },
           {
             key: 'keyboard',
@@ -436,6 +545,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'sdk', value: 'sdk' },
               { label: 'aoa', value: 'aoa' },
               { label: 'disabled', value: 'disabled' },
+            ],
+            detail: [
+              '选择键盘事件的注入方式。',
+              'disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。',
+              'uhid 与 aoa 需要先在设备的「设置 → 系统 → 语言和输入法 → 物理键盘」里配好键盘布局。',
             ],
           },
           {
@@ -448,6 +562,11 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'aoa', value: 'aoa' },
               { label: 'disabled', value: 'disabled' },
             ],
+            detail: [
+              '选择鼠标事件的注入方式。',
+              'disabled 不向设备发送鼠标事件；sdk 通过 Android 系统接口投递；uhid 模拟物理 HID 鼠标；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。',
+              'uhid 与 aoa 会捕获电脑鼠标（相对移动模式），按 LAlt、LSuper 或 RSuper 可把鼠标交还给电脑。',
+            ],
           },
           {
             key: 'gamepad',
@@ -457,6 +576,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'uhid', value: 'uhid' },
               { label: 'aoa', value: 'aoa' },
               { label: 'disabled', value: 'disabled' },
+            ],
+            detail: [
+              '选择手柄的注入方式。',
+              'disabled 不向设备发送手柄事件；uhid 把电脑手柄模拟成设备上的物理手柄；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。',
             ],
           },
           {
@@ -471,6 +594,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'ralt', value: 'ralt' },
               { label: 'rsuper', value: 'rsuper' },
             ],
+            detail: [
+              '指定 scrcpy 快捷键的修饰键，默认是左 Alt 或左 Super。',
+              '可同时选择多个，任一命中即触发；改动后所有快捷键的组合随之变化。',
+            ],
           },
           // 后置：新增参数排在既有字段之后。
           {
@@ -478,6 +605,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--no-key-repeat',
             type: 'toggle',
             hint: '按住按键时不转发重复事件',
+            detail: [
+              '按住按键时不向设备转发重复事件。',
+              '适合长按交给设备端自身连发的场景（如长按方向键连续翻页）。',
+            ],
           },
         ],
       },
@@ -489,6 +620,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--show-touches',
             type: 'toggle',
             hint: '演示可见点击',
+            detail: [
+              '启动时打开设备的「显示点按操作反馈」，退出时恢复原值。',
+              '只显示设备上的物理触摸，scrcpy 自己的鼠标点击不会显示。',
+            ],
           },
           {
             key: 'turnScreenOff',
@@ -498,31 +633,47 @@ export const PARAM_GROUPS: ParamGroup[] = [
             // 说明分两层（config ④）：常驻只留「熄灭手机屏」，互斥条件收进 `?` 详情。
             // 本定义是**唯一**的说明出口（参数页与设备覆盖面板共用同一份文字），拼装层同时把它剔除。
             hint: '镜像时熄灭手机屏',
-            detail: ['视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。'],
+            detail: [
+              '启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。',
+              '视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。',
+            ],
           },
           {
             key: 'stayAwake',
             label: '--stay-awake',
             type: 'toggle',
             hint: '充电时保持亮屏',
+            detail: [
+              '设备处于充电状态时保持屏幕常亮，退出镜像时恢复原值。',
+              '不充电时不生效。',
+            ],
           },
           {
             key: 'keepActive',
             label: '--keep-active',
             type: 'toggle',
             hint: '模拟活动防息屏',
+            detail: [
+              '通过模拟用户活动保持屏幕常亮，不依赖充电状态。',
+              '与「充电时保持亮屏」的区别：这一项看的是有没有输入，而不是有没有插电。',
+            ],
           },
           {
             key: 'powerOffOnClose',
             label: '--power-off-on-close',
             type: 'toggle',
             hint: '退出即熄屏',
+            detail: ['退出镜像时关闭设备屏幕，等价于按一次电源键。'],
           },
           {
             key: 'clipboard',
             label: '--no-clipboard-autosync',
             type: 'toggle',
             hint: '双向同步（关闭时）',
+            detail: [
+              '开启时剪贴板双向自动同步：向设备注入 Ctrl+V 之前先把电脑剪贴板推过去，设备剪贴板变化时同步回电脑。',
+              '关闭后不再自动同步，两侧剪贴板互不影响。',
+            ],
           },
           // 后置：新增参数排在既有字段之后。
           {
@@ -551,12 +702,20 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--record',
             type: 'toggle',
             hint: '保存到文件',
+            detail: [
+              '把镜像过程中的画面与声音录到文件，路径、格式与方向在下方设置。',
+              '不勾选「后台录制」时窗口照常显示，录制与显示互不排斥。',
+            ],
           },
           {
             key: 'recordPath',
             label: '文件路径',
             type: 'text',
             placeholder: 'D:/Recordings/session.mp4',
+            detail: [
+              '录制文件的保存路径，仅在启用录制时生效。',
+              '扩展名决定容器格式（如 .mp4 / .mkv），与「格式」不一致时会得到名不副实的文件。',
+            ],
           },
           {
             key: 'recordFormat',
@@ -572,12 +731,20 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'flac', value: 'flac' },
               { label: 'wav', value: 'wav' },
             ],
+            detail: [
+              '强制录制文件的容器格式，仅在启用录制时生效。',
+              '默认 mp4；与文件扩展名不一致时，文件内容与后缀会对不上。',
+            ],
           },
           {
             key: 'recordOrientation',
             label: '--record-orientation',
             type: 'segmented',
             options: SEG_ANGLE,
+            detail: [
+              '只影响录制文件的方向，不改变镜像画面。',
+              '90 与 270 会交换输出文件的宽高。',
+            ],
           },
         ],
       },
@@ -589,6 +756,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--no-window',
             type: 'toggle',
             hint: '后台录制',
+            detail: [
+              '不打开 scrcpy 窗口，只在后台运行；控制仍可用，但看不到画面。',
+              '没有同时开启录制时，这个会话将在完全看不到输出的情况下运行。',
+            ],
           },
           {
             key: 'timeLimit',
@@ -597,6 +768,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             autoZero: '不限时',
             hint: '单位：秒；0 / 留空 = 不限时',
+            detail: ['到时限后自动结束会话，常用在按固定时长录制时。'],
           },
           {
             key: 'pauseOnExit',
@@ -606,6 +778,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
               { label: 'false', value: 'false' },
               { label: 'true', value: 'true' },
               { label: 'if-error', value: 'if-error' },
+            ],
+            detail: [
+              '会话结束后暂停等待，而不是立即退出；选 if-error 时只在出错后暂停。',
+              '它的原意是让命令行窗口停住，以便读报错；本应用会把 scrcpy 的输出收进会话日志，因此通常用不到。',
             ],
           },
         ],
@@ -625,32 +801,51 @@ export const PARAM_GROUPS: ParamGroup[] = [
             label: '--window-title',
             type: 'text',
             hint: '留空 = 标题用设备名',
+            detail: ['自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。'],
           },
           {
             key: 'borderless',
             label: '--window-borderless',
             type: 'toggle',
             hint: '隐藏装饰',
+            detail: [
+              '去掉窗口边框与标题栏，画面铺满整个窗口。',
+              '没有标题栏后可拖动的区域消失，位置与大小需借助快捷键或启动参数调整。',
+            ],
           },
           {
             key: 'fullscreen',
             label: '--fullscreen',
             type: 'toggle',
             hint: '启动即全屏',
+            detail: ['启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。'],
           },
           {
             key: 'alwaysOnTop',
             label: '--always-on-top',
             type: 'toggle',
             hint: '最前显示',
+            detail: ['窗口始终压在其他窗口之上，适合边看手机边操作电脑。'],
           },
           {
             key: 'aspectLock',
             label: '--no-window-aspect-ratio-lock',
             type: 'toggle',
             hint: '保持比例（关闭时）',
+            detail: [
+              'scrcpy 默认锁定窗口宽高比；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。',
+              '只在使用 scrcpy 自带窗口时生效。',
+            ],
           },
-          { key: 'bgColor', label: '--background-color', type: 'text' },
+          {
+            key: 'bgColor',
+            label: '--background-color',
+            type: 'text',
+            detail: [
+              '窗口留边区域（letterbox 黑边）的颜色，取值形如 #RGB 或 #RRGGBB。',
+              'scrcpy 默认为 #222（深灰）。',
+            ],
+          },
         ],
       },
       {
@@ -663,6 +858,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 16384,
             hint: '0 / 留空 = 由 scrcpy 决定窗口大小',
+            detail: [
+              'scrcpy 窗口的初始宽度（像素）。',
+              'Flex Display 下窗口尺寸由 --new-display 决定，这一项不参与拼装。',
+            ],
           },
           {
             key: 'windowHeight',
@@ -671,6 +870,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 16384,
             hint: '0 / 留空 = 由 scrcpy 决定窗口大小',
+            detail: [
+              'scrcpy 窗口的初始高度（像素）。',
+              'Flex Display 下窗口尺寸由 --new-display 决定，这一项不参与拼装。',
+            ],
           },
           {
             key: 'windowX',
@@ -679,6 +882,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 32767,
             hint: '0 / 留空 = 由 scrcpy 自动决定',
+            detail: [
+              'scrcpy 窗口初始位置的横坐标（屏幕像素）。',
+              '填了它（或 Y）的设备不再参与窗口自动排列，窗口落在指定位置。',
+            ],
           },
           {
             key: 'windowY',
@@ -687,6 +894,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             min: 0,
             max: 32767,
             hint: '0 / 留空 = 由 scrcpy 自动决定',
+            detail: [
+              'scrcpy 窗口初始位置的纵坐标（屏幕像素）。',
+              '填了它（或 X）的设备不再参与窗口自动排列，窗口落在指定位置。',
+            ],
           },
         ],
       },
@@ -710,6 +921,10 @@ export const PARAM_GROUPS: ParamGroup[] = [
             type: 'text',
             placeholder: 'org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox',
             hint: '支持 ? 模糊匹配 / + 强制停止',
+            detail: [
+              '连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。',
+              '按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。',
+            ],
           },
         ],
       },
@@ -738,7 +953,12 @@ export const CUSTOM_ARGS_CARD: ParamCard = {
       label: '额外参数',
       type: 'textarea',
       placeholder: '--keyboard=uhid --video-codec=h265',
-      hint: '任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备',
+      hint: '对所有设备生效，直接追加到命令末尾',
+      detail: [
+        '把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。',
+        '它不属于设备覆盖：无论该设备是否启用覆盖，都会带上这段参数。',
+        '引号必须成对，否则校验会拦下并给出提示。',
+      ],
     },
   ],
 };
@@ -758,13 +978,27 @@ export const RUN_LOG_CARD: ParamCard = {
         { label: 'warn', value: 'warn' },
         { label: 'error', value: 'error' },
       ],
+      detail: [
+        '设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。',
+        '发布版 scrcpy 默认 info；调到 debug 或 verbose 会显著放大日志量。',
+      ],
     },
-    { key: 'printFps', label: '--print-fps', type: 'toggle', hint: '控制台打印帧率' },
+    {
+      key: 'printFps',
+      label: '--print-fps',
+      type: 'toggle',
+      hint: '控制台打印帧率',
+      detail: ['在日志里持续打印实际帧率，用来判断画面是否掉帧。'],
+    },
     {
       key: 'cleanup',
       label: '--no-cleanup',
       type: 'toggle',
       hint: '退出时还原设备状态（关闭时）',
+      detail: [
+        'scrcpy 退出时会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。',
+        '打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。',
+      ],
     },
   ],
 };
@@ -779,12 +1013,21 @@ export const NETWORK_CARD: ParamCard = {
       type: 'text',
       placeholder: '27183:27199',
       hint: '端口或「起始:结束」的端口范围',
+      detail: [
+        'scrcpy 客户端监听并接收视频流的 TCP 端口，scrcpy 默认 27183:27199。',
+        '同时连多台设备时会在范围内依次取用。',
+      ],
     },
     {
       key: 'tunnelHost',
       label: '--tunnel-host',
       type: 'text',
       placeholder: 'localhost',
+      detail: [
+        '指定 adb 隧道要连到的目标主机，默认 localhost。',
+        '指定它之后 scrcpy 会自动改用 --force-adb-forward（不再尝试 adb reverse）。',
+        '只有当设备端能访问另一台主机时才需要改。',
+      ],
     },
   ],
 };

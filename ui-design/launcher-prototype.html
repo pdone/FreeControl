@@ -871,11 +871,17 @@
         <div class="grid">
           <div class="card">
             <h3>视频源</h3>
-            <div class="field"><label>--video-source</label>
+            <div class="field"><span class="flabel">--video-source<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--video-source的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--video-source</span><span class="fhelp-p">镜像手机屏幕，或改为采集设备摄像头的画面。</span><span class="fhelp-p">摄像头镜像需要 Android 12 及以上；摄像头源下画面不来自设备屏幕，--display-id、--new-display 与 --turn-screen-off 等参数不参与拼装。</span></span>
+            </span></span>
               <div class="seg" data-g="source" data-k="videoSource" data-t="seg"><button class="active" data-v="display">主屏幕</button><button data-v="camera">摄像头</button></div></div>
-            <div class="field" id="displayModeField"><label>显示模式</label>
+            <div class="field" id="displayModeField"><span class="flabel">显示模式<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="显示模式的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">显示模式</span><span class="fhelp-p">主屏镜像设备当前的显示；虚拟显示器在设备上新开一块独立显示；Flex Display 让虚拟屏随窗口连续缩放。</span><span class="fhelp-p">Flex Display 下 --crop、--window-width、--window-height 与 --no-control 不参与拼装（scrcpy 判定它们与 --flex-display 不兼容）。</span></span>
+            </span></span>
               <div class="seg" data-g="source" data-k="displayMode" data-t="seg"><button class="active" data-v="main">主屏</button><button data-v="new">虚拟显示器</button><button data-v="flex">Flex Display</button></div>
-              <div class="hint">虚拟显示器可指定分辨率与 DPI；Flex Display 让虚拟屏随窗口缩放，尺寸也在此指定（此时 --crop 与窗口宽高不生效）</div></div>
+              <div class="hint">两档虚拟屏的分辨率都在下方指定</div></div>
             <div class="field" id="displayIdField"><span class="flabel">显示 id（--display-id）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="显示 id（--display-id）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">显示 id（--display-id）</span><span class="fhelp-p">镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。</span><span class="fhelp-p">非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。</span></span>
@@ -885,24 +891,48 @@
           </div>
           <div class="card" id="newDispCard">
             <h3>虚拟显示器</h3>
-            <div class="field"><label>分辨率（--new-display）</label><input type="text" data-g="source" data-k="newDisplayRes" data-t="text" value="" placeholder="1920x1080" />
+            <div class="field"><span class="flabel">分辨率（--new-display）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="分辨率（--new-display）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">分辨率（--new-display）</span><span class="fhelp-p">虚拟显示器的分辨率，格式为「宽x高」。</span><span class="fhelp-p">它与下方的密度一起拼成 --new-display=宽x高/密度：只填密度时分辨率沿用主屏尺寸。</span></span>
+            </span></span><input type="text" data-g="source" data-k="newDisplayRes" data-t="text" value="" placeholder="1920x1080" />
               <div class="hint">留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160</div></div>
-            <div class="field"><label>密度 DPI</label><input type="number" data-g="source" data-k="newDisplayDpi" data-t="number" value="" />
+            <div class="field"><span class="flabel">密度 DPI<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="密度 DPI的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">密度 DPI</span><span class="fhelp-p">虚拟显示器的像素密度，与分辨率一起决定新屏上界面元素的大小。</span><span class="fhelp-p">同一分辨率下密度越大，界面元素越大、可容纳的内容越少。</span></span>
+            </span></span><input type="number" data-g="source" data-k="newDisplayDpi" data-t="number" value="" />
               <div class="hint">留空用上面的默认密度</div></div>
-            <div class="field"><label>关闭时保留内容（--no-vd-destroy-content）</label>
+            <div class="field"><span class="flabel">关闭时保留内容（--no-vd-destroy-content）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="关闭时保留内容（--no-vd-destroy-content）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭时保留内容（--no-vd-destroy-content）</span><span class="fhelp-p">关闭虚拟显示器时，把其中运行的应用移到主屏，而不是随虚拟屏一起销毁。</span><span class="fhelp-p">只在虚拟显示器与 Flex Display 下有意义。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">移到主屏而非销毁</span><label class="switch"><input type="checkbox" data-g="source" data-k="noVdDestroy" data-t="bool" checked /><span class="slider"></span></label></div></div>
           </div>
           <div class="card col2 hidden" id="cameraCard">
             <h3>摄像头</h3>
             <div class="grid">
-              <div class="field"><label>摄像头朝向（--camera-facing）</label><select data-g="source" data-k="cameraFacing" data-t="select"><option value="">自动</option><option>front</option><option>back</option><option>external</option></select>
+              <div class="field"><span class="flabel">摄像头朝向（--camera-facing）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="摄像头朝向（--camera-facing）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">摄像头朝向（--camera-facing）</span><span class="fhelp-p">按朝向选择设备摄像头：front 前置、back 后置、external 外接。</span><span class="fhelp-p">不选则由 scrcpy 使用检测到的第一个摄像头。</span></span>
+            </span></span><select data-g="source" data-k="cameraFacing" data-t="select"><option value="">自动</option><option>front</option><option>back</option><option>external</option></select>
                 </div>
-              <div class="field"><label>尺寸（--camera-size）</label><input type="text" data-g="source" data-k="cameraSize" data-t="text" value="" placeholder="1920x1080" />
+              <div class="field"><span class="flabel">尺寸（--camera-size）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="尺寸（--camera-size）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">尺寸（--camera-size）</span><span class="fhelp-p">摄像头的采集分辨率，格式为「宽x高」；可选档位由摄像头自身决定，可用 scrcpy --list-camera-sizes 列出。</span><span class="fhelp-p">摄像头镜像需要 Android 12 及以上。</span></span>
+            </span></span><input type="text" data-g="source" data-k="cameraSize" data-t="text" value="" placeholder="1920x1080" />
                 <div class="hint">留空由 scrcpy 自动选择尺寸</div></div>
-              <div class="field"><label>帧率（--camera-fps）</label><input type="number" data-g="source" data-k="cameraFps" data-t="number" value="" placeholder="30" />
+              <div class="field"><span class="flabel">帧率（--camera-fps）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="帧率（--camera-fps）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">帧率（--camera-fps）</span><span class="fhelp-p">摄像头的采集帧率，可选档位同样取决于摄像头。</span><span class="fhelp-p">摄像头镜像需要 Android 12 及以上。</span></span>
+            </span></span><input type="number" data-g="source" data-k="cameraFps" data-t="number" value="" placeholder="30" />
                 <div class="hint">留空用 Android 默认的 30 fps</div></div>
-              <div class="field"><label>初始缩放（--camera-zoom）</label><input type="number" data-g="source" data-k="cameraZoom" data-t="number" value="1" /></div>
-              <div class="field"><label>开启闪光灯（--camera-torch）</label>
+              <div class="field"><span class="flabel">初始缩放（--camera-zoom）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="初始缩放（--camera-zoom）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">初始缩放（--camera-zoom）</span><span class="fhelp-p">摄像头的初始缩放倍数，1 表示不缩放。</span><span class="fhelp-p">可调范围由摄像头自身决定，填超出范围的倍数会由 scrcpy 报错。</span></span>
+            </span></span><input type="number" data-g="source" data-k="cameraZoom" data-t="number" value="1" /></div>
+              <div class="field"><span class="flabel">开启闪光灯（--camera-torch）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="开启闪光灯（--camera-torch）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">开启闪光灯（--camera-torch）</span><span class="fhelp-p">启动时点亮摄像头的闪光灯（手电筒）。</span><span class="fhelp-p">只在摄像头源下有效。</span></span>
+            </span></span>
                 <div class="toggle"><span class="t-label">启动时点亮</span><label class="switch"><input type="checkbox" data-g="source" data-k="cameraTorch" data-t="bool" /><span class="slider"></span></label></div></div>
               <div class="field"><label>列出摄像头</label><button class="btn ghost">--list-cameras</button></div>
             </div>
@@ -916,12 +946,24 @@
         <div class="grid">
           <div class="card">
             <h3>编码与画质</h3>
-            <div class="field"><label>视频编码（--video-codec）</label><select data-g="video" data-k="videoCodec" data-t="select"><option value="" selected>自动</option><option>h264</option><option>h265</option><option>av1</option><option>vp8</option><option>vp9</option></select></div>
-            <div class="field"><label>长边分辨率（--max-size）</label>
+            <div class="field"><span class="flabel">视频编码（--video-codec）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="视频编码（--video-codec）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">视频编码（--video-codec）</span><span class="fhelp-p">选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。</span><span class="fhelp-p">选「自动」时按 scrcpy 自身的默认决定。</span></span>
+            </span></span><select data-g="video" data-k="videoCodec" data-t="select"><option value="" selected>自动</option><option>h264</option><option>h265</option><option>av1</option><option>vp8</option><option>vp9</option></select></div>
+            <div class="field"><span class="flabel">长边分辨率（--max-size）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="长边分辨率（--max-size）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">长边分辨率（--max-size）</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
+            </span></span>
               <div class="range-row"><input type="range" min="0" max="2560" step="64" value="0" data-g="video" data-k="maxSize" data-t="range" id="vSize" /><span class="range-val" id="vSizeVal">自动</span></div></div>
-            <div class="field"><label>视频码率（--video-bit-rate）</label>
+            <div class="field"><span class="flabel">视频码率（--video-bit-rate）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="视频码率（--video-bit-rate）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">视频码率（--video-bit-rate）</span><span class="fhelp-p">视频编码的比特率，scrcpy 默认 8 Mbps。</span><span class="fhelp-p">越高画面越清晰，占用的带宽与解码资源也越多。</span></span>
+            </span></span>
               <div class="range-row"><input type="range" min="0" max="64" value="0" data-g="video" data-k="bitrate" data-t="range" id="vBitrate" /><span class="range-val" id="vBitrateVal">自动</span></div></div>
-            <div class="field"><label>最大帧率（--max-fps）</label>
+            <div class="field"><span class="flabel">最大帧率（--max-fps）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="最大帧率（--max-fps）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">最大帧率（--max-fps）</span><span class="fhelp-p">限制采集帧率，Android 10 起获得官方支持。</span><span class="fhelp-p">实际帧率随画面变化：静止画面不会跑满上限。</span></span>
+            </span></span>
               <div class="range-row"><input type="range" min="0" max="240" value="0" data-g="video" data-k="maxFps" data-t="range" id="vFps" /><span class="range-val" id="vFpsVal">不限制</span></div></div>
             <div class="field"><span class="flabel">视频编码器（--video-encoder）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="视频编码器（--video-encoder）的说明"><i data-lucide="circle-help"></i></button>
@@ -936,10 +978,22 @@
           </div>
           <div class="card">
             <h3>画面与适配</h3>
-            <div class="field"><label>裁剪（--crop W:H:X:Y）</label><input type="text" data-g="video" data-k="crop" data-t="text" placeholder="1224:1440:0:0" /></div>
-            <div class="field"><label>旋转角度（--angle）</label><div class="seg" data-g="video" data-k="angle" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
-            <div class="field"><label>渲染适配（--render-fit）</label><select data-g="video" data-k="renderFit" data-t="select"><option>letterbox</option><option>stretched</option><option>unscaled</option></select></div>
-            <div class="field"><label>视频缓冲（--video-buffer）</label><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /><div class="hint">单位：毫秒</div></div>
+            <div class="field"><span class="flabel">裁剪（--crop W:H:X:Y）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="裁剪（--crop W:H:X:Y）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">裁剪（--crop W:H:X:Y）</span><span class="fhelp-p">在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。</span><span class="fhelp-p">坐标以设备自然方向为基准（手机竖放、平板横放）。</span><span class="fhelp-p">Flex Display 下不生效。</span></span>
+            </span></span><input type="text" data-g="video" data-k="crop" data-t="text" placeholder="1224:1440:0:0" /></div>
+            <div class="field"><span class="flabel">旋转角度（--angle）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="旋转角度（--angle）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">旋转角度（--angle）</span><span class="fhelp-p">按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。</span><span class="fhelp-p">只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。</span></span>
+            </span></span><div class="seg" data-g="video" data-k="angle" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
+            <div class="field"><span class="flabel">渲染适配（--render-fit）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="渲染适配（--render-fit）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">渲染适配（--render-fit）</span><span class="fhelp-p">控制画面在窗口里的适配方式。</span><span class="fhelp-p">letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。</span></span>
+            </span></span><select data-g="video" data-k="renderFit" data-t="select"><option>letterbox</option><option>stretched</option><option>unscaled</option></select></div>
+            <div class="field"><span class="flabel">视频缓冲（--video-buffer）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="视频缓冲（--video-buffer）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">视频缓冲（--video-buffer）</span><span class="fhelp-p">在显示前增加一段缓冲，用来吸收网络抖动。</span><span class="fhelp-p">它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。</span></span>
+            </span></span><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /><div class="hint">单位：毫秒</div></div>
           </div>
         </div>
       </section>
@@ -950,11 +1004,23 @@
         <div class="grid">
           <div class="card">
             <h3>音频转发</h3>
-            <div class="field"><label>禁用音频转发（--no-audio 开启）</label>
+            <div class="field"><span class="flabel">禁用音频转发（--no-audio 开启）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="禁用音频转发（--no-audio 开启）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">禁用音频转发（--no-audio 开启）</span><span class="fhelp-p">开关打开时不转发设备音频：画面照常镜像，声音仍从手机发出。</span><span class="fhelp-p">关掉开关才启用音频转发；音频转发需要 Android 11 及以上。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">禁用音频转发</span><label class="switch"><input type="checkbox" data-g="audio" data-k="audioOff" data-t="bool" id="aOn" checked /><span class="slider"></span></label></div></div>
-            <div class="field"><label>音频源（--audio-source）</label><select data-g="audio" data-k="audioSource" data-t="select" id="aSource"><option>output</option><option>playback</option><option>mic</option><option>mic-unprocessed</option><option>mic-camcorder</option><option>mic-voice-communication</option><option>voice-call</option><option>voice-performance</option></select></div>
-            <div class="field"><label>音频编码（--audio-codec）</label><select data-g="audio" data-k="audioCodec" data-t="select"><option>opus</option><option>aac</option><option>flac</option><option>raw</option></select></div>
-            <div class="field"><label>复制音频（--audio-dup，设备同时播放）</label>
+            <div class="field"><span class="flabel">音频源（--audio-source）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="音频源（--audio-source）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">音频源（--audio-source）</span><span class="fhelp-p">选择音频采集来源，只在音频转发开启时才有意义。</span><span class="fhelp-p">output 转发整机音频输出并让设备端静音；playback 只采集应用的播放声音（应用可主动退出采集）；mic 系列采集麦克风 —— mic-unprocessed 取原始信号、mic-camcorder 按录像场景调优、mic-voice-communication 启用回声消除与自动增益；voice-call 与 voice-performance 分别对应通话与演出场景。</span><span class="fhelp-p">设备实际支持的来源随厂商实现而异。</span></span>
+            </span></span><select data-g="audio" data-k="audioSource" data-t="select" id="aSource"><option>output</option><option>playback</option><option>mic</option><option>mic-unprocessed</option><option>mic-camcorder</option><option>mic-voice-communication</option><option>voice-call</option><option>voice-performance</option></select></div>
+            <div class="field"><span class="flabel">音频编码（--audio-codec）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="音频编码（--audio-codec）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">音频编码（--audio-codec）</span><span class="fhelp-p">选择音频编码格式：opus 为 scrcpy 默认，aac 兼容性好，flac 无损但体积大，raw 不压缩、体积最大。</span></span>
+            </span></span><select data-g="audio" data-k="audioCodec" data-t="select"><option>opus</option><option>aac</option><option>flac</option><option>raw</option></select></div>
+            <div class="field"><span class="flabel">复制音频（--audio-dup，设备同时播放）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="复制音频（--audio-dup，设备同时播放）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">复制音频（--audio-dup，设备同时播放）</span><span class="fhelp-p">转发音频的同时让设备继续外放，而不是转发后设备静音。</span><span class="fhelp-p">只在音频源为 playback 时可用。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">边播边录</span><label class="switch"><input type="checkbox" data-g="audio" data-k="audioDup" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">音频编码器（--audio-encoder）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="音频编码器（--audio-encoder）的说明"><i data-lucide="circle-help"></i></button>
@@ -964,10 +1030,19 @@
           </div>
           <div class="card">
             <h3>码率与缓冲</h3>
-            <div class="field"><label>音频码率（--audio-bit-rate）</label>
+            <div class="field"><span class="flabel">音频码率（--audio-bit-rate）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="音频码率（--audio-bit-rate）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">音频码率（--audio-bit-rate）</span><span class="fhelp-p">音频编码的比特率，scrcpy 默认 128 Kbps。</span><span class="fhelp-p">只影响转发到电脑的音频，不影响设备自身的播放。</span></span>
+            </span></span>
               <div class="range-row"><input type="range" min="0" max="512" step="32" value="0" data-g="audio" data-k="audioBitrate" data-t="range" id="aBitrate" /><span class="range-val" id="aBitrateVal">自动</span></div></div>
-            <div class="field"><label>采集缓冲（--audio-buffer）</label><input type="number" data-g="audio" data-k="audioBuffer" data-t="number" value="50" /><div class="hint">单位：毫秒</div></div>
-            <div class="field"><label>输出缓冲（--audio-output-buffer）</label><input type="number" data-g="audio" data-k="audioOutBuffer" data-t="number" value="10" /><div class="hint">单位：毫秒</div></div>
+            <div class="field"><span class="flabel">采集缓冲（--audio-buffer）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="采集缓冲（--audio-buffer）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">采集缓冲（--audio-buffer）</span><span class="fhelp-p">音频缓冲的时长，用来吸收网络抖动。</span><span class="fhelp-p">调小会降低延迟，但更容易出现欠载、听感上是断音或爆音。</span></span>
+            </span></span><input type="number" data-g="audio" data-k="audioBuffer" data-t="number" value="50" /><div class="hint">单位：毫秒</div></div>
+            <div class="field"><span class="flabel">输出缓冲（--audio-output-buffer）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="输出缓冲（--audio-output-buffer）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">输出缓冲（--audio-output-buffer）</span><span class="fhelp-p">电脑端音频输出缓冲的大小，scrcpy 默认 10 毫秒。</span><span class="fhelp-p">除非确有需要不要改动：改小更容易出现播放断续。</span></span>
+            </span></span><input type="number" data-g="audio" data-k="audioOutBuffer" data-t="number" value="10" /><div class="hint">单位：毫秒</div></div>
           </div>
         </div>
       </section>
@@ -978,32 +1053,65 @@
         <div class="grid">
           <div class="card">
             <h3>输入注入</h3>
-            <div class="field"><label>只读 / 仅查看（--no-control）</label>
+            <div class="field"><span class="flabel">只读 / 仅查看（--no-control）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="只读 / 仅查看（--no-control）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">只读 / 仅查看（--no-control）</span><span class="fhelp-p">只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。</span><span class="fhelp-p">Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">禁用设备控制</span><label class="switch"><input type="checkbox" data-g="control" data-k="noControl" data-t="bool" id="cReadonly" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>键盘（--keyboard）</label><select data-g="control" data-k="keyboard" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
-            <div class="field"><label>鼠标（--mouse）</label><select data-g="control" data-k="mouse" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
-            <div class="field"><label>游戏手柄（--gamepad）</label><select data-g="control" data-k="gamepad" data-t="select"><option>uhid</option><option>aoa</option><option>disabled</option></select></div>
-            <div class="field"><label>快捷键修饰键（--shortcut-mod）</label>
+            <div class="field"><span class="flabel">键盘（--keyboard）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="键盘（--keyboard）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">键盘（--keyboard）</span><span class="fhelp-p">选择键盘事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 需要先在设备的「设置 → 系统 → 语言和输入法 → 物理键盘」里配好键盘布局。</span></span>
+            </span></span><select data-g="control" data-k="keyboard" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><span class="flabel">鼠标（--mouse）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="鼠标（--mouse）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">鼠标（--mouse）</span><span class="fhelp-p">选择鼠标事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送鼠标事件；sdk 通过 Android 系统接口投递；uhid 模拟物理 HID 鼠标；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 会捕获电脑鼠标（相对移动模式），按 LAlt、LSuper 或 RSuper 可把鼠标交还给电脑。</span></span>
+            </span></span><select data-g="control" data-k="mouse" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><span class="flabel">游戏手柄（--gamepad）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="游戏手柄（--gamepad）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">游戏手柄（--gamepad）</span><span class="fhelp-p">选择手柄的注入方式。</span><span class="fhelp-p">disabled 不向设备发送手柄事件；uhid 把电脑手柄模拟成设备上的物理手柄；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span></span>
+            </span></span><select data-g="control" data-k="gamepad" data-t="select"><option>uhid</option><option>aoa</option><option>disabled</option></select></div>
+            <div class="field"><span class="flabel">快捷键修饰键（--shortcut-mod）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="快捷键修饰键（--shortcut-mod）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">快捷键修饰键（--shortcut-mod）</span><span class="fhelp-p">指定 scrcpy 快捷键的修饰键，默认是左 Alt 或左 Super。</span><span class="fhelp-p">可同时选择多个，任一命中即触发；改动后所有快捷键的组合随之变化。</span></span>
+            </span></span>
               <div class="chips" id="shortMod" data-g="control" data-k="shortMod" data-t="multichips"><span class="chip">lalt</span><span class="chip">lsuper</span><span class="chip">lctrl</span><span class="chip">rctrl</span><span class="chip">ralt</span><span class="chip">rsuper</span></div></div>
-            <div class="field"><label>不转发重复按键（--no-key-repeat）</label>
+            <div class="field"><span class="flabel">不转发重复按键（--no-key-repeat）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="不转发重复按键（--no-key-repeat）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">不转发重复按键（--no-key-repeat）</span><span class="fhelp-p">按住按键时不向设备转发重复事件。</span><span class="fhelp-p">适合长按交给设备端自身连发的场景（如长按方向键连续翻页）。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">按住按键时不转发重复事件</span><label class="switch"><input type="checkbox" data-g="control" data-k="noKeyRepeat" data-t="bool" /><span class="slider"></span></label></div></div>
           </div>
           <div class="card">
             <h3>屏幕与剪贴板</h3>
-            <div class="field"><label>显示触摸点（--show-touches）</label>
+            <div class="field"><span class="flabel">显示触摸点（--show-touches）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="显示触摸点（--show-touches）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">显示触摸点（--show-touches）</span><span class="fhelp-p">启动时打开设备的「显示点按操作反馈」，退出时恢复原值。</span><span class="fhelp-p">只显示设备上的物理触摸，scrcpy 自己的鼠标点击不会显示。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">演示可见点击</span><label class="switch"><input type="checkbox" data-g="control" data-k="showTouches" data-t="bool" id="cTouches" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">关闭屏幕（--turn-screen-off）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="关闭屏幕（--turn-screen-off）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">关闭屏幕（--turn-screen-off）</span><span class="fhelp-p">视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭屏幕（--turn-screen-off）</span><span class="fhelp-p">启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。</span><span class="fhelp-p">视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。</span></span>
             </span></span>
               <div class="toggle"><span class="t-label">镜像时熄灭手机屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="turnScreenOff" data-t="bool" id="cScreenOff" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>保持唤醒（--stay-awake）</label>
+            <div class="field"><span class="flabel">保持唤醒（--stay-awake）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="保持唤醒（--stay-awake）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">保持唤醒（--stay-awake）</span><span class="fhelp-p">设备处于充电状态时保持屏幕常亮，退出镜像时恢复原值。</span><span class="fhelp-p">不充电时不生效。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">充电时保持亮屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="stayAwake" data-t="bool" id="cAwake" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>保持活跃（--keep-active）</label>
+            <div class="field"><span class="flabel">保持活跃（--keep-active）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="保持活跃（--keep-active）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">保持活跃（--keep-active）</span><span class="fhelp-p">通过模拟用户活动保持屏幕常亮，不依赖充电状态。</span><span class="fhelp-p">与「充电时保持亮屏」的区别：这一项看的是有没有输入，而不是有没有插电。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">模拟活动防息屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="keepActive" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>关闭时锁屏（--power-off-on-close）</label>
+            <div class="field"><span class="flabel">关闭时锁屏（--power-off-on-close）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="关闭时锁屏（--power-off-on-close）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭时锁屏（--power-off-on-close）</span><span class="fhelp-p">退出镜像时关闭设备屏幕，等价于按一次电源键。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">退出即熄屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="powerOffOnClose" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>剪贴板自动同步（--no-clipboard-autosync）</label>
+            <div class="field"><span class="flabel">剪贴板自动同步（--no-clipboard-autosync）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="剪贴板自动同步（--no-clipboard-autosync）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">剪贴板自动同步（--no-clipboard-autosync）</span><span class="fhelp-p">开启时剪贴板双向自动同步：向设备注入 Ctrl+V 之前先把电脑剪贴板推过去，设备剪贴板变化时同步回电脑。</span><span class="fhelp-p">关闭后不再自动同步，两侧剪贴板互不影响。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">双向同步（关闭时）</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">息屏超时（--screen-off-timeout）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="息屏超时（--screen-off-timeout）的说明"><i data-lucide="circle-help"></i></button>
@@ -1020,18 +1128,39 @@
         <div class="grid">
           <div class="card">
             <h3>录制设置</h3>
-            <div class="field"><label>启用录制（--record）</label>
+            <div class="field"><span class="flabel">启用录制（--record）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="启用录制（--record）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">启用录制（--record）</span><span class="fhelp-p">把镜像过程中的画面与声音录到文件，路径、格式与方向在下方设置。</span><span class="fhelp-p">不勾选「后台录制」时窗口照常显示，录制与显示互不排斥。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">保存到文件</span><label class="switch"><input type="checkbox" data-g="record" data-k="recordOn" data-t="bool" id="rOn" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>文件路径</label><div class="row"><input type="text" data-g="record" data-k="recordPath" data-t="text" value="D:/Recordings/session.mp4" /><button class="btn ghost" style="flex:none">浏览</button></div></div>
-            <div class="field"><label>格式（--record-format）</label><select data-g="record" data-k="recordFormat" data-t="select"><option>mp4</option><option>mkv</option><option>m4a</option><option>mka</option><option>opus</option><option>aac</option><option>flac</option><option>wav</option></select></div>
-            <div class="field"><label>录制方向（--record-orientation）</label><div class="seg" data-g="record" data-k="recordOrientation" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
+            <div class="field"><span class="flabel">文件路径<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="文件路径的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">文件路径</span><span class="fhelp-p">录制文件的保存路径，仅在启用录制时生效。</span><span class="fhelp-p">扩展名决定容器格式（如 .mp4 / .mkv），与「格式」不一致时会得到名不副实的文件。</span></span>
+            </span></span><div class="row"><input type="text" data-g="record" data-k="recordPath" data-t="text" value="D:/Recordings/session.mp4" /><button class="btn ghost" style="flex:none">浏览</button></div></div>
+            <div class="field"><span class="flabel">格式（--record-format）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="格式（--record-format）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">格式（--record-format）</span><span class="fhelp-p">强制录制文件的容器格式，仅在启用录制时生效。</span><span class="fhelp-p">默认 mp4；与文件扩展名不一致时，文件内容与后缀会对不上。</span></span>
+            </span></span><select data-g="record" data-k="recordFormat" data-t="select"><option>mp4</option><option>mkv</option><option>m4a</option><option>mka</option><option>opus</option><option>aac</option><option>flac</option><option>wav</option></select></div>
+            <div class="field"><span class="flabel">录制方向（--record-orientation）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="录制方向（--record-orientation）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">录制方向（--record-orientation）</span><span class="fhelp-p">只影响录制文件的方向，不改变镜像画面。</span><span class="fhelp-p">90 与 270 会交换输出文件的宽高。</span></span>
+            </span></span><div class="seg" data-g="record" data-k="recordOrientation" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
           </div>
           <div class="card">
             <h3>无头与时限</h3>
-            <div class="field"><label>无窗口仅录制（--no-window）</label>
+            <div class="field"><span class="flabel">无窗口仅录制（--no-window）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="无窗口仅录制（--no-window）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">无窗口仅录制（--no-window）</span><span class="fhelp-p">不打开 scrcpy 窗口，只在后台运行；控制仍可用，但看不到画面。</span><span class="fhelp-p">没有同时开启录制时，这个会话将在完全看不到输出的情况下运行。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">后台录制</span><label class="switch"><input type="checkbox" data-g="record" data-k="noWindow" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>时间限制（--time-limit）</label><input type="number" data-g="record" data-k="timeLimit" data-t="number" value="0" /><div class="hint">单位：秒；0 / 留空 = 不限时</div></div>
-            <div class="field"><label>退出时暂停（--pause-on-exit）</label><select data-g="record" data-k="pauseOnExit" data-t="select"><option>false</option><option>true</option><option>if-error</option></select></div>
+            <div class="field"><span class="flabel">时间限制（--time-limit）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="时间限制（--time-limit）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">时间限制（--time-limit）</span><span class="fhelp-p">到时限后自动结束会话，常用在按固定时长录制时。</span></span>
+            </span></span><input type="number" data-g="record" data-k="timeLimit" data-t="number" value="0" /><div class="hint">单位：秒；0 / 留空 = 不限时</div></div>
+            <div class="field"><span class="flabel">退出时暂停（--pause-on-exit）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="退出时暂停（--pause-on-exit）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">退出时暂停（--pause-on-exit）</span><span class="fhelp-p">会话结束后暂停等待，而不是立即退出；选 if-error 时只在出错后暂停。</span><span class="fhelp-p">它的原意是让命令行窗口停住，以便读报错；本应用会把 scrcpy 的输出收进会话日志，因此通常用不到。</span></span>
+            </span></span><select data-g="record" data-k="pauseOnExit" data-t="select"><option>false</option><option>true</option><option>if-error</option></select></div>
           </div>
         </div>
       </section>
@@ -1042,26 +1171,56 @@
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
-            <div class="field"><label>窗口标题（--window-title）</label><input type="text" data-g="window" data-k="windowTitle" data-t="text" value="" /><div class="hint">留空 = 标题用设备名</div></div>
-            <div class="field"><label>无边框（--window-borderless）</label>
+            <div class="field"><span class="flabel">窗口标题（--window-title）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="窗口标题（--window-title）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">窗口标题（--window-title）</span><span class="fhelp-p">自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。</span></span>
+            </span></span><input type="text" data-g="window" data-k="windowTitle" data-t="text" value="" /><div class="hint">留空 = 标题用设备名</div></div>
+            <div class="field"><span class="flabel">无边框（--window-borderless）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="无边框（--window-borderless）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">无边框（--window-borderless）</span><span class="fhelp-p">去掉窗口边框与标题栏，画面铺满整个窗口。</span><span class="fhelp-p">没有标题栏后可拖动的区域消失，位置与大小需借助快捷键或启动参数调整。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">隐藏装饰</span><label class="switch"><input type="checkbox" data-g="window" data-k="borderless" data-t="bool" id="wBorderless" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>全屏（--fullscreen）</label>
+            <div class="field"><span class="flabel">全屏（--fullscreen）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="全屏（--fullscreen）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">全屏（--fullscreen）</span><span class="fhelp-p">启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-g="window" data-k="fullscreen" data-t="bool" id="wFull" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>置顶（--always-on-top）</label>
+            <div class="field"><span class="flabel">置顶（--always-on-top）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="置顶（--always-on-top）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">置顶（--always-on-top）</span><span class="fhelp-p">窗口始终压在其他窗口之上，适合边看手机边操作电脑。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">最前显示</span><label class="switch"><input type="checkbox" data-g="window" data-k="alwaysOnTop" data-t="bool" id="wTop" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>锁定宽高比（--no-window-aspect-ratio-lock）</label>
+            <div class="field"><span class="flabel">锁定宽高比（--no-window-aspect-ratio-lock）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="锁定宽高比（--no-window-aspect-ratio-lock）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">锁定宽高比（--no-window-aspect-ratio-lock）</span><span class="fhelp-p">scrcpy 默认锁定窗口宽高比；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。</span><span class="fhelp-p">只在使用 scrcpy 自带窗口时生效。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">保持比例（关闭时）</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLock" data-t="bool" checked /><span class="slider"></span></label></div></div>
-            <div class="field"><label>背景色（--background-color）</label><input type="text" data-g="window" data-k="bgColor" data-t="text" value="#222222" /></div>
+            <div class="field"><span class="flabel">背景色（--background-color）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="背景色（--background-color）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">背景色（--background-color）</span><span class="fhelp-p">窗口留边区域（letterbox 黑边）的颜色，取值形如 #RGB 或 #RRGGBB。</span><span class="fhelp-p">scrcpy 默认为 #222（深灰）。</span></span>
+            </span></span><input type="text" data-g="window" data-k="bgColor" data-t="text" value="#222222" /></div>
           </div>
           <div class="card">
             <h3>尺寸与位置</h3>
             <div class="row">
-              <div class="field"><label>宽度（--window-width）</label><input type="number" data-g="window" data-k="windowWidth" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
-              <div class="field"><label>高度（--window-height）</label><input type="number" data-g="window" data-k="windowHeight" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
+              <div class="field"><span class="flabel">宽度（--window-width）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="宽度（--window-width）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">宽度（--window-width）</span><span class="fhelp-p">scrcpy 窗口的初始宽度（像素）。</span><span class="fhelp-p">Flex Display 下窗口尺寸由 --new-display 决定，这一项不参与拼装。</span></span>
+            </span></span><input type="number" data-g="window" data-k="windowWidth" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
+              <div class="field"><span class="flabel">高度（--window-height）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="高度（--window-height）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">高度（--window-height）</span><span class="fhelp-p">scrcpy 窗口的初始高度（像素）。</span><span class="fhelp-p">Flex Display 下窗口尺寸由 --new-display 决定，这一项不参与拼装。</span></span>
+            </span></span><input type="number" data-g="window" data-k="windowHeight" data-t="number" value="0" /><div class="hint">0 / 留空 = 由 scrcpy 决定窗口大小</div></div>
             </div>
             <div class="row">
-              <div class="field"><label>X（--window-x）</label><input type="number" data-g="window" data-k="windowX" data-t="number" value="0" /></div>
-              <div class="field"><label>Y（--window-y）</label><input type="number" data-g="window" data-k="windowY" data-t="number" value="0" /></div>
+              <div class="field"><span class="flabel">X（--window-x）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="X（--window-x）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">X（--window-x）</span><span class="fhelp-p">scrcpy 窗口初始位置的横坐标（屏幕像素）。</span><span class="fhelp-p">填了它（或 Y）的设备不再参与窗口自动排列，窗口落在指定位置。</span></span>
+            </span></span><input type="number" data-g="window" data-k="windowX" data-t="number" value="0" /></div>
+              <div class="field"><span class="flabel">Y（--window-y）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="Y（--window-y）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">Y（--window-y）</span><span class="fhelp-p">scrcpy 窗口初始位置的纵坐标（屏幕像素）。</span><span class="fhelp-p">填了它（或 X）的设备不再参与窗口自动排列，窗口落在指定位置。</span></span>
+            </span></span><input type="number" data-g="window" data-k="windowY" data-t="number" value="0" /></div>
             </div>
             <div class="hint">0 / 留空 = 由 scrcpy 自动决定</div>
           </div>
@@ -1074,20 +1233,32 @@
         <div class="grid">
           <div class="card">
             <h3>启动应用</h3>
-            <div class="field"><label>包名（--start-app）</label>
+            <div class="field"><span class="flabel">包名（--start-app）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="包名（--start-app）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">包名（--start-app）</span><span class="fhelp-p">连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。</span><span class="fhelp-p">按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。</span></span>
+            </span></span>
               <div class="row"><input type="text" data-g="apps" data-k="startApp" data-t="text" placeholder="org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox" /><button class="btn ghost" style="flex:none">列出应用</button></div></div>
             <div class="hint">支持 ? 模糊匹配 / + 强制停止；例如 <code>--start-app=+?firefox</code>：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。</div>
           </div>
           <div class="card">
             <h3>网络</h3>
-            <div class="field"><label>客户端端口范围（--port）</label><input type="text" data-g="advanced" data-k="port" data-t="text" value="27183:27199" /></div>
-            <div class="field"><label>隧道主机（--tunnel-host）</label><input type="text" data-g="advanced" data-k="tunnelHost" data-t="text" value="localhost" /></div>
+            <div class="field"><span class="flabel">客户端端口范围（--port）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="客户端端口范围（--port）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">客户端端口范围（--port）</span><span class="fhelp-p">scrcpy 客户端监听并接收视频流的 TCP 端口，scrcpy 默认 27183:27199。</span><span class="fhelp-p">同时连多台设备时会在范围内依次取用。</span></span>
+            </span></span><input type="text" data-g="advanced" data-k="port" data-t="text" value="27183:27199" /></div>
+            <div class="field"><span class="flabel">隧道主机（--tunnel-host）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="隧道主机（--tunnel-host）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">隧道主机（--tunnel-host）</span><span class="fhelp-p">指定 adb 隧道要连到的目标主机，默认 localhost。</span><span class="fhelp-p">指定它之后 scrcpy 会自动改用 --force-adb-forward（不再尝试 adb reverse）。</span><span class="fhelp-p">只有当设备端能访问另一台主机时才需要改。</span></span>
+            </span></span><input type="text" data-g="advanced" data-k="tunnelHost" data-t="text" value="localhost" /></div>
           </div>
           <div class="card col2">
             <h3>自定义参数（直接透传给 scrcpy）</h3>
-            <div class="field"><label>额外参数</label>
+            <div class="field"><span class="flabel">额外参数<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="额外参数的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">它不属于设备覆盖：无论该设备是否启用覆盖，都会带上这段参数。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
+            </span></span>
               <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
-              <div class="hint">任何新版 scrcpy 的 flag 都可在此手动追加，UI 无需更新即可使用。会作用于所有未单独覆盖的设备</div></div>
+              <div class="hint">对所有设备生效，直接追加到命令末尾</div></div>
           </div>
         </div>
       </section>
@@ -1267,10 +1438,19 @@
                会话输出占位独占整行放在页面底部（高度不定，不顶开上方设置）。卡片与判定一律不动。 -->
           <div class="card">
             <h3>运行日志参数</h3>
-            <div class="field"><label>日志级别（--verbosity）</label><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
-            <div class="field"><label>显示 FPS 计数（--print-fps）</label>
+            <div class="field"><span class="flabel">日志级别（--verbosity）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="日志级别（--verbosity）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">日志级别（--verbosity）</span><span class="fhelp-p">设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。</span><span class="fhelp-p">发布版 scrcpy 默认 info；调到 debug 或 verbose 会显著放大日志量。</span></span>
+            </span></span><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
+            <div class="field"><span class="flabel">显示 FPS 计数（--print-fps）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="显示 FPS 计数（--print-fps）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">显示 FPS 计数（--print-fps）</span><span class="fhelp-p">在日志里持续打印实际帧率，用来判断画面是否掉帧。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
-            <div class="field"><label>关闭时清理（--no-cleanup）</label>
+            <div class="field"><span class="flabel">关闭时清理（--no-cleanup）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="关闭时清理（--no-cleanup）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭时清理（--no-cleanup）</span><span class="fhelp-p">scrcpy 退出时会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。</span><span class="fhelp-p">打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。</span></span>
+            </span></span>
               <div class="toggle"><span class="t-label">退出时还原设备状态（关闭时）</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
           </div>
           <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
@@ -1835,21 +2015,45 @@
         <label class="switch" data-tip="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" data-ovenable ${enabled?'checked':''}><span class="slider"></span></label>
       </div>
       <div class="ov-grid" data-ovgrid style="${enabled?'':'opacity:.45;pointer-events:none'}">
-        <div class="field"><label>长边分辨率（--max-size）</label>
+        <div class="field"><span class="flabel">长边分辨率（--max-size）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="长边分辨率（--max-size）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">长边分辨率（--max-size）</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
+            </span></span>
           <div class="range-row"><input type="range" min="0" max="2560" step="64" data-ovk="video.maxSize" value="${ovVal(d.id,'video','maxSize')}"><span class="range-val">${ovVal(d.id,'video','maxSize')==0?'自动':ovVal(d.id,'video','maxSize')+' px'}</span></div></div>
-        <div class="field"><label>视频码率（--video-bit-rate）</label>
+        <div class="field"><span class="flabel">视频码率（--video-bit-rate）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="视频码率（--video-bit-rate）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">视频码率（--video-bit-rate）</span><span class="fhelp-p">视频编码的比特率，scrcpy 默认 8 Mbps。</span><span class="fhelp-p">越高画面越清晰，占用的带宽与解码资源也越多。</span></span>
+            </span></span>
           <div class="range-row"><input type="range" min="0" max="64" data-ovk="video.bitrate" value="${ovVal(d.id,'video','bitrate')}"><span class="range-val">${ovVal(d.id,'video','bitrate')==0?'自动':ovVal(d.id,'video','bitrate')+' Mbps'}</span></div></div>
-        <div class="field"><label>最大帧率（--max-fps）</label>
+        <div class="field"><span class="flabel">最大帧率（--max-fps）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="最大帧率（--max-fps）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">最大帧率（--max-fps）</span><span class="fhelp-p">限制采集帧率，Android 10 起获得官方支持。</span><span class="fhelp-p">实际帧率随画面变化：静止画面不会跑满上限。</span></span>
+            </span></span>
           <div class="range-row"><input type="range" min="0" max="240" data-ovk="video.maxFps" value="${ovVal(d.id,'video','maxFps')}"><span class="range-val">${ovVal(d.id,'video','maxFps')==0?'不限制':ovVal(d.id,'video','maxFps')+' fps'}</span></div></div>
-        <div class="field"><label>窗口标题（--window-title）</label>
+        <div class="field"><span class="flabel">窗口标题（--window-title）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="窗口标题（--window-title）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">窗口标题（--window-title）</span><span class="fhelp-p">自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。</span></span>
+            </span></span>
           <input type="text" data-ovk="window.windowTitle" value="${escapeHtml(ovVal(d.id,'window','windowTitle'))}"></div>
-        <div class="field"><label>关闭屏幕（--turn-screen-off）</label>
+        <div class="field"><span class="flabel">关闭屏幕（--turn-screen-off）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="关闭屏幕（--turn-screen-off）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭屏幕（--turn-screen-off）</span><span class="fhelp-p">启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。</span><span class="fhelp-p">视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。</span></span>
+            </span></span>
           <div class="toggle"><span class="t-label">镜像时熄灭手机屏；视频源为摄像头时不生效</span><label class="switch"><input type="checkbox" data-ovk="control.turnScreenOff" ${ovVal(d.id,'control','turnScreenOff')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><label>只读 / 仅查看（--no-control）</label>
+        <div class="field"><span class="flabel">只读 / 仅查看（--no-control）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="只读 / 仅查看（--no-control）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">只读 / 仅查看（--no-control）</span><span class="fhelp-p">只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。</span><span class="fhelp-p">Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。</span></span>
+            </span></span>
           <div class="toggle"><span class="t-label">禁用控制</span><label class="switch"><input type="checkbox" data-ovk="control.noControl" ${ovVal(d.id,'control','noControl')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><label>全屏（--fullscreen）</label>
+        <div class="field"><span class="flabel">全屏（--fullscreen）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="全屏（--fullscreen）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">全屏（--fullscreen）</span><span class="fhelp-p">启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。</span></span>
+            </span></span>
           <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-ovk="window.fullscreen" ${ovVal(d.id,'window','fullscreen')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><label>启动应用（--start-app）</label>
+        <div class="field"><span class="flabel">启动应用（--start-app）<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="启动应用（--start-app）的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">启动应用（--start-app）</span><span class="fhelp-p">连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。</span><span class="fhelp-p">按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。</span></span>
+            </span></span>
           <input type="text" data-ovk="apps.startApp" value="${escapeHtml(ovVal(d.id,'apps','startApp'))}"></div>
         <div class="field"><label>更多参数</label>
           <div class="ov-empty">完整参数请在「显示源 / 视频 / 音频…」标签页以默认参数设置；此处覆盖最常用项。</div></div>
