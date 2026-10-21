@@ -10,7 +10,8 @@
 //!
 //! ## Group 6：实时状态（tasks 6.1–6.5，design D13）
 //! 状态由后端统一判定后下发，前端只渲染：
-//! - **探测层** —— 后台线程每 [`POLL_INTERVAL`] 轮询一次 `adb devices`，得到「设备是否存在」；
+//! - **探测层** —— 后台线程订阅 adb 服务端的设备变化通知（`host:track-devices`），得到
+//!   「设备是否存在」；断线时沿用上次结果、按有界节奏重连，空闲时不发起任何探测；
 //! - **会话层** —— `AppState.sessions` 保存本应用持有活跃会话的设备 id（进程管理在 Group 9 接入）；
 //! - 合并规则见 [`merge_statuses`]：**会话表优先于探测结果**；
 //! - 结果只在变化时以事件 [`EVENT_DEVICE_STATUS`] 推给前端，同时缓存一份供
@@ -23,8 +24,8 @@
 //! 「单个会话异常退出 → 该设备回到空闲（界面上的「在线」）、其它会话不受影响」是自然结果：某台设备的记录一旦被
 //! 标记为已退出，[`merge_statuses`] 就不再把它算作已连接，落回探测结果。
 //!
-//! 最近一次 adb 探测结果存放在 `AppState.adb_probe`（而不是只留在轮询线程的局部变量里），
-//! 这样连接 / 断开之后可以**立即**重算并推送状态，不必干等下一次轮询。
+//! 最近一次 adb 探测结果存放在 `AppState.adb_probe`（而不是只留在订阅线程的局部变量里），
+//! 这样连接 / 断开之后可以**立即**重算并推送状态，不必干等下一次通知。
 
 use crate::assets::ADB_BIN;
 use crate::config::{self, AppConfig, Device};
@@ -34,6 +35,8 @@ use crate::session;
 use crate::AppState;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::io::{ErrorKind, Read, Write};
+use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -150,12 +153,47 @@ pub const STATUS_OFFLINE: &str = "offline";
 /// 状态推送事件名（前端 `listen` 订阅）。
 pub const EVENT_DEVICE_STATUS: &str = "device-status";
 
-/// 轮询间隔（design D13：秒级折中值）。`adb devices` 只是查询已启动的 adb 服务端，
-/// 单次开销很小；2 秒既能让插拔 / 断网及时反映，也不会无谓地拉起子进程。
-pub const POLL_INTERVAL: Duration = Duration::from_secs(2);
+/// adb 服务端的缺省端点（回环 + 官方默认端口）。
+pub const DEFAULT_SERVER_ENDPOINT: &str = "127.0.0.1:5037";
 
-/// 单次 `adb devices` 的超时。超时即本次探测失败，**不改变已有状态**
-/// （design D13 风险条目：一次探测被拖慢不能把在用设备误判为离线）。
+/// 订阅线程的读超时：超时分支承担会话回收、安装窗口与退避检查。
+///
+/// 它**不**表示「设备状态过期」：`host:track-devices` 长时间无帧是正常状态
+/// （设备列表没变就不推），空闲超时不能当作连接已死。
+const SUBSCRIBE_TICK: Duration = Duration::from_millis(500);
+
+/// 等待服务端按帧响应的预算（`host:version` / `host:devices`）：走本地回环，正常毫秒级
+/// 返回；给足预算只为兜住「5037 被别的程序占着却不说话」。
+const SERVER_REPLY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// 服务端协议版本下限：能按帧回答 `host:version` 且不低于它，才认作可用的 adb 服务端。
+const MIN_SERVER_PROTOCOL: u32 = 0x001f;
+
+/// 单帧净荷上限：设备列表只有几十行；超过它说明读到的不是 adb 帧。
+///
+/// 帧长度前缀是 4 位十六进制（最大 65535），这里取更小的 32 KiB —— 正常净荷不足 1 KiB。
+const MAX_FRAME_LEN: usize = 32 * 1024;
+
+/// 断线后的重连退避（取到末项即封顶）。
+const RECONNECT_BACKOFF: [Duration; 5] = [
+    Duration::from_secs(1),
+    Duration::from_secs(2),
+    Duration::from_secs(5),
+    Duration::from_secs(10),
+    Duration::from_secs(30),
+];
+
+/// 拉起服务端之后的连接重试间隔：`adb start-server` 返回时 fork 出的服务端可能还没开始
+/// 监听，立刻重连会失败并撞进下一档退避 —— 白等几秒。累计 750ms 足够覆盖这段时间。
+const STARTUP_RETRY: [Duration; 4] = [
+    Duration::from_millis(50),
+    Duration::from_millis(100),
+    Duration::from_millis(200),
+    Duration::from_millis(400),
+];
+
+/// 单次 `adb` 子进程调用的超时（`start-server`、诊断用 `adb devices`）。超时即本次调用
+/// 失败、**不改变已有状态**（design D13 风险条目：一次调用被拖慢不能把在用设备误判为离线）。
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// 建立无线链路的超时预算。
@@ -169,8 +207,8 @@ const WAIT_TICK: Duration = Duration::from_millis(30);
 
 /// 最近一次 adb 探测的结果。
 ///
-/// 放在 `AppState` 里（而不是只留在轮询线程的局部变量）是为了让**其它线程**也能取到当前探测结果：
-/// 连接 / 断开设备后要立即重算状态并推送，否则界面要干等最长一个轮询周期才反映出来。
+/// 放在 `AppState` 里（而不是只留在订阅线程的局部变量）是为了让**其它线程**也能取到当前探测结果：
+/// 连接 / 断开设备后要立即重算状态并推送，否则界面要干等下一次设备变化通知才反映出来。
 /// 探测失败时 `devices` 保持上一次成功的结果（design D13 风险条目：一次探测被拖慢不能把在用设备
 /// 误判为离线），失败原因另记在 `error` 里。
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -191,7 +229,7 @@ pub struct DeviceStatusPayload {
     pub probed: bool,
     /// 最近一次探测失败的原因（成功时为 `None`）
     pub error: Option<String>,
-    /// 后端当前持有的设备列表（可能含轮询期间补全的 serial；前端据此同步）
+    /// 后端当前持有的设备列表（可能含订阅期间补全的 serial；前端据此同步）
     pub devices: Vec<Device>,
 }
 
@@ -212,7 +250,16 @@ pub struct DeviceStatusPayload {
 /// 它们无法发起会话，在界面上就是「离线」。表头（`List of devices attached`）与
 /// 守护进程提示（`* daemon ...`）的第二个字段都不是 `device`，天然被滤掉。
 pub fn parse_adb_devices(output: &str) -> HashSet<String> {
-    output
+    parse_track_devices(output)
+}
+
+/// 解析设备列表净荷：`adb devices` 的标准输出与 `host:track-devices` 的帧净荷同构
+/// （后者没有 `List of devices attached` 表头，逐行解析天然兼容）。
+///
+/// 只把 `device` 视为「设备存在」；`offline` / `unauthorized` / `no permissions` 都不算 ——
+/// 它们无法发起会话，在界面上就是「离线」。
+pub fn parse_track_devices(payload: &str) -> HashSet<String> {
+    payload
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace();
@@ -294,9 +341,9 @@ pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Optio
 
 /// 执行命令并收集标准输出；带超时，超时会杀掉子进程并返回错误。
 ///
-/// 不用 `Command::output()`：它没有超时，adb 服务端异常时会把轮询线程永远挂住。
-/// 本函数只在轮询线程里被调用（轮询命令串行化），故不会并发抢占。
-/// `session` 里的 `taskkill`（优雅结束会话）复用它，同样不能在无超时的情况下阻塞。
+/// 不用 `Command::output()`：它没有超时，adb 服务端异常时会把调用线程永远挂住。
+/// 调用点分散在订阅线程（`start-server`）、会话层（`adb connect` / `taskkill`）与诊断路径；
+/// 各自的调用串行、不共享可变状态，故不会并发抢占。
 ///
 /// **只适用于输出很小的命令**：实现是「轮询等退出 → 退出后才读管道」，命令若写出超过管道缓冲
 /// （Windows 上数十 KB）就会阻塞在写、直到本函数的超时被杀掉。需要看大输出时（如
@@ -342,8 +389,11 @@ pub(crate) fn run_captured(bin: &Path, args: &[&str], timeout: Duration) -> Resu
     Ok(String::from_utf8_lossy(&out.stdout).to_string())
 }
 
-/// 轮询一次 `adb devices`：`Ok(集合)` 表示本次探测有效（集合可能为空 —— 有效但无设备），
-/// `Err` 表示本次探测不可用（缺 adb / 超时 / 返回非零），调用方据此沿用上次结果。
+/// 一次性调用 `adb devices`：`Ok(集合)` 表示本次有效（集合可能为空 —— 有效但无设备），
+/// `Err` 表示本次不可用（缺 adb / 超时 / 返回非零），调用方据此沿用上次结果。
+///
+/// 设备状态的常规来源已改为订阅（`host:track-devices`）；这条路径只在服务端拉不起来时
+/// 作为复核与诊断保留 —— 它也是订阅出问题时的回滚出口。
 fn probe_adb(dir: &Path) -> Result<HashSet<String>, String> {
     let adb = dir.join(ADB_BIN);
     if !adb.is_file() {
@@ -370,15 +420,15 @@ pub fn connect_link(dir: &Path, connection_id: &str) -> Result<String, String> {
     run_captured(&adb, &["connect", connection_id], LINK_TIMEOUT)
 }
 
-/// 立刻重新探测一次并把结果写进状态。
+/// 立刻查询一次设备列表并把结果写进状态。
 ///
-/// 用于建立链路之后：`publish_status` 读的是**存量**探测结果，不重跑 adb，
-/// 所以不先刷新的话界面要等下一轮轮询（最长 2 秒）才反映出来（design D2）。
+/// 用于建立链路之后：`publish_status` 读的是**存量**探测结果，不重跑查询，
+/// 所以不先刷新的话界面要等订阅的下一帧才反映出来（design D2）。
+///
+/// 走 `host:devices` 短连接而不是再起一次 `adb devices` —— 后者会创建一个子进程，
+/// 而「空闲/操作中都不为设备状态起进程」正是本变更要保住的性质。
 pub fn refresh_probe(app: &AppHandle) {
-    let probe = match scrcpy::scrcpy_dir(app) {
-        Ok(dir) => probe_adb(&dir),
-        Err(e) => Err(e),
-    };
+    let probe = query_devices_now();
     store_probe(app, probe);
 }
 
@@ -430,8 +480,8 @@ pub fn status_of_device(state: &AppState, device_id: &str) -> Option<String> {
 
 /// 重算并在**变化时**推送状态（tasks 6.3）。
 ///
-/// 会话状态变化（连接 / 断开 / 启动失败 / 异常退出）不属于「探测到的新事实」，光靠轮询
-/// 最迟要一个轮询周期才反映出来，故这些动作结束后主动调一次本函数，让界面即时刷新。
+/// 会话状态变化（连接 / 断开 / 启动失败 / 异常退出）不属于「探测到的新事实」，光靠订阅
+/// 要等下一次设备变化通知才反映出来，故这些动作结束后主动调一次本函数，让界面即时刷新。
 /// 变化判定以 `AppState.device_status`（最近一次下发的那份）为准，避免重复推送。
 pub fn publish_status(app: &AppHandle) {
     let payload = build_payload(app);
@@ -448,7 +498,7 @@ pub fn publish_status(app: &AppHandle) {
 }
 
 /// 把探测到的 serial 补进配置并落盘。落盘失败则不改内存（与设备写命令同一语义），
-/// 下一轮轮询会再试。
+/// 下一帧设备变化通知到达时会再试。
 fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>) {
     let state = app.state::<AppState>();
     let mut candidate = state.config.lock().unwrap().clone();
@@ -497,42 +547,450 @@ fn store_probe(app: &AppHandle, result: Result<HashSet<String>, String>) {
     }
 }
 
-/// 启动设备状态轮询线程（tasks 6.3）。
+/// 启动设备状态订阅线程（`host:track-devices`）。
 ///
-/// 用独立线程而非异步任务：整个循环是阻塞式的（子进程 + `sleep`），放进线程池只会
-/// 白占一个异步工作线程。前端不自行探测，只消费这里推来的事件。
-pub fn spawn_status_poller(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        // 先回收已退出的会话（tasks 9.3）：进程退出可能是用户主动断开，也可能是异常退出，
-        // 无论哪种都要让设备状态与槽位占用立刻跟上。
-        if session::reap_exited(&app) {
-            let infos = session::session_infos(&app.state::<AppState>());
-            session::publish_sessions(&app, &infos);
-        }
-        // 安装（含替换）进行期间整体跳过探测（design D3）。
-        match probe_step(install_in_flight(&app)) {
-            ProbeStep::Skip => {}
-            ProbeStep::Probe => {
-                let probe = match scrcpy::scrcpy_dir(&app) {
-                    Ok(dir) => probe_adb(&dir),
-                    Err(e) => Err(e),
-                };
-                store_probe(&app, probe);
-                let adb = probe_snapshot(&app.state::<AppState>()).devices;
-                if let Some(adb) = adb.as_ref() {
-                    persist_adopted_serial(&app, adb);
+/// 用独立线程而非异步任务：整条循环是阻塞式的（socket 读），放进线程池只会白占一个
+/// 异步工作线程。前端不自行探测，只消费这里推来的事件。
+pub fn spawn_status_subscriber(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut backoff = 0usize;
+        let mut next_attempt = Instant::now();
+        loop {
+            // 安装（含替换）窗口内整体暂停：不连接、也不拉起服务端 —— 否则会把替换前
+            // 刚结束的服务端重新拉起，替换再次失败在占用检查上。
+            if probe_step(install_in_flight(&app)) == ProbeStep::Skip {
+                std::thread::sleep(SUBSCRIBE_TICK);
+                backoff = 0;
+                next_attempt = Instant::now();
+                continue;
+            }
+            if Instant::now() < next_attempt {
+                housekeeping(&app);
+                std::thread::sleep(SUBSCRIBE_TICK);
+                continue;
+            }
+            match track_session(&app) {
+                SessionEnd::Paused => backoff = 0,
+                SessionEnd::Failed(e) => {
+                    // 失败原因进快照：既有语义是「沿用上次成功的集合 + 标记待确认」，
+                    // 且只在状态翻转时记一行（`store_probe` 负责），这里不重复记。
+                    store_probe(&app, Err(e));
+                    publish_status(&app);
+                    next_attempt = Instant::now() + reconnect_delay(backoff);
+                    backoff = (backoff + 1).min(RECONNECT_BACKOFF.len() - 1);
                 }
-                publish_status(&app);
             }
         }
-        std::thread::sleep(POLL_INTERVAL);
     });
 }
 
-/// 一次轮询中设备状态那部分该做什么（纯函数）：安装进行期间整体跳过。
+/// 第 `attempt` 次重连前的等待时长（末项封顶）。
+fn reconnect_delay(attempt: usize) -> Duration {
+    RECONNECT_BACKOFF[attempt.min(RECONNECT_BACKOFF.len() - 1)]
+}
+
+/// 一次订阅会话的结束方式。
 ///
-/// 跳过的两个后果都是有意的：既不发起 adb 调用（否则会把替换前刚结束的 adb 服务端
-/// 在 2 秒内重新拉起，替换再次失败），也不写入新的探测结果 —— 界面沿用上次成功结果，
+/// 安装窗口内的退出是**主动让位**，不写探测结果：暂停不是失败，界面沿用上次成功结果，
+/// `stale` 也不置位（与 [`ProbeStep::Skip`] 的语义一致）。
+enum SessionEnd {
+    Paused,
+    Failed(String),
+}
+
+/// 建立订阅并一直消费到断开。
+fn track_session(app: &AppHandle) -> SessionEnd {
+    // 校验用独立连接：adb 的 host 服务一条连接只服务一个请求，`host:version` 应答后
+    // 连接即被服务端关闭，不能拿它继续发订阅请求。
+    if let Err(e) = verify_server(app) {
+        return if install_in_flight(app) {
+            SessionEnd::Paused
+        } else {
+            SessionEnd::Failed(e)
+        };
+    }
+    let mut stream = match connect_server(app) {
+        Ok(stream) => stream,
+        Err(e) => return SessionEnd::Failed(e),
+    };
+    if let Err(e) = stream.set_read_timeout(Some(SUBSCRIBE_TICK)) {
+        return SessionEnd::Failed(format!("设置读超时失败：{e}"));
+    }
+    if let Err(e) = stream.write_all(&encode_frame("host:track-devices")) {
+        return SessionEnd::Failed(format!("订阅设备变化失败：{e}"));
+    }
+    // 帧流前面还有一次应答状态码；漏读会把它当成帧长度。
+    if let Err(e) = read_status(&mut stream, SERVER_REPLY_TIMEOUT) {
+        return if install_in_flight(app) {
+            SessionEnd::Paused
+        } else {
+            SessionEnd::Failed(e)
+        };
+    }
+
+    consume_track_stream(
+        &mut stream,
+        &mut |payload| apply_track_frame(app, payload),
+        &mut || {
+            housekeeping(app);
+            !install_in_flight(app)
+        },
+    )
+}
+
+/// 消费一条订阅连接直到断开或让位。抽成独立函数是为了能用本地 `TcpListener` 桩验证
+/// 「首帧到达即回调」「半帧跨读超时不丢」「读超时只做杂务」这几件容易出错的事。
+///
+/// `on_tick` 在读超时时调用，返回 `false` 表示让位（安装窗口），此时连接由调用方丢弃。
+fn consume_track_stream(
+    stream: &mut impl Read,
+    on_frame: &mut dyn FnMut(&str),
+    on_tick: &mut dyn FnMut() -> bool,
+) -> SessionEnd {
+    let mut reader = FrameReader::default();
+    let mut buf = [0u8; 4096];
+    loop {
+        match stream.read(&mut buf) {
+            // 对端关闭：安装窗口内的关闭由替换路径结束服务端所致，不算失败。
+            Ok(0) => {
+                if !on_tick() {
+                    return SessionEnd::Paused;
+                }
+                return SessionEnd::Failed(
+                    reader
+                        .broken_tail()
+                        .unwrap_or_else(|| "adb 服务端关闭了订阅连接".to_string()),
+                );
+            }
+            Ok(n) => {
+                reader.push(&buf[..n]);
+                loop {
+                    match reader.next_frame() {
+                        Ok(Some(frame)) => on_frame(&frame),
+                        Ok(None) => break,
+                        Err(e) => return SessionEnd::Failed(e),
+                    }
+                }
+            }
+            // 空闲是常态（设备没变就不推），超时只用来做与「设备变化」无关的周期杂务。
+            Err(e) if is_read_timeout(&e) => {
+                if !on_tick() {
+                    return SessionEnd::Paused;
+                }
+            }
+            Err(e) => return SessionEnd::Failed(format!("读取设备变化通知失败：{e}")),
+        }
+    }
+}
+
+/// 一帧设备列表到达：写快照 → 补 serial → 推送。与既有轮询的一轮等价。
+fn apply_track_frame(app: &AppHandle, payload: &str) {
+    let devices = parse_track_devices(payload);
+    store_probe(app, Ok(devices));
+    let adb = probe_snapshot(&app.state::<AppState>()).devices;
+    if let Some(adb) = adb.as_ref() {
+        persist_adopted_serial(app, adb);
+    }
+    publish_status(app);
+}
+
+/// 周期杂务：回收已退出的会话（tasks 9.3）。
+///
+/// 有变化时除同步会话列表外，还必须重算设备状态：会话退出改变「已连接 / 在线」的判定，
+/// 而订阅只在**设备列表**变化时推帧 —— 不在这里补一次推送，界面会停在「已连接」直到下次插拔。
+fn housekeeping(app: &AppHandle) {
+    if session::reap_exited(app) {
+        let infos = session::session_infos(&app.state::<AppState>());
+        session::publish_sessions(app, &infos);
+        publish_status(app);
+    }
+}
+
+/// 建立到 adb 服务端的连接；连不上时先拉起一次服务端（首启，或它被结束后）。
+fn connect_server(app: &AppHandle) -> Result<TcpStream, String> {
+    let endpoint = server_endpoint();
+    if let Ok(stream) = TcpStream::connect(endpoint.as_str()) {
+        return Ok(stream);
+    }
+    let dir = scrcpy::scrcpy_dir(app)?;
+    ensure_server_running(&dir)?;
+    let mut last = String::new();
+    for wait in STARTUP_RETRY {
+        std::thread::sleep(wait);
+        match TcpStream::connect(endpoint.as_str()) {
+            Ok(stream) => return Ok(stream),
+            Err(e) => last = e.to_string(),
+        }
+    }
+    Err(format!("无法连接 adb 服务端（{endpoint}）：{last}"))
+}
+
+/// 拉起 adb 服务端：**唯一**会为设备状态创建子进程的路径，且只在连接失败时发生。
+fn ensure_server_running(dir: &Path) -> Result<(), String> {
+    let adb = dir.join(ADB_BIN);
+    if !adb.is_file() {
+        return Err(format!("运行环境内未找到 {}，设备状态暂不可用", ADB_BIN));
+    }
+    match run_captured(&adb, &["start-server"], PROBE_TIMEOUT) {
+        Ok(_) => Ok(()),
+        // `start-server` 失败时用 `adb devices` 再确认一次：它同样会拉起服务端，
+        // 且错误更贴近真实原因（缺 DLL、端口被占用这类）。
+        Err(e) => probe_adb(dir)
+            .map(|_| ())
+            .map_err(|fallback| format!("{e}（改用 adb devices 亦失败：{fallback}）")),
+    }
+}
+
+// ── adb host 协议（帧编解码 / 端点解析） ──────────────────────
+
+/// 端点解析（纯函数）：`ADB_SERVER_SOCKET` 优先，其次地址 + 端口，缺省回环 5037。
+///
+/// 三条来源与 adb 客户端读的是同一组环境变量 —— 若这里与子进程路径各自解析，
+/// 订阅连上的服务端与 `adb connect` 用的就会是两个。
+fn server_endpoint_from(
+    socket: Option<&str>,
+    address: Option<&str>,
+    port: Option<&str>,
+) -> String {
+    if let Some(rest) = socket.map(str::trim).and_then(|s| s.strip_prefix("tcp:")) {
+        if is_host_port(rest) {
+            return rest.to_string();
+        }
+    }
+    let host = address
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("127.0.0.1");
+    let port = match port.map(str::trim).filter(|s| !s.is_empty()) {
+        None => "5037".to_string(),
+        Some(p) if is_port(p) => p.to_string(),
+        // 非法端口整条退化为缺省：宁可连不上、按「待确认」降级，也不要连到一个猜出来的端点。
+        Some(_) => return DEFAULT_SERVER_ENDPOINT.to_string(),
+    };
+    if host.contains(':') && !host.starts_with('[') {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    }
+}
+
+/// 进程环境中的端点（读取与 adb 客户端同一组变量）。
+fn server_endpoint() -> String {
+    let socket = std::env::var("ADB_SERVER_SOCKET").ok();
+    let address = std::env::var("ANDROID_ADB_SERVER_ADDRESS").ok();
+    let port = std::env::var("ANDROID_ADB_SERVER_PORT").ok();
+    server_endpoint_from(socket.as_deref(), address.as_deref(), port.as_deref())
+}
+
+fn is_port(s: &str) -> bool {
+    s.parse::<u16>().is_ok()
+}
+
+/// `host:port` 形态：端口必须是合法端口，主机段非空（IPv6 的 `[::1]:5037` 也算）。
+fn is_host_port(s: &str) -> bool {
+    match s.rsplit_once(':') {
+        Some((host, port)) => !host.is_empty() && is_port(port),
+        None => false,
+    }
+}
+
+/// 按 adb 的 host 协议编码一次请求：4 位十六进制长度 + 净荷。
+fn encode_frame(payload: &str) -> Vec<u8> {
+    let mut out = format!("{:04x}", payload.len()).into_bytes();
+    out.extend_from_slice(payload.as_bytes());
+    out
+}
+
+/// 增量帧解码器：一次读可能只带回半帧，也可能一次带回多帧。
+#[derive(Default)]
+struct FrameReader {
+    buf: Vec<u8>,
+}
+
+impl FrameReader {
+    fn push(&mut self, bytes: &[u8]) {
+        self.buf.extend_from_slice(bytes);
+    }
+
+    /// 取下一帧；长度前缀还不完整时返回 `None`（等下一段数据）。
+    ///
+    /// 长度前缀非法时清空缓冲并返回错误 —— 连接已被污染，调用方应重连而不是续读。
+    fn next_frame(&mut self) -> Result<Option<String>, String> {
+        if self.buf.len() < 4 {
+            return Ok(None);
+        }
+        let len = match std::str::from_utf8(&self.buf[..4])
+            .ok()
+            .and_then(|s| usize::from_str_radix(s, 16).ok())
+        {
+            Some(len) if len <= MAX_FRAME_LEN => len,
+            _ => {
+                self.buf.clear();
+                return Err("adb 服务端返回了无法解析的帧长度".to_string());
+            }
+        };
+        if self.buf.len() < 4 + len {
+            return Ok(None);
+        }
+        let payload = String::from_utf8_lossy(&self.buf[4..4 + len]).into_owned();
+        self.buf.drain(..4 + len);
+        Ok(Some(payload))
+    }
+
+    /// 读到对端关闭：缓冲里还留着半帧，说明这次连接不可信。
+    fn broken_tail(&mut self) -> Option<String> {
+        if self.buf.is_empty() {
+            return None;
+        }
+        let n = self.buf.len();
+        self.buf.clear();
+        Some(format!("连接在帧中途结束（已读 {n} 字节）"))
+    }
+}
+
+fn is_read_timeout(e: &std::io::Error) -> bool {
+    matches!(
+        e.kind(),
+        ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
+    )
+}
+
+/// 按预算读满 `out`：读超时只是续读，不算失败（超时用来兜住「对端不说话」）。
+fn read_exact_with_budget(
+    stream: &mut TcpStream,
+    out: &mut [u8],
+    budget: Duration,
+) -> Result<(), String> {
+    let deadline = Instant::now() + budget;
+    let mut filled = 0usize;
+    while filled < out.len() {
+        if Instant::now() >= deadline {
+            return Err("等待 adb 服务端响应超时".to_string());
+        }
+        match stream.read(&mut out[filled..]) {
+            Ok(0) => return Err("adb 服务端在响应前关闭了连接".to_string()),
+            Ok(n) => filled += n,
+            Err(e) if is_read_timeout(&e) => continue,
+            Err(e) => return Err(format!("读取 adb 服务端响应失败：{e}")),
+        }
+    }
+    Ok(())
+}
+
+/// 读一次请求的应答状态：adb 对每个 service 请求先回 4 字节 `OKAY` 或 `FAIL`。
+///
+/// 这一层不是可选的：帧流前面就是这个状态码，漏读会把 `OKAY` 当成帧长度。
+/// `FAIL` 后面跟一段长度前缀的错误原文，原样带回给调用方（界面与日志都要能读出原因）。
+fn read_status(stream: &mut TcpStream, budget: Duration) -> Result<(), String> {
+    let mut code = [0u8; 4];
+    read_exact_with_budget(stream, &mut code, budget)?;
+    match &code {
+        b"OKAY" => Ok(()),
+        b"FAIL" => {
+            let reason =
+                read_one_frame(stream, budget).unwrap_or_else(|_| "（未附带原因）".to_string());
+            Err(format!("adb 服务端拒绝了请求：{reason}"))
+        }
+        _ => Err(format!(
+            "adb 服务端返回了无法识别的应答：{:?}",
+            String::from_utf8_lossy(&code)
+        )),
+    }
+}
+
+/// 等待下一个完整帧（一次性请求用）；超出预算或对端关闭即失败。
+fn read_one_frame(stream: &mut TcpStream, budget: Duration) -> Result<String, String> {
+    let deadline = Instant::now() + budget;
+    let mut reader = FrameReader::default();
+    let mut buf = [0u8; 4096];
+    loop {
+        if let Some(frame) = reader.next_frame()? {
+            return Ok(frame);
+        }
+        if Instant::now() >= deadline {
+            return Err("等待 adb 服务端响应超时".to_string());
+        }
+        match stream.read(&mut buf) {
+            Ok(0) => {
+                return Err(reader
+                    .broken_tail()
+                    .unwrap_or_else(|| "adb 服务端在响应前关闭了连接".to_string()))
+            }
+            Ok(n) => reader.push(&buf[..n]),
+            Err(e) if is_read_timeout(&e) => continue,
+            Err(e) => return Err(format!("读取 adb 服务端响应失败：{e}")),
+        }
+    }
+}
+
+/// 建一条独立连接做协议校验（连不上时按 [`connect_server`] 的规则拉起服务端）。
+fn verify_server(app: &AppHandle) -> Result<(), String> {
+    let mut stream = connect_server(app)?;
+    stream
+        .set_read_timeout(Some(SUBSCRIBE_TICK))
+        .map_err(|e| format!("设置读超时失败：{e}"))?;
+    verify_protocol_on(&mut stream)
+}
+
+/// 确认对端确实是一个可用的 adb 服务端（在一条**尚未发过请求**的连接上调用）。
+///
+/// 5037 可能被别的程序占用（或服务端过旧）：此时按帧请求只会得到垃圾或超时。
+/// 这里只判「能不能按帧回答一个足够新的协议版本」，**不**做客户端与服务端的版本对齐 ——
+/// 那需要结束服务端，而它可能属于同机的其它工具。
+fn verify_protocol_on(stream: &mut TcpStream) -> Result<(), String> {
+    stream
+        .write_all(&encode_frame("host:version"))
+        .map_err(|e| format!("向 adb 服务端发送请求失败：{e}"))?;
+    read_status(stream, SERVER_REPLY_TIMEOUT)?;
+    let payload = read_one_frame(stream, SERVER_REPLY_TIMEOUT)?;
+    let version = u32::from_str_radix(payload.trim(), 16)
+        .map_err(|_| format!("adb 服务端返回的协议版本无法解析：{payload:?}"))?;
+    if version < MIN_SERVER_PROTOCOL {
+        return Err(format!("adb 服务端协议版本过旧（{version:04x}）"));
+    }
+    Ok(())
+}
+
+/// 一次性查询当前设备列表（`host:devices`）。
+///
+/// 供「无线链路建立后本次操作内即刷新」使用：与订阅走同一套帧协议，因此**不创建子进程**。
+pub fn query_devices_now() -> Result<HashSet<String>, String> {
+    query_devices_at(server_endpoint().as_str())
+}
+
+/// 查询实际设备列表；查询失败时先拉起 adb 服务端再试一次（只在这一条异常路径创建子进程）。
+///
+/// 为什么需要重试：运行环境刚被替换时服务端已被结束、而界面状态仍是替换前的「在线」——
+/// 这正是最需要复核的窗口。若此时直接按「查询失败」回退，复核在最关键的时刻失效。
+pub fn live_devices(app: &AppHandle) -> Result<HashSet<String>, String> {
+    let first = match query_devices_now() {
+        Ok(set) => return Ok(set),
+        Err(e) => e,
+    };
+    let dir = scrcpy::scrcpy_dir(app)?;
+    ensure_server_running(&dir)?;
+    query_devices_now().map_err(|e| format!("{first}；拉起服务端后仍失败：{e}"))
+}
+
+/// 一次性查询（可指定端点，便于用本地桩验证）。
+fn query_devices_at(endpoint: &str) -> Result<HashSet<String>, String> {
+    let mut stream =
+        TcpStream::connect(endpoint).map_err(|e| format!("无法连接 adb 服务端（{endpoint}）：{e}"))?;
+    stream
+        .set_read_timeout(Some(SUBSCRIBE_TICK))
+        .map_err(|e| format!("设置读超时失败：{e}"))?;
+    stream
+        .write_all(&encode_frame("host:devices"))
+        .map_err(|e| format!("向 adb 服务端发送请求失败：{e}"))?;
+    read_status(&mut stream, SERVER_REPLY_TIMEOUT)?;
+    let payload = read_one_frame(&mut stream, SERVER_REPLY_TIMEOUT)?;
+    Ok(parse_track_devices(&payload))
+}
+
+/// 一次设备状态判定该做什么（纯函数）：安装进行期间整体跳过。
+///
+/// 跳过的两个后果都是有意的：既不发起连接（否则会把替换前刚结束的 adb 服务端在
+/// 下一轮重连里重新拉起，替换再次失败），也不写入新的探测结果 —— 界面沿用上次成功结果，
 /// 而 `stale` 不会被置位（它只在探测失败时置位，暂停不算失败）。
 #[derive(Debug, PartialEq, Eq)]
 enum ProbeStep {
@@ -569,6 +1027,7 @@ mod tests {
     //! 「带超时地执行命令」这一层（用系统自带命令，不依赖真实 adb 与设备）。
 
     use super::*;
+    use std::net::TcpListener;
 
     // 只有 Windows 那几个用 `cmd.exe` 的用例用到它，故随用例一起门控；
     // 不加这层条件的话，Linux 侧编译（那些用例不参与）会报一条 unused import。
@@ -766,7 +1225,7 @@ mod tests {
     #[test]
     #[cfg(windows)]
     fn hangs_are_bounded_by_timeout() {
-        // 慢命令必须被超时截断（并杀掉子进程），否则轮询线程会被永远挂住。
+        // 慢命令必须被超时截断（并杀掉子进程），否则调用线程会被永远挂住。
         let started = Instant::now();
         let err = run_captured(
             &PathBuf::from("cmd.exe"),
@@ -787,11 +1246,333 @@ mod tests {
 
     #[test]
     fn install_in_flight_skips_probing() {
-        // 安装（含替换）期间必须整体跳过探测：探测会把替换前刚结束的 adb 服务端在 2 秒内
-        // 重新拉起，让替换再次失败在占用检查上。极性写反是静默失效 ——
+        // 安装（含替换）期间必须整体跳过探测：探测会把替换前刚结束的 adb 服务端在下一轮
+        // 重连里重新拉起，让替换再次失败在占用检查上。极性写反是静默失效 ——
         // 只有真机上替换失败时才会发现，故在此锁死。
         assert_eq!(probe_step(true), ProbeStep::Skip);
         assert_eq!(probe_step(false), ProbeStep::Probe);
+    }
+
+    // ── 订阅（host:track-devices）与一次性查询 ────────────────
+
+    /// 起一个本地桩「adb 服务端」：接受一条连接后交给 `script`。
+    fn stub_server<F>(script: F) -> (String, std::thread::JoinHandle<()>)
+    where
+        F: FnOnce(TcpStream) + Send + 'static,
+    {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            script(stream);
+        });
+        (addr.to_string(), handle)
+    }
+
+    /// 按真实服务端的应答形状回一段：先 `OKAY`，再一帧。
+    ///
+    /// 这个 4 字节状态码曾漏读，导致把 `OKAY` 当成帧长度 —— 桩必须照真实形状回，
+    /// 否则单测会在「实现漏读状态码」时照样全绿。
+    fn write_okay_frame(stream: &mut TcpStream, payload: &str) {
+        stream.write_all(b"OKAY").unwrap();
+        stream.write_all(&encode_frame(payload)).unwrap();
+    }
+
+    /// 连上桩、发出订阅请求并消费应答状态码（与 `track_session` 的建连部分同形）。
+    fn subscribe_to(endpoint: &str) -> TcpStream {
+        let mut stream = TcpStream::connect(endpoint).unwrap();
+        stream.set_read_timeout(Some(SUBSCRIBE_TICK)).unwrap();
+        stream
+            .write_all(&encode_frame("host:track-devices"))
+            .unwrap();
+        read_status(&mut stream, SERVER_REPLY_TIMEOUT).unwrap();
+        stream
+    }
+
+    #[test]
+    fn server_endpoint_follows_the_client_environment() {
+        // 与 adb 客户端读同一组变量：`ADB_SERVER_SOCKET` 优先，其次地址 + 端口。
+        assert_eq!(
+            server_endpoint_from(Some("tcp:127.0.0.1:6000"), Some("10.0.0.1"), Some("5000")),
+            "127.0.0.1:6000"
+        );
+        assert_eq!(
+            server_endpoint_from(None, Some("10.0.0.1"), Some("5000")),
+            "10.0.0.1:5000"
+        );
+        // 只给了端口：主机仍取缺省回环，不能整条退化成默认端点。
+        assert_eq!(
+            server_endpoint_from(None, None, Some("6001")),
+            "127.0.0.1:6001"
+        );
+        assert_eq!(
+            server_endpoint_from(None, None, None),
+            DEFAULT_SERVER_ENDPOINT
+        );
+        // IPv6 主机要加方括号，否则拼出来的不是合法端点。
+        assert_eq!(
+            server_endpoint_from(None, Some("::1"), Some("5037")),
+            "[::1]:5037"
+        );
+        // 空值 / 非法值一律退化为缺省，且不 panic。
+        assert_eq!(
+            server_endpoint_from(Some("tcp:"), None, None),
+            DEFAULT_SERVER_ENDPOINT
+        );
+        assert_eq!(
+            server_endpoint_from(Some("local:/tmp/adb"), None, None),
+            DEFAULT_SERVER_ENDPOINT
+        );
+        assert_eq!(
+            server_endpoint_from(None, Some("  "), Some("70000")),
+            DEFAULT_SERVER_ENDPOINT
+        );
+        assert_eq!(
+            server_endpoint_from(None, None, Some("abc")),
+            DEFAULT_SERVER_ENDPOINT
+        );
+    }
+
+    #[test]
+    fn frame_reader_handles_split_and_batched_frames() {
+        let payload = "S1\tdevice\n";
+        let mut reader = FrameReader::default();
+
+        // 一次投递整帧
+        reader.push(&encode_frame(payload));
+        assert_eq!(reader.next_frame().unwrap().as_deref(), Some(payload));
+        assert!(reader.next_frame().unwrap().is_none());
+
+        // 逐字节投递（net 读最碎的情形）
+        for b in encode_frame(payload) {
+            reader.push(&[b]);
+        }
+        assert_eq!(reader.next_frame().unwrap().as_deref(), Some(payload));
+
+        // 一次投递多帧：两帧都要按顺序取出
+        let mut two = encode_frame("A\tdevice\n");
+        two.extend(encode_frame("B\toffline\n"));
+        reader.push(&two);
+        assert_eq!(reader.next_frame().unwrap().as_deref(), Some("A\tdevice\n"));
+        assert_eq!(
+            reader.next_frame().unwrap().as_deref(),
+            Some("B\toffline\n")
+        );
+        assert!(reader.next_frame().unwrap().is_none());
+    }
+
+    #[test]
+    fn frame_reader_rejects_bad_length_prefix() {
+        // 非十六进制
+        let mut reader = FrameReader::default();
+        reader.push(b"zzzz");
+        assert!(reader.next_frame().is_err());
+
+        // 超过净荷上限（0xffff 已大于 32 KiB）：说明读到的不是 adb 帧
+        let mut reader = FrameReader::default();
+        reader.push(b"ffff");
+        assert!(reader.next_frame().is_err());
+
+        // 出错后缓冲被清空，不会在坏前缀上死循环
+        assert_eq!(reader.next_frame().unwrap(), None);
+    }
+
+    #[test]
+    fn frame_reader_reports_broken_tail_on_eof() {
+        let mut reader = FrameReader::default();
+        reader.push(&encode_frame("S1\tdevice\n")[..6]);
+        assert!(reader.next_frame().unwrap().is_none(), "半帧还不该出帧");
+        assert!(reader.broken_tail().is_some(), "EOF 时必须报出半帧");
+
+        // 干净的 EOF 不算异常
+        let mut reader = FrameReader::default();
+        assert!(reader.broken_tail().is_none());
+    }
+
+    #[test]
+    fn parses_track_payload_without_header() {
+        // 订阅帧没有 `List of devices attached` 表头；解析结果必须与带表头时一致。
+        let payload = "S1\tdevice\n192.168.1.5:5555\tdevice\nEMU\toffline\n";
+        assert_eq!(
+            parse_track_devices(payload),
+            parse_adb_devices(&format!("List of devices attached\n{payload}"))
+        );
+        assert_eq!(
+            parse_track_devices(payload),
+            set(&["S1", "192.168.1.5:5555"])
+        );
+        assert!(parse_track_devices("").is_empty());
+    }
+
+    #[test]
+    fn reconnect_delay_backs_off_and_caps() {
+        let delays: Vec<Duration> = (0..8).map(reconnect_delay).collect();
+        assert_eq!(delays[0], Duration::from_secs(1));
+        assert_eq!(delays[1], Duration::from_secs(2));
+        assert_eq!(delays[2], Duration::from_secs(5));
+        assert_eq!(delays[3], Duration::from_secs(10));
+        // 封顶后不再增长：否则「服务端长期不在」会变成越来越长的盲区。
+        for w in delays.windows(2) {
+            assert!(w[0] <= w[1]);
+        }
+        assert_eq!(delays[7], Duration::from_secs(30));
+    }
+
+    #[test]
+    fn one_shot_query_reads_a_single_frame() {
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let n = stream.read(&mut buf).unwrap();
+            assert_eq!(&buf[..n], &encode_frame("host:devices")[..]);
+            write_okay_frame(&mut stream, "S1\tdevice\n");
+        });
+
+        assert_eq!(query_devices_at(&endpoint).unwrap(), set(&["S1"]));
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn one_shot_query_reports_unreachable_server() {
+        // 取一个刚释放的端口：连接必然被拒（不碰本机真实的 adb 服务端）。
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let err = query_devices_at(&endpoint).unwrap_err();
+        assert!(err.contains("无法连接"), "实际错误：{err}");
+    }
+
+    #[test]
+    fn protocol_check_rejects_an_old_or_foreign_server() {
+        // 协议版本过旧（0x0010 < 下限）：按订阅不可用降级，不结束服务端。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            write_okay_frame(&mut stream, "0010");
+        });
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        stream.set_read_timeout(Some(SUBSCRIBE_TICK)).unwrap();
+        let err = verify_protocol_on(&mut stream).unwrap_err();
+        assert!(err.contains("过旧"), "实际错误：{err}");
+        handle.join().unwrap();
+
+        // 5037 被别的程序占着：按帧请求得到的是垃圾，同样降级。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            stream.write_all(b"HTTP/1.1 200 OK\r\n").unwrap();
+        });
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        stream.set_read_timeout(Some(SUBSCRIBE_TICK)).unwrap();
+        assert!(verify_protocol_on(&mut stream).is_err());
+        handle.join().unwrap();
+
+        // 正常协议版本（0x0029）：校验通过。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            write_okay_frame(&mut stream, "0029");
+        });
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        stream.set_read_timeout(Some(SUBSCRIBE_TICK)).unwrap();
+        assert!(verify_protocol_on(&mut stream).is_ok());
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn status_reader_surfaces_fail_reasons() {
+        // `FAIL` 后面跟长度前缀的错误原文：原样带回，界面与日志都要能读出原因。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            // 这个用例只验状态码解析，不需要先收请求。
+            stream.write_all(b"FAIL").unwrap();
+            stream.write_all(&encode_frame("unknown host service")).unwrap();
+        });
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        stream.set_read_timeout(Some(SUBSCRIBE_TICK)).unwrap();
+        let err = read_status(&mut stream, SERVER_REPLY_TIMEOUT).unwrap_err();
+        assert!(err.contains("unknown host service"), "实际错误：{err}");
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn subscription_delivers_every_frame_in_order() {
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            stream.write_all(b"OKAY").unwrap();
+            stream.write_all(&encode_frame("S1\tdevice\n")).unwrap();
+            stream.write_all(&encode_frame("S2\tdevice\n")).unwrap();
+            // 让客户端先把两帧读走，再关闭。
+            std::thread::sleep(Duration::from_millis(100));
+        });
+
+        let mut stream = subscribe_to(&endpoint);
+        let mut frames: Vec<String> = Vec::new();
+        let end = consume_track_stream(
+            &mut stream,
+            &mut |payload| frames.push(payload.to_string()),
+            &mut || true,
+        );
+
+        assert!(
+            matches!(end, SessionEnd::Failed(_)),
+            "对端关闭应判为订阅失败（界面转「待确认」）"
+        );
+        assert_eq!(frames, vec!["S1\tdevice\n".to_string(), "S2\tdevice\n".to_string()]);
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn subscription_keeps_half_a_frame_across_read_timeouts() {
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            stream.write_all(b"OKAY").unwrap();
+            let frame = encode_frame("S1\tdevice\n");
+            let (head, tail) = frame.split_at(3);
+            stream.write_all(head).unwrap();
+            // 超过一次读超时（SUBSCRIBE_TICK = 500ms）再把剩下的发过来。
+            std::thread::sleep(Duration::from_millis(700));
+            stream.write_all(tail).unwrap();
+            std::thread::sleep(Duration::from_millis(50));
+        });
+
+        let mut stream = subscribe_to(&endpoint);
+        let mut frames: Vec<String> = Vec::new();
+        let mut ticks = 0usize;
+        let _ = consume_track_stream(
+            &mut stream,
+            &mut |payload| frames.push(payload.to_string()),
+            &mut || {
+                ticks += 1;
+                true
+            },
+        );
+
+        assert_eq!(frames, vec!["S1\tdevice\n".to_string()]);
+        assert!(ticks >= 1, "跨超时续读必须经历至少一次读超时");
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn subscription_yields_when_the_tick_asks_to_pause() {
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            // 只给长度前缀、不给净荷：客户端会停在半帧上等，直到读超时。
+            stream.write_all(b"OKAY").unwrap();
+            stream.write_all(b"0009").unwrap();
+            std::thread::sleep(Duration::from_millis(800));
+        });
+
+        let mut stream = subscribe_to(&endpoint);
+        let end = consume_track_stream(&mut stream, &mut |_| {}, &mut || false);
+
+        assert!(
+            matches!(end, SessionEnd::Paused),
+            "安装窗口内必须主动让位，而不是把半帧判成失败"
+        );
+        handle.join().unwrap();
     }
 
     #[test]

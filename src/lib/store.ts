@@ -293,7 +293,7 @@ function applyConfig(c: AppConfig): void {
   devices.set(c.devices);
 }
 
-/** 两份设备列表是否等价（避免每 2 秒的状态推送都触发一次重渲染）。 */
+/** 两份设备列表是否等价（避免一次状态推送就触发一次重渲染）。 */
 function sameDevices(a: Device[], b: Device[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((d, i) => JSON.stringify(d) === JSON.stringify(b[i]));
@@ -314,7 +314,7 @@ function syncDevices(list: Device[]): void {
 /**
  * 应用一份设备状态快照（tasks 6.3）：状态、元信息与设备列表一起更新。
  *
- * 列表也一起同步，是因为轮询会在探测到 serial 后补全 USB 设备的连接标识 ——
+ * 列表也一起同步，是因为设备状态探测会在发现 serial 后补全 USB 设备的连接标识 ——
  * 只更新状态会让界面上的标识停在「待检测」。
  */
 export function applyDeviceStatus(payload: DeviceStatusPayload): void {

@@ -42,10 +42,10 @@ pub struct AppState {
     /// 「已连接」，而槽位分配只考虑这类会话的占用。已结束的记录**保留**在表里，供「更多」页
     /// 查看会话输出（tasks 9.4），数量由 `session::MAX_ENDED_SESSIONS` 限制。
     pub sessions: Mutex<HashMap<String, session::SessionRecord>>,
-    /// 最近一次 `adb devices` 探测结果（tasks 6.3 / 9.1）。
+    /// 最近一次设备状态探测结果（tasks 6.3 / 9.1）。
     ///
-    /// 放在状态里而不是轮询线程的局部变量：连接 / 断开后要立即重算并推送设备状态，
-    /// 不能让界面干等一个轮询周期。
+    /// 放在状态里而不是订阅线程的局部变量：连接 / 断开后要立即重算并推送设备状态，
+    /// 不能让界面干等下一次设备变化通知。
     pub adb_probe: Mutex<device::AdbProbe>,
     /// 最近一次计算出的设备状态快照（tasks 6.3）：事件推送与 `get_device_status`
     /// 命令共用同一份数据，避免「首次推送早于前端注册监听」造成界面永远停在检测中；
@@ -263,8 +263,8 @@ fn main() {
                 FALLBACK_REVEAL_AFTER_START,
                 "启动后仍未显示窗口",
             );
-            // 设备状态轮询线程（tasks 6.3）：必须在 `manage` 之后启动 —— 它要读状态。
-            device::spawn_status_poller(handle);
+            // 设备状态订阅线程（tasks 6.3）：必须在 `manage` 之后启动 —— 它要读状态。
+            device::spawn_status_subscriber(handle);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

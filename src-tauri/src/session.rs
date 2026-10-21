@@ -1068,7 +1068,7 @@ fn record_exit(record: &SessionRecord, code: i32) {
 
 /// 回收已退出的会话（把退出码写进记录）。返回是否有记录发生变化。
 ///
-/// 由状态轮询线程每轮调用：进程退出既可能来自用户主动断开，也可能是异常退出，
+/// 由设备状态订阅线程的周期杂务调用：进程退出既可能来自用户主动断开，也可能是异常退出，
 /// 无论哪种都要及时反映到设备状态与槽位占用上。
 pub fn reap_exited(app: &AppHandle) -> bool {
     let state = app.state::<AppState>();
@@ -1121,6 +1121,19 @@ fn link_action(kind: &str) -> LinkAction {
     }
 }
 
+/// 状态显示「在线」时，启动会话前是否仍要先建立链路（纯函数）。
+///
+/// 缓存会滞后于 adb 的实际列表：替换运行环境后服务端是新实例、无线链路已丢，
+/// 应用外的 `adb disconnect` 也不会立刻反映。此时若信任缓存直接启动，scrcpy 会以
+/// 「Could not find any ADB device」退出（用户看到的是「第一次失败、第二次成功」）。
+///
+/// 只看两件事实：设备是无线、且不在实际列表里。USB 设备不在此列 —— 它的在线与否由
+/// 物理接入决定，既有规则也禁止对它做连接尝试。`present_in_live_list` 在复核不可用时
+/// 按「视为在场」传入，因此这条判断不会因复核故障而阻断连接。
+fn needs_link_before_start(kind: &str, present_in_live_list: bool) -> bool {
+    kind == config::KIND_WIFI && !present_in_live_list
+}
+
 /// 建立链路之后按重探测结果判定成败（纯函数，design D2）。
 ///
 /// 成功口径是**重探测后的设备状态**，不是 `adb connect` 的退出码：那条命令连不上时也可能
@@ -1153,7 +1166,7 @@ fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> R
         logger::warn("device", format!("无线链路建立失败（{}）：{e}", device.alias));
         format!("无法建立无线链路：{e}")
     })?;
-    // 不等下一轮轮询：界面与顶部计数在本次操作内就该反映出来。
+    // 不等订阅的下一帧：界面与顶部计数在本次操作内就该反映出来。
     device::refresh_probe(app);
     device::publish_status(app);
     let after = device::status_of_device(state, &device.id);
@@ -1192,7 +1205,23 @@ fn start_session(app: &AppHandle, device: &Device, args: Vec<String>) -> Result<
     }
     // 状态判定以**后端**为准（tasks 9.2），不依赖前端的筛选。
     match device::status_of_device(&state, &device.id).as_deref() {
-        Some(device::STATUS_IDLE) => {}
+        // 缓存显示在线不等于 adb 里真的在：启动前复核一次（一次本地查询，不创建子进程）。
+        // 复核失败时按「视为在场」继续 —— 减少失败的手段不能变成新的失败来源。
+        Some(device::STATUS_IDLE) => {
+            let present = match device::live_devices(app) {
+                Ok(live) => live.contains(&connection_id),
+                Err(e) => {
+                    logger::warn(
+                        "device",
+                        format!("连接前复核「{}」失败：{e}（沿用界面状态继续）", device.alias),
+                    );
+                    true
+                }
+            };
+            if needs_link_before_start(&device.kind, present) {
+                ensure_wireless_link(app, &state, device)?;
+            }
+        }
         Some(device::STATUS_CONNECTED) => return Err("该设备已有会话在运行".to_string()),
         // 无线设备可能已被应用之外的操作断开（如用户在自己的终端里 `adb disconnect`）：
         // 先把链路建起来，再按重探测结果决定是否继续（design D1 / D2）。
@@ -1363,7 +1392,7 @@ fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectR
     let degraded = start_session(app, &device, request.args)?;
     let sessions = session_infos(&state);
     publish_sessions(app, &sessions);
-    // 会话一起，设备状态就要立刻变成「已连接」（不等下一次轮询）。
+    // 会话一起，设备状态就要立刻变成「已连接」（不等订阅的下一帧）。
     device::publish_status(app);
     Ok(ConnectResult {
         outcomes: vec![outcome_ok(&device)],
@@ -2019,6 +2048,18 @@ mod tests {
         // 若这里判成 Establish，界面会给用户一个注定失败的操作。
         assert_eq!(link_action(config::KIND_WIFI), LinkAction::Establish);
         assert_eq!(link_action(config::KIND_USB), LinkAction::Refuse);
+    }
+
+    #[test]
+    fn recheck_only_forces_a_link_for_missing_wireless_devices() {
+        // 无线设备状态「在线」但实际不在 adb 列表：必须先建链，否则 scrcpy 启动后
+        // 以「Could not find any ADB device」退出（第一次失败、第二次成功的根因）。
+        assert!(needs_link_before_start(config::KIND_WIFI, false));
+        // 实际在列表：不能多跑一次 `adb connect`，那会给每次连接都加上一次子进程。
+        assert!(!needs_link_before_start(config::KIND_WIFI, true));
+        // USB 两条都必须是 false —— 写反会让离线 USB 也去做连接尝试，违反既有规则。
+        assert!(!needs_link_before_start(config::KIND_USB, false));
+        assert!(!needs_link_before_start(config::KIND_USB, true));
     }
 
     #[test]

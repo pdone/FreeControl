@@ -26,7 +26,7 @@ export interface Device {
 export type DeviceStatus = 'connected' | 'idle' | 'offline';
 
 /**
- * 设备状态未知（尚未探测出结果，或该设备刚被加入还没轮询到）。
+ * 设备状态未知（尚未探测出结果，或该设备刚被加入还没等到订阅通知）。
  * 界面显示「检测中…」：既不计入「在线」也不计入「已连接」。
  */
 export type DeviceStatusView = DeviceStatus | 'unknown';
@@ -41,7 +41,7 @@ export interface DeviceStatusPayload {
   probed: boolean;
   /** 最近一次探测失败的原因（成功时为 null） */
   error: string | null;
-  /** 后端当前持有的设备列表（可能含轮询期间补全的 serial） */
+  /** 后端当前持有的设备列表（可能含订阅期间补全的 serial） */
   devices: Device[];
 }
 
