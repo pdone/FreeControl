@@ -286,8 +286,20 @@
             <div class="pkg-rows">
               {#each plat.packages as pkg}
                 <div class="pkg-row">
-                  <div class="pkg-name"><b>{pkg.format}</b>{#if pkg.note}<small>{pkg.note}</small>{/if}</div>
-                  <a class="pkg" href={asset(pkg.key)}><Icon name="Download" size={14} /><span>{$t.download.dlLabel}</span></a>
+                  <!-- 行标签＝格式名 + 该平台的区分维度：Windows 的两份产物格式相同，架构以徽标并列
+                       （`.exe` 配 `x64` / `arm64`）；Linux 的区分维度就是格式本身，不给徽标 -->
+                  <div class="pkg-name">
+                    <b>{pkg.format}</b>
+                    {#if pkg.arch}<span class="pkg-arch">{pkg.arch}</span>{/if}
+                    {#if pkg.note}<small>{pkg.note}</small>{/if}
+                  </div>
+                  <!-- 可见文案统一为「下载」（四份产物一致），可访问名另带所指的那一份：
+                       同一张卡里两颗链接不加区分，屏幕阅读器与语音控制就分不出点的是哪个 -->
+                  <a
+                    class="pkg"
+                    href={asset(pkg.key)}
+                    aria-label={`${$t.download.dlLabel} ${pkg.arch ?? pkg.format}`}
+                  ><Icon name="Download" size={14} /><span>{$t.download.dlLabel}</span></a>
                 </div>
               {/each}
             </div>
@@ -295,7 +307,6 @@
           </article>
         {/each}
       </div>
-      <p class="get-note">{$t.download.note}</p>
     </div>
   </section>
 </main>

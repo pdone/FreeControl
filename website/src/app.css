@@ -636,19 +636,40 @@ code {
 }
 .pkg-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+/* 行标签：格式名与架构徽标排在同一基线，说明副行另起一行占满整行 */
+.pkg-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .pkg-name b {
   font-family: var(--font-mono);
   font-size: 14px;
   color: var(--text);
 }
+/* 架构徽标：中性 tag 样式 —— 它标的是「这一行是哪一份」，不是状态，
+   故不取强调色，避免与卡片右上「你的系统」那颗徽标撞成同一种语义 */
+.pkg-name .pkg-arch {
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+}
 .pkg-name small {
-  display: block;
+  flex-basis: 100%;
   font-size: 12px;
   color: var(--text-faint);
 }
@@ -656,6 +677,8 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* 行内换行兜底：卡片窄到按钮必须折到标签下方时，仍贴右而不是与标签左对齐粘连 */
+  margin-left: auto;
   padding: 4px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -669,11 +692,6 @@ code {
 .plat-help {
   margin-top: 12px;
   font-size: 12px;
-  color: var(--text-faint);
-}
-.get-note {
-  margin-top: 18px;
-  font-size: 13px;
   color: var(--text-faint);
 }
 

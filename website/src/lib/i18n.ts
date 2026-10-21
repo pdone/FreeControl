@@ -1,5 +1,20 @@
 import { derived, writable } from 'svelte/store';
 
+// 「下载」一节平台卡里的一份产物（一行）。
+// Windows 同一格式下按架构分两档，故用 `arch` 把架构以徽标呈现；Linux 的区分维度就是格式本身，不给 `arch`。
+export interface PlatPackage {
+  key: string;
+  format: string;
+  arch?: string;
+  note?: string;
+}
+export interface Plat {
+  os: string;
+  name: string;
+  packages: PlatPackage[];
+  help?: string;
+}
+
 // 文案改写自仓库 README.md / README.en.md（同一组章节、一一对应）。
 const zh = {
   htmlLang: 'zh-CN',
@@ -24,14 +39,14 @@ const zh = {
     subtitle: '把 scrcpy 的能力做成可视化的壳。界面上能改的，最终都落到配置里。',
     items: [
       { icon: 'TabletSmartphone', name: '设备清单', desc: '每台设备一个别名，映射到 USB 序列号或 IP:端口，可增删改，在线状态实时可见' },
-      { icon: 'SlidersHorizontal', name: '参数面板', desc: '六组常用选项做成控件，逐项对应 scrcpy 长选项名，另有自定义参数框' },
+      { icon: 'SlidersHorizontal', name: '参数面板', desc: '六组常用选项做成控件，逐项对应 scrcpy 长选项名；每个参数项都能点开「?」看详情，另有自定义参数框' },
       { icon: 'Layers', name: '设备级参数覆盖', desc: '单台设备一套参数，可整体启用或停用' },
       { icon: 'Plug', name: '连接控制', desc: '单台或全部连接 / 断开，多台设备可同时投屏，进程与输出由程序托管' },
-      { icon: 'Settings', name: '运行环境', desc: 'scrcpy 与 adb 按需下载，可查看路径、打开目录、检查更新' },
-      { icon: 'ArrowDownToLine', name: '下载通道', desc: '直连、内置代理与自加代理按序回退，当前所用通道在界面上标明' },
-      { icon: 'ScrollText', name: '日志', desc: '逐会话输出持久化，保留 7 天 / 30 天 / 永久' },
+      { icon: 'Settings', name: '运行环境', desc: 'scrcpy 与 adb 按需下载，多条通道按序回退并按官方校验值核对；可查看路径、换成已有的目录、检查更新' },
+      { icon: 'RefreshCw', name: '应用内更新', desc: '在「关于」里检查并下载新版本，核对后原地替换；便携版自行重启完成，也可设为启动时自动检查' },
+      { icon: 'ScrollText', name: '日志', desc: '逐会话输出持久化，保留 7 天 / 30 天 / 永久（卡片在「设置」页）' },
       { icon: 'Terminal', name: '命令预览', desc: '底部显示将执行的完整命令，可一键复制' },
-      { icon: 'Palette', name: '外观', desc: '暗色优先，侧栏可收成图标栏' },
+      { icon: 'Palette', name: '外观', desc: '深浅色主题与主题色可切换（默认跟随系统），侧栏可收成图标栏' },
     ],
   },
   compare: {
@@ -117,13 +132,16 @@ const zh = {
     },
     yours: '你的系统',
     dlLabel: '下载',
+    // 平台卡每行的呈现按该平台的区分维度定：Windows 是 `.exe` 配架构徽标（同格式分两档），
+    // Linux 是格式本身（`AppImage` / `.deb`）。入口的可见文案统一为「下载」，
+    // 可访问名另带所指的那一份 —— 见 App.svelte 里的 aria-label。
     plats: [
       {
         os: 'windows',
         name: 'Windows',
         packages: [
-          { key: 'windows', format: '.exe', note: 'x64 · 免安装单文件' },
-          { key: 'windowsArm64', format: '.exe', note: 'ARM64 · 免安装单文件' },
+          { key: 'windows', format: '.exe', arch: 'x64', note: '免安装单文件' },
+          { key: 'windowsArm64', format: '.exe', arch: 'arm64', note: '免安装单文件' },
         ],
         help: '依赖系统自带的 WebView2。',
       },
@@ -135,8 +153,7 @@ const zh = {
           { key: 'deb', format: '.deb', note: 'Debian、Ubuntu' },
         ],
       },
-    ],
-    note: 'Windows 免安装、不产出安装器：x64 与 ARM64 各一份。Linux 提供 AppImage 与 deb 发行产物。',
+    ] as Plat[],
   },
   footer: {
     builtLabel: '构建技术',
@@ -169,15 +186,15 @@ const en: Dict = {
     title: 'Features',
     subtitle: 'A visual shell around what scrcpy can do. Everything you change in the UI lands in the config.',
     items: [
-      { icon: 'TabletSmartphone', name: 'Device list', desc: 'One alias per device, mapped to a USB serial or IP:port; add, rename and remove, with live online status' },
-      { icon: 'SlidersHorizontal', name: 'Parameter panels', desc: 'The common options of six groups as controls, each mapped to its scrcpy long option name, plus a custom-arguments box' },
+      { icon: 'TabletSmartphone', name: 'Device list', desc: 'One alias per device, mapped to a USB serial or IP:port; add, rename and remove, with live online/connected status' },
+      { icon: 'SlidersHorizontal', name: 'Parameter panels', desc: 'The common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box' },
       { icon: 'Layers', name: 'Per-device overrides', desc: "A device's own parameter set, switched on or off as a whole" },
-      { icon: 'Plug', name: 'Connection control', desc: 'Connect or disconnect one device or all of them; several devices can mirror at once' },
-      { icon: 'Settings', name: 'Runtime', desc: 'scrcpy and adb fetched on demand; view the path, open the directory, check for updates' },
-      { icon: 'ArrowDownToLine', name: 'Download channels', desc: 'Direct, built-in proxy and your own proxies, tried in order, with the channel in use shown in the UI' },
-      { icon: 'ScrollText', name: 'Logs', desc: 'Per-session output persisted, kept for 7 days / 30 days / forever' },
+      { icon: 'Plug', name: 'Connection control', desc: 'Connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app' },
+      { icon: 'Settings', name: 'Runtime', desc: 'scrcpy and adb fetched on demand, channels tried in order and downloads verified against the official checksums; view the path, switch to an existing directory, check for updates' },
+      { icon: 'RefreshCw', name: 'In-app updates', desc: 'Check for and download a new version from "About", verify it and replace in place; portable builds restart to finish, and a startup check can be enabled' },
+      { icon: 'ScrollText', name: 'Logs', desc: 'Per-session output persisted, kept for 7 days / 30 days / forever (the cards live on the Settings page)' },
       { icon: 'Terminal', name: 'Command preview', desc: 'The exact command about to run, shown at the bottom and copyable' },
-      { icon: 'Palette', name: 'Appearance', desc: 'Dark-first, with a sidebar that collapses to an icon rail' },
+      { icon: 'Palette', name: 'Appearance', desc: 'Light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail' },
     ],
   },
   compare: {
@@ -266,8 +283,8 @@ const en: Dict = {
         os: 'windows',
         name: 'Windows',
         packages: [
-          { key: 'windows', format: '.exe', note: 'x64 · portable file' },
-          { key: 'windowsArm64', format: '.exe', note: 'ARM64 · portable file' },
+          { key: 'windows', format: '.exe', arch: 'x64', note: 'portable file' },
+          { key: 'windowsArm64', format: '.exe', arch: 'arm64', note: 'portable file' },
         ],
         help: 'Uses the WebView2 runtime that ships with the system.',
       },
@@ -279,8 +296,7 @@ const en: Dict = {
           { key: 'deb', format: '.deb', note: 'Debian, Ubuntu' },
         ],
       },
-    ],
-    note: 'Portable on Windows with no installer: one file each for x64 and ARM64. AppImage and deb release artifacts on Linux.',
+    ] as Plat[],
   },
   footer: {
     builtLabel: 'Built with',

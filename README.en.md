@@ -23,12 +23,12 @@
 ## Features
 
 - **Device list** — one alias per device, mapped to a USB serial or `IP:port`; add, rename and remove, with live online/connected status
-- **Parameter panels** — the common options of six groups as controls, each mapped to its scrcpy long option name, plus a custom-arguments box
+- **Parameter panels** — the common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box
 - **Per-device overrides** — a device's own parameter set, switched on or off as a whole
 - **Connection control** — connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app
-- **Runtime** — scrcpy and adb fetched on demand; view the path, open the directory, check for updates
-- **Download channels** — direct, built-in proxy and your own proxies, tried in order, with the channel in use shown in the UI and downloads verified against the official checksums
-- **Logs** — per-session output persisted, kept for 7 days / 30 days / forever
+- **Runtime** — scrcpy and adb fetched on demand, channels tried in order and downloads verified against the official checksums; view the path, switch to an existing directory, check for updates
+- **In-app updates** — check for and download a new version from "About", verify it and replace in place; portable builds restart to finish, and a startup check can be enabled
+- **Logs** — per-session output persisted, kept for 7 days / 30 days / forever (the cards live on the Settings page)
 - **Command preview** — the exact command about to run, shown at the bottom and copyable
 - **Appearance** — light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail
 
@@ -127,6 +127,10 @@ FreeControl2/
 ### It says scrcpy or adb is missing
 
 Fetch them on the "Runtime" page. Neither ships with the app; both are downloaded into the application data directory on demand, or you can point that page at an existing custom directory.
+
+### How do I update to a new version
+
+Open "About" and click "Check for updates", or turn on "Check for updates automatically" on the "Settings" page — the app downloads and verifies the new version, then restarts to finish. On Linux the package build is handed to the system installer once downloaded.
 
 ### The download fails or hangs on one channel
 
