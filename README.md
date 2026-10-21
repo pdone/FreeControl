@@ -174,3 +174,5 @@ FreeControl2/
 - [scrcpy](https://github.com/Genymobile/scrcpy) —— 投屏与设备控制全部由它完成，本项目是它的图形外壳。
 - [Tauri](https://tauri.app/)、[Svelte](https://svelte.dev/)、[Vite](https://vite.dev/)、[lucide](https://lucide.dev/) —— 应用外壳与界面。
 - 前身 [FreeControl](https://github.com/pdone/FreeControl) —— 本项目在它的交互经验上重做。
+- [rayburst](https://github.com/AnInsomniacy/rayburst) —— 本项目部分功能设计参考了此项目。
+- [escrcpy](https://github.com/viarotel-org/escrcpy) —— 本项目部分功能设计参考了此项目。
