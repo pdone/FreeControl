@@ -342,7 +342,7 @@ select,
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
-  transition: background 0.12s, color 0.12s, gap 0.18s ease;
+  transition: background 0.16s, color 0.16s, gap 0.18s ease;
   font-size: 14.5px;
 }
 .nav-item:hover {
@@ -403,7 +403,7 @@ select,
   cursor: pointer;
   font-size: 14px;
   font-family: inherit;
-  transition: box-shadow 0.12s, color 0.12s, gap 0.18s ease;
+  transition: box-shadow 0.16s, color 0.16s, gap 0.18s ease;
 }
 .collapse-btn:hover {
   box-shadow: inset 0 0 0 1px var(--border-strong);
@@ -498,7 +498,7 @@ select,
   color: var(--text-dim);
   cursor: pointer;
   font: inherit;
-  transition: background-color 0.12s, color 0.12s;
+  transition: background-color 0.16s, color 0.16s;
 }
 .win-btn:hover {
   background: color-mix(in srgb, var(--text) 8%, transparent);
@@ -877,6 +877,7 @@ select,
   align-items: center;
   justify-content: center;
   vertical-align: middle;
+  transition: color 0.16s;
 }
 .fhelp-btn:hover {
   color: var(--text-dim);
@@ -936,14 +937,14 @@ select,
 }
 /* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 `.open` ——
    没有脚本、没有状态，入口上也不挂 `aria-expanded`。
-   入场：120ms 淡入 + 4px 下落；与 hover 提示同族，不加 scale（大面板缩放会抢眼）。
+   入场：200ms 淡入 + 4px 下落；与 hover 提示同族，不加 scale（大面板缩放会抢眼）。
    `prefers-reduced-motion` 下把位移归零，只留淡入。退场不做 —— 面板靠 hover 保持，
    退场期间若仍可命中会把它重新钉住。 */
 .fhelp:hover .fhelp-panel,
 .fhelp:focus-within .fhelp-panel {
   --fhelp-dy: -4px;
   display: block;
-  animation: fhelp-in 120ms ease-out;
+  animation: fhelp-in 200ms ease-out;
 }
 @keyframes fhelp-in {
   from {
@@ -1158,6 +1159,11 @@ select,
 .dir-actions > .dir-menu-trigger svg {
   width: 14px;
   height: 14px;
+  transition: transform 0.16s ease;
+}
+/* 展开态由按钮自己的 `aria-expanded` 表达（`EnvironmentPage.svelte` 绑定 `dirMenuOpen`），箭头随之转 180°。 */
+.dir-actions > .dir-menu-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 .dir-menu-pop {
   position: absolute;
@@ -1172,6 +1178,25 @@ select,
   box-shadow: var(--shadow);
   display: grid;
   gap: 2px;
+  /* 入场：180ms 淡入 + 4px 下落（与帮助面板 / hover 提示同族，不加 scale）。
+     只做入场 —— 菜单由 `{#if}` 卸载，做退场要么改挂载状态、要么让正在消失的节点仍可命中。 */
+  --menu-dy: -4px;
+  animation: menu-in 180ms ease-out;
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--menu-dy, -4px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dir-menu-pop {
+    --menu-dy: 0px;
+  }
 }
 .dir-menu-pop button {
   display: flex;
@@ -1188,6 +1213,7 @@ select,
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 0.16s;
 }
 .dir-menu-pop button:hover {
   background: var(--panel-2);
@@ -1439,7 +1465,7 @@ select {
   align-items: center;
   justify-content: center;
   color: #fff;
-  transition: box-shadow 0.12s, transform 0.12s;
+  transition: box-shadow 0.16s, transform 0.16s;
 }
 .swatch:hover {
   transform: translateY(-1px);
@@ -1713,6 +1739,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--text-faint);
   cursor: pointer;
   display: inline-flex;
+  transition: color 0.16s;
 }
 .dev-alias .edit:hover {
   color: var(--accent-hover);
@@ -1863,7 +1890,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
   font-size: 13px;
   font-family: inherit;
-  transition: 0.12s;
+  transition: 0.16s;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -2138,7 +2165,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: 0.12s;
+  transition: 0.16s;
 }
 .launchbar .copy-btn:hover,
 .launchbar .connect-btn:hover {
@@ -2303,7 +2330,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: none;
   color: var(--text-faint);
   cursor: pointer;
-  transition: 0.12s;
+  transition: 0.16s;
 }
 .about-close:hover {
   background: var(--panel-2);
@@ -2375,7 +2402,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: border-color 0.12s;
+  transition: border-color 0.16s;
 }
 .about-ver-row:hover {
   border-color: var(--border-strong);
@@ -2624,6 +2651,14 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-top: 10px;
   font-size: 12px;
   color: var(--warn);
+}
+/* 主题切换的整页过渡：生效主题变化时由 `theme.ts` 用 View Transitions 包一次应用，
+   这里只定那一段交叉淡入的时长与缓动（与原型同值）。内核不支持该 API 时这段规则不生效，
+   主题仍即时切换；「减少动态效果」由 `theme.ts` 那侧直接跳过，不进过渡。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .about-modal,

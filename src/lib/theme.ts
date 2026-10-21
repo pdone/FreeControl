@@ -205,26 +205,59 @@ function prefersLight(): boolean {
   return media?.matches ?? false;
 }
 
+/** 「减少动态效果」：命中时主题切换直接写 DOM，不进整页过渡。 */
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** 是否已应用过一次外观、上一次写入的生效主题。首帧不包过渡，避免启动时闪一下。 */
+let appliedOnce = false;
+let lastResolvedTheme: ResolvedTheme | null = null;
+
+function writeAppearance(resolved: ResolvedTheme, accent: string): void {
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent-ink', inkFor(accent));
+  // 两个派生色按当前主题的承载面兜底到 4.5:1（见 derivedColors 的说明）。
+  const derived = derivedColors(hexToRgb(accent), resolved);
+  root.style.setProperty('--accent-hover', derived.hover);
+  root.style.setProperty('--accent-text', derived.text);
+}
+
 /**
  * 应用一份外观偏好：解析主题、写 `data-theme`、写 `--accent` 与 `--accent-ink`。
  *
  * 幂等、无副作用累积；配置每次变化调一次即可。非浏览器环境（如纯函数核对脚本）
  * 只更新模块内状态，不碰 DOM。
+ *
+ * 只有**生效主题**变化时才包一层整页交叉淡入（时长在 `app.css` 的 `::view-transition-*`
+ * 里定）：主题色单独变化仍是即时生效，否则每次点色板都要等过渡。
  */
 export function applyAppearance(ui: UiPrefs): void {
   currentMode = isThemeMode(ui.theme) ? ui.theme : DEFAULT_THEME;
   const accent = normalizeHex(ui.accent) ?? DEFAULT_ACCENT;
   const resolved = resolveTheme(currentMode, prefersLight());
 
-  if (typeof document !== 'undefined') {
-    const root = document.documentElement;
-    root.dataset.theme = resolved;
-    root.style.setProperty('--accent', accent);
-    root.style.setProperty('--accent-ink', inkFor(accent));
-    // 两个派生色按当前主题的承载面兜底到 4.5:1（见 derivedColors 的说明）。
-    const derived = derivedColors(hexToRgb(accent), resolved);
-    root.style.setProperty('--accent-hover', derived.hover);
-    root.style.setProperty('--accent-text', derived.text);
+  if (typeof document === 'undefined') {
+    lastResolvedTheme = resolved;
+    appliedOnce = true;
+    return;
+  }
+
+  const themeChanged = appliedOnce && lastResolvedTheme !== resolved;
+  appliedOnce = true;
+  lastResolvedTheme = resolved;
+
+  if (
+    themeChanged &&
+    typeof document.startViewTransition === 'function' &&
+    !prefersReducedMotion()
+  ) {
+    // 连点两下主题时前一段过渡被自动跳过，abort 的 rejection 不需要处理。
+    document.startViewTransition(() => writeAppearance(resolved, accent)).finished.catch(() => {});
+  } else {
+    writeAppearance(resolved, accent);
   }
 }
 

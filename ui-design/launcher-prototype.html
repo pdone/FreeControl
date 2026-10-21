@@ -185,7 +185,7 @@
      产品侧的品牌行早已只渲染产品名，原型留着一行版本会演示出并不存在的东西。 */
   .brand .name { font-weight: 600; letter-spacing: .3px; }
   .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-  .nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 var(--item-pad); border-radius: var(--radius-sm); color: var(--text-dim); cursor: pointer; user-select: none; transition: background .12s, color .12s, gap .18s ease; font-size: 14.5px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 var(--item-pad); border-radius: var(--radius-sm); color: var(--text-dim); cursor: pointer; user-select: none; transition: background .16s, color .16s, gap .18s ease; font-size: 14.5px; }
   .nav-item:hover { background: var(--panel); color: var(--text); }
   .nav-item.active { background: var(--accent-soft); color: var(--accent-text); }
   .nav-item.active svg { stroke: var(--accent-hover); }
@@ -195,7 +195,7 @@
   /* 导航/品牌文字：用 max-width + opacity 过渡，与侧栏宽度动画同速，避免挤压闪烁 */
   .nav-text, .brand-text { white-space: nowrap; overflow: hidden; min-width: 0; max-width: 200px; opacity: 1; transition: max-width .18s ease, opacity .15s ease; }
   /* 侧边栏收起按钮：边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
-  .collapse-btn { margin-top: 12px; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .12s, color .12s, gap .18s ease; }
+  .collapse-btn { margin-top: 12px; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .16s, color .16s, gap .18s ease; }
   .collapse-btn:hover { box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text); }
   .collapse-btn svg { width: var(--icon); height: var(--icon); stroke: currentColor; stroke-width: 1.7; flex: none; transition: transform .18s ease; }
   /* 收起态：collapsed 加在 .app 容器上。
@@ -229,7 +229,7 @@
      前景固定白色 —— 不能取 --accent-ink：它在亮主题色下会变成黑色，而这里压的是破坏性
      实底（红底），只用白字。 */
   .win-controls { display: flex; align-self: stretch; }
-  .win-btn { width: 46px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; transition: background-color .12s, color .12s; }
+  .win-btn { width: 46px; display: flex; align-items: center; justify-content: center; padding: 0; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font: inherit; transition: background-color .16s, color .16s; }
   .win-btn:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
   .win-btn:active { background: color-mix(in srgb, var(--text) 14%, transparent); }
   .win-btn.close:hover { background: color-mix(in srgb, var(--danger) 55%, #000); color: #fff; }
@@ -337,7 +337,7 @@
   /* 入口的层叠随展开状态变化（config ㉖）：常驻 4 低于面板的 5，于是展开的面板盖住同页其它入口；
      只在自己这块展开时（:hover / :focus-within）上提到 6，压过面板的 6px / 36px 透明桥 ——
      否则点击会落到桥上、入口拿不到焦点（点击固定失效）。面板若新增第三种展开来源，此处须同批补条件。 */
-  .fhelp-btn { position: relative; z-index: 4; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+  .fhelp-btn { position: relative; z-index: 4; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; transition: color .16s; }
   .fhelp-btn:hover { color: var(--text-dim); }
   .fhelp:hover .fhelp-btn,
   .fhelp:focus-within .fhelp-btn { z-index: 6; }
@@ -356,7 +356,7 @@
   /* 展开的两条来源：悬浮、以及焦点（键盘聚焦，或鼠标点击后留下的那个焦点）。不写 .fhelp.open ——
      没有脚本、没有状态，入口上也不挂 aria-expanded（静态写死的值在展开时是假的）。 */
   .fhelp:hover .fhelp-panel,
-  .fhelp:focus-within .fhelp-panel { --fhelp-dy: -4px; display: block; animation: fhelp-in 120ms ease-out; }
+  .fhelp:focus-within .fhelp-panel { --fhelp-dy: -4px; display: block; animation: fhelp-in 200ms ease-out; }
   @keyframes fhelp-in { from { opacity: 0; transform: translateY(var(--fhelp-dy, -4px)); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
     .fhelp:hover .fhelp-panel,
@@ -410,17 +410,26 @@
     border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm);
     border-left: 0; padding-left: 7px; padding-right: 7px;
   }
-  .dir-actions > .dir-menu-trigger svg { width: 14px; height: 14px; }
+  .dir-actions > .dir-menu-trigger svg { width: 14px; height: 14px; transition: transform .16s ease; }
+  .dir-actions > .dir-menu-trigger[aria-expanded='true'] svg { transform: rotate(180deg); }
   .dir-menu-pop {
     position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 148px;
     padding: 5px; background: var(--bg-elev); border: 1px solid var(--border);
     border-radius: var(--radius-sm); box-shadow: var(--shadow);
     display: grid; gap: 2px;
+    --menu-dy: -4px;
+    animation: menu-in 180ms ease-out;
   }
+  @keyframes menu-in { from { opacity: 0; transform: translateY(var(--menu-dy, -4px)); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .dir-menu-pop { --menu-dy: 0px; } }
+  /* `.hidden`（本文件更靠前、与 `.dir-menu-pop` 同权重）会被上面的 display:grid 盖掉，
+     菜单关不上；这里显式补一条。产品侧由 {#if} 卸载，不存在这条。 */
+  .dir-menu-pop.hidden { display: none; }
   .dir-menu-pop button {
     display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px;
     border: 0; border-radius: 6px; background: transparent; color: var(--text);
     font-family: inherit; font-size: 12.5px; text-align: left; white-space: nowrap; cursor: pointer;
+    transition: background-color .16s;
   }
   .dir-menu-pop button:hover { background: var(--panel-2); }
   .dir-menu-pop button svg { width: 15px; height: 15px; stroke: var(--text-dim); }
@@ -477,7 +486,7 @@
      色块是按钮：选中态用外环 + 勾选图标表达（不只靠颜色），可键盘聚焦。
      色块底色就是该预设本身，故勾选固定用白色加一点阴影 —— 预设都偏暗，白勾最稳。 */
   .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
-  .swatch { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: box-shadow .12s, transform .12s; }
+  .swatch { width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: box-shadow .16s, transform .16s; }
   .swatch:hover { transform: translateY(-1px); }
   .swatch.sel { box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent-line); }
   .swatch svg { width: 15px; height: 15px; stroke-width: 2.4; filter: drop-shadow(0 1px 1px rgba(0,0,0,.45)); }
@@ -557,7 +566,7 @@
   .status-dot.offline { background: var(--text-faint); }
   .dev-id { min-width: 0; flex: 1; }
   .dev-alias { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .dev-alias .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; }
+  .dev-alias .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; transition: color .16s; }
   .dev-alias .edit:hover { color: var(--accent-hover); }
   .dev-alias .edit svg { width: 13px; height: 13px; stroke: currentColor; }
   .dev-alias input { font-weight: 600; font-size: 14.5px; padding: 3px 7px; width: 200px; }
@@ -618,7 +627,7 @@
   .env-reason-cmp { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-faint); }
   .env-reason-cmp b { color: var(--text); font-weight: 600; }
   .dev-actions { display: flex; gap: 8px; align-items: center; flex: none; }
-  .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 9px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; display: inline-flex; align-items: center; gap: 7px; }
+  .btn { border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 9px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-family: inherit; transition: .16s; display: inline-flex; align-items: center; gap: 7px; }
   .btn:hover { border-color: var(--border-strong); }
   .btn svg { width: 15px; height: 15px; stroke: currentColor; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -665,7 +674,11 @@
     .overlay.about-overlay.closing, .overlay.about-overlay.closing .modal { animation-duration: .01ms; }
   }
   /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
-  .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .12s; }
+  .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .16s; }
+  /* 主题切换：生效主题变化时用 View Transitions 做一次整页交叉淡入（与产品侧同一段）。
+     首次应用不包（避免启动时从系统色淡到配置色）；不支持该 API 或「减少动态效果」时直切。 */
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation-duration: 260ms; animation-timing-function: ease; }
   .about-close:hover { background: var(--panel-2); color: var(--text); }
   .about-close svg { width: 17px; height: 17px; stroke: currentColor; }
   /* 品牌图形：与品牌行同一个图形（脚本里取同一个 src，不复制一份数据 URI）。
@@ -689,7 +702,7 @@
   /* 行底用 --panel-2：弹窗自身就是 --panel，同色会看不出这两行。
      整行可点：指针光标 + **一处**悬停反馈（描边转 --border-strong —— 与 .btn:hover /
      .collapse-btn:hover 同一个既有取值，不新造颜色、不加底纹）；行末图标不再自己给反馈。 */
-  .about-ver-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color .12s; }
+  .about-ver-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: border-color .16s; }
   .about-ver-row:hover { border-color: var(--border-strong); }
   /* 两行等宽、左右对齐（不做错位内收：两行版本框对齐后与「技术栈」等块形成同一条左基线） */
   .about-ver-name { font-size: 13.5px; color: var(--text); }
@@ -770,7 +783,7 @@
   .launchbar .lb-label svg { width: 15px; height: 15px; stroke: currentColor; }
   /* 复制 / 连接两个图标按钮共用一套样式；尺寸取按钮自己的单一变量、恒为正方形，
      **不与命令框等高**（同步产品侧：config.yaml ⑭ 几何取值 + ㉑ 命令条新增按钮）。 */
-  .launchbar .copy-btn, .launchbar .connect-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--lb-btn-size); height: var(--lb-btn-size); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; transition: .12s; }
+  .launchbar .copy-btn, .launchbar .connect-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--lb-btn-size); height: var(--lb-btn-size); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; transition: .16s; }
   .launchbar .copy-btn:hover, .launchbar .connect-btn:hover { border-color: var(--border-strong); color: var(--text); }
   .launchbar .copy-btn svg, .launchbar .connect-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.7; }
   .launchbar .copy-btn.ok { border-color: var(--success); color: var(--success); }
@@ -856,8 +869,8 @@
         <div class="sec-head"><h2>设备</h2><p>统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。</p></div>
         <div class="dev-toolbar">
           <button class="btn sm primary" id="addDeviceBtn"><i data-lucide="plus"></i>添加设备</button>
-          <button class="btn sm" id="connAll"><i data-lucide="zap"></i>全部连接</button>
-          <button class="btn sm" id="discAll"><i data-lucide="zap-off"></i>全部断开</button>
+          <button class="btn sm" id="connAll" data-tip="连接所有在线且未连接的设备（离线设备不会被尝试连接）"><i data-lucide="zap"></i>全部连接</button>
+          <button class="btn sm" id="discAll" data-tip="结束所有正在运行的会话"><i data-lucide="zap-off"></i>全部断开</button>
           <div class="spacer"></div>
           <!-- 批量操作的结果就地呈现在本行内（与产品侧 DevicePage 工具栏的反馈位同槽，不另起一行） -->
           <span class="status-text" id="devNotice"></span>
@@ -1936,6 +1949,11 @@
       card.className='dev-card'+(d.id===selectedId?' sel':'')+(d.status==='connected'?' connected':'')+(d.status==='offline'?' offline':'');
       card.dataset.id=d.id;
       const canConnect = canConnectDevice(d);
+      /* 连接 / 断开入口的提示逐字取产品侧 DevicePage 的 `connectHint`：可用时说这一步会做什么，
+         不可用时把原因写在按钮上。按钮可能被禁用（禁用元素不派发指针事件），故与产品同款套 .tip-host。 */
+      const connTip = d.status==='connected' ? '断开该设备的会话'
+        : canConnect ? (d.status==='offline' ? '点「连接」会先尝试重新连上这台设备，成功后再打开投屏' : '连接该设备')
+        : '设备离线：adb 中未检测到该设备，无法连接';
       card.innerHTML=`
         <div class="dev-main" data-pick="${d.id}">
           <span class="status-dot ${scls}"></span>
@@ -1954,10 +1972,10 @@
           </div>
           <div class="dev-actions">
             ${d.status==='connected'
-              ? `<button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button>`
-              : `<button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button>`}
-            <button class="btn sm ghost" data-ov="${d.id}"><i data-lucide="sliders-horizontal"></i>参数</button>
-            <button class="btn sm danger" data-del="${d.id}"><i data-lucide="trash-2"></i>删除</button>
+              ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
+              : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`}
+            <button class="btn sm ghost" data-ov="${d.id}" data-tip="为该设备单独设置参数（覆盖默认参数）"><i data-lucide="sliders-horizontal"></i>参数</button>
+            <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其参数覆盖与覆盖开关）"><i data-lucide="trash-2"></i>删除</button>
           </div>
         </div>
         <div class="dev-params hidden" data-ovpanel="${d.id}"></div>`;
@@ -3059,10 +3077,29 @@
     };
   }
   const prefersLight=window.matchMedia('(prefers-color-scheme: light)');
-  function applyTheme(){
-    const resolved = themeMode==='system' ? (prefersLight.matches?'light':'dark') : themeMode;
+  const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+  let themeApplied=false;
+  let lastResolved=null;
+  function commitTheme(resolved){
     document.documentElement.dataset.theme=resolved;
     applyAccent(accentHex);   // 派生色依赖生效主题，切主题要重算
+  }
+  function applyTheme(){
+    const resolved = themeMode==='system' ? (prefersLight.matches?'light':'dark') : themeMode;
+    if(!themeApplied){
+      themeApplied=true;
+      lastResolved=resolved;
+      commitTheme(resolved);
+      return;
+    }
+    const changed=resolved!==lastResolved;
+    lastResolved=resolved;
+    if(changed && typeof document.startViewTransition==='function' && !prefersReduced.matches){
+      /* 被连续切换中断时 finished 会 reject（AbortError），吞掉即可，最终主题仍是最后一次。 */
+      void document.startViewTransition(()=>commitTheme(resolved)).finished.catch(()=>{});
+    }else{
+      commitTheme(resolved);
+    }
   }
   function normalizeHex(v){ const s=(v||'').trim().toLowerCase(); return /^#[0-9a-f]{6}$/.test(s)?s:null; }
   function syncAccentPicker(){ const el=document.getElementById('accentPicker'); if(el) el.value=accentHex; }
