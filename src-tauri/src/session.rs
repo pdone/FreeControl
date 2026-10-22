@@ -114,7 +114,7 @@ pub fn primary_work_area() -> Option<Area> {
 
 /// 非 Windows 平台：取不到「扣除面板之后的可用工作区」—— 那需要 EWMH / GTK 等平台绑定
 /// （design 的 Non-Goals 明确不引入）。故返回 `None`，由 [`work_area`] 退到「显示器区域扣除
-/// [`panel_reserve`]」的保守取值。
+/// [`panel_reserve`]」的保守取值。macOS 的可视区要靠 `AppHandle` 取显示器，放在 [`work_area`] 里。
 #[cfg(not(windows))]
 pub fn primary_work_area() -> Option<Area> {
     None
@@ -172,7 +172,7 @@ pub fn window_frame_insets() -> FrameInsets {
 ///    边框」的量级计入步长与容量：宽度按两侧各 1px 的最小边框，高度沿用 Windows 侧的实测
 ///    量级（内容区高 400 的窗口整体占 439，即垂直装饰约 39）。宁可多留 8px 空隙，
 ///    也不要让相邻两行互相重叠。
-#[cfg(not(windows))]
+#[cfg(all(not(windows), not(target_os = "macos")))]
 pub fn window_frame_insets() -> FrameInsets {
     FrameInsets {
         left: 0,
@@ -182,11 +182,29 @@ pub fn window_frame_insets() -> FrameInsets {
     }
 }
 
+/// macOS 标准标题栏的高度（逻辑点，design D11）。
+///
+/// SDL 在 Cocoa 上把**内容区**放到请求点上，标题栏向上长、左右下没有边框 —— 所以 `top`
+/// 要下推一个标题栏高度，否则首行标题栏会钻进菜单栏底下。28 是常见值，真机不符时只改这里。
+#[cfg(target_os = "macos")]
+const MACOS_TITLEBAR: i32 = 28;
+
+#[cfg(target_os = "macos")]
+pub fn window_frame_insets() -> FrameInsets {
+    FrameInsets {
+        left: 0,
+        top: MACOS_TITLEBAR,
+        width: 0,
+        height: MACOS_TITLEBAR,
+    }
+}
+
 /// 非 Windows 平台上为主显示器顶部 / 底部系统占位（顶栏、dock）预留的像素（design D4）。
 ///
 /// Windows 走的是「工作区」API（`SPI_GETWORKAREA`），任务栏已经在里面扣掉了，故为 `(0, 0)`；
-/// 其它平台取不到「扣除面板之后的矩形」，只能以保守值兜底 —— 覆盖常见顶栏（约 32px）与
-/// 常见 dock / 面板（≤56px）。宁可留白，也不要让最后一行被任务栏压住。
+/// Linux 取不到「扣除面板之后的矩形」，只能以保守值兜底 —— 覆盖常见顶栏（约 32px）与
+/// 常见 dock / 面板（≤56px）。macOS 正常情况下走 [`work_area`] 里的可视区，只有取不到时才
+/// 用这段预留。宁可留白，也不要让最后一行被任务栏压住。
 pub const fn panel_reserve() -> (i32, i32) {
     if cfg!(windows) {
         (0, 0)
@@ -195,28 +213,70 @@ pub const fn panel_reserve() -> (i32, i32) {
     }
 }
 
+/// 物理像素矩形 → 窗口定位单位的折算（design D11）。
+///
+/// macOS 上 SDL 按**逻辑点**定位与设尺寸，而显示器信息是物理像素：Retina 屏不折算会让窗口
+/// 排出屏幕。四边一律向下取整，保证折算后的矩形不会越出原矩形（宁可少一点，不可冒出去）。
+/// 其余平台的定位单位就是物理像素，调用方传 `1.0` 原样返回。
+#[cfg(any(target_os = "macos", test))]
+pub fn to_logical_area(area: Area, scale: f64) -> Area {
+    if !scale.is_finite() || scale <= 0.0 || (scale - 1.0).abs() < f64::EPSILON {
+        return area;
+    }
+    Area {
+        x: (area.x as f64 / scale).floor() as i32,
+        y: (area.y as f64 / scale).floor() as i32,
+        width: ((area.width as f64 / scale).floor() as i32).max(1),
+        height: ((area.height as f64 / scale).floor() as i32).max(1),
+    }
+}
+
 /// 排列用的工作区：优先系统工作区，失败时退到「显示器区域扣除面板预留」，再失败给固定兜底值。
 ///
 /// 回退链的顺序不变（design D6），变化只在「显示器区域」这一步：非 Windows 平台拿不到
 /// 「扣除任务栏 / 面板之后的矩形」，故按 [`panel_reserve`] 扣掉一段保守占位。
+/// macOS 例外：`Monitor::work_area()` 就是 `NSScreen.visibleFrame`（已扣菜单栏与程序坞），
+/// 折算成逻辑点后直接使用，不再扣预留。
 pub fn work_area(app: &AppHandle) -> Area {
     if let Some(area) = primary_work_area() {
         return area;
     }
-    if let Ok(Some(monitor)) = app.primary_monitor() {
-        let size = monitor.size();
-        let pos = monitor.position();
-        let (top, bottom) = panel_reserve();
-        // 高度最多扣到 1：极小屏幕上扣成负数会让后面的排列公式算出荒谬的容量。
-        let height = (size.height as i32 - top - bottom).max(1);
-        return Area {
-            x: pos.x,
-            y: pos.y + top,
-            width: size.width as i32,
-            height,
-        };
+    let Ok(Some(monitor)) = app.primary_monitor() else {
+        return FALLBACK_AREA;
+    };
+    // 宽高为 0 表示运行环境没给出可视区，落到下面的保守扣减。
+    #[cfg(target_os = "macos")]
+    {
+        let wa = monitor.work_area();
+        if wa.size.width > 0 && wa.size.height > 0 {
+            return to_logical_area(
+                Area {
+                    x: wa.position.x,
+                    y: wa.position.y,
+                    width: wa.size.width as i32,
+                    height: wa.size.height as i32,
+                },
+                monitor.scale_factor(),
+            );
+        }
     }
-    FALLBACK_AREA
+    let size = monitor.size();
+    let pos = monitor.position();
+    let (top, bottom) = panel_reserve();
+    // 高度最多扣到 1：极小屏幕上扣成负数会让后面的排列公式算出荒谬的容量。
+    let area = Area {
+        x: pos.x,
+        y: pos.y + top,
+        width: size.width as i32,
+        height: (size.height as i32 - top - bottom).max(1),
+    };
+    // 回落链与可视区那条路径必须同一单位，否则网格按物理像素算、窗口按点摆。
+    #[cfg(target_os = "macos")]
+    {
+        return to_logical_area(area, monitor.scale_factor());
+    }
+    #[cfg(not(target_os = "macos"))]
+    area
 }
 
 /// 每行可容纳的窗口数：`max(1, floor((work - 2*margin + gap) / (window + gap)))`（design D6）。
@@ -1534,6 +1594,55 @@ mod tests {
 
     fn set(items: &[usize]) -> BTreeSet<usize> {
         items.iter().copied().collect()
+    }
+
+    // ── macOS：物理像素 → 逻辑点 ───────────────────────────────
+
+    #[test]
+    fn logical_points_shrink_by_scale_factor() {
+        // Retina：显示器信息是物理像素，SDL 按逻辑点定位与设尺寸。
+        let physical = Area {
+            x: 0,
+            y: 25,
+            width: 2940,
+            height: 1800,
+        };
+        assert_eq!(
+            to_logical_area(physical, 2.0),
+            Area {
+                x: 0,
+                y: 12,
+                width: 1470,
+                height: 900
+            }
+        );
+        // 1 倍屏（与 Windows / Linux 口径一致）原样返回。
+        assert_eq!(to_logical_area(physical, 1.0), physical);
+    }
+
+    #[test]
+    fn non_integer_scale_never_exceeds_the_physical_area() {
+        let physical = Area {
+            x: 1,
+            y: 3,
+            width: 1439,
+            height: 899,
+        };
+        let logical = to_logical_area(physical, 1.5);
+        // 四边向下取整，折回去不超过原矩形的右下边。
+        assert_eq!(
+            logical,
+            Area {
+                x: 0,
+                y: 2,
+                width: 959,
+                height: 599
+            }
+        );
+        let right = (physical.x + physical.width) as f64;
+        let bottom = (physical.y + physical.height) as f64;
+        assert!((logical.x + logical.width) as f64 * 1.5 <= right);
+        assert!((logical.y + logical.height) as f64 * 1.5 <= bottom);
     }
 
     // ── 9.5：每行可容纳数量 ────────────────────────────────────

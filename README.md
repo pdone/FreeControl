@@ -51,9 +51,11 @@
 
 ## 快速开始
 
-**运行要求**：Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。
+**运行要求**：Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。Linux 提供 AppImage 与 deb，macOS 11 及以上提供 dmg（Safari 需为 16.2 或更新）。
 
-从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_x64.exe` 或 `FreeControl2_<版本>_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物。
+从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_x64.exe` 或 `FreeControl2_<版本>_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
+
+macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`。
 
 1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
 2. **添加设备** —— 在「设备」页新增一台：USB 连接填 `adb devices` 列出的序列号，无线连接填 `IP:端口`。
@@ -62,7 +64,7 @@
 
 ### 从源码构建
 
-另需 Node.js 24 与 npm · Rust 稳定工具链 · Windows 的 MSVC 构建工具 / Linux 的 webkit2gtk 等系统库（清单见 `.github/workflows/build.yml`）。
+另需 Node.js 24 与 npm · Rust 稳定工具链 · Windows 的 MSVC 构建工具 / Linux 的 webkit2gtk 等系统库 / macOS 的 Xcode 命令行工具（清单见 `.github/workflows/build.yml`）。
 
 ```sh
 npm install
@@ -83,6 +85,14 @@ npm run tauri build -- --bundles appimage,deb
 ```
 
 产物在 `src-tauri/target/release/bundle/`。
+
+macOS（dmg）：
+
+```sh
+npm run tauri build -- --bundles dmg
+```
+
+产物在 `src-tauri/target/release/bundle/dmg/`。本仓库的 macOS 产物为 ad-hoc 签名、未经公证，首次打开需按上文放行。
 
 手动触发 `.github/workflows/build.yml` 出包时，产物先汇集成**草稿发行**（不自动发布）。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**。
 
@@ -127,7 +137,7 @@ FreeControl2/
 
 ### 怎么更新到新版本
 
-打开「关于」点「检查更新」，或在「设置」页打开「自动检查更新」—— 程序会下载并核对新版本，替换后自行重启。Linux 的安装包版本下载完成后交给系统安装程序。
+打开「关于」点「检查更新」，或在「设置」页打开「自动检查更新」—— 程序会下载并核对新版本，替换后自行重启。Linux 的安装包版本下载完成后交给系统安装程序。macOS 的 dmg 下载并校验后由 Finder 打开，把应用拖进「应用程序」覆盖旧版即可，应用不会自行退出。
 
 ### 下载失败或长时间卡在某个通道
 
@@ -143,7 +153,7 @@ FreeControl2/
 
 ### 数据都存在哪
 
-都在应用数据根下（Windows 为 `%APPDATA%/FreeControl2`，Linux 为 XDG 数据根下的同名目录）：
+都在应用数据根下（Windows 为 `%APPDATA%/FreeControl2`，Linux 为 XDG 数据根下的同名目录，macOS 为 `~/Library/Application Support/FreeControl2`）：
 
 | 路径 | 用途 |
 |---|---|

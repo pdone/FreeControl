@@ -46,8 +46,7 @@ pub struct Platform {
     pub ext: &'static str,
 }
 
-/// 受支持的平台表。落 Windows（x86_64 与 ARM64）与 Linux x86_64 三行；
-/// macOS 的行留到实现那一平台时再补。
+/// 受支持的平台表。落 Windows（x86_64 与 ARM64）、Linux x86_64 与 macOS 两个架构共五行。
 ///
 /// Windows ARM64 的官方标签是 `winarm64`（scrcpy 5.0 起提供该资产，
 /// 见 `doc/scrcpy/release/generate_checksums.sh`），压缩格式同为 `.zip`。
@@ -55,6 +54,8 @@ const PLATFORMS: &[Platform] = &[
     Platform { os: "windows", arch: "x86_64", tag: "win64", ext: "zip" },
     Platform { os: "windows", arch: "aarch64", tag: "winarm64", ext: "zip" },
     Platform { os: "linux", arch: "x86_64", tag: "linux-x86_64", ext: "tar.gz" },
+    Platform { os: "macos", arch: "aarch64", tag: "macos-aarch64", ext: "tar.gz" },
+    Platform { os: "macos", arch: "x86_64", tag: "macos-x86_64", ext: "tar.gz" },
 ];
 
 /// 按「操作系统 × 架构」查平台（纯函数，便于在任一平台上覆盖两行取值）。
@@ -454,9 +455,16 @@ mod tests {
             "错误信息须含 OS 与架构，实际：{err}"
         );
 
-        // 表外组合不得被「就近」映射到某个标签上：win32 与 macos 都不在支持范围。
+        // 表外组合不得被「就近」映射到某个标签上：win32 与 linux/aarch64 都不在支持范围。
         assert!(label_at("windows", "x86").is_err());
-        assert!(label_at("macos", "aarch64").is_err());
+        assert!(label_at("linux", "aarch64").is_err());
+
+        // macOS 按芯片各一行，官方两份资产都是 tar.gz（与 Linux 解包路径同构）。
+        for (arch, tag) in [("aarch64", "macos-aarch64"), ("x86_64", "macos-x86_64")] {
+            let mac = label_at("macos", arch).unwrap();
+            assert_eq!((mac.tag, mac.ext), (tag, "tar.gz"));
+            assert_eq!(dir_name_at(mac, BEST_FIT_VERSION), format!("scrcpy-{tag}-v{BEST_FIT_VERSION}"));
+        }
 
         // 当前平台必须在表内：否则本应用在这个平台上既定不了目录名也定不了资产名。
         assert!(current().is_ok(), "当前平台不在受支持表内");

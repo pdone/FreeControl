@@ -22,13 +22,14 @@
 //!
 //! **读输入与判定分离**：判定是不碰环境、不碰文件系统的纯函数，因此在 Windows 上也能被真单测
 //! 覆盖 —— 本仓最大的盲区是「非宿主平台的分支本地编不到」，把决策形状抽出来是让它至少可断言。
-//! 只有 `probe()` 那几行按平台门控（判定本体在 Windows 的发布产物里不需要，故不编进去）。
+//! 只有 `probe()` 那几行按平台门控（只在 Linux 编译：Windows 的 WebView2 与 macOS 的 WKWebView
+//! 都不走 WebKitGTK 的这条帧传输，判定本体在它们的发布产物里不需要）。
 
 /// WebKit 读的那个环境变量名。
 ///
 /// 判定的产物就是「设 / 不设」这一个开关，**名字写错会静默失效**（不报错、只是不生效），
 /// 故单测里连名字一起钉住。
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 pub const DISABLE_DMABUF_VAR: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
 
 /// 已知虚拟化平台的 DMI 厂商 / 机型关键字（design D12 的白名单）。
@@ -40,7 +41,7 @@ pub const DISABLE_DMABUF_VAR: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
 ///
 /// 匹配是**大小写不敏感的子串**而不是精确相等：DMI 字串各版本略有出入（大小写、前后缀），
 /// 精确相等会漏。**不要**把 "oracle" 单独加进来 —— Oracle 服务器是真实硬件厂商串，会误关。
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 const VIRTUALIZED_MARKERS: &[&str] = &[
     "vmware",
     "innotek",
@@ -54,7 +55,7 @@ const VIRTUALIZED_MARKERS: &[&str] = &[
 ];
 
 /// 判定所需的全部输入 —— 由 `probe()` 或单测构造，判定本体不碰环境与文件系统。
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 #[derive(Debug)]
 pub struct EnvProbe {
     /// `/sys/class/dmi/id/sys_vendor`；文件不存在或读不到（无权限）为 `None`。
@@ -71,7 +72,7 @@ pub struct EnvProbe {
 ///
 /// 只回报一个布尔的话，把 ① 与 ② 调换也照样通过 —— 「命中了哪条」正是误关 / 漏判现场要看的
 /// 东西，故它是结果的一部分，而不是另算一遍。
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DmabufDecision {
     /// ① 用户已自行设过 → 让位，我们什么都不做。这也是漏判场景唯一的逃生门。
@@ -84,7 +85,7 @@ pub enum DmabufDecision {
     KeepDefault,
 }
 
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 impl DmabufDecision {
     /// 是否要设那个环境变量。
     pub fn should_disable(self) -> bool {
@@ -103,7 +104,7 @@ impl DmabufDecision {
 }
 
 /// 纯判定：只看传入的输入，不碰环境、不碰文件系统（design D12 的短路次序）。
-#[cfg(any(not(windows), test))]
+#[cfg(any(target_os = "linux", test))]
 pub fn decide(probe: &EnvProbe) -> DmabufDecision {
     // ① 人工优先：用户设过就完全让位。
     if probe.user_set_var {
@@ -129,20 +130,20 @@ pub fn decide(probe: &EnvProbe) -> DmabufDecision {
     DmabufDecision::KeepDefault
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 use crate::logger;
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 use std::sync::OnceLock;
 
 /// 启动期算出的输入与决定，留给 `log_decision()` 落盘用。
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 static ACTIVE: OnceLock<(EnvProbe, DmabufDecision)> = OnceLock::new();
 
 /// 读输入（Linux）：DMI 厂商 / 机型、有无 DRM 渲染节点、用户是否已设过变量。
 ///
 /// 任何一步读失败（文件不存在 / 无权限 / 取值异常）都只是**该信号未命中**，接着看下一条 ——
 /// 不得 panic、不得中断启动（design D12 的降级约束）。
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 fn probe() -> EnvProbe {
     use std::fs;
 
@@ -174,7 +175,7 @@ fn probe() -> EnvProbe {
 /// 这里**只算不写日志**：此刻日志还没初始化，而 `logger::log` 在未初始化时静默丢弃
 /// （`logger::init` 要到 `setup` 里、配置加载之后才跑，理由见归档变更 log-persistence 的 design
 /// D12）。故把输入与决定留在 `ACTIVE` 里，由 `setup` 调 `log_decision()` 落盘。
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 pub fn prepare() {
     let probe = probe();
     let decision = decide(&probe);
@@ -185,15 +186,15 @@ pub fn prepare() {
     }
 }
 
-/// Windows：本平台不走 WebKit 的 DMA-BUF 帧传输（WebView2 有自己的合成路径），无事可做。
-#[cfg(windows)]
+/// 非 Linux（Windows 的 WebView2、macOS 的 WKWebView）：不走 WebKitGTK 的 DMA-BUF 帧传输，无事可做。
+#[cfg(not(target_os = "linux"))]
 pub fn prepare() {}
 
 /// 落盘判定行：`logger::init` 之后由 `setup` 调用（见 `prepare()` 的说明）。
 ///
 /// 信号行与决定行分开：前者是**实测取值**，后者是**结论与命中的判据**。误关 / 漏判的现场只能
 /// 靠这两行复盘（design D12 的留痕），故读不到的字段显式写成「读不到」，而不是省略。
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 pub fn log_decision() {
     let Some((probe, decision)) = ACTIVE.get() else {
         return;
@@ -218,8 +219,8 @@ pub fn log_decision() {
     );
 }
 
-/// Windows：没有这条判定可记。
-#[cfg(windows)]
+/// 非 Linux：没有这条判定可记。
+#[cfg(not(target_os = "linux"))]
 pub fn log_decision() {}
 
 #[cfg(test)]

@@ -34,12 +34,16 @@
     windowsArm64: string | null;
     appimage: string | null;
     deb: string | null;
+    macosArm64: string | null;
+    macosX64: string | null;
   };
   const ASSETS: Record<string, string | null> = {
     windows: rel.windows,
     windowsArm64: rel.windowsArm64,
     appimage: rel.appimage,
     deb: rel.deb,
+    macosArm64: rel.macosArm64,
+    macosX64: rel.macosX64,
   };
   const asset = (key: string): string => ASSETS[key] ?? RELEASES;
 
@@ -50,12 +54,14 @@
     userAgent: navigator.userAgent,
     architectures: (navigator as Navigator & { userAgentData?: { architectures?: string[] } }).userAgentData
       ?.architectures,
+    maxTouchPoints: navigator.maxTouchPoints,
   });
   const detectedOs = platform.os;
 
   // 下载一节主按钮的取值：产物直链与那行提示由同一个档位派生 —— 提示讲哪一档，链接就指向哪一档。
   // Linux 取 AppImage（便携、通用发行版，优先于 deb）；Windows 按访客架构取 x64 或 ARM64，
   // 判不出架构时回落 x64（该产物在 ARM64 Windows 上可经仿真运行）；其余系统沿用 Windows x64 档。
+  // macOS 不走这里：Safari 判不出芯片，由模板并排给出两颗按钮（Apple 芯片 / Intel）。
   const dlTarget =
     detectedOs === 'linux'
       ? { asset: 'appimage', hint: 'linux' as const }
@@ -199,12 +205,18 @@
       <div class="section-head">
         <h2>{$t.quickstart.title}</h2>
       </div>
-      <div class="qs-lead">
+      <div class="qs-lead qs-req">
         <div class="label">{$t.quickstart.runLabel}</div>
-        <p>{$t.quickstart.requirements}</p>
-      </div>
-      <div class="qs-lead">
-        <p>{$t.quickstart.portable}</p>
+        <dl class="qs-plats">
+          {#each $t.quickstart.platforms as p}
+            <div>
+              <dt>{p.name}</dt>
+              <dd>{p.req}</dd>
+            </div>
+          {/each}
+        </dl>
+        <p class="qs-device">{$t.quickstart.device}</p>
+        <p class="qs-note">{$t.quickstart.macNote}</p>
       </div>
       <h3 style="margin-top:28px">{$t.quickstart.stepsTitle}</h3>
       <ol class="steps">
@@ -251,12 +263,26 @@
         <h2 class="title">{$t.download.title}</h2>
         <p class="lead">{$t.download.lead}</p>
         <!-- 主按钮按访客系统取档（见脚本里的 dlTarget/DL_HREF/DL_HINT）：Windows 取免安装单文件、
-             Linux 取 AppImage，判不出者沿用 Windows。提示行与直链同出一档，不出现提示讲一套、链接指另一套。 -->
+             Linux 取 AppImage，判不出者沿用 Windows。提示行与直链同出一档，不出现提示讲一套、链接指另一套。
+             macOS 判不出芯片（Safari 的 UA 在 Apple 芯片上也写 Intel），故并排给出两颗，让访客自己选。 -->
         <div class="get-main">
-          <a class="btn btn-primary btn-xl" href={DL_HREF}>
-            <Icon name="Download" size={20} />
-            <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint[DL_HINT]}</small></span>
-          </a>
+          <div class="get-buttons">
+            {#if detectedOs === 'macos'}
+              <a class="btn btn-primary btn-xl" href={asset('macosArm64')}>
+                <Icon name="Download" size={20} />
+                <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint.macosArm64}</small></span>
+              </a>
+              <a class="btn btn-primary btn-xl" href={asset('macosX64')}>
+                <Icon name="Download" size={20} />
+                <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint.macosX64}</small></span>
+              </a>
+            {:else}
+              <a class="btn btn-primary btn-xl" href={DL_HREF}>
+                <Icon name="Download" size={20} />
+                <span class="btn-stack"><b>{$t.download.cta}</b><small class="mono">{$t.download.osHint[DL_HINT]}</small></span>
+              </a>
+            {/if}
+          </div>
           <!-- 发行信息一行：主按钮正下方、同一中线的一行小字 —— 版本在前（标签图标 + 构建期
                解析到的发行标记，整颗指最新发行页），「更新日志」随后。它紧邻按钮，但不再是胶囊
                （那会让按钮之下再并出两颗「按钮」）；发行的标记与版本号本身与语言无关，故整颗不配

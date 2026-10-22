@@ -59,6 +59,9 @@ pub fn missing_bins(dir: &Path) -> Vec<String> {
 fn data_root_display() -> &'static str {
     if cfg!(windows) {
         "%APPDATA%"
+    } else if cfg!(target_os = "macos") {
+        // Tauri 的 `data_dir()` 在 macOS 上取 `~/Library/Application Support`。
+        "~/Library/Application Support"
     } else {
         // Tauri 的 `data_dir()` 在 Linux 上取 `$XDG_DATA_HOME`，未设时为 `~/.local/share`。
         "$XDG_DATA_HOME"
@@ -315,7 +318,23 @@ mod tests {
         assert_eq!(hint, "$XDG_DATA_HOME/FreeControl2/scrcpy-{OS}-v{Version}");
         assert!(!hint.contains("%APPDATA%"));
         // 展示前缀与真实数据根是两条来源：一致性由实机验收核对（tasks 9.1 / 9.2）。
-        let expected = if cfg!(windows) { "%APPDATA%" } else { "$XDG_DATA_HOME" };
+        let expected = if cfg!(windows) {
+            "%APPDATA%"
+        } else if cfg!(target_os = "macos") {
+            "~/Library/Application Support"
+        } else {
+            "$XDG_DATA_HOME"
+        };
         assert_eq!(data_root_display(), expected);
+    }
+
+    #[test]
+    fn macos_hint_uses_application_support() {
+        let hint = dir_hint("~/Library/Application Support");
+        assert_eq!(
+            hint,
+            "~/Library/Application Support/FreeControl2/scrcpy-{OS}-v{Version}"
+        );
+        assert!(!hint.contains("%APPDATA%") && !hint.contains("XDG"));
     }
 }

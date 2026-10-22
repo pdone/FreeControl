@@ -7,7 +7,10 @@
 # 每个产物的构建主机与它自身的操作系统**与架构**一致（MUST NOT 依赖交叉编译）：
 #   - Windows x64（`windows-latest`）与 Windows ARM64（`windows-11-arm`）：`--no-bundle`，
 #     各产出一份裸 exe（免安装单文件）；
-#   - Linux x86_64：`--bundles appimage,deb`。
+#   - Linux x86_64：`--bundles appimage,deb`；
+#   - macOS ARM64（`macos-15`）与 macOS x86_64（`macos-15-intel`）：`--bundles dmg`，
+#     各产出一份 dmg。`macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，预计 2027 年秋下线，
+#     届时需另开变更决定删掉该档还是换自托管 runner。
 #
 # 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
 # `scripts/**` 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/`
@@ -49,6 +52,9 @@ jobs:
         include:
           - os: windows-latest
           - os: ubuntu-22.04
+          # macOS 的 `cfg` 分支在开发机上编不到，单测按 OS 覆盖只能靠这条腿；
+          # 架构无关，Intel 那条出包腿也会完整编译一遍。
+          - os: macos-15
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -112,6 +118,13 @@ jobs:
             arch: arm64
           - os: ubuntu-22.04
             args: --bundles appimage,deb
+          # 两条 macOS 腿各出原生 dmg：`lipo` 自检保证 arm64 那份不经仿真。
+          - os: macos-15
+            args: --bundles dmg
+            arch: aarch64
+          - os: macos-15-intel
+            args: --bundles dmg
+            arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -173,6 +186,46 @@ jobs:
           Write-Host ("PE Machine = 0x{0:X4}（期望 0x{1:X4}）" -f $machine, $expected)
           if ($machine -ne $expected) { throw "产物架构不符：$file 的 Machine=0x$('{0:X4}' -f $machine)" }
 
+      # 无 Apple 实机时，「构建成功」不等于「产物架构与签名形态正确」—— 与 Windows 读 PE 头对应。
+      # 1) `lipo -archs` 必须**恰好**是该腿的架构（含两个架构也判失败，防止误出 universal）；
+      # 2) ad-hoc 签名是 Apple 芯片能运行的最低门槛（`bundle.macOS.signingIdentity = "-"`）；
+      # 3) `minos` 只记日志，用于核对 `minimumSystemVersion`；
+      # 4) dmg 恰好一份，文件名里的架构段与这条腿一致。
+      # 检查 `.app` 而不是挂载 dmg：dmg 是 Tauri 从同一个 `.app` 打出来的，多一次
+      # `hdiutil attach` 只会在 runner 上多一个偶发失败点。
+      - name: 校验产物架构与签名（Mach-O）
+        if: runner.os == 'macOS'
+        run: |
+          APP="src-tauri/target/release/bundle/macos/FreeControl2.app"
+          BIN="$APP/Contents/MacOS/FreeControl2"
+          [ -f "$BIN" ] || { echo "::error::找不到 $BIN"; exit 1; }
+
+          case "${{ matrix.arch }}" in
+            aarch64) EXPECTED=arm64 ;;
+            x64) EXPECTED=x86_64 ;;
+            *) echo "::error::未知架构 ${{ matrix.arch }}"; exit 1 ;;
+          esac
+          ARCHS=$(lipo -archs "$BIN")
+          echo "Mach-O 架构：$ARCHS（期望恰为 $EXPECTED）"
+          if [ "$ARCHS" != "$EXPECTED" ]; then
+            echo "::error::产物架构不符：$BIN 的 archs=$ARCHS"
+            exit 1
+          fi
+
+          SIGNATURE=$(codesign -dv "$APP" 2>&1)
+          echo "$SIGNATURE"
+          echo "$SIGNATURE" | grep -q 'Signature=adhoc' \
+            || { echo "::error::$APP 不是 ad-hoc 签名"; exit 1; }
+
+          echo "部署目标：$(vtool -show-build "$BIN" | awk '/minos/ {print $2}')"
+
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          DMG="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_${{ matrix.arch }}.dmg"
+          [ -f "$DMG" ] || { echo "::error::找不到 $DMG"; exit 1; }
+          COUNT=$(ls src-tauri/target/release/bundle/dmg/*.dmg | wc -l)
+          [ "$COUNT" -eq 1 ] || { echo "::error::dmg 数量应为 1，实际 $COUNT"; exit 1; }
+          echo "产物：$DMG"
+
       # artifact 名按架构区分：upload-artifact v4 起同一 run 内同名会失败；
       # release 作业用 `merge-multiple` 合并，因此名字不同不影响最终汇集。
       - name: 上传 Windows 产物
@@ -191,6 +244,16 @@ jobs:
           path: |
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+      # 只给一个通配路径时，下载产物（`merge-multiple`）会落回 `dist/` 根目录，
+      # 与 Windows exe 同层，`ASSETS` 据此点名。
+      - name: 上传 macOS 产物
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: FreeControl2-macos-${{ matrix.arch }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
   # 只创建**草稿**：发布动作由人在确认产物后点一次（design D9）。
@@ -214,7 +277,7 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: 下载两平台产物（合并到一个目录）
+      - name: 下载三平台产物（合并到一个目录）
         uses: actions/download-artifact@v8
         with:
           path: dist
@@ -226,12 +289,14 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           TAG="v$VERSION"
-          # 逐个点名四份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
+          # 逐个点名六份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
           # 那两份来自 `bundle/appimage/` 与 `bundle/deb/`，于是 `dist/` 里还多出 `appimage/`、
           # `deb/` 两个目录，一并交给 gh 会报 `read dist/deb: is a directory`
-          # （2026-10-10 首次手动触发实测）。少一份时通配符保持字面量，gh 会报「文件不存在」
-          # 而失败 —— 与上传步骤的 `if-no-files-found: error` 同一口径，不静默少传。
-          ASSETS=(dist/*_x64.exe dist/*_arm64.exe dist/appimage/*.AppImage dist/deb/*.deb)
+          # （2026-10-10 首次手动触发实测）。macOS 的 dmg 走单一通配路径上传，落在 `dist/` 根目录。
+          # 少一份时通配符保持字面量，gh 会报「文件不存在」而失败 —— 与上传步骤的
+          # `if-no-files-found: error` 同一口径，不静默少传。
+          ASSETS=(dist/*_x64.exe dist/*_arm64.exe dist/appimage/*.AppImage dist/deb/*.deb \
+                  dist/*_aarch64.dmg dist/*_x64.dmg)
           ls -l "${ASSETS[@]}"
 
           # 既有发行的三种状态：none / draft / published。
@@ -264,7 +329,7 @@ jobs:
 
           if [ "$STATE" = "none" ]; then
             if [ "$TARGET" = "$TAG" ]; then
-              NOTES="自动构建的草稿发行。Windows 产物为免安装单文件（x64 与 ARM64 各一份）；请人工确认后再发布。"
+              NOTES="自动构建的草稿发行。Windows 产物为免安装单文件（x64 与 ARM64 各一份）；macOS 产物为 dmg（Apple 芯片与 Intel 各一份，ad-hoc 签名，首次打开需按 README 放行）；请人工确认后再发布。"
             else
               NOTES="取件草稿：$TAG 已发布，这里只用于取回同版本的新产物 —— 永不发布。确认后如需正式发行，请先升版本再出包。"
             fi

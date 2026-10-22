@@ -44,6 +44,7 @@ pub enum PackageKind {
     WindowsExe,
     AppImage,
     Deb,
+    Dmg,
 }
 
 /// 一次检查确定下来的下载计划：版本、资产名、原始地址与校验值。
@@ -134,6 +135,10 @@ pub fn current_kind() -> PackageKind {
             PackageKind::Deb
         }
     }
+    #[cfg(target_os = "macos")]
+    {
+        PackageKind::Dmg
+    }
     #[cfg(not(any(windows, unix)))]
     {
         PackageKind::WindowsExe
@@ -146,6 +151,16 @@ fn arch_aliases(arch: &str) -> &'static [&'static str] {
         "x86_64" => &["amd64", "x86_64"],
         "aarch64" => &["arm64", "aarch64"],
         _ => &[],
+    }
+}
+
+/// macOS 的 dmg 沿用 Tauri 打包的架构写法（`aarch64` / `x64`），与 Linux 的别名表不通用：
+/// 混在一起会让 Linux 误认带 `x64` 的文件。
+fn dmg_arch_segment(arch: &str) -> Option<&'static str> {
+    match arch {
+        "x86_64" => Some("x64"),
+        "aarch64" => Some("aarch64"),
+        _ => None,
     }
 }
 
@@ -169,6 +184,9 @@ fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
             .iter()
             .map(|a| format!("FreeControl2_{version}_{a}.deb"))
             .collect(),
+        PackageKind::Dmg => dmg_arch_segment(arch)
+            .map(|a| vec![format!("FreeControl2_{version}_{a}.dmg")])
+            .unwrap_or_default(),
     }
 }
 
@@ -383,7 +401,7 @@ fn emit_progress(app: &AppHandle, phase: &str, percent: u8, channel: &str) {
     );
 }
 
-/// 下载落点所在目录：Windows / AppImage 必须与最终文件同目录（rename 原子），deb 放应用数据根。
+/// 下载落点所在目录：Windows / AppImage 必须与最终文件同目录（rename 原子），deb / dmg 放应用数据根。
 fn download_dir(app: &AppHandle, kind: PackageKind) -> Result<PathBuf, AppUpdateError> {
     match kind {
         PackageKind::WindowsExe => std::env::current_exe()
@@ -395,7 +413,7 @@ fn download_dir(app: &AppHandle, kind: PackageKind) -> Result<PathBuf, AppUpdate
             .map(PathBuf::from)
             .and_then(|p| p.parent().map(Path::to_path_buf))
             .ok_or_else(|| AppUpdateError::write("无法定位 AppImage 所在目录")),
-        PackageKind::Deb => {
+        PackageKind::Deb | PackageKind::Dmg => {
             config::app_data_root(app).map_err(AppUpdateError::write)
         }
     }
@@ -438,8 +456,14 @@ async fn download_update(
     // 同一时刻只有一个待应用包；上一次的残留先清掉。
     discard_pending(state);
 
+    // dmg 交给 Finder 打开，文件名必须带 `.dmg`，否则系统按未知类型处理。
+    let ext = if plan.kind == PackageKind::Dmg {
+        "dmg"
+    } else {
+        "download"
+    };
     let tmp = dir.join(format!(
-        "{TMP_PREFIX}{}-{}-{}.download",
+        "{TMP_PREFIX}{}-{}-{}.{ext}",
         plan.version,
         std::process::id(),
         unix_timestamp()
@@ -600,7 +624,9 @@ fn replace_target(kind: PackageKind) -> Result<PathBuf, AppUpdateError> {
         PackageKind::AppImage => std::env::var_os("APPIMAGE")
             .map(PathBuf::from)
             .ok_or_else(|| AppUpdateError::write("无法定位当前 AppImage")),
-        PackageKind::Deb => Err(AppUpdateError::write("deb 不执行文件替换")),
+        PackageKind::Deb | PackageKind::Dmg => {
+            Err(AppUpdateError::write("该安装包不执行文件替换"))
+        }
     }
 }
 
@@ -681,6 +707,18 @@ pub fn apply_app_update(app: AppHandle) -> Result<(), AppUpdateError> {
             logger::info(
                 "app-update",
                 format!("已把 {} 交给系统安装器", pending.asset),
+            );
+            Ok(())
+        }
+        // dmg 只交给系统挂载，由用户把 .app 拖进「应用程序」；原地替换会破坏签名封印。
+        PackageKind::Dmg => {
+            if let Err(e) = shell::open_file(&pending.path) {
+                *app.state::<AppState>().app_update_pending.lock().unwrap() = Some(pending);
+                return Err(AppUpdateError::write(format!("无法交给系统打开：{e}")));
+            }
+            logger::info(
+                "app-update",
+                format!("已把 {} 交给系统（Finder）打开", pending.asset),
             );
             Ok(())
         }
@@ -809,6 +847,39 @@ mod tests {
         let deb =
             parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::Deb).unwrap();
         assert_eq!(deb.asset, "FreeControl2_1.0.2_amd64.deb");
+    }
+
+    #[test]
+    fn macos_picks_dmg_by_tauri_arch_segment() {
+        let assets = vec![
+            asset("FreeControl2_1.0.2_aarch64.dmg", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_x64.dmg", Some(&digest('b'))),
+        ];
+        let arm =
+            parse_release_for(&body("v1.0.2", assets.clone()), "aarch64", PackageKind::Dmg).unwrap();
+        assert_eq!(arm.asset, "FreeControl2_1.0.2_aarch64.dmg");
+        assert_eq!(arm.digest, "a".repeat(64));
+        let intel =
+            parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::Dmg).unwrap();
+        assert_eq!(intel.asset, "FreeControl2_1.0.2_x64.dmg");
+    }
+
+    #[test]
+    fn macos_release_without_dmg_is_no_asset() {
+        let assets = vec![
+            asset("FreeControl2_1.0.2_x64.exe", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_amd64.AppImage", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_amd64.deb", Some(&digest('c'))),
+        ];
+        // 早于 macOS 档位的发行里没有 dmg，按「没有匹配资产」处理。
+        let err =
+            parse_release_for(&body("v1.0.2", assets), "aarch64", PackageKind::Dmg).unwrap_err();
+        assert_eq!(err.kind, "noAsset");
+    }
+
+    #[test]
+    fn dmg_is_handed_to_system_not_replaced_in_place() {
+        assert!(replace_target(PackageKind::Dmg).is_err());
     }
 
     #[test]

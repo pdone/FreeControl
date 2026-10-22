@@ -54,9 +54,11 @@ The app UI is currently in Chinese.
 
 ## Quick Start
 
-**To run**: Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled.
+**To run**: Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled. Linux gets AppImage and deb; macOS 11 and later gets dmg (Safari 16.2 or newer).
 
-Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is a single portable file — pick `FreeControl2_<version>_x64.exe` or `FreeControl2_<version>_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts.
+Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is a single portable file — pick `FreeControl2_<version>_x64.exe` or `FreeControl2_<version>_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts; on macOS it ships as dmg (one each for Apple silicon and Intel), which you open and drag the app into Applications.
+
+If Gatekeeper blocks the first launch on macOS, clear it either way: open System Settings → Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`.
 
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
 2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, enter `IP:port`.
@@ -65,7 +67,7 @@ Get the latest version from [Releases](https://github.com/pdone/FreeControl2/rel
 
 ### Build from source
 
-You additionally need Node.js 24 and npm · a stable Rust toolchain · the MSVC build tools on Windows, or system libraries such as webkit2gtk on Linux (see `.github/workflows/build.yml` for the list).
+You additionally need Node.js 24 and npm · a stable Rust toolchain · the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS (see `.github/workflows/build.yml` for the list).
 
 ```sh
 npm install
@@ -86,6 +88,14 @@ npm run tauri build -- --bundles appimage,deb
 ```
 
 The artifacts are written to `src-tauri/target/release/bundle/`.
+
+macOS (dmg):
+
+```sh
+npm run tauri build -- --bundles dmg
+```
+
+The artifact is written to `src-tauri/target/release/bundle/dmg/`. The macOS artifacts are ad-hoc signed and not notarized, so the first launch needs the clearance described above.
 
 When you trigger `.github/workflows/build.yml` manually, the artifacts are collected into a **draft release** (never published automatically). If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**.
 
@@ -130,7 +140,7 @@ Fetch them on the "Runtime" page. Neither ships with the app; both are downloade
 
 ### How do I update to a new version
 
-Open "About" and click "Check for updates", or turn on "Check for updates automatically" on the "Settings" page — the app downloads and verifies the new version, then restarts to finish. On Linux the package build is handed to the system installer once downloaded.
+Open "About" and click "Check for updates", or turn on "Check for updates automatically" on the "Settings" page — the app downloads and verifies the new version, then restarts to finish. On Linux the package build is handed to the system installer once downloaded. On macOS the dmg is downloaded and verified, then opened by Finder so you can drag the app into Applications over the old version; the app does not quit on its own.
 
 ### The download fails or hangs on one channel
 
@@ -146,7 +156,7 @@ On setups such as virtual machines, software rendering or remote sessions, the w
 
 ### Where does the data live
 
-All of it is under the application data root (`%APPDATA%/FreeControl2` on Windows, a directory of the same name under the XDG data root on Linux):
+All of it is under the application data root (`%APPDATA%/FreeControl2` on Windows, a directory of the same name under the XDG data root on Linux, `~/Library/Application Support/FreeControl2` on macOS):
 
 | Path | Purpose |
 |---|---|

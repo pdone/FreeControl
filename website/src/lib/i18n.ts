@@ -60,7 +60,7 @@ const zh = {
       { icon: 'PlugZap', stat: '零配置', label: '开箱即用', desc: 'scrcpy 与 adb 由应用按需获取，不需要手动安装或配置。' },
     ],
     rows: [
-      { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件（x64 / ARM64）；Linux 提供 AppImage 与 deb', others: ['仅 Windows', 'Windows / macOS / Linux'] },
+      { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件（x64 / ARM64）；Linux 提供 AppImage 与 deb；macOS 提供 dmg（Apple 芯片与 Intel 各一份）', others: ['仅 Windows', 'Windows / macOS / Linux'] },
       { aspect: '程序体积（Windows）', fc2: '约 6 MB（免安装单文件）', others: ['约 7 MB（单文件）', '约 116 MB（安装包）'] },
       { aspect: '维护状态', fc2: '活跃', others: ['已归档，让位于 FreeControl2', '活跃'] },
       { aspect: '设备清单', fc2: '别名映射 USB 序列号或 IP:端口，在线状态实时可见', others: ['USB 与无线 ADB', '多设备协同'] },
@@ -71,8 +71,13 @@ const zh = {
   quickstart: {
     title: '快速开始',
     runLabel: '运行要求',
-    requirements: 'Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2 · 一台开启了 USB 调试的 Android 设备。Linux 上另提供 AppImage 与 deb 发行产物。',
-    portable: '程序是免安装的单文件：从发行页下载与系统架构对应的 FreeControl2_<版本>_x64.exe 或 FreeControl2_<版本>_arm64.exe，放到任意可写目录双击即用 —— 无需安装，也不产出安装器。',
+    platforms: [
+      { name: 'Windows', req: '10 / 11 · 免安装单文件（x64 / ARM64）· 系统自带 WebView2' },
+      { name: 'Linux', req: 'AppImage 或 deb' },
+      { name: 'macOS', req: '11 及以上 · dmg（Apple 芯片 / Intel），拖入「应用程序」· Safari 16.2+' },
+    ],
+    device: '另需一台开启 USB 调试的 Android 设备。',
+    macNote: 'macOS 首次打开若被拦下：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 xattr -dr com.apple.quarantine /Applications/FreeControl2.app。',
     stepsTitle: '四步上手',
     steps: [
       { title: '备好运行环境', desc: '首次启动后到「运行环境」页获取 scrcpy 与 adb。' },
@@ -81,7 +86,7 @@ const zh = {
       { title: '调整参数', desc: '之后可在各参数页调整默认参数，或为某台设备单独开一套覆盖。' },
     ],
     buildTitle: '从源码构建',
-    buildNote: '另需 Node.js 24 与 npm、Rust 稳定工具链，以及 Windows 的 MSVC 构建工具或 Linux 的 webkit2gtk 等系统库。命令与产物位置见仓库 README。',
+    buildNote: '另需 Node.js 24 与 npm、Rust 稳定工具链，以及 Windows 的 MSVC 构建工具、Linux 的 webkit2gtk 等系统库或 macOS 的 Xcode 命令行工具。命令与产物位置见仓库 README。',
   },
   faq: {
     title: '常见问题',
@@ -118,7 +123,7 @@ const zh = {
   },
   download: {
     title: '获取 FreeControl2',
-    lead: '免费开源，MIT 许可 · Windows 提供 x64 与 ARM64 免安装单文件，Linux 提供 AppImage 与 deb。',
+    lead: '免费开源，MIT 许可 · Windows 提供 x64 与 ARM64 免安装单文件，Linux 提供 AppImage 与 deb，macOS 提供 dmg。',
     metaLinks: [
       { label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
@@ -129,12 +134,14 @@ const zh = {
       windows: 'Windows · x64 · .exe · 免安装单文件',
       windowsArm64: 'Windows · ARM64 · .exe · 免安装单文件',
       linux: 'Linux · x64 · AppImage · 便携版',
+      macosArm64: 'macOS · Apple 芯片 · .dmg',
+      macosX64: 'macOS · Intel · .dmg',
     },
     yours: '你的系统',
     dlLabel: '下载',
-    // 平台卡每行的呈现按该平台的区分维度定：Windows 是 `.exe` 配架构徽标（同格式分两档），
-    // Linux 是格式本身（`AppImage` / `.deb`）。入口的可见文案统一为「下载」，
-    // 可访问名另带所指的那一份 —— 见 App.svelte 里的 aria-label。
+    // 平台卡每行的呈现按该平台的区分维度定：Windows 与 macOS 是同一格式下按架构 / 芯片分两档
+    // （`.exe` / `.dmg` 配徽标）；Linux 的区分维度就是格式本身，不给徽标。入口的可见文案统一为
+    // 「下载」，可访问名另带所指的那一份 —— 见 App.svelte 里的 aria-label。
     plats: [
       {
         os: 'windows',
@@ -152,6 +159,15 @@ const zh = {
           { key: 'appimage', format: 'AppImage', note: '便携版，通用发行版' },
           { key: 'deb', format: '.deb', note: 'Debian、Ubuntu' },
         ],
+      },
+      {
+        os: 'macos',
+        name: 'macOS',
+        packages: [
+          { key: 'macosArm64', format: '.dmg', arch: 'Apple 芯片', note: '免安装' },
+          { key: 'macosX64', format: '.dmg', arch: 'Intel', note: '免安装' },
+        ],
+        help: 'macOS 11 及以上；首次打开的放行方法见上方「快速开始」。',
       },
     ] as Plat[],
   },
@@ -208,7 +224,7 @@ const en: Dict = {
       { icon: 'PlugZap', stat: 'Zero setup', label: 'Works out of the box', desc: 'scrcpy and adb are fetched on demand by the app — no manual install or configuration.' },
     ],
     rows: [
-      { aspect: 'Platforms', fc2: 'Windows 10 / 11 portable single files (x64 / ARM64); AppImage and deb on Linux', others: ['Windows only', 'Windows / macOS / Linux'] },
+      { aspect: 'Platforms', fc2: 'Portable single files for Windows 10 / 11 (x64 / ARM64); AppImage and deb on Linux; dmg for macOS (Apple silicon and Intel)', others: ['Windows only', 'Windows / macOS / Linux'] },
       { aspect: 'Size (Windows)', fc2: '≈ 6 MB (single portable file)', others: ['≈ 7 MB (single file)', '≈ 116 MB (installer)'] },
       { aspect: 'Maintenance', fc2: 'Active', others: ['Archived, superseded by FreeControl2', 'Active'] },
       { aspect: 'Device list', fc2: 'An alias per device mapped to a USB serial or IP:port, with live online status', others: ['USB and wireless ADB', 'Multi-device control'] },
@@ -219,8 +235,13 @@ const en: Dict = {
   quickstart: {
     title: 'Quick Start',
     runLabel: 'To run',
-    requirements: 'Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system · an Android device with USB debugging enabled. On Linux the project also provides AppImage and deb release artifacts.',
-    portable: 'The app is a single portable executable: download FreeControl2_<version>_x64.exe or FreeControl2_<version>_arm64.exe for your architecture from Releases and run it from any writable directory — there is no installer.',
+    platforms: [
+      { name: 'Windows', req: '10 / 11 · single portable file (x64 / ARM64) · system WebView2' },
+      { name: 'Linux', req: 'AppImage or deb' },
+      { name: 'macOS', req: '11 or later · dmg (Apple silicon / Intel), drag into Applications · Safari 16.2+' },
+    ],
+    device: 'Plus an Android device with USB debugging enabled.',
+    macNote: 'If the first launch on macOS is blocked: open System Settings → Privacy & Security and click Open Anyway, or run xattr -dr com.apple.quarantine /Applications/FreeControl2.app.',
     stepsTitle: 'Four steps',
     steps: [
       { title: 'Get the runtime', desc: 'On first launch, go to the "Runtime" page and fetch scrcpy and adb.' },
@@ -229,7 +250,7 @@ const en: Dict = {
       { title: 'Tune parameters', desc: 'Adjust the defaults on the parameter pages, or give a single device its own override.' },
     ],
     buildTitle: 'Build from source',
-    buildNote: 'You additionally need Node.js 24 and npm, a stable Rust toolchain, and the MSVC build tools on Windows or system libraries such as webkit2gtk on Linux. The commands and artifact locations are in the repository README.',
+    buildNote: 'You additionally need Node.js 24 and npm, a stable Rust toolchain, and the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS. The commands and artifact locations are in the repository README.',
   },
   faq: {
     title: 'FAQ',
@@ -266,7 +287,7 @@ const en: Dict = {
   },
   download: {
     title: 'Get FreeControl2',
-    lead: 'Free and open source, MIT licensed · portable single files for Windows x64 and ARM64, AppImage and deb on Linux.',
+    lead: 'Free and open source, MIT licensed · portable single files for Windows x64 and ARM64, AppImage and deb on Linux, dmg for macOS.',
     metaLinks: [
       { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
     ],
@@ -275,6 +296,8 @@ const en: Dict = {
       windows: 'Windows · x64 · .exe · portable file',
       windowsArm64: 'Windows · ARM64 · .exe · portable file',
       linux: 'Linux · x64 · AppImage · portable',
+      macosArm64: 'macOS · Apple silicon · .dmg',
+      macosX64: 'macOS · Intel · .dmg',
     },
     yours: 'Your system',
     dlLabel: 'Download',
@@ -295,6 +318,15 @@ const en: Dict = {
           { key: 'appimage', format: 'AppImage', note: 'Portable, any distro' },
           { key: 'deb', format: '.deb', note: 'Debian, Ubuntu' },
         ],
+      },
+      {
+        os: 'macos',
+        name: 'macOS',
+        packages: [
+          { key: 'macosArm64', format: '.dmg', arch: 'Apple silicon', note: 'Portable' },
+          { key: 'macosX64', format: '.dmg', arch: 'Intel', note: 'Portable' },
+        ],
+        help: 'macOS 11 or later; see Quick start above for the first-launch note.',
       },
     ] as Plat[],
   },

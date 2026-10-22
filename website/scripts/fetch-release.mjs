@@ -28,24 +28,43 @@ async function viaApi() {
     windowsArm64: pick(/_arm64\.exe$/i),
     appimage: pick(/\.AppImage$/),
     deb: pick(/\.deb$/),
+    // macOS 沿用 Tauri 的架构写法（`aarch64` / `x64`），与 deb / AppImage 的 `amd64` 不同。
+    macosArm64: pick(/_aarch64\.dmg$/i),
+    macosX64: pick(/_x64\.dmg$/i),
   };
 }
 
 // 兜底：不占用 API 限额，从 /releases/latest 的 302 读出 tag，再按工作流的产物命名拼直链
 // （见 .github/workflows/build.yml：Windows 为 `FreeControl2_<v>_x64.exe` 与 `_arm64.exe`，
-// AppImage/deb 带 `_amd64`）。
+// AppImage/deb 带 `_amd64`，macOS 的 dmg 带 `_aarch64` / `_x64`）。
+// dmg 没有可比对的资产清单，只能拼出来后用 HEAD 核实：早于 macOS 档位的发行里没有这两份，
+// 拼出的链接会 404 —— 置空让它单独回退到发行页，不拖垮整页。
+async function assetExists(url) {
+  try {
+    const res = await fetch(url, { method: 'HEAD', redirect: 'manual' });
+    return res.ok || (res.status >= 300 && res.status < 400);
+  } catch {
+    return false;
+  }
+}
+
 async function viaRedirect() {
   const res = await fetch(PAGE, { redirect: 'manual' });
   const tag = (res.headers.get('location') || '').match(/\/releases\/tag\/(.+)$/)?.[1];
   if (!tag) throw new Error('重定向里没有 tag');
   const v = tag.replace(/^v/, '');
   const base = `https://github.com/${REPO}/releases/download/${tag}`;
+  const macosArm64 = `${base}/FreeControl2_${v}_aarch64.dmg`;
+  const macosX64 = `${base}/FreeControl2_${v}_x64.dmg`;
+  const [hasArm, hasIntel] = await Promise.all([assetExists(macosArm64), assetExists(macosX64)]);
   return {
     tag,
     windows: `${base}/FreeControl2_${v}_x64.exe`,
     windowsArm64: `${base}/FreeControl2_${v}_arm64.exe`,
     appimage: `${base}/FreeControl2_${v}_amd64.AppImage`,
     deb: `${base}/FreeControl2_${v}_amd64.deb`,
+    macosArm64: hasArm ? macosArm64 : null,
+    macosX64: hasIntel ? macosX64 : null,
   };
 }
 
@@ -63,8 +82,9 @@ for (const [name, fn] of [
   }
 }
 
-// 四档齐备才算完整：与构建侧「缺任一份即失败」同口径，避免半套发行被当成可用版本
+// 四档核心产物齐备才算完整：与构建侧「缺任一份即失败」同口径，避免半套发行被当成可用版本
 // （少一份时整页回退发行页，而不是给出一个指向 404 的直链）。
+// macOS 的两份 dmg 不纳入 `ok`：老发行没有它们时，只让 macOS 那两颗入口回退到发行页。
 const ok = !!(resolved && resolved.windows && resolved.windowsArm64 && resolved.appimage && resolved.deb);
 if (ok) {
   write({
@@ -74,10 +94,22 @@ if (ok) {
     windowsArm64: resolved.windowsArm64,
     appimage: resolved.appimage,
     deb: resolved.deb,
+    macosArm64: resolved.macosArm64 ?? null,
+    macosX64: resolved.macosX64 ?? null,
     page: PAGE,
   });
   console.log('[fetch-release] 直链已写入 src/lib/release.json');
 } else {
-  write({ ok: false, tag: null, windows: null, windowsArm64: null, appimage: null, deb: null, page: PAGE });
+  write({
+    ok: false,
+    tag: null,
+    windows: null,
+    windowsArm64: null,
+    appimage: null,
+    deb: null,
+    macosArm64: null,
+    macosX64: null,
+    page: PAGE,
+  });
   console.warn('[fetch-release] 未取到完整产物，回退到发行页（站点构建照常）');
 }

@@ -426,6 +426,37 @@ code {
 .qs-lead + .qs-lead {
   margin-top: 12px;
 }
+/* 快速开始的运行要求：平台逐行对齐，扫视时系统名与产物各占一列 */
+.qs-plats {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.qs-plats > div {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+.qs-plats dt {
+  font-weight: 600;
+}
+.qs-plats dd {
+  margin: 0;
+  color: var(--text-dim);
+}
+.qs-device {
+  margin-top: 12px;
+  color: var(--text-dim);
+}
+/* macOS 首次打开的放行说明：与运行要求同一张卡，靠分隔线降一级 */
+.qs-note {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+}
 .steps {
   list-style: none;
   counter-reset: step;
@@ -533,6 +564,13 @@ code {
   align-items: center;
   gap: 14px;
   margin-top: 26px;
+}
+/* 主按钮位：通常一颗；macOS 访客并排两颗（芯片判不出，由访客自己选） */
+.get-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
 /* 主按钮：图标 + 两行文字（动作 / 平台与形态），承 rayburst 的 .btn-stack */
 .btn-xl {
@@ -751,6 +789,11 @@ code {
   }
   .nav {
     display: none;
+  }
+  /* 运行要求的平台名在窄屏另起一行，避免两列把说明挤成碎行 */
+  .qs-plats > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
   /* 页脚两组在窄屏各占一行、各自居中（显式竖排，不靠内容宽度凑巧折行） */
   .foot-row {
