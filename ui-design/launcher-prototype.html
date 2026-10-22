@@ -1388,9 +1388,9 @@
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
-            <!-- 界面语言（产品侧 add-ui-language 的同步类别 ⑲）：只做视觉同步 —— 位置、宽度与三档标签
-                 与产品一致；原型没有运行时字典，整页翻译不在原型里实现，故这三颗按钮不绑定点击，
-                 真实切换以产品为准（验收位置与文案，不以原型验语言功能）。 -->
+            <!-- 界面语言（产品侧 add-ui-language 的同步类别 ⑲；整页文案的切换见 config ㉙）：位置、宽度
+                 与三档标签与产品一致；三颗按钮真正生效，切换由页面末尾那段语言层承担 ——
+                 中文原文作键替换成英文，URL `?lang=` 与父窗口消息同样能定这一档。 -->
             <div class="field">
               <span class="flabel">界面语言<span class="fhelp">
                 <button class="fhelp-btn" type="button" aria-label="界面语言的说明"><i data-lucide="circle-help"></i></button>
@@ -1629,6 +1629,763 @@
      —— 侧边栏收起态的导航项提示正需要这一点（`.sidebar` 的 overflow 会把它裁掉）。
      层叠高于界面顶部那条边线的 60，故「关于」弹窗打开时其控件的提示仍可见。 -->
 <div class="tip-layer" id="tipLayer"></div>
+
+<!-- ================= 语言层（config ㉙） =================
+     中文原文作键，按当前语言把界面文案换成英文：标记里的文案由本层直接替换，
+     脚本拼出的文案（含 `已连接 ${n} 台` 这类插值）由带 `{0}` / `{1}` 占位的条目匹配后替换 ——
+     占位符让英文可以重排语序，也让同一句在两种语言下的词序各自成立。
+     语言来源优先级：URL `?lang=` → 父窗口消息 → 页内「界面语言」控件 → 跟随系统
+     （`zh` 开头取中文、`en` 开头取英文，其余与取不到时取英文，与产品侧同口径）。
+     每个文本节点 / 属性记住「页面写的原值」与「自己上次写出的值」，因此中英可以来回切；
+     页面自己重渲染（列表、进度、提示）后被重新识别并替换。
+     技术值（flag、命令、路径、连接标识、版本号）不进映射，保持原文。 -->
+<script type="application/json" id="protoI18n">
+{
+  "FreeControl2 · UI 原型": "FreeControl2 · UI prototype",
+  "设备": "Devices",
+  "显示源": "Source",
+  "视频": "Video",
+  "音频": "Audio",
+  "控制": "Control",
+  "录制": "Recording",
+  "窗口": "Window",
+  "高级": "Advanced",
+  "运行环境": "Environment",
+  "设置": "Settings",
+  "关于": "About",
+  "收起": "Collapse",
+  "0 台设备": "0 devices",
+  "scrcpy 就绪": "scrcpy ready",
+  "统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。": "Manage all devices in one place: give each an alias mapped to its connection ID (serial or IP:port), watch live status, and connect or disconnect one at a time or all at once. Click a device to see the command it would run; expand Parameters to override the defaults for that device.",
+  "添加设备": "Add device",
+  "全部连接": "Connect all",
+  "全部断开": "Disconnect all",
+  "镜像主屏、虚拟显示器、Flex Display 或摄像头画面。以下为": "Mirror the phone screen, a virtual display, Flex Display or the camera. The values below are",
+  "默认参数": "default parameters",
+  "，可在「设备」页中按设备覆盖。": ", and can be overridden per device on the Devices page.",
+  "视频源": "Video source",
+  "镜像手机屏幕，或改为采集设备摄像头的画面。": "Mirror the phone screen, or capture the device camera instead.",
+  "摄像头镜像需要 Android 12 及以上；摄像头源下画面不来自设备屏幕，--display-id、--new-display 与 --turn-screen-off 等参数不参与拼装。": "Camera mirroring requires Android 12 or later. With the camera source the picture does not come from the device screen, so --display-id, --new-display, --turn-screen-off and similar options are not applied.",
+  "主屏幕": "Main screen",
+  "摄像头": "Camera",
+  "显示模式": "Display mode",
+  "主屏镜像设备当前的显示；虚拟显示器在设备上新开一块独立显示；Flex Display 让虚拟屏随窗口连续缩放。": "Mirror the current display, open a new independent virtual display on the device, or let Flex Display resize the virtual display with the window.",
+  "Flex Display 下 --crop、--window-width、--window-height 与 --no-control 不参与拼装（scrcpy 判定它们与 --flex-display 不兼容）。": "With Flex Display, --crop, --window-width, --window-height and --no-control are not applied (scrcpy considers them incompatible with --flex-display).",
+  "主屏": "Main display",
+  "虚拟显示器": "Virtual display",
+  "两档虚拟屏的分辨率都在下方指定": "Both virtual-display modes take their resolution below",
+  "显示 id（--display-id）": "Display id (--display-id)",
+  "镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。": "Mirror the device display with the given id. Use scrcpy --list-displays to list available ids.",
+  "非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。": "A non-zero value conflicts with --new-display (scrcpy rejects specifying both); the option is unavailable with the camera source.",
+  "0 / 留空 = 主屏；虚拟显示器与摄像头源下不生效": "0 or empty = main display; not used with a virtual display or camera source",
+  "分辨率（--new-display）": "Resolution (--new-display)",
+  "虚拟显示器的分辨率，格式为「宽x高」。": "Resolution of the virtual display, in WxH format.",
+  "它与下方的密度一起拼成 --new-display=宽x高/密度：只填密度时分辨率沿用主屏尺寸。": "It is combined with the density below into --new-display=WxH/DPI; if only density is set, the resolution follows the main display.",
+  "留空由 scrcpy 决定：非 Flex 用主屏尺寸与密度，Flex 用 1280x960/160": "Empty lets scrcpy decide: non-Flex uses the main display size and density; Flex uses 1280x960/160",
+  "密度 DPI": "Density (DPI)",
+  "虚拟显示器的像素密度，与分辨率一起决定新屏上界面元素的大小。": "Pixel density of the virtual display; together with the resolution it controls the size of UI elements on the new display.",
+  "同一分辨率下密度越大，界面元素越大、可容纳的内容越少。": "At the same resolution, a higher density makes UI elements larger and fits less content.",
+  "留空用上面的默认密度": "Empty uses the default density above",
+  "关闭时保留内容（--no-vd-destroy-content）": "Keep content when closed (--no-vd-destroy-content)",
+  "关闭虚拟显示器时，把其中运行的应用移到主屏，而不是随虚拟屏一起销毁。": "When closing a virtual display, move apps running on it to the main display instead of destroying them with the virtual display.",
+  "只在虚拟显示器与 Flex Display 下有意义。": "Only meaningful with a virtual display or Flex Display.",
+  "移到主屏而非销毁": "Move apps to the main display instead of destroying them",
+  "摄像头朝向（--camera-facing）": "Camera facing (--camera-facing)",
+  "按朝向选择设备摄像头：front 前置、back 后置、external 外接。": "Choose the device camera by facing direction: front, back, or external.",
+  "不选则由 scrcpy 使用检测到的第一个摄像头。": "If not set, scrcpy uses the first camera it detects.",
+  "自动": "Auto",
+  "尺寸（--camera-size）": "Size (--camera-size)",
+  "摄像头的采集分辨率，格式为「宽x高」；可选档位由摄像头自身决定，可用 scrcpy --list-camera-sizes 列出。": "Camera capture resolution in WxH format; available sizes depend on the camera. Use scrcpy --list-camera-sizes to list them.",
+  "摄像头镜像需要 Android 12 及以上。": "Camera mirroring requires Android 12 or later.",
+  "留空由 scrcpy 自动选择尺寸": "Empty lets scrcpy choose the size",
+  "帧率（--camera-fps）": "Frame rate (--camera-fps)",
+  "摄像头的采集帧率，可选档位同样取决于摄像头。": "Camera capture frame rate; available values also depend on the camera.",
+  "留空用 Android 默认的 30 fps": "Empty uses the Android default of 30 fps",
+  "初始缩放（--camera-zoom）": "Initial zoom (--camera-zoom)",
+  "摄像头的初始缩放倍数，1 表示不缩放。": "Initial camera zoom factor; 1 means no zoom.",
+  "可调范围由摄像头自身决定，填超出范围的倍数会由 scrcpy 报错。": "The range depends on the camera; values outside it make scrcpy report an error.",
+  "开启闪光灯（--camera-torch）": "Torch (--camera-torch)",
+  "启动时点亮摄像头的闪光灯（手电筒）。": "Turn on the camera flash (torch) when starting.",
+  "只在摄像头源下有效。": "Only effective with the camera source.",
+  "启动时点亮": "Turn on at start",
+  "列出摄像头": "List cameras",
+  "编码、分辨率、码率、帧率与画面适配。": "Codec, resolution, bitrate, frame rate and fit.",
+  "编码与画质": "Codec and quality",
+  "视频编码（--video-codec）": "Video codec (--video-codec)",
+  "选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。": "Choose the video codec. h264 is the scrcpy default and has the lowest latency; h265 has better quality but higher latency; av1 encoders are still rare on current Android devices.",
+  "选「自动」时按 scrcpy 自身的默认决定。": "With Auto, scrcpy uses its own default.",
+  "长边分辨率（--max-size）": "Max size (--max-size)",
+  "限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。": "Limit the maximum width and height of the picture; the other side is scaled proportionally (except with Flex Display).",
+  "摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。": "With the camera source it does not crop the picture; it is used to pick a close size supported by the camera.",
+  "视频码率（--video-bit-rate）": "Video bit rate (--video-bit-rate)",
+  "视频编码的比特率，scrcpy 默认 8 Mbps。": "Video encoding bitrate; scrcpy defaults to 8 Mbps.",
+  "越高画面越清晰，占用的带宽与解码资源也越多。": "Higher values improve clarity but use more bandwidth and decoding resources.",
+  "最大帧率（--max-fps）": "Max frame rate (--max-fps)",
+  "限制采集帧率，Android 10 起获得官方支持。": "Limit the capture frame rate; officially supported since Android 10.",
+  "实际帧率随画面变化：静止画面不会跑满上限。": "The actual frame rate varies with the picture; a static screen will not reach the limit.",
+  "不限制": "No limit",
+  "视频编码器（--video-encoder）": "Video encoder (--video-encoder)",
+  "指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。": "Specify a MediaCodec video encoder (available encoder names depend on the codec selected with --video-codec).",
+  "可用 scrcpy --list-encoders 列出设备上可用的编码器。": "Use scrcpy --list-encoders to list available encoders on the device.",
+  "留空由 scrcpy 自动选择": "Empty lets scrcpy choose",
+  "硬件解码（--hwdec）": "Hardware decoding (--hwdec)",
+  "「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。": "Auto = omit the flag: scrcpy uses the first available hardware decoder and falls back to software decoding if needed.",
+  "disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。": "disabled forces software decoding; vaapi is Linux only (requires VA-API drivers, and the EGL renderer on X11); d3d11va is Windows only. If hardware decoding is unavailable after an explicit choice, scrcpy exits with an error.",
+  "与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。": "Conflicts with Background recording (--no-window): that mode implies --no-video-playback, while hardware decoding requires video playback; disabled is not affected.",
+  "需要 scrcpy 5.0 及以上。": "Requires scrcpy 5.0 or later.",
+  "「后台录制」开启时不生效": "Not used when Background recording is on",
+  "画面与适配": "Picture and fit",
+  "裁剪（--crop W:H:X:Y）": "Crop (--crop W:H:X:Y)",
+  "在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。": "Crop the picture on the device. The four components are width:height:x:y, where x and y are the top-left corner of the crop area.",
+  "坐标以设备自然方向为基准（手机竖放、平板横放）。": "Coordinates use the device natural orientation (portrait phone, landscape tablet).",
+  "Flex Display 下不生效。": "Not used with Flex Display.",
+  "旋转角度（--angle）": "Angle (--angle)",
+  "按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。": "Rotate the picture clockwise by the given angle; any angle is allowed, and the UI offers 0 / 90 / 180 / 270.",
+  "只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。": "Only changes the picture; it does not affect the recorded file direction (set separately with --record-orientation).",
+  "渲染适配（--render-fit）": "Render fit (--render-fit)",
+  "控制画面在窗口里的适配方式。": "Controls how the picture fits the window.",
+  "letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。": "letterbox keeps the aspect ratio and adds margins; stretched fills the window without preserving the aspect ratio; unscaled shows pixels 1:1, so only part of the picture is visible when the window is smaller.",
+  "视频缓冲（--video-buffer）": "Video buffer (--video-buffer)",
+  "在显示前增加一段缓冲，用来吸收网络抖动。": "Add a buffer before display to absorb network jitter.",
+  "它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。": "It reduces stutter at the cost of higher latency; usually unnecessary on a direct LAN connection.",
+  "单位：毫秒": "Unit: milliseconds",
+  "Android 11+ 可转发设备音频，支持多种音源与编码。": "Android 11+ can forward device audio, with multiple sources and codecs.",
+  "音频转发": "Audio forwarding",
+  "禁用音频转发（--no-audio 开启）": "Disable audio forwarding (--no-audio on)",
+  "开关打开时不转发设备音频：画面照常镜像，声音仍从手机发出。": "When on, device audio is not forwarded: the screen is still mirrored and sound comes from the phone.",
+  "关掉开关才启用音频转发；音频转发需要 Android 11 及以上。": "Turn it off to enable audio forwarding; requires Android 11 or later.",
+  "禁用音频转发": "Disable audio forwarding",
+  "音频源（--audio-source）": "Audio source (--audio-source)",
+  "选择音频采集来源，只在音频转发开启时才有意义。": "Choose the audio capture source; only meaningful when audio forwarding is enabled.",
+  "output 转发整机音频输出并让设备端静音；playback 只采集应用的播放声音（应用可主动退出采集）；mic 系列采集麦克风 —— mic-unprocessed 取原始信号、mic-camcorder 按录像场景调优、mic-voice-communication 启用回声消除与自动增益；voice-call 与 voice-performance 分别对应通话与演出场景。": "output forwards the whole device output and mutes the device; playback captures only app playback (apps may opt out); mic sources capture the microphone: mic-unprocessed takes the raw signal, mic-camcorder is tuned for recording, mic-voice-communication enables echo cancellation and automatic gain; voice-call and voice-performance are for calls and performances.",
+  "设备实际支持的来源随厂商实现而异。": "The sources actually supported depend on the vendor implementation.",
+  "音频编码（--audio-codec）": "Audio codec (--audio-codec)",
+  "选择音频编码格式：opus 为 scrcpy 默认，aac 兼容性好，flac 无损但体积大，raw 不压缩、体积最大。": "Choose the audio codec: opus is the scrcpy default, aac has broad compatibility, flac is lossless but larger, and raw is uncompressed and largest.",
+  "复制音频（--audio-dup，设备同时播放）": "Duplicate audio (--audio-dup, also plays on the device)",
+  "转发音频的同时让设备继续外放，而不是转发后设备静音。": "Keep the device speaker playing while forwarding audio instead of muting the device.",
+  "只在音频源为 playback 时可用。": "Only available when the audio source is playback.",
+  "边播边录": "Play while recording",
+  "音频编码器（--audio-encoder）": "Audio encoder (--audio-encoder)",
+  "指定 MediaCodec 音频编码器（可用的编码器名随 --audio-codec 的编码格式而定）。": "Specify a MediaCodec audio encoder (available encoder names depend on the codec selected with --audio-codec).",
+  "码率与缓冲": "Bitrate and buffering",
+  "音频码率（--audio-bit-rate）": "Audio bit rate (--audio-bit-rate)",
+  "音频编码的比特率，scrcpy 默认 128 Kbps。": "Audio encoding bitrate; scrcpy defaults to 128 Kbps.",
+  "只影响转发到电脑的音频，不影响设备自身的播放。": "Only affects audio forwarded to the computer, not playback on the device.",
+  "采集缓冲（--audio-buffer）": "Capture buffer (--audio-buffer)",
+  "音频缓冲的时长，用来吸收网络抖动。": "Audio buffer duration, used to absorb network jitter.",
+  "调小会降低延迟，但更容易出现欠载、听感上是断音或爆音。": "Lowering it reduces latency but makes underruns more likely, heard as dropouts or crackle.",
+  "输出缓冲（--audio-output-buffer）": "Output buffer (--audio-output-buffer)",
+  "电脑端音频输出缓冲的大小，scrcpy 默认 10 毫秒。": "Size of the audio output buffer on the computer; scrcpy defaults to 10 ms.",
+  "除非确有需要不要改动：改小更容易出现播放断续。": "Do not change it unless necessary: a smaller buffer makes playback dropouts more likely.",
+  "键鼠/手柄注入方式、快捷键、屏幕与剪贴板行为。": "Keyboard/mouse/gamepad injection, shortcuts, screen and clipboard behavior.",
+  "输入注入": "Input injection",
+  "只读 / 仅查看（--no-control）": "Read-only (--no-control)",
+  "只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。": "Mirror only, no injection: mouse and keyboard events are not sent to the device, making it read-only.",
+  "Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。": "Not applied with Flex Display (scrcpy considers it incompatible).",
+  "禁用设备控制": "Disable device control",
+  "键盘（--keyboard）": "Keyboard (--keyboard)",
+  "选择键盘事件的注入方式。": "Choose how keyboard events are injected.",
+  "disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。": "disabled sends no keyboard events; sdk injects through Android system APIs; uhid emulates the computer keyboard as a physical keyboard on the device; aoa emulates a physical keyboard over AOAv2 and works over USB only.",
+  "uhid 与 aoa 需要先在设备的「设置 → 系统 → 语言和输入法 → 物理键盘」里配好键盘布局。": "uhid and aoa require a keyboard layout configured under Settings → System → Languages & input → Physical keyboard on the device.",
+  "鼠标（--mouse）": "Mouse (--mouse)",
+  "选择鼠标事件的注入方式。": "Choose how mouse events are injected.",
+  "disabled 不向设备发送鼠标事件；sdk 通过 Android 系统接口投递；uhid 模拟物理 HID 鼠标；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。": "disabled sends no mouse events; sdk injects through Android system APIs; uhid emulates a physical HID mouse; aoa emulates one over AOAv2 and works over USB only.",
+  "uhid 与 aoa 会捕获电脑鼠标（相对移动模式），按 LAlt、LSuper 或 RSuper 可把鼠标交还给电脑。": "uhid and aoa capture the computer mouse (relative mode); press LAlt, LSuper or RSuper to give it back.",
+  "游戏手柄（--gamepad）": "Gamepad (--gamepad)",
+  "选择手柄的注入方式。": "Choose how gamepad events are injected.",
+  "disabled 不向设备发送手柄事件；uhid 把电脑手柄模拟成设备上的物理手柄；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。": "disabled sends no gamepad events; uhid emulates the computer gamepad as a physical gamepad on the device; aoa emulates one over AOAv2 and works over USB only.",
+  "快捷键修饰键（--shortcut-mod）": "Shortcut modifiers (--shortcut-mod)",
+  "指定 scrcpy 快捷键的修饰键，默认是左 Alt 或左 Super。": "Modifier keys for scrcpy shortcuts; the default is Left Alt or Left Super.",
+  "可同时选择多个，任一命中即触发；改动后所有快捷键的组合随之变化。": "Multiple keys can be selected; any of them triggers the shortcut, and changing this affects all shortcut combinations.",
+  "不转发重复按键（--no-key-repeat）": "Do not forward repeat keys (--no-key-repeat)",
+  "按住按键时不向设备转发重复事件。": "Do not forward repeated key events to the device while a key is held.",
+  "适合长按交给设备端自身连发的场景（如长按方向键连续翻页）。": "Useful when long-press repeat should be handled by the device (for example, holding an arrow key to scroll).",
+  "按住按键时不转发重复事件": "Do not repeat keys while held",
+  "屏幕与剪贴板": "Screen and clipboard",
+  "显示触摸点（--show-touches）": "Show touches (--show-touches)",
+  "启动时打开设备的「显示点按操作反馈」，退出时恢复原值。": "Enable Show taps on the device when starting and restore the previous value on exit.",
+  "只显示设备上的物理触摸，scrcpy 自己的鼠标点击不会显示。": "Only shows physical touches on the device; mouse clicks from scrcpy are not shown.",
+  "演示可见点击": "Show taps for demos",
+  "关闭屏幕（--turn-screen-off）": "Turn screen off (--turn-screen-off)",
+  "启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。": "Turn the device screen off immediately after starting; the picture is still mirrored and touch and keys on the device still work.",
+  "视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。": "Not effective with the camera source: the picture does not come from the device screen, so there is nothing to turn off.",
+  "镜像时熄灭手机屏": "Turn the phone screen off while mirroring",
+  "保持唤醒（--stay-awake）": "Stay awake (--stay-awake)",
+  "设备处于充电状态时保持屏幕常亮，退出镜像时恢复原值。": "Keep the screen on while the device is charging; restore the previous value on exit.",
+  "不充电时不生效。": "Not effective when not charging.",
+  "充电时保持亮屏": "Keep the screen on while charging",
+  "保持活跃（--keep-active）": "Keep active (--keep-active)",
+  "通过模拟用户活动保持屏幕常亮，不依赖充电状态。": "Keep the screen on by simulating user activity, independent of charging.",
+  "与「充电时保持亮屏」的区别：这一项看的是有没有输入，而不是有没有插电。": "Unlike Keep the screen on while charging, this depends on input rather than power.",
+  "模拟活动防息屏": "Simulate activity to prevent sleep",
+  "关闭时锁屏（--power-off-on-close）": "Power off on close (--power-off-on-close)",
+  "退出镜像时关闭设备屏幕，等价于按一次电源键。": "Turn the device screen off when exiting the mirror, equivalent to pressing the power button once.",
+  "退出即熄屏": "Turn the screen off on exit",
+  "剪贴板自动同步（--no-clipboard-autosync）": "Clipboard autosync (--no-clipboard-autosync)",
+  "开启时剪贴板双向自动同步：向设备注入 Ctrl+V 之前先把电脑剪贴板推过去，设备剪贴板变化时同步回电脑。": "When on, the clipboard syncs both ways automatically: before injecting Ctrl+V on the device, the computer clipboard is pushed over; changes on the device are synced back.",
+  "关闭后不再自动同步，两侧剪贴板互不影响。": "When off, no automatic sync happens and the two clipboards are independent.",
+  "双向同步（关闭时）": "Two-way sync (when off)",
+  "息屏超时（--screen-off-timeout）": "Screen-off timeout (--screen-off-timeout)",
+  "scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。": "While scrcpy runs, set the device screen-off timeout to this many seconds and restore the previous value on exit.",
+  "单位：秒；0 / 留空 = 不修改设备设置": "Unit: seconds; 0 or empty = leave the device setting unchanged",
+  "录制镜像到文件，或仅录制不显示窗口。": "Record the mirror to a file, or record without showing a window.",
+  "录制设置": "Recording settings",
+  "启用录制（--record）": "Record (--record)",
+  "把镜像过程中的画面与声音录到文件，路径、格式与方向在下方设置。": "Record the picture and sound from the mirror to a file; set the path, format and orientation below.",
+  "不勾选「后台录制」时窗口照常显示，录制与显示互不排斥。": "Unless Background recording is checked, the window is still shown; recording and display are independent.",
+  "保存到文件": "Save to a file",
+  "文件路径": "File path",
+  "录制文件的保存路径，仅在启用录制时生效。": "Save path for the recording; only used when recording is enabled.",
+  "扩展名决定容器格式（如 .mp4 / .mkv），与「格式」不一致时会得到名不副实的文件。": "The extension determines the container format (for example .mp4 / .mkv). If it does not match Format, the file name and contents will disagree.",
+  "浏览": "Browse",
+  "格式（--record-format）": "Format (--record-format)",
+  "强制录制文件的容器格式，仅在启用录制时生效。": "Force the recording container format; only used when recording is enabled.",
+  "默认 mp4；与文件扩展名不一致时，文件内容与后缀会对不上。": "Defaults to mp4; if it does not match the file extension, the contents and suffix will disagree.",
+  "录制方向（--record-orientation）": "Record orientation (--record-orientation)",
+  "只影响录制文件的方向，不改变镜像画面。": "Only affects the direction of the recorded file, not the mirrored picture.",
+  "90 与 270 会交换输出文件的宽高。": "90 and 270 swap the width and height of the output file.",
+  "无头与时限": "Headless and time limit",
+  "无窗口仅录制（--no-window）": "No window, record only (--no-window)",
+  "不打开 scrcpy 窗口，只在后台运行；控制仍可用，但看不到画面。": "Do not open a scrcpy window; run in the background only. Control still works, but there is no picture.",
+  "没有同时开启录制时，这个会话将在完全看不到输出的情况下运行。": "If recording is not enabled too, the session runs with no visible output at all.",
+  "后台录制": "Background recording",
+  "时间限制（--time-limit）": "Time limit (--time-limit)",
+  "到时限后自动结束会话，常用在按固定时长录制时。": "End the session automatically after the time limit; useful for recordings of a fixed length.",
+  "单位：秒；0 / 留空 = 不限时": "Unit: seconds; 0 or empty = no time limit",
+  "退出时暂停（--pause-on-exit）": "Pause on exit (--pause-on-exit)",
+  "会话结束后暂停等待，而不是立即退出；选 if-error 时只在出错后暂停。": "Pause after the session ends instead of exiting immediately; with if-error, pause only after an error.",
+  "它的原意是让命令行窗口停住，以便读报错；本应用会把 scrcpy 的输出收进会话日志，因此通常用不到。": "It was intended to keep a terminal window open so errors can be read; this app captures scrcpy output in the session log, so it is usually unnecessary.",
+  "scrcpy 窗口的标题、尺寸、位置与外观。": "Title, size, position and appearance of the scrcpy window.",
+  "外观": "Appearance",
+  "窗口标题（--window-title）": "Window title (--window-title)",
+  "自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。": "Custom title for the scrcpy window; useful to tell windows apart when mirroring multiple devices.",
+  "留空 = 标题用设备名": "Empty = use the device name",
+  "无边框（--window-borderless）": "Borderless (--window-borderless)",
+  "去掉窗口边框与标题栏，画面铺满整个窗口。": "Remove the window border and title bar so the picture fills the window.",
+  "没有标题栏后可拖动的区域消失，位置与大小需借助快捷键或启动参数调整。": "Without a title bar there is no draggable area; adjust position and size with shortcuts or launch options.",
+  "隐藏装饰": "Hide decorations",
+  "全屏（--fullscreen）": "Fullscreen (--fullscreen)",
+  "启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。": "Start in fullscreen; use the scrcpy fullscreen shortcut to exit.",
+  "启动即全屏": "Start fullscreen",
+  "置顶（--always-on-top）": "Always on top (--always-on-top)",
+  "窗口始终压在其他窗口之上，适合边看手机边操作电脑。": "Keep the window above other windows; useful when watching the phone while working on the computer.",
+  "最前显示": "Keep on top",
+  "锁定宽高比（--no-window-aspect-ratio-lock）": "Lock aspect ratio (--no-window-aspect-ratio-lock)",
+  "scrcpy 默认锁定窗口宽高比；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。": "scrcpy locks the window aspect ratio by default; turn this on to resize the window freely, stretching the picture.",
+  "只在使用 scrcpy 自带窗口时生效。": "Only effective with the scrcpy window.",
+  "保持比例（关闭时）": "Keep aspect ratio (when off)",
+  "背景色（--background-color）": "Background color (--background-color)",
+  "窗口留边区域（letterbox 黑边）的颜色，取值形如 #RGB 或 #RRGGBB。": "Color of the letterbox area; use #RGB or #RRGGBB.",
+  "scrcpy 默认为 #222（深灰）。": "scrcpy defaults to #222 (dark gray).",
+  "尺寸与位置": "Size and position",
+  "宽度（--window-width）": "Width (--window-width)",
+  "scrcpy 窗口的初始宽度（像素）。": "Initial width of the scrcpy window in pixels.",
+  "Flex Display 下窗口尺寸由 --new-display 决定，这一项不参与拼装。": "With Flex Display the window size comes from --new-display, so this is not applied.",
+  "0 / 留空 = 由 scrcpy 决定窗口大小": "0 or empty = scrcpy decides the window size",
+  "高度（--window-height）": "Height (--window-height)",
+  "scrcpy 窗口的初始高度（像素）。": "Initial height of the scrcpy window in pixels.",
+  "scrcpy 窗口初始位置的横坐标（屏幕像素）。": "Initial horizontal position of the scrcpy window in screen pixels.",
+  "填了它（或 Y）的设备不再参与窗口自动排列，窗口落在指定位置。": "A device with this (or Y) set no longer participates in automatic window arrangement and is placed at the given position.",
+  "scrcpy 窗口初始位置的纵坐标（屏幕像素）。": "Initial vertical position of the scrcpy window in screen pixels.",
+  "填了它（或 X）的设备不再参与窗口自动排列，窗口落在指定位置。": "A device with this (or X) set no longer participates in automatic window arrangement and is placed at the given position.",
+  "0 / 留空 = 由 scrcpy 自动决定": "0 or empty = scrcpy decides the position",
+  "连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底任何未覆盖的 flag，并可调整端口与隧道主机等网络参数。": "Launch a specific app after connecting (especially useful with virtual displays), fall back to custom arguments for any flag not covered by the UI, and adjust network options such as the port and tunnel host.",
+  "启动应用": "Launch app",
+  "包名（--start-app）": "Package (--start-app)",
+  "连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。": "Open the specified app on the device after connecting; especially useful with virtual displays, where the app opens on the new display.",
+  "按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。": "When matching by name, scrcpy first reads the app list from the device, which may be slower the first time.",
+  "列出应用": "List apps",
+  "支持 ? 模糊匹配 / + 强制停止；例如": "Supports ? fuzzy match and + force-stop, for example",
+  "：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。": ": stop it first, then start it by fuzzy name. Works with a virtual display.",
+  "网络": "Network",
+  "客户端端口范围（--port）": "Client port range (--port)",
+  "scrcpy 客户端监听并接收视频流的 TCP 端口，scrcpy 默认 27183:27199。": "TCP port the scrcpy client listens on for the video stream; scrcpy defaults to 27183:27199.",
+  "同时连多台设备时会在范围内依次取用。": "When connecting multiple devices, ports are used in order within the range.",
+  "隧道主机（--tunnel-host）": "Tunnel host (--tunnel-host)",
+  "指定 adb 隧道要连到的目标主机，默认 localhost。": "Target host for the adb tunnel; defaults to localhost.",
+  "指定它之后 scrcpy 会自动改用 --force-adb-forward（不再尝试 adb reverse）。": "When set, scrcpy switches to --force-adb-forward (it no longer tries adb reverse).",
+  "只有当设备端能访问另一台主机时才需要改。": "Only change it when the device can reach another host.",
+  "自定义参数（直接透传给 scrcpy）": "Custom arguments (passed directly to scrcpy)",
+  "额外参数": "Extra arguments",
+  "把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
+  "它不属于设备覆盖：无论该设备是否启用覆盖，都会带上这段参数。": "It is not a device override: it is included whether or not the device has overrides enabled.",
+  "引号必须成对，否则校验会拦下并给出提示。": "Quotes must be paired, otherwise validation will block it and show a hint.",
+  "对所有设备生效，直接追加到命令末尾": "Applies to all devices and is appended to the end of the command",
+  "管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。": "Manage the scrcpy environment folder, updates and download channels (GitHub direct + proxy addresses).",
+  "scrcpy 目录": "scrcpy folder",
+  "未设置自定义目录时，约定目录为": "With no custom directory the conventional path is",
+  "；设置了自定义目录时，scrcpy 与 adb 都从自定义目录读取，约定目录不再参与。": "; with one set, scrcpy and adb both read from it and the conventional path is no longer used.",
+  "首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。": "If the binaries are missing on first launch, use Open folder to place them manually, then click Check again.",
+  "应用": "Apps",
+  "选择目录": "Choose folder",
+  "打开目录": "Open folder",
+  "恢复默认": "Reset to default",
+  "状态": "Status",
+  "未就绪时仍可查看路径与打开目录，或点「下载最佳适配版本」自动获取（下载通道 / 官方校验 / 原子替换）。": "When not ready you can still view the path and open the folder, or click Download best-fit version to fetch automatically (channels / official verification / atomic replacement).",
+  "重新检测": "Check again",
+  "查看原因": "View reason",
+  "就绪 = 目录内 scrcpy 与 adb 齐备。": "Ready means scrcpy and adb are both present in the folder.",
+  "非最佳适配版本": "Not the best-fit version",
+  "当前版本非最佳适配版本，部分特性可能不受支持或存在未知问题。此提示": "This version is not the best-fit version; some features may be unsupported or have unknown issues. This notice ",
+  "不阻断任何操作": "does not block any action",
+  "，你仍可正常连接设备、发起会话与复制命令。": "; you can still connect devices, start sessions and copy commands.",
+  "已安装": "Installed",
+  "最佳适配": "Best fit",
+  "已安装版本高于最佳适配版本（更新）": "The installed version is newer than the best-fit version",
+  "更新": "Update",
+  "两个入口都会删除并替换运行环境目录内的全部文件（scrcpy 与 adb 一起更新）；曾手动放入自定义版本请先备份。": "Both entries delete and replace every file in the environment folder (scrcpy and adb are updated together); back up any custom version you placed there.",
+  "两者都从 GitHub Releases 获取：「下载最佳适配版本」取构建期锁定的受支持版本，不依赖官方最新发布查询；「下载最新版本」取官方最新发布，查询失败会回退到最佳适配版本并说明原因。": "Both download from GitHub Releases: Download best-fit version uses the supported version locked at build time and does not query the latest release; Download latest version uses the official latest release and falls back to the best-fit version if the query fails, explaining why.",
+  "直连失败会自动按序改用下面的代理地址，进度块会标明当前所用通道。直连虽可用但太慢时，可在进度块点「切换通道」立即换一条；下载完成后以官方 SHA256SUMS 校验，校验不通过不写入目录。": "If the direct connection fails, the proxy addresses below are tried in order and the progress block shows the current channel. If the direct connection works but is slow, click Switch channel in the progress block; after download, SHA256SUMS is verified and nothing is written if verification fails.",
+  "下载最佳适配版本": "Download best-fit version",
+  "下载最新版本": "Download latest version",
+  "检查更新": "Check for updates",
+  "会删除并替换目录内全部文件；自定义版本请先备份。": "Deletes and replaces every file in the folder; back up any custom version first.",
+  "切换通道": "Switch channel",
+  "取消": "Cancel",
+  "下载通道": "Download channels",
+  "列表内所有地址都可删除，含出厂默认的两条；删除后不会自动恢复。": "Every address in the list can be deleted, including the two factory defaults; deleted addresses are not restored automatically.",
+  "追加的地址须以 http:// 或 https:// 开头，会持久化并在重启后保留。": "Added addresses must start with http:// or https:// and are saved across restarts.",
+  "追加": "Add",
+  "下载按列表顺序自动降级：先走 GitHub 直连，失败则依次改用下面的代理地址。": "Downloads fall back in list order: GitHub direct first, then the proxy addresses below.",
+  "兼容性演示": "Compatibility demo",
+  "预览非最佳适配版本样式": "Preview the not-best-fit style",
+  "原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。": "Prototype-only switch: when ticked, the runtime indicator at the top switches to the yellow not-best-fit state and the reason behind View reason expands in the status field (the real app derives this from the compatibility status the backend reports).",
+  "管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
+  "界面语言": "Interface language",
+  "默认跟随系统语言；切换后立即生效，重启后保留。": "Follows your system language by default. Changes apply immediately and are remembered after restart.",
+  "跟随系统": "Follow system",
+  "主题模式": "Theme mode",
+  "出厂默认跟随系统：取系统深浅色，运行期间随系统变化；选「深色」或「浅色」则固定，不再跟随系统。": "Follows the system light or dark theme by default, including changes while the app is running. Choosing Dark or Light keeps the theme fixed.",
+  "深色": "Dark",
+  "浅色": "Light",
+  "主题色": "Accent color",
+  "预设经过挑选，自定义主题色以可读性优先；点「自定义主题色」用系统或内核取色器取色。": "The presets are chosen for readability. Custom colors prioritize contrast; click Custom accent color to pick one with the system color picker.",
+  "实底文字自动取白或黑，高亮与浅色文字按当前主题派生。": "Text on a solid accent background is automatically white or black; highlights and light text are derived from the current theme.",
+  "自定义主题色": "Custom accent color",
+  "自动更新": "App updates",
+  "自动检查更新": "Check for updates automatically",
+  "开启后在后台检查新版本；发现新版本会打开更新窗口，不会自动下载或安装。": "Checks for new versions in the background. When one is found, the update window opens; nothing is downloaded or installed automatically.",
+  "检查频率": "Check frequency",
+  "每次启动": "On launch",
+  "每天": "Daily",
+  "每周": "Weekly",
+  "每月": "Monthly",
+  "上次检查：尚未检查": "Last checked: never",
+  "运行日志参数": "Runtime log options",
+  "日志级别（--verbosity）": "Log level (--verbosity)",
+  "设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。": "Set the scrcpy log level, which controls how much process detail appears in the session log.",
+  "发布版 scrcpy 默认 info；调到 debug 或 verbose 会显著放大日志量。": "Release builds of scrcpy default to info; debug or verbose greatly increases log volume.",
+  "显示 FPS 计数（--print-fps）": "Show FPS counter (--print-fps)",
+  "在日志里持续打印实际帧率，用来判断画面是否掉帧。": "Continuously print the actual frame rate in the log to check for dropped frames.",
+  "控制台打印帧率": "Print frame rate to the log",
+  "关闭时清理（--no-cleanup）": "Clean up on close (--no-cleanup)",
+  "scrcpy 退出时会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。": "On exit, scrcpy removes the server from the device and restores the state it changed (show touches, stay awake and power mode).",
+  "打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。": "Turning this on skips cleanup: the device keeps those changes; use it only when troubleshooting.",
+  "退出时还原设备状态（关闭时）": "Restore device state on exit (when off)",
+  "日志文件": "Log files",
+  "保留策略": "Retention",
+  "日志按日期命名（": "Logs are named by date (",
+  "）保存在应用数据目录的 logs 文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。": ") in the logs folder of the app data directory. Files older than the retention period are removed by the date in their name; Keep forever disables cleanup.",
+  "保留 7 天": "Keep 7 days",
+  "保留 30 天": "Keep 30 days",
+  "保留永久": "Keep forever",
+  "打开日志目录": "Open log folder",
+  "会话输出仅在产品侧提供，本原型不演示。": "Session output only exists in the app; this prototype does not show it.",
+  "选择一台设备查看命令": "Select a device to see the command",
+  "设置别名并选择连接方式。连接标识（serial 或 IP:端口）将作为 scrcpy 的": "Set an alias and pick how to connect. The connection ID (serial or IP:port) is passed to scrcpy as the",
+  "参数。": "argument.",
+  "别名": "Alias",
+  "连接方式": "Connection type",
+  "无线（IP:端口）": "Wireless (IP:port)",
+  "设备 serial": "Device serial",
+  "serial 可留空：设备会先登记，待检测到唯一一台未登记的 USB 设备后自动补全连接标识。": "The serial can be empty: the device is registered first, and its connection ID is filled in after a unique unregistered USB device is detected.",
+  "IP 地址 : 端口": "IP address : port",
+  "需先在设备上开启无线调试（": "Enable wireless debugging on the device first (",
+  "）；端口留默认 5555 即可。": "); the default port 5555 is fine.",
+  "保存设备": "Save device",
+  "版本": "Version",
+  "适配版本": "Best-fit",
+  "技术栈": "Tech stack",
+  "lucide 图标": "lucide icons",
+  "官网": "Website",
+  "开源许可": "License",
+  "正在检查更新…": "Checking for updates…",
+  "正在连接更新服务，请稍候": "Connecting to the update service",
+  "当前版本": "Current",
+  "最新版本": "Latest",
+  "正在下载新版本…": "Downloading the new version…",
+  "下载通道：GitHub 直连": "Download channel: GitHub direct",
+  "立即更新": "Update now",
+  "重试": "Try again",
+  "取消下载": "Cancel download",
+  "最小化": "Minimize",
+  "最大化": "Maximize",
+  "关闭": "Close",
+  "--video-source的说明": "About --video-source",
+  "显示模式的说明": "About Display mode",
+  "显示 id（--display-id）的说明": "About Display id (--display-id)",
+  "分辨率（--new-display）的说明": "About Resolution (--new-display)",
+  "密度 DPI的说明": "About Density (DPI)",
+  "关闭时保留内容（--no-vd-destroy-content）的说明": "About Keep content when closed (--no-vd-destroy-content)",
+  "摄像头朝向（--camera-facing）的说明": "About Camera facing (--camera-facing)",
+  "尺寸（--camera-size）的说明": "About Size (--camera-size)",
+  "帧率（--camera-fps）的说明": "About Frame rate (--camera-fps)",
+  "初始缩放（--camera-zoom）的说明": "About Initial zoom (--camera-zoom)",
+  "开启闪光灯（--camera-torch）的说明": "About Torch (--camera-torch)",
+  "视频编码（--video-codec）的说明": "About Video codec (--video-codec)",
+  "长边分辨率（--max-size）的说明": "About Max size (--max-size)",
+  "视频码率（--video-bit-rate）的说明": "About Video bit rate (--video-bit-rate)",
+  "最大帧率（--max-fps）的说明": "About Max frame rate (--max-fps)",
+  "视频编码器（--video-encoder）的说明": "About Video encoder (--video-encoder)",
+  "硬件解码（--hwdec）的说明": "About Hardware decoding (--hwdec)",
+  "裁剪（--crop W:H:X:Y）的说明": "About Crop (--crop W:H:X:Y)",
+  "旋转角度（--angle）的说明": "About Angle (--angle)",
+  "渲染适配（--render-fit）的说明": "About Render fit (--render-fit)",
+  "视频缓冲（--video-buffer）的说明": "About Video buffer (--video-buffer)",
+  "禁用音频转发（--no-audio 开启）的说明": "About Disable audio forwarding (--no-audio on)",
+  "音频源（--audio-source）的说明": "About Audio source (--audio-source)",
+  "音频编码（--audio-codec）的说明": "About Audio codec (--audio-codec)",
+  "复制音频（--audio-dup，设备同时播放）的说明": "About Duplicate audio (--audio-dup, also plays on the device)",
+  "音频编码器（--audio-encoder）的说明": "About Audio encoder (--audio-encoder)",
+  "音频码率（--audio-bit-rate）的说明": "About Audio bit rate (--audio-bit-rate)",
+  "采集缓冲（--audio-buffer）的说明": "About Capture buffer (--audio-buffer)",
+  "输出缓冲（--audio-output-buffer）的说明": "About Output buffer (--audio-output-buffer)",
+  "只读 / 仅查看（--no-control）的说明": "About Read-only (--no-control)",
+  "键盘（--keyboard）的说明": "About Keyboard (--keyboard)",
+  "鼠标（--mouse）的说明": "About Mouse (--mouse)",
+  "游戏手柄（--gamepad）的说明": "About Gamepad (--gamepad)",
+  "快捷键修饰键（--shortcut-mod）的说明": "About Shortcut modifiers (--shortcut-mod)",
+  "不转发重复按键（--no-key-repeat）的说明": "About Do not forward repeat keys (--no-key-repeat)",
+  "显示触摸点（--show-touches）的说明": "About Show touches (--show-touches)",
+  "关闭屏幕（--turn-screen-off）的说明": "About Turn screen off (--turn-screen-off)",
+  "保持唤醒（--stay-awake）的说明": "About Stay awake (--stay-awake)",
+  "保持活跃（--keep-active）的说明": "About Keep active (--keep-active)",
+  "关闭时锁屏（--power-off-on-close）的说明": "About Power off on close (--power-off-on-close)",
+  "剪贴板自动同步（--no-clipboard-autosync）的说明": "About Clipboard autosync (--no-clipboard-autosync)",
+  "息屏超时（--screen-off-timeout）的说明": "About Screen-off timeout (--screen-off-timeout)",
+  "启用录制（--record）的说明": "About Record (--record)",
+  "文件路径的说明": "About File path",
+  "格式（--record-format）的说明": "About Format (--record-format)",
+  "录制方向（--record-orientation）的说明": "About Record orientation (--record-orientation)",
+  "无窗口仅录制（--no-window）的说明": "About No window, record only (--no-window)",
+  "时间限制（--time-limit）的说明": "About Time limit (--time-limit)",
+  "退出时暂停（--pause-on-exit）的说明": "About Pause on exit (--pause-on-exit)",
+  "窗口标题（--window-title）的说明": "About Window title (--window-title)",
+  "无边框（--window-borderless）的说明": "About Borderless (--window-borderless)",
+  "全屏（--fullscreen）的说明": "About Fullscreen (--fullscreen)",
+  "置顶（--always-on-top）的说明": "About Always on top (--always-on-top)",
+  "锁定宽高比（--no-window-aspect-ratio-lock）的说明": "About Lock aspect ratio (--no-window-aspect-ratio-lock)",
+  "背景色（--background-color）的说明": "About Background color (--background-color)",
+  "宽度（--window-width）的说明": "About Width (--window-width)",
+  "高度（--window-height）的说明": "About Height (--window-height)",
+  "X（--window-x）的说明": "About X (--window-x)",
+  "Y（--window-y）的说明": "About Y (--window-y)",
+  "包名（--start-app）的说明": "About Package (--start-app)",
+  "客户端端口范围（--port）的说明": "About Client port range (--port)",
+  "隧道主机（--tunnel-host）的说明": "About Tunnel host (--tunnel-host)",
+  "额外参数的说明": "About Extra arguments",
+  "scrcpy 目录的说明": "About the scrcpy folder",
+  "更多目录操作": "More folder actions",
+  "状态的说明": "About status",
+  "更新的说明": "About updates",
+  "下载通道的说明": "About download channels",
+  "界面语言的说明": "About interface language",
+  "主题模式的说明": "About theme mode",
+  "主题色的说明": "About accent color",
+  "自动检查更新的说明": "About automatic update checks",
+  "日志级别（--verbosity）的说明": "About Log level (--verbosity)",
+  "显示 FPS 计数（--print-fps）的说明": "About Show FPS counter (--print-fps)",
+  "关闭时清理（--no-cleanup）的说明": "About Clean up on close (--no-cleanup)",
+  "保留策略的说明": "About log retention",
+  "复制 FreeControl2 版本号": "Copy the FreeControl2 version",
+  "复制 scrcpy 适配版本号": "Copy the scrcpy version",
+  "https://你的代理地址": "https://your-proxy.example",
+  "例如：我的主力机": "For example: My main phone",
+  "08081FDD4006LYE（可留空，稍后自动检测）": "08081FDD4006LYE (optional; detected later)",
+  "回到设备页": "Back to Devices",
+  "前往运行环境页": "Open Environment",
+  "连接所有在线且未连接的设备（离线设备不会被尝试连接）": "Connect all online devices that are not connected (offline devices are skipped)",
+  "结束所有正在运行的会话": "End all running sessions",
+  "复制命令": "Copy command",
+  "连接该设备": "Connect this device",
+  "Pixel 8 演示用窗口标题": "Pixel 8 demo window title",
+  "当前连接": "connected now",
+  "客厅投屏": "Living room TV",
+  "2 分钟前": "2 minutes ago",
+  "14 分钟前": "14 minutes ago",
+  "旧机 S23": "Old S23",
+  "昨天 23:14": "yesterday 23:14",
+  "请先选择一台设备": "Select a device first",
+  "断开该设备的会话": "Disconnect this device",
+  "当前无法连接该设备": "This device cannot be connected right now",
+  "已连接": "Connected",
+  "在线": "Online",
+  "离线": "Offline",
+  "暂无设备，请点击左上角「添加设备」。": "No devices yet. Use Add device in the top left.",
+  "(待检测)": "(pending)",
+  "点「连接」会先尝试重新连上这台设备，成功后再打开投屏": "Connect first tries to reconnect this device, then opens the mirror",
+  "设备离线：adb 中未检测到该设备，无法连接": "The device is offline: adb does not see it, so it cannot connect",
+  "已启用设备覆盖": "Device override enabled",
+  "断开": "Disconnect",
+  "连接": "Connect",
+  "最后 {11}": "Last {11}",
+  "参数": "Parameters",
+  "删除": "Delete",
+  "重命名": "Rename",
+  "为该设备单独设置参数（覆盖默认参数）": "Set parameters for this device (override the defaults)",
+  "删除该设备（连带清除其参数覆盖与覆盖开关）": "Delete this device (also clears its parameter override and switch)",
+  "· 覆盖已禁用（取值已保留）": "· override disabled (values kept)",
+  "为「{0}」单独设置参数{1}": "Set parameters for \"{0}\"{1}",
+  "镜像时熄灭手机屏；视频源为摄像头时不生效": "Turns the phone screen off while mirroring; not used with the camera source",
+  "禁用控制": "Disable control",
+  "启动应用（--start-app）": "Launch app (--start-app)",
+  "更多参数": "More parameters",
+  "完整参数请在「显示源 / 视频 / 音频…」标签页以默认参数设置；此处覆盖最常用项。": "Set the full set of parameters on the Display source / Video / Audio… pages; the most-used ones can be overridden here.",
+  "启动应用（--start-app）的说明": "About Launch app (--start-app)",
+  "启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）": "Enable or disable this device's parameter override (disabling keeps the values)",
+  "刚刚断开": "disconnected just now",
+  "{0} 台设备 · {1} 在线 · {2} 已连接": "{0} devices · {1} online · {2} connected",
+  "重新检查": "Check again",
+  "已是最新版本": "You're up to date",
+  "你正在使用最新版本 {0}": "You're running the latest version, {0}",
+  "发现新版本 {0}": "Version {0} is available",
+  "下载完成后重启应用即可生效": "Restart the app after the download finishes",
+  "正在下载新版本 {0}": "Downloading version {0}",
+  "下载完成后会自动校验文件完整性": "The file's integrity is verified automatically after download",
+  "更新已下载": "Update downloaded",
+  "重启应用后即可使用新版本": "Restart the app to use the new version",
+  "立即重启并更新": "Restart and update",
+  "重启会断开 2 台正在投屏的设备": "Restarting disconnects the 2 devices that are mirroring",
+  "没能连上更新服务": "Could not reach the update service",
+  "请检查网络连接后再试一次": "Check your network connection and try again",
+  "更新包没有下载完成": "The update didn't finish downloading",
+  "已尝试直连与代理通道，请稍后重试": "Both direct and proxy channels were tried; try again later",
+  "暂时没有可用的更新包": "No update package is available",
+  "这个版本还没有适合当前系统的安装包，请稍后再试": "This release has no package for your system yet; try again later",
+  "当前安装位置不可写": "The install location isn't writable",
+  "无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本": "The app files can't be replaced automatically. Move the app to a writable folder and retry, or download the new version manually",
+  "正在校验文件…": "Verifying the file…",
+  "校验通过后即可重启更新": "Restart to apply once verified",
+  "获取中…": "Fetching…",
+  "上次检查：刚刚": "Last checked: just now",
+  "刚刚添加": "added just now",
+  "已就绪 · scrcpy {0}（含 adb）": "Ready · scrcpy {0} (includes adb)",
+  "正在下载 {0}…": "Downloading {0}…",
+  "非最佳适配版本，点击前往「运行环境」页查看原因": "Not the best-fit version; open Environment for details",
+  "收起原因": "Hide reason",
+  "已切换 scrcpy 目录": "Changed the scrcpy folder",
+  "已恢复约定目录": "Restored the default folder",
+  "已检测到可用的运行环境": "A usable environment was detected",
+  "已在资源管理器中打开该目录": "Opened the folder in your file manager",
+  "检查中…": "Checking…",
+  "已是最新版本 v{0}": "Up to date · v{0}",
+  "正在下载 {0}（最佳适配版本）…": "Downloading {0} (best fit)…",
+  "GitHub 直连": "GitHub direct",
+  "代理 {0}": "Proxy {0}",
+  "下载通道：{0}": "Download channel: {0}",
+  "下载完成，正在校验 checksum…": "Downloaded, verifying checksum…",
+  "已安装 scrcpy v{0}": "Installed scrcpy v{0}",
+  "下载通道：{0} · SHA256SUMS 校验通过。": "Download channel: {0} · SHA256SUMS verified.",
+  "已更新到 v{0}": "Updated to v{0}",
+  "已连接 {0} 台": "Connected: {0}",
+  "没有可连接的设备": "No connectable devices",
+  "已结束 {0} 个会话": "Ended sessions: {0}",
+  "当前没有正在运行的会话": "No sessions are running",
+  "地址不能为空": "Address cannot be empty",
+  "地址必须以 http:// 或 https:// 开头": "Address must start with http:// or https://",
+  "地址中不能包含空格": "Address cannot contain spaces",
+  "该地址已在列表中": "This address is already in the list",
+  "直连": "Direct",
+  "只读": "Read-only",
+  "代理": "Proxy",
+  "代理地址已全部删除，下载将只走 GitHub 直连。": "All proxy addresses were deleted; downloads will use GitHub direct only.",
+  "向下还原": "Restore down",
+  "靛蓝": "Indigo",
+  "绿松石色": "Turquoise",
+  "翡翠绿": "Emerald",
+  "彼得河蓝": "Peter River",
+  "紫水晶色": "Amethyst",
+  "向日葵黄": "Sunflower",
+  "胡萝卜橙": "Carrot",
+  "茜草红": "Madder red"
+}
+</script>
+<script>
+(function () {
+  const DICT = JSON.parse(document.getElementById('protoI18n').textContent);
+  // 承载用户可见文案的属性：提示、可访问名、占位符都按同一张表替换
+  const ATTRS = ['aria-label', 'placeholder', 'data-tip', 'title', 'alt'];
+  const root = document.documentElement;
+
+  // 带占位符的条目另编成模板：`{0}` 换成命名捕获，输出时把捕获值填回英文的同名占位符
+  const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const TPL = [];
+  for (const [src, out] of Object.entries(DICT)) {
+    if (src.indexOf('{') < 0) continue;
+    const parts = src.split(/\{(\d+)\}/);
+    let re = '';
+    const order = [];
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        re += '(?<g' + order.length + '>.*?)';
+        order.push(Number(parts[i]));
+      } else {
+        re += escapeRe(parts[i]);
+      }
+    }
+    try {
+      TPL.push({ re: new RegExp('^' + re + '$'), out, order });
+    } catch (e) {
+      // 同一个占位符出现两次会撞名，跳过该条（映射里不该这么写）
+    }
+  }
+
+  function translate(src, depth) {
+    const hit = DICT[src];
+    if (hit !== undefined) return hit;
+    for (const t of TPL) {
+      const m = t.re.exec(src);
+      if (!m) continue;
+      let out = t.out;
+      // 捕获到的片段本身可能也是一句界面文案（如「最后 ${何时}」里的「刚刚断开」），再翻一层
+      t.order.forEach((idx, k) => {
+        let v = m.groups['g' + k];
+        if ((depth || 0) < 3) {
+          const inner = translate(v, (depth || 0) + 1);
+          if (inner !== null) v = inner;
+        }
+        out = out.split('{' + idx + '}').join(v);
+      });
+      return out;
+    }
+    return null;
+  }
+
+  // 标记里的正文常带着缩进与换行：只替换去掉首尾空白后的那一句，空白原样保留
+  const TRIM = /^(\s*)([\s\S]*?)(\s*)$/;
+  function translateCore(raw) {
+    const m = TRIM.exec(raw);
+    const hit = translate(m[2]);
+    return hit === null ? raw : m[1] + hit + m[3];
+  }
+
+  function systemLang() {
+    const l = String((navigator.language || (navigator.languages && navigator.languages[0]) || '')).toLowerCase();
+    if (l.indexOf('zh') === 0) return 'zh';
+    return 'en';
+  }
+  function queryLang() {
+    try {
+      const v = new URLSearchParams(location.search).get('lang');
+      return v === 'zh' || v === 'en' ? v : null;
+    } catch (e) { return null; }
+  }
+
+  // pref 是用户选的那一档（system / zh / en），lang 是解析出来实际生效的那一份
+  let pref = queryLang() || 'system';
+  let lang = pref === 'system' ? systemLang() : pref;
+
+  // 节点状态：src 是页面写的原值，out 是自己上次写出的值。两者不同 ⇒ 页面重写过，重新取原值。
+  const ST = new WeakMap();
+  const slot = (node) => {
+    let s = ST.get(node);
+    if (!s) { s = { t: null, a: Object.create(null) }; ST.set(node, s); }
+    return s;
+  };
+
+  function syncText(node) {
+    const st = slot(node);
+    const cur = node.nodeValue;
+    if (!st.t || cur !== st.t.out) st.t = { src: cur, out: cur };
+    const next = lang === 'en' ? translateCore(st.t.src) : st.t.src;
+    if (cur !== next) node.nodeValue = next;
+    st.t.out = next;
+  }
+
+  function syncAttr(el, name) {
+    const cur = el.getAttribute(name);
+    if (cur === null) return;
+    const st = slot(el);
+    let s = st.a[name];
+    if (!s || cur !== s.out) s = st.a[name] = { src: cur, out: cur };
+    const next = lang === 'en' ? translateCore(s.src) : s.src;
+    if (cur !== next) el.setAttribute(name, next);
+    s.out = next;
+  }
+
+  function apply() {
+    const body = document.body;
+    if (!body) return;
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    for (const node of nodes) {
+      const parent = node.parentNode;
+      if (!parent) continue;
+      const tag = parent.nodeName;
+      if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+      syncText(node);
+    }
+    for (const name of ATTRS) {
+      for (const el of body.querySelectorAll('[' + name + ']')) syncAttr(el, name);
+    }
+  }
+
+  // 合并到一次微任务：一次交互里可能连续改十几处 DOM，只扫一遍
+  let pending = false;
+  function schedule() {
+    if (pending) return;
+    pending = true;
+    Promise.resolve().then(() => { pending = false; apply(); });
+  }
+
+  const seg = document.getElementById('uiLanguage');
+  function syncSeg() {
+    if (!seg) return;
+    seg.querySelectorAll('button[data-v]').forEach((b) => b.classList.toggle('active', b.dataset.v === pref));
+  }
+
+  function setPref(next) {
+    if (next !== 'system' && next !== 'zh' && next !== 'en') return;
+    pref = next;
+    lang = pref === 'system' ? systemLang() : pref;
+    root.lang = lang === 'en' ? 'en' : 'zh-CN';
+    syncSeg();
+    apply();
+  }
+
+  if (seg) {
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]');
+      if (b) setPref(b.dataset.v);
+    });
+  }
+
+  // 父窗口（官网）切语言时同步过来；只认 parent 发来的这一种消息
+  window.addEventListener('message', (e) => {
+    if (e.source !== window.parent) return;
+    const d = e.data;
+    if (d && d.type === 'fc2:lang') setPref(d.lang);
+  });
+
+  root.lang = lang === 'en' ? 'en' : 'zh-CN';
+  syncSeg();
+  apply();
+
+  // 复扫：页面自身重渲染后（列表、进度、提示）把新写进来的文案跟上
+  new MutationObserver(schedule).observe(document.body, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ATTRS,
+  });
+
+  // 探针与调试用的读口，不参与界面
+  window.__protoLang = { get: () => ({ pref: pref, lang: lang }), set: setPref };
+})();
+</script>
 
   <script>
   /* ===================== 状态模型 ===================== */

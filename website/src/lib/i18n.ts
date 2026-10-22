@@ -88,6 +88,11 @@ const zh = {
     buildTitle: '从源码构建',
     buildNote: '另需 Node.js 24 与 npm、Rust 稳定工具链，以及 Windows 的 MSVC 构建工具、Linux 的 webkit2gtk 等系统库或 macOS 的 Xcode 命令行工具。命令与产物位置见仓库 README。',
   },
+  // hero 预览的两处可访问文案：宽屏内嵌页面的名字与窄屏截图的替代文本（随语言成对）
+  preview: {
+    frameTitle: 'FreeControl2 界面预览',
+    shotAlt: 'FreeControl2 设备页',
+  },
   faq: {
     title: '常见问题',
     items: [
@@ -252,6 +257,10 @@ const en: Dict = {
     buildTitle: 'Build from source',
     buildNote: 'You additionally need Node.js 24 and npm, a stable Rust toolchain, and the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS. The commands and artifact locations are in the repository README.',
   },
+  preview: {
+    frameTitle: 'FreeControl2 interface preview',
+    shotAlt: 'FreeControl2 Devices page',
+  },
   faq: {
     title: 'FAQ',
     items: [
@@ -289,7 +298,7 @@ const en: Dict = {
     title: 'Get FreeControl2',
     lead: 'Free and open source, MIT licensed · portable single files for Windows x64 and ARM64, AppImage and deb on Linux, dmg for macOS.',
     metaLinks: [
-      { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
+      { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.en.md' },
     ],
     cta: 'Download',
     osHint: {

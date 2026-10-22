@@ -20,6 +20,7 @@ const MANIFEST = [
   ['assets/icons/desktop/512x512.png', 'assets/icons/desktop/512x512.png'],
   ['ui-design/launcher-prototype.html', 'preview/launcher-prototype.html'],
   ['assets/screenshots/devices.png', 'screenshots/devices.png'],
+  ['assets/screenshots/en/devices.png', 'screenshots/en/devices.png'],
 ];
 
 // 先清空再拷贝

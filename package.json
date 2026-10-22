@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
+    "check:i18n:proto": "node --experimental-strip-types scripts/check-proto-i18n.mjs",
     "icons": "node scripts/sync-icons.mjs",
     "app:dev": "tauri dev",
     "app:build": "tauri build --no-bundle",

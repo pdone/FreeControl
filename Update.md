@@ -1,5 +1,7 @@
 # 更新日志
 
+中文 | <a href="Update.en.md">English</a>
+
 ## v1.1.0
 
 ### 新增

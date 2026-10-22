@@ -34,23 +34,21 @@
 
 ## Interface
 
-The app UI is currently in Chinese.
-
 **Devices** — device list and connection control:
 
-<img src="assets/screenshots/devices.png" alt="Devices page: device list and connection controls" />
+<img src="assets/screenshots/en/devices.png" alt="Devices page: device list and connection controls" />
 
 **Parameters** — the common option controls:
 
-<img src="assets/screenshots/video.png" alt="Video parameter page" />
+<img src="assets/screenshots/en/video.png" alt="Video parameter page" />
 
 **Runtime** — where scrcpy and adb are fetched:
 
-<img src="assets/screenshots/environment.png" alt="Runtime page" />
+<img src="assets/screenshots/en/environment.png" alt="Runtime page" />
 
 **Settings** — log settings and session output:
 
-<img src="assets/screenshots/logs.png" alt="Settings page: log settings and session output" />
+<img src="assets/screenshots/en/logs.png" alt="Settings page: log settings and session output" />
 
 ## Quick Start
 

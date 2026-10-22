@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { readable } from 'svelte/store';
-  import { t, toggleLang } from './lib/i18n';
+  import { get, readable } from 'svelte/store';
+  import { lang, t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
   import { BUILT_WITH, GITHUB_MARK, OS_MARKS } from './lib/brand-marks';
   import { detectPlatform } from './lib/platform';
@@ -12,8 +12,9 @@
   const RELEASES = `${REPO}/releases/latest`;
   // hero 内嵌的原型页面（构建期由 scripts/sync-assets.mjs 从 ui-design/ 镜像进站点）。
   const PREVIEW = '/preview/launcher-prototype.html';
-  // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点）。
+  // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点；英文一套在 en/ 下）。
   const DEVICE_SHOT = '/screenshots/devices.png';
+  const DEVICE_SHOT_EN = '/screenshots/en/devices.png';
   // hero 的分界：视口够宽才内嵌可交互原型；手机与窄桌面窗口改为静态截图。
   // 该阈值只在 JS 出现一次 —— CSS 不为它写媒体查询（截图取流式尺寸），避免两处数字漂移。
   const WIDE_QUERY = '(min-width: 1024px)';
@@ -73,6 +74,18 @@
 
   $: document.title = $t.metaTitle;
   $: document.documentElement.lang = $t.htmlLang;
+
+  // 预览与站点同语言：首帧由 URL 的 `?lang=` 带入（避免英文页面先闪一帧中文界面），
+  // 之后页内切换只发一条消息、不重写 src —— 重写会让整份预览重新加载，把读者在预览里
+  // 翻到的页面弹回设备页。iframe 后到（跨断点重建或首帧还没加载完）时由 on:load 兜一次。
+  const PREVIEW_SRC = `${PREVIEW}?lang=${get(lang)}`;
+  let frameEl: HTMLIFrameElement | null = null;
+
+  function syncPreviewLang(): void {
+    frameEl?.contentWindow?.postMessage({ type: 'fc2:lang', lang: get(lang) }, location.origin);
+  }
+
+  $: if ($lang) syncPreviewLang();
 </script>
 
 <header class="site-header">
@@ -121,17 +134,24 @@
          视口够宽时内嵌原型页面 —— 原型本身即完整可操作的应用界面，读者在 hero 里就能真点；
          窄屏（手机 / 窄桌面窗口）下把桌面版式压成一条反而不堪读，故改为同一页（设备页）的截图。
          窄屏不渲染 iframe，也就不加载原型。层级由 .hero-shot 提供边框/圆角/阴影。
-         原型界面是中文的，与本页语言无关，故 iframe 标题与截图 alt 均按界面内容写中文。 -->
+         两种呈现都随页面语言换：原型自己有中英两套文案（由 `?lang=` 与父窗口消息定档），
+         窄屏截图也按语言取对应语言的那一张；`iframe` 的名字与截图 alt 一并走字典。 -->
     <div class="hero-shot">
       {#if $isWide}
         <iframe
           class="hero-frame"
-          src={PREVIEW}
-          title="FreeControl2 界面预览"
+          src={PREVIEW_SRC}
+          title={$t.preview.frameTitle}
           loading="lazy"
+          bind:this={frameEl}
+          on:load={syncPreviewLang}
         ></iframe>
       {:else}
-        <img class="hero-shot-img" src={DEVICE_SHOT} alt="FreeControl2 设备页" />
+        <img
+          class="hero-shot-img"
+          src={$lang === 'en' ? DEVICE_SHOT_EN : DEVICE_SHOT}
+          alt={$t.preview.shotAlt}
+        />
       {/if}
     </div>
   </section>
