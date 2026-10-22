@@ -1,5 +1,6 @@
 <script lang="ts">
   import { defaults, defaultsErrors, config, scheduleSave } from '../lib/store';
+  import { t } from '../lib/i18n';
   import { PARAM_GROUPS, refKey } from '../lib/params';
   import ParamField from './ParamField.svelte';
 
@@ -30,14 +31,14 @@
 
 {#if group}
   <div class="sec-head">
-    <h2>{group.title}</h2>
-    <p>{group.subtitle}</p>
+    <h2>{$t(group.titleKey)}</h2>
+    <p>{$t(group.subtitleKey)}</p>
   </div>
   <div class="grid">
     {#each group.cards as card}
       {#if !card.showWhen || card.showWhen(vals)}
         <div class="card" class:col2={card.span2}>
-          <h3>{card.title}</h3>
+          <h3>{$t(card.titleKey)}</h3>
           {#each card.fields as f}
             {#if !f.showWhen || f.showWhen(vals)}
               <ParamField

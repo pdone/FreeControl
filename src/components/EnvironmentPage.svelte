@@ -35,7 +35,9 @@
     removeProxy,
   } from '../lib/store';
   import { openScrcpyDir, checkUpdate } from '../lib/api';
-  import { installRunning, installError, runInstall, errText } from '../lib/install';
+  import { installRunning, installError, runInstall } from '../lib/install';
+  import { t, translateNow, type MessageKey } from '../lib/i18n';
+  import { errorTextOf } from '../lib/message';
   import { open } from '@tauri-apps/plugin-dialog';
   import DownloadProgress from './DownloadProgress.svelte';
   import HelpTip from './HelpTip.svelte';
@@ -58,85 +60,136 @@
   // ── scrcpy 运行环境状态（tasks 3.2 / 3.3 / 3.4）──
   // 就绪与否一律取后端下发的 envStatus，前端不做文件检查、不拼目录路径。
   let checking = false;
-  let flashMsg = '';
+  // 瞬时反馈只存文案键（与需要拼列表的字段），渲染时才翻译：切换语言后已显示的反馈跟着变。
+  interface FlashMessage {
+    key: MessageKey;
+    missing?: string[];
+  }
+  let flashMsg: FlashMessage | null = null;
   let flashCls = '';
   let flashTimer: ReturnType<typeof setTimeout> | null = null;
+  $: flashText = flashMsg
+    ? $t(flashMsg.key, {
+        missing: (flashMsg.missing ?? []).join($t('common.commaSeparator')),
+      })
+    : '';
 
   // ── 版本获取入口（spec「运行环境版本获取入口」）──
   // 两个入口（bestFit / latest）触发后都直接开始，MUST NOT 二次确认 ——
   // 影响范围由下方「更新」字段的常驻提示承担；中止闸门是下载中的「取消」。
   // ── 检查更新（tasks 4.9）──
   let updating = false;
-  let updateMsg = '';
-  let updateCls = '';
+  type UpdateState =
+    | { kind: 'idle' }
+    | { kind: 'upToDate'; version: string }
+    | { kind: 'available'; latest: string; installed: string }
+    | { kind: 'installedNewer'; latest: string; installed: string }
+    | { kind: 'notInstalled'; latest: string }
+    | { kind: 'error'; error: unknown };
+  let updateState: UpdateState = { kind: 'idle' };
   // ── 代理地址（tasks 4.1）──
   let newProxy = '';
-  let proxyErr = '';
+  let proxyErr: unknown = null;
 
   async function onCheckUpdate(): Promise<void> {
     updating = true;
-    updateMsg = '';
-    updateCls = '';
+    updateState = { kind: 'idle' };
     try {
       const info = await checkUpdate();
       // 与「重新下载」一致：以官方最新发布版本为基准比较已安装版本（tasks 4.9）。
       if (info.state === 'upToDate') {
-        updateMsg = `已是最新版本 v${info.latest}`;
-        updateCls = 'connected';
+        updateState = { kind: 'upToDate', version: info.latest };
       } else if (info.state === 'updateAvailable') {
-        updateMsg = `存在新版本 v${info.latest}（当前 v${info.installed}），可点「下载最新版本」获取`;
-        updateCls = 'idle';
+        updateState = {
+          kind: 'available',
+          latest: info.latest,
+          installed: info.installed,
+        };
       } else if (info.state === 'installedNewer') {
-        updateMsg = `当前 v${info.installed} 高于官方最新 v${info.latest}`;
-        updateCls = 'connected';
+        updateState = {
+          kind: 'installedNewer',
+          latest: info.latest,
+          installed: info.installed,
+        };
       } else {
-        updateMsg = `尚未检测到已安装版本（官方最新 v${info.latest}）`;
-        updateCls = 'idle';
+        updateState = { kind: 'notInstalled', latest: info.latest };
       }
     } catch (e) {
-      updateMsg = `检查更新失败：${errText(e)}`;
-      updateCls = 'offline';
+      updateState = { kind: 'error', error: e };
     } finally {
       updating = false;
     }
   }
 
   async function onAddProxy(): Promise<void> {
-    proxyErr = '';
+    proxyErr = null;
     try {
       await addProxy(newProxy);
       newProxy = '';
     } catch (e) {
-      proxyErr = errText(e);
+      proxyErr = e;
     }
   }
 
   async function onRemoveProxy(url: string): Promise<void> {
-    proxyErr = '';
+    proxyErr = null;
     try {
       await removeProxy(url);
     } catch (e) {
-      proxyErr = errText(e);
+      proxyErr = e;
     }
   }
 
+  function updateStateText(state: UpdateState, tr: (key: MessageKey, params?: Record<string, string | number>) => string): string {
+    switch (state.kind) {
+      case 'upToDate':
+        return tr('environment.updateUpToDate', { version: state.version });
+      case 'available':
+        return tr('environment.updateAvailable', {
+          latest: state.latest,
+          installed: state.installed,
+        });
+      case 'installedNewer':
+        return tr('environment.updateInstalledNewer', {
+          latest: state.latest,
+          installed: state.installed,
+        });
+      case 'notInstalled':
+        return tr('environment.updateNotInstalled', { latest: state.latest });
+      case 'error':
+        return tr('environment.updateFailed', { reason: errorTextOf(state.error, tr) });
+      default:
+        return '';
+    }
+  }
+
+  $: updateMsg = updateStateText(updateState, $t);
+  $: updateCls =
+    updateState.kind === 'upToDate' || updateState.kind === 'installedNewer'
+      ? 'connected'
+      : updateState.kind === 'available' || updateState.kind === 'notInstalled'
+        ? 'idle'
+        : updateState.kind === 'error'
+          ? 'offline'
+          : '';
+
   $: ready = $envStatus?.ready ?? false;
-  $: missingText = $envStatus?.missing.join('、') ?? '';
+  $: missingText = ($envStatus?.missing ?? []).join($t('common.commaSeparator'));
   // 版本号来自兼容性状态（D2：前端不得硬编码）；探测不到版本时只报「含 adb」。
   $: envText =
     $compat && $compat.direction !== 'unknown'
-      ? `已就绪 · scrcpy ${$compat.installed}（含 adb）`
-      : '已就绪 · 含 scrcpy 与 adb';
+      ? $t('environment.ready', { version: $compat.installed })
+      : $t('environment.readyNoVersion');
 
   // 进度块与「下载通道」那行的全部逻辑（含已耗时心跳）都在 `DownloadProgress.svelte` ——
   // 引导不再就地下载后，全仓只有本页这一个使用方。
 
-  function setFlash(text: string, cls = ''): void {
-    flashMsg = text;
+  function setFlash(key: MessageKey, cls = '', missing?: string[]): void {
+    flashMsg = { key, missing };
     flashCls = cls;
     if (flashTimer) clearTimeout(flashTimer);
     flashTimer = setTimeout(() => {
-      flashMsg = '';
+      flashMsg = null;
       flashCls = '';
     }, 2800);
   }
@@ -146,13 +199,13 @@
     try {
       await refreshEnv();
       if ($envStatus?.ready) {
-        setFlash('已检测到可用的运行环境', 'connected');
+        setFlash('environment.rechecked', 'connected');
       } else {
-        setFlash(`仍未就绪 · 缺少 ${$envStatus?.missing.join('、') ?? ''}`, 'offline');
+        setFlash('environment.stillMissing', 'offline', $envStatus?.missing ?? []);
       }
     } catch (e) {
       console.error('重新检测失败', e);
-      setFlash('重新检测失败，请重试', 'offline');
+      setFlash('environment.recheckFailed', 'offline');
     } finally {
       checking = false;
     }
@@ -171,26 +224,23 @@
   $: installedText = $compat?.installed ?? '';
   $: bestFitText = $compat?.bestFit ?? '';
   // 方向文案与后端下发的 `direction` 一一对应 —— 前端不做版本比较（design D1）。
-  $: directionText = (() => {
-    switch ($compat?.direction) {
-      case 'older':
-        return '已安装版本低于最佳适配版本（更旧）';
-      case 'newer':
-        return '已安装版本高于最佳适配版本（更新）';
-      case 'unknown':
-        return '无法探测已安装版本（scrcpy --version 与目录名解析均失败）';
-      default:
-        return '';
-    }
-  })();
+  $: directionKey =
+    $compat?.direction === 'older'
+      ? 'environment.direction.older'
+      : $compat?.direction === 'newer'
+        ? 'environment.direction.newer'
+        : $compat?.direction === 'unknown'
+          ? 'environment.direction.unknown'
+          : '';
+  $: directionText = directionKey ? $t(directionKey as MessageKey) : '';
 
   async function openDir() {
     try {
       await openScrcpyDir();
-      setFlash('已在资源管理器中打开该目录', 'connected');
+      setFlash('environment.dirOpened', 'connected');
     } catch (e) {
       console.error('打开目录失败', e);
-      setFlash('打开目录失败', 'offline');
+      setFlash('environment.dirOpenFailed', 'offline');
     }
   }
 
@@ -199,7 +249,7 @@
   // 目录是全局位置，误触失焦不该改变它。
   let dirDraft = '';
   let dirDirty = false;
-  let dirErr = '';
+  let dirErr: unknown = null;
   let dirBusy = false;
   let dirMenuOpen = false;
   let dirMenuEl: HTMLDivElement | null = null;
@@ -222,14 +272,14 @@
   async function applyDir(): Promise<void> {
     if ($installRunning || dirBusy) return;
     const value = dirDraft.trim();
-    dirErr = '';
+    dirErr = null;
     dirBusy = true;
     try {
       await updateScrcpyDir(value === '' ? null : value);
       dirDirty = false;
-      setFlash(value === '' ? '已恢复约定目录' : '已切换 scrcpy 目录', 'connected');
+      setFlash(value === '' ? 'environment.dirRestored' : 'environment.dirChanged', 'connected');
     } catch (e) {
-      dirErr = errText(e);
+      dirErr = e;
     } finally {
       dirBusy = false;
     }
@@ -237,12 +287,12 @@
 
   async function chooseDir(): Promise<void> {
     if ($installRunning || dirBusy) return;
-    dirErr = '';
+    dirErr = null;
     try {
       const picked = await open({
         directory: true,
         multiple: false,
-        title: '选择 scrcpy 目录',
+        title: translateNow('environment.chooseDirTitle'),
       });
       if (typeof picked === 'string' && picked) {
         dirDraft = picked;
@@ -250,7 +300,7 @@
         await applyDir();
       }
     } catch (e) {
-      dirErr = errText(e);
+      dirErr = e;
     }
   }
 
@@ -271,17 +321,19 @@
 />
 
 <div class="sec-head">
-  <h2>运行环境</h2>
-  <p>管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。</p>
+  <h2>{$t('nav.environment')}</h2>
+  <p>{$t('environment.subtitle')}</p>
 </div>
 
 <div class="grid">
   <div class="card col2">
     <!-- 卡片不设标题行：本页只有这一张卡、页标题已表明身份（spec「运行环境卡片的标题呈现」）。 -->
     <div class="field">
-      <span class="flabel">scrcpy 目录<HelpTip title="scrcpy 目录" label="scrcpy 目录的说明">
-        <span class="fhelp-p">{#if $envStatus?.dirHint}未设置自定义目录时，约定目录为 {$envStatus.dirHint}；{/if}设置了自定义目录时，scrcpy 与 adb 都从自定义目录读取，约定目录不再参与。</span>
-        <span class="fhelp-p">首启若缺少二进制，可点「打开目录」手动放置，再点「重新检测」。</span>
+      <span class="flabel">{$t('environment.dir')}<HelpTip title={$t('environment.dirHelpTitle')} label={$t('environment.dirHelpLabel')}>
+        <span class="fhelp-p"
+          >{$t('environment.dirHelp1', { hint: $envStatus?.dirHint ?? '' })}</span
+        >
+        <span class="fhelp-p">{$t('environment.dirHelp2')}</span>
       </HelpTip></span>
       <div class="path-row">
         <Folder />
@@ -290,28 +342,28 @@
           bind:value={dirDraft}
           on:input={() => {
             dirDirty = true;
-            dirErr = '';
+            dirErr = null;
           }}
           on:keydown={(e) => e.key === 'Enter' && applyDir()}
           disabled={$installRunning || dirBusy}
           spellcheck="false"
-          aria-label="scrcpy 目录"
+          aria-label={$t('environment.dirAria')}
         />
         {#if dirChanged}
           <button class="btn sm" on:click={applyDir} disabled={$installRunning || dirBusy}>
-            <Check /> 应用
+            <Check /> {$t('environment.apply')}
           </button>
         {/if}
         <div class="dir-actions" bind:this={dirMenuEl}>
           <button class="btn sm" on:click={chooseDir} disabled={$installRunning || dirBusy}>
-            <FolderSearch /> 选择目录
+            <FolderSearch /> {$t('environment.chooseDir')}
           </button>
           <button
             class="btn sm dir-menu-trigger"
             type="button"
             aria-haspopup="menu"
             aria-expanded={dirMenuOpen}
-            aria-label="更多目录操作"
+            aria-label={$t('environment.moreDirActions')}
             on:click={() => (dirMenuOpen = !dirMenuOpen)}
             disabled={$installRunning || dirBusy}
           >
@@ -327,7 +379,7 @@
                   openDir();
                 }}
               >
-                <FolderOpen /> 打开目录
+                <FolderOpen /> {$t('environment.openDir')}
               </button>
               {#if $envStatus?.isCustom}
                 <button
@@ -339,7 +391,7 @@
                   }}
                   disabled={$installRunning || dirBusy}
                 >
-                  <RotateCcw /> 恢复默认
+                  <RotateCcw /> {$t('environment.resetDir')}
                 </button>
               {/if}
             </div>
@@ -347,23 +399,27 @@
         </div>
       </div>
       {#if dirErr}
-        <div class="hint dl-error">{dirErr}</div>
+        <div class="hint dl-error">{errorTextOf(dirErr, $t)}</div>
       {/if}
     </div>
     <div class="field">
-      <span class="flabel">状态<HelpTip title="状态" label="状态的说明">
-        <span class="fhelp-p">未就绪时仍可查看路径与打开目录，或点「下载最佳适配版本」自动获取（下载通道 / 官方校验 / 原子替换）。</span>
+      <span class="flabel">{$t('environment.status')}<HelpTip title={$t('environment.statusHelpTitle')} label={$t('environment.statusHelpLabel')}>
+        <span class="fhelp-p">{$t('environment.statusHelp')}</span>
       </HelpTip></span>
       <div class="path-row env-state">
         {#if ready}
           <span class="pill env ok"><CircleCheck />{envText}</span>
         {:else if $envStatus}
-          <span class="pill env warn"><AlertTriangle />未就绪 · 缺少 {missingText}</span>
+          <span class="pill env warn"
+            ><AlertTriangle />{$t('environment.notReady', { missing: missingText })}</span
+          >
         {:else}
-          <span class="pill env warn"><AlertTriangle />检测中…</span>
+          <span class="pill env warn"><AlertTriangle />{$t('environment.checking')}</span>
         {/if}
         <button class="btn sm" on:click={recheck} disabled={checking}>
-          <RefreshCw />{checking ? '检测中' : '重新检测'}
+          <RefreshCw />{checking
+            ? $t('environment.rechecking')
+            : $t('environment.recheck')}
         </button>
         {#if ready && !envOk}
           <button
@@ -371,23 +427,26 @@
             on:click={() => (reasonOpen = !reasonOpen)}
             aria-expanded={reasonOpen}
           >
-            <AlertTriangle />{reasonOpen ? '收起原因' : '查看原因'}
+            <AlertTriangle />{reasonOpen
+              ? $t('environment.hideReason')
+              : $t('environment.viewReason')}
           </button>
         {/if}
-        <span class="status-text {flashCls}">{flashMsg}</span>
+        <span class="status-text {flashCls}">{flashText}</span>
       </div>
-      <div class="hint">就绪 = 目录内 scrcpy 与 adb 齐备。</div>
+      <div class="hint">{$t('environment.statusHint')}</div>
       {#if reasonOpen}
         <div class="env-reason in-card">
           <AlertTriangle />
           <div class="env-reason-text">
-            <div class="env-reason-title">非最佳适配版本</div>
+            <div class="env-reason-title">{$t('environment.reasonTitle')}</div>
             <p>
-              当前版本非最佳适配版本，部分特性可能不受支持或存在未知问题。此提示<strong>不阻断任何操作</strong>，你仍可正常连接设备、发起会话与复制命令。
+              {$t('environment.reasonBodyBefore')}<strong>{$t('environment.reasonBodyBold')}</strong
+              >{$t('environment.reasonBodyAfter')}
             </p>
             <div class="env-reason-cmp">
-              <span>已安装 <b>{installedText}</b></span>
-              <span>最佳适配 <b>{bestFitText}</b></span>
+              <span>{$t('environment.installedLabel')}<b>{installedText}</b></span>
+              <span>{$t('environment.bestFitLabel')}<b>{bestFitText}</b></span>
               {#if directionText}<span>{directionText}</span>{/if}
             </div>
           </div>
@@ -395,10 +454,10 @@
       {/if}
     </div>
     <div class="field">
-      <span class="flabel">更新<HelpTip title="更新" label="更新的说明">
-        <span class="fhelp-p">两个入口都会删除并替换运行环境目录内的全部文件（scrcpy 与 adb 一起更新）；曾手动放入自定义版本请先备份。</span>
-        <span class="fhelp-p">两者都从 GitHub Releases 获取：「下载最佳适配版本」取构建期锁定的受支持版本，不依赖官方最新发布查询；「下载最新版本」取官方最新发布，查询失败会回退到最佳适配版本并说明原因。</span>
-        <span class="fhelp-p">直连失败会自动按序改用下面的代理地址，进度块会标明当前所用通道。直连虽可用但太慢时，可在进度块点「切换通道」立即换一条；下载完成后以官方 SHA256SUMS 校验，校验不通过不写入目录。</span>
+      <span class="flabel">{$t('environment.update')}<HelpTip title={$t('environment.updateHelpTitle')} label={$t('environment.updateHelpLabel')}>
+        <span class="fhelp-p">{$t('environment.updateHelp1')}</span>
+        <span class="fhelp-p">{$t('environment.updateHelp2')}</span>
+        <span class="fhelp-p">{$t('environment.updateHelp3')}</span>
       </HelpTip></span>
       <!-- 两颗下载按钮的标签恒定（design D8）：「哪一颗在跑」由下方进度块说明，
            不用「获取中…」占标签 —— 两颗同时换文案反而说不清在跑的是哪颗。 -->
@@ -409,21 +468,15 @@
                **不使用强调色**（2026-10-10 决定，覆盖 2026-09-23「行首并给 primary」那版设计）：
                它的可辨识性由「在场 = 当前探测到非最佳适配」这一显隐条件与行首位置承担，
                颜色留给本页真正的主操作。 -->
-          <span
-            class="tip-host"
-            use:tip={'获取构建期锁定的最佳适配版本（不依赖官方最新发布查询）'}
-          >
+          <span class="tip-host" use:tip={$t('environment.downloadBestFitTip')}>
             <button class="btn sm" on:click={() => runInstall('bestFit')} disabled={$installRunning}>
-              <Download /> 下载最佳适配版本
+              <Download /> {$t('environment.downloadBestFit')}
             </button>
           </span>
         {/if}
-        <span
-          class="tip-host"
-          use:tip={'下载官方最新发布版本（会替换运行环境目录内的全部文件）'}
-        >
+        <span class="tip-host" use:tip={$t('environment.downloadLatestTip')}>
           <button class="btn sm" on:click={() => runInstall('latest')} disabled={$installRunning}>
-            <Download /> 下载最新版本
+            <Download /> {$t('environment.downloadLatest')}
           </button>
         </span>
         <button
@@ -431,26 +484,28 @@
           on:click={onCheckUpdate}
           disabled={$installRunning || updating}
         >
-          <RefreshCw /> {updating ? '检查中…' : '检查更新'}
+          <RefreshCw /> {updating
+            ? $t('environment.checkingUpdate')
+            : $t('environment.checkUpdate')}
         </button>
         <!-- 本行的即时反馈位：**失败原因优先**（spec「运行环境版本获取入口」——失败原因就地
              呈现在触发它的这一行内），没有失败原因时才显示更新回显。失败态用 `.danger`：
              行内既有的 `.offline` 档是灰字，用它会把错误降级成提示。 -->
         {#if $installError}
-          <span class="status-text danger">{$installError}</span>
+          <span class="status-text danger">{errorTextOf($installError, $t)}</span>
         {:else}
           <span class="status-text {updateCls}">{updateMsg}</span>
         {/if}
       </div>
       <!-- 常驻说明只留**替换后果与备份提醒**这一句：「运行环境版本获取入口」要求该影响范围
            无需任何交互即可看到，MUST NOT 只放进 `?` 详情里；其余五句已移入详情。 -->
-      <div class="hint">会删除并替换目录内全部文件；自定义版本请先备份。</div>
+      <div class="hint">{$t('environment.updateHint')}</div>
     </div>
     <DownloadProgress />
     <div class="field">
-      <span class="flabel">下载通道<HelpTip title="下载通道" label="下载通道的说明">
-        <span class="fhelp-p">列表内所有地址都可删除，含出厂默认的两条；删除后不会自动恢复。</span>
-        <span class="fhelp-p">追加的地址须以 http:// 或 https:// 开头，会持久化并在重启后保留。</span>
+      <span class="flabel">{$t('environment.channels')}<HelpTip title={$t('environment.channelsHelpTitle')} label={$t('environment.channelsHelpLabel')}>
+        <span class="fhelp-p">{$t('environment.channelsHelp1')}</span>
+        <span class="fhelp-p">{$t('environment.channelsHelp2')}</span>
       </HelpTip></span>
       <div class="proxy-list">
         <!-- 首行：GitHub 直连地址。它是**只读展示项**，因此不在可管理的代理列表里
@@ -459,45 +514,38 @@
              两处都恒为单行、超出部分省略（见 app.css 的 `.proxy-url` 规则）；被省略的那截
              不靠 title 看：`.proxy-url` 在可拖选白名单里，拖选即得全文。 -->
         <div class="proxy-item">
-          <span class="tag direct">直连</span>
+          <span class="tag direct">{$t('environment.direct')}</span>
           <span class="proxy-url">{$proxies.direct}</span>
-          <span class="proxy-ro">只读</span>
+          <span class="proxy-ro">{$t('environment.readOnly')}</span>
         </div>
         {#each $proxies.proxies as url (url)}
           <div class="proxy-item">
-            <span class="tag proxy">代理</span>
+            <span class="tag proxy">{$t('environment.proxy')}</span>
             <span class="proxy-url">{url}</span>
-            <button
-              class="btn ghost sm"
-              on:click={() => onRemoveProxy(url)}
-            >
-              <Trash2 /> 删除
+            <button class="btn ghost sm" on:click={() => onRemoveProxy(url)}>
+              <Trash2 /> {$t('environment.delete')}
             </button>
           </div>
         {/each}
         {#if $proxies.proxies.length === 0}
-          <div class="proxy-empty">
-            代理地址已全部删除，下载将只走 GitHub 直连。
-          </div>
+          <div class="proxy-empty">{$t('environment.proxyEmpty')}</div>
         {/if}
       </div>
       <div class="row proxy-add">
         <input
           type="text"
           bind:value={newProxy}
-          placeholder="https://你的代理地址"
+          placeholder={$t('environment.proxyPlaceholder')}
           on:keydown={(e) => e.key === 'Enter' && onAddProxy()}
         />
         <button class="btn sm" on:click={onAddProxy} disabled={!newProxy.trim()}>
-          <Plus /> 追加
+          <Plus /> {$t('environment.addProxy')}
         </button>
       </div>
       {#if proxyErr}
-        <div class="hint dl-error">{proxyErr}</div>
+        <div class="hint dl-error">{errorTextOf(proxyErr, $t)}</div>
       {/if}
-      <div class="hint">
-        下载按列表顺序自动降级：先走 GitHub 直连，失败则依次改用下面的代理地址。
-      </div>
+      <div class="hint">{$t('environment.proxyHint')}</div>
     </div>
   </div>
 

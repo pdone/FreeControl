@@ -15,6 +15,7 @@ use crate::download::{
     self, AttemptError, AttemptFailure, Channel, ChannelMemory, InstallCtl, resolve_channels,
     usable_channels,
 };
+use crate::ui_message::ChannelView;
 use crate::{config, logger, scrcpy, session, shell, AppState};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -88,7 +89,7 @@ pub struct AppUpdateProgress {
     /// `download` | `verify`
     pub phase: String,
     pub percent: u8,
-    pub channel: String,
+    pub channel_view: Option<ChannelView>,
 }
 
 /// 命令失败：`kind` 供界面选择提示文案，`message` 只写日志、不直接展示。
@@ -390,13 +391,13 @@ pub async fn check_app_update(app: AppHandle) -> Result<AppUpdateCheck, AppUpdat
 
 // ── 下载与校验 ─────────────────────────────────────────────
 
-fn emit_progress(app: &AppHandle, phase: &str, percent: u8, channel: &str) {
+fn emit_progress(app: &AppHandle, phase: &str, percent: u8, channel: &Channel) {
     let _ = app.emit(
         PROGRESS_EVENT,
         AppUpdateProgress {
             phase: phase.to_string(),
             percent,
-            channel: channel.to_string(),
+            channel_view: Some(channel.view()),
         },
     );
 }
@@ -499,7 +500,7 @@ async fn download_update(
                 return;
             }
             last_percent = percent;
-            emit_progress(app, "download", percent.max(0) as u8, &label);
+            emit_progress(app, "download", percent.max(0) as u8, channel);
         })
         .await;
         match result {
@@ -545,7 +546,7 @@ async fn download_update(
         )));
     };
 
-    emit_progress(app, "verify", 100, &channel.label());
+    emit_progress(app, "verify", 100, &channel);
     let matches = verify_file_digest(&tmp, &plan.digest).map_err(|e| {
         let _ = fs::remove_file(&tmp);
         AppUpdateError::download(format!("校验更新包失败：{e}"))

@@ -30,6 +30,7 @@ use crate::device;
 use crate::download::run_blocking;
 use crate::logger;
 use crate::scrcpy;
+use crate::ui_message::{codes, UserError, UserMessage};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -806,7 +807,7 @@ pub struct ConnectOutcome {
     pub device_id: String,
     pub alias: String,
     pub ok: bool,
-    pub error: Option<String>,
+    pub error: Option<UserError>,
 }
 
 /// 连接（单台或批量）的结果。
@@ -817,12 +818,12 @@ pub struct ConnectResult {
     pub sessions: Vec<SessionInfo>,
     /// 本次排列发生了槽位复用
     pub degraded: bool,
-    pub warning: Option<String>,
+    pub warning: Option<UserMessage>,
 }
 
 // ── 状态读取（各自短暂加锁，不嵌套） ───────────────────────────
 
-fn find_device(state: &AppState, id: &str) -> Result<Device, String> {
+fn find_device(state: &AppState, id: &str) -> Result<Device, UserError> {
     state
         .config
         .lock()
@@ -831,7 +832,7 @@ fn find_device(state: &AppState, id: &str) -> Result<Device, String> {
         .iter()
         .find(|d| d.id == id)
         .cloned()
-        .ok_or_else(|| "设备不存在".to_string())
+        .ok_or_else(|| UserError::new(codes::SESSION_DEVICE_NOT_FOUND))
 }
 
 /// 某台设备的活跃会话记录（已退出的不算）。
@@ -1246,22 +1247,26 @@ fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> R
 }
 
 /// 启动一个会话并登记。返回是否发生槽位复用（降级）。
-fn start_session(app: &AppHandle, device: &Device, args: Vec<String>) -> Result<bool, String> {
+fn start_session(
+    app: &AppHandle,
+    device: &Device,
+    args: Vec<String>,
+) -> Result<bool, UserError> {
     let state = app.state::<AppState>();
-    let dir = scrcpy::scrcpy_dir(app)?;
+    let dir = scrcpy::scrcpy_dir(app)
+        .map_err(|e| UserError::new(codes::SESSION_ENVIRONMENT_NOT_READY).with_detail(e))?;
     let missing = assets::missing_bins(&dir);
     if !missing.is_empty() {
-        return Err(format!(
-            "运行环境未就绪：缺少 {}。可在「更多」页获取，或手动放置后点「重新检测」。",
-            missing.join("、")
-        ));
+        return Err(
+            UserError::new(codes::SESSION_ENVIRONMENT_NOT_READY).with_detail(missing.join("、"))
+        );
     }
     let connection_id = device.connection_id();
     if connection_id.is_empty() {
-        return Err("该设备的连接标识尚未确定（USB serial 待检测），无法发起会话".to_string());
+        return Err(UserError::new(codes::SESSION_CONNECTION_UNKNOWN));
     }
     if active_record(&state, &device.id).is_some() {
-        return Err("该设备已有会话在运行".to_string());
+        return Err(UserError::new(codes::SESSION_ALREADY_RUNNING));
     }
     // 状态判定以**后端**为准（tasks 9.2），不依赖前端的筛选。
     match device::status_of_device(&state, &device.id).as_deref() {
@@ -1279,22 +1284,20 @@ fn start_session(app: &AppHandle, device: &Device, args: Vec<String>) -> Result<
                 }
             };
             if needs_link_before_start(&device.kind, present) {
-                ensure_wireless_link(app, &state, device)?;
+                ensure_wireless_link(app, &state, device)
+                    .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?;
             }
         }
-        Some(device::STATUS_CONNECTED) => return Err("该设备已有会话在运行".to_string()),
+        Some(device::STATUS_CONNECTED) => return Err(UserError::new(codes::SESSION_ALREADY_RUNNING)),
         // 无线设备可能已被应用之外的操作断开（如用户在自己的终端里 `adb disconnect`）：
         // 先把链路建起来，再按重探测结果决定是否继续（design D1 / D2）。
         Some(device::STATUS_OFFLINE) => match link_action(&device.kind) {
-            LinkAction::Establish => ensure_wireless_link(app, &state, device)?,
-            LinkAction::Refuse => {
-                return Err("设备离线或连接标识未知，暂无法发起会话（请确认设备已连接）".to_string())
-            }
+            LinkAction::Establish => ensure_wireless_link(app, &state, device)
+                .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?,
+            LinkAction::Refuse => return Err(UserError::new(codes::SESSION_DEVICE_OFFLINE)),
         },
-        Some(_) => {
-            return Err("设备离线或连接标识未知，暂无法发起会话（请确认设备已连接）".to_string())
-        }
-        None => return Err("设备不存在".to_string()),
+        Some(_) => return Err(UserError::new(codes::SESSION_DEVICE_OFFLINE)),
+        None => return Err(UserError::new(codes::SESSION_DEVICE_NOT_FOUND)),
     }
 
     // 只有已经在摆窗口时才知道「真实窗口有多大」才有意义：第一个窗口落在
@@ -1325,7 +1328,8 @@ fn start_session(app: &AppHandle, device: &Device, args: Vec<String>) -> Result<
     let full = session_argv(&connection_id, &args, &plan);
     // 会话输出的来源标记在 spawn 时就要定下来：两个读取线程与后面登记的记录必须用同一个。
     let source = log_source(&device.alias);
-    let (child, log) = spawn_child(&bin, &full, &dir, &source)?;
+    let (child, log) = spawn_child(&bin, &full, &dir, &source)
+        .map_err(|e| UserError::new(codes::SESSION_START_FAILED).with_detail(e))?;
     let pid = child.id();
 
     let record = SessionRecord {
@@ -1381,7 +1385,7 @@ fn outcome_ok(device: &Device) -> ConnectOutcome {
     }
 }
 
-fn outcome_fail(device_id: &str, alias: &str, error: String) -> ConnectOutcome {
+fn outcome_fail(device_id: &str, alias: &str, error: UserError) -> ConnectOutcome {
     ConnectOutcome {
         device_id: device_id.to_string(),
         alias: alias.to_string(),
@@ -1442,11 +1446,11 @@ pub fn shutdown_all(app: &AppHandle) {
 pub async fn connect_device(
     app: AppHandle,
     request: ConnectRequest,
-) -> Result<ConnectResult, String> {
+) -> Result<ConnectResult, UserError> {
     run_blocking(move || connect_blocking(&app, request)).await
 }
 
-fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectResult, String> {
+fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectResult, UserError> {
     let state = app.state::<AppState>();
     let device = find_device(&state, &request.device_id)?;
     let degraded = start_session(app, &device, request.args)?;
@@ -1458,7 +1462,9 @@ fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectR
         outcomes: vec![outcome_ok(&device)],
         sessions,
         degraded,
-        warning: degraded.then(degraded_warning),
+        warning: degraded.then(|| {
+            UserMessage::new(codes::SESSION_WINDOW_ARRANGEMENT_DEGRADED)
+        }),
     })
 }
 
@@ -1467,14 +1473,14 @@ fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectR
 pub async fn connect_all(
     app: AppHandle,
     requests: Vec<ConnectRequest>,
-) -> Result<ConnectResult, String> {
+) -> Result<ConnectResult, UserError> {
     run_blocking(move || connect_all_blocking(&app, requests)).await
 }
 
 fn connect_all_blocking(
     app: &AppHandle,
     requests: Vec<ConnectRequest>,
-) -> Result<ConnectResult, String> {
+) -> Result<ConnectResult, UserError> {
     let state = app.state::<AppState>();
     let mut outcomes = Vec::new();
     let mut degraded = false;
@@ -1501,7 +1507,9 @@ fn connect_all_blocking(
         outcomes,
         sessions,
         degraded,
-        warning: degraded.then(degraded_warning),
+        warning: degraded.then(|| {
+            UserMessage::new(codes::SESSION_WINDOW_ARRANGEMENT_DEGRADED)
+        }),
     })
 }
 
@@ -1510,19 +1518,23 @@ fn connect_all_blocking(
 pub async fn disconnect_device(
     app: AppHandle,
     device_id: String,
-) -> Result<Vec<SessionInfo>, String> {
+) -> Result<Vec<SessionInfo>, UserError> {
     run_blocking(move || disconnect_blocking(&app, &device_id)).await
 }
 
-fn disconnect_blocking(app: &AppHandle, device_id: &str) -> Result<Vec<SessionInfo>, String> {
+fn disconnect_blocking(
+    app: &AppHandle,
+    device_id: &str,
+) -> Result<Vec<SessionInfo>, UserError> {
     let state = app.state::<AppState>();
     {
         let has_record = state.sessions.lock().unwrap().contains_key(device_id);
         if !has_record {
-            return Err("该设备当前没有会话".to_string());
+            return Err(UserError::new(codes::SESSION_NO_SESSION));
         }
     }
-    stop_session(app, device_id)?;
+    stop_session(app, device_id)
+        .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;
     let sessions = session_infos(&state);
     publish_sessions(app, &sessions);
     device::publish_status(app);
@@ -1531,11 +1543,11 @@ fn disconnect_blocking(app: &AppHandle, device_id: &str) -> Result<Vec<SessionIn
 
 /// 全部断开（tasks 9.2）：批量结束全部在运行的会话。
 #[tauri::command]
-pub async fn disconnect_all(app: AppHandle) -> Result<Vec<SessionInfo>, String> {
+pub async fn disconnect_all(app: AppHandle) -> Result<Vec<SessionInfo>, UserError> {
     run_blocking(move || disconnect_all_blocking(&app)).await
 }
 
-fn disconnect_all_blocking(app: &AppHandle) -> Result<Vec<SessionInfo>, String> {
+fn disconnect_all_blocking(app: &AppHandle) -> Result<Vec<SessionInfo>, UserError> {
     let state = app.state::<AppState>();
     for record in records(&state) {
         if !record.running() {
@@ -1561,17 +1573,24 @@ pub fn list_sessions(state: State<'_, AppState>) -> Vec<SessionInfo> {
 
 /// 某个会话的完整输出（tasks 9.4）。
 #[tauri::command]
-pub fn get_session_log(state: State<'_, AppState>, device_id: String) -> Result<String, String> {
+pub fn get_session_log(
+    state: State<'_, AppState>,
+    device_id: String,
+) -> Result<String, UserError> {
     let record = { state.sessions.lock().unwrap().get(&device_id).cloned() }
-        .ok_or_else(|| "该设备没有会话记录".to_string())?;
+        .ok_or_else(|| UserError::new(codes::SESSION_NO_RECORD))?;
     let lines = record.log.lock().unwrap().clone();
     Ok(lines.join("\n"))
 }
 
 /// 清空某个会话已保留的输出（「日志」页的「清空」）。
 #[tauri::command]
-pub fn clear_session_log(state: State<'_, AppState>, device_id: String) -> Result<(), String> {
+pub fn clear_session_log(
+    state: State<'_, AppState>,
+    device_id: String,
+) -> Result<(), UserError> {
     clear_log(&state.sessions, &device_id)
+        .map_err(|e| UserError::new(codes::SESSION_NO_RECORD).with_detail(e))
 }
 
 #[cfg(test)]

@@ -1,15 +1,22 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { ParamField as PF } from '../lib/params';
+  import { t } from '../lib/i18n';
+  import { labelText, validationText } from '../lib/paramText';
+  import type { ValidationMessage } from '../lib/validate';
   import FieldLabel from './FieldLabel.svelte';
 
   export let field: PF;
   export let value: unknown;
-  /** 校验失败的提示（tasks 7.3）；为空表示该字段合法（或未填写）。 */
-  export let error: string | null = null;
+  /** 校验失败的消息（tasks 7.3）；为空表示该字段合法（或未填写）。 */
+  export let error: ValidationMessage | null = null;
 
   const dispatch = createEventDispatcher<{ change: unknown }>();
   const set = (v: unknown) => dispatch('change', v);
+
+  $: hint = field.hintKey ? $t(field.hintKey) : '';
+  $: autoZero = field.autoZeroKey ? $t(field.autoZeroKey) : '';
+  $: errorText = error ? validationText(error, $t) : '';
 
   // 滑块「已填充」比例：由取值相对量程计算并写入 CSS 变量 --p（design D10）。
   // 走响应式计算而非依赖 input 事件，保证程序化赋值（不触发 input）后填充段也会重算。
@@ -22,9 +29,9 @@
       : 0;
   $: rangeStyle = `--p:${Math.max(0, Math.min(100, pct))}%`;
 
-  function rangeDisplay(v: unknown): string {
-    if (field.autoZero && (v === 0 || v === '' || v === null || v === undefined)) {
-      return field.autoZero;
+  function rangeDisplay(v: unknown, zeroText: string): string {
+    if (zeroText && (v === 0 || v === '' || v === null || v === undefined)) {
+      return zeroText;
     }
     if (field.unit) return `${v} ${field.unit}`;
     return `${v}`;
@@ -34,7 +41,7 @@
   // 直接出现的变量，看不到函数体内部的 `value`，于是 `{rangeDisplay()}` 这种写法
   // 会永远显示首次渲染的旧值（拖动滑块时数字回显不动、值被程序化改掉后输入框不回填）。
   // 统一改成「响应式变量 + 模板只引用该变量」。
-  $: rangeText = rangeDisplay(value);
+  $: rangeText = rangeDisplay(value, autoZero);
   $: textValue = value === null || value === undefined ? '' : String(value);
   $: activeChips = new Set(Array.isArray(value) ? (value as string[]) : []);
 
@@ -69,26 +76,28 @@
   <div class="field">
     <FieldLabel {field} />
     <div class="toggle">
-      <span class="t-label">{error ?? field.hint ?? ''}</span>
+      <span class="t-label">{errorText || hint}</span>
       <label class="switch">
         <input type="checkbox" checked={Boolean(value)} on:change={onToggle} />
         <span class="slider"></span>
       </label>
     </div>
-    {#if error}<div class="hint dl-error">{error}</div>{/if}
+    {#if error}<div class="hint dl-error">{errorText}</div>{/if}
   </div>
 {:else if field.type === 'segmented'}
   <div class="field">
     <FieldLabel {field} />
     <div class="seg">
       {#each field.options ?? [] as o}
-        <button class:active={value === o.value} on:click={() => set(o.value)}>{o.label}</button>
+        <button class:active={value === o.value} on:click={() => set(o.value)}
+          >{labelText(o, $t)}</button
+        >
       {/each}
     </div>
     {#if error}
-      <div class="hint dl-error">{error}</div>
-    {:else if field.hint}
-      <div class="hint">{field.hint}</div>
+      <div class="hint dl-error">{errorText}</div>
+    {:else if hint}
+      <div class="hint">{hint}</div>
     {/if}
   </div>
 {:else if field.type === 'select'}
@@ -96,13 +105,13 @@
     <FieldLabel {field} />
     <select on:change={onSelect}>
       {#each field.options ?? [] as o}
-        <option value={o.value} selected={value === o.value}>{o.label}</option>
+        <option value={o.value} selected={value === o.value}>{labelText(o, $t)}</option>
       {/each}
     </select>
     {#if error}
-      <div class="hint dl-error">{error}</div>
-    {:else if field.hint}
-      <div class="hint">{field.hint}</div>
+      <div class="hint dl-error">{errorText}</div>
+    {:else if hint}
+      <div class="hint">{hint}</div>
     {/if}
   </div>
 {:else if field.type === 'chips'}
@@ -116,12 +125,12 @@
           on:click={() => toggleChip(o.value)}
           on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleChip(o.value)}
           role="button"
-          tabindex="0">{o.label}</span
+          tabindex="0">{labelText(o, $t)}</span
         >
       {/each}
     </div>
     {#if error}
-      <div class="hint dl-error">{error}</div>
+      <div class="hint dl-error">{errorText}</div>
     {/if}
   </div>
 {:else if field.type === 'range'}
@@ -141,9 +150,9 @@
       <span class="range-val">{rangeText}</span>
     </div>
     {#if error}
-      <div class="hint dl-error">{error}</div>
-    {:else if field.hint}
-      <div class="hint">{field.hint}</div>
+      <div class="hint dl-error">{errorText}</div>
+    {:else if hint}
+      <div class="hint">{hint}</div>
     {/if}
   </div>
 {:else if field.type === 'textarea'}
@@ -157,9 +166,9 @@
       on:input={onTextarea}
     ></textarea>
     {#if error}
-      <div class="hint dl-error">{error}</div>
-    {:else if field.hint}
-      <div class="hint">{field.hint}</div>
+      <div class="hint dl-error">{errorText}</div>
+    {:else if hint}
+      <div class="hint">{hint}</div>
     {/if}
   </div>
 {:else}
@@ -177,9 +186,9 @@
       on:input={onText}
     />
     {#if error}
-      <div class="hint dl-error">{error}</div>
-    {:else if field.hint}
-      <div class="hint">{field.hint}</div>
+      <div class="hint dl-error">{errorText}</div>
+    {:else if hint}
+      <div class="hint">{hint}</div>
     {/if}
   </div>
 {/if}

@@ -23,8 +23,13 @@
     clearSessionLog,
     disconnectDevice,
   } from '../lib/store';
-  import { errText } from '../lib/install';
   import { openLogDir } from '../lib/api';
+  import {
+    t,
+    type MessageKey,
+    type MessageParams,
+  } from '../lib/i18n';
+  import { errorTextOf } from '../lib/message';
   import ParamField from './ParamField.svelte';
   import HelpTip from './HelpTip.svelte';
   import { ADVANCED_GROUP, RUN_LOG_CARD, refKey } from '../lib/params';
@@ -41,15 +46,16 @@
   // flag —— 它是配置里的一项（后端 `config.logging.retention`）。因此本卡片自行渲染，
   // 写回走 `config.update` + `scheduleSave()`（与同组件 `updateAdv` 同一套）。
   // 取值须与后端 `config::RETENTION_*` 一致；未知取值由后端按出厂默认处理。
-  const RETENTIONS = [
-    { value: '7d', label: '保留 7 天' },
-    { value: '30d', label: '保留 30 天' },
-    { value: 'forever', label: '保留永久' },
+  const RETENTIONS: Array<{ value: string; labelKey: MessageKey }> = [
+    { value: '7d', labelKey: 'settings.log.retain7' },
+    { value: '30d', labelKey: 'settings.log.retain30' },
+    { value: 'forever', labelKey: 'settings.log.retainForever' },
   ];
   /** 配置尚未就绪时的渲染值（出厂默认）。**不是**第二份默认值来源：落盘值仍由后端下发的 config 决定。 */
   const RETENTION_PENDING = '7d';
 
-  let logDirMsg = '';
+  // 提示只存文案键、错误只存消息对象：渲染时才翻译，切换语言后已显示的反馈跟着变。
+  let logDirMsg: MessageKey | null = null;
   let logDirCls = '';
   let logDirTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -67,19 +73,19 @@
   async function openLogDirNow(): Promise<void> {
     try {
       await openLogDir();
-      flashLogDir('已在资源管理器中打开该目录', 'connected');
+      flashLogDir('settings.log.dirOpened', 'connected');
     } catch (e) {
       console.error('打开日志目录失败', e);
-      flashLogDir('打开日志目录失败', 'offline');
+      flashLogDir('settings.log.dirFailed', 'offline');
     }
   }
 
-  function flashLogDir(text: string, cls: string): void {
-    logDirMsg = text;
+  function flashLogDir(key: MessageKey, cls: string): void {
+    logDirMsg = key;
     logDirCls = cls;
     if (logDirTimer) clearTimeout(logDirTimer);
     logDirTimer = setTimeout(() => {
-      logDirMsg = '';
+      logDirMsg = null;
       logDirCls = '';
     }, 2800);
   }
@@ -108,8 +114,8 @@
   // ── 会话输出与诊断（tasks 9.4）──────────────────────────────
   let logDeviceId: string | null = null;
   let logText = '';
-  let logErr = '';
-  let sessErr = '';
+  let logErr: unknown = null;
+  let sessErr: unknown = null;
   let logTimer: ReturnType<typeof setInterval> | null = null;
   let sessionCardEl: HTMLDivElement;
   // 清空的代次：每清一次自增，让「清空请求发出前就已在途」的那次取输出结果作废 ——
@@ -120,6 +126,8 @@
   // 未显式选择时回落到最近一条会话（列表按启动时间倒序，故 [0] 就是最近的那条）。
   $: selSession =
     sessionList.find((s) => s.deviceId === $selectedSessionId) ?? sessionList[0] ?? null;
+  // 选中会话并读取当前语言：`$t` 出现在这里，语言切换时这条摘要会跟着重算。
+  $: selectedMeta = selSession ? sessionMeta(selSession, $t) : '';
   // 选中的会话变了就立刻取一次输出（不等下一轮自动刷新）。
   $: if (selSession) selectLogFor(selSession.deviceId);
 
@@ -137,10 +145,10 @@
       // 期间用户可能已切到别的会话，或清空过输出：两种「过期」都丢弃，别把旧行写回界面。
       if (deviceId !== logDeviceId || gen !== logGen) return;
       logText = text;
-      logErr = '';
+      logErr = null;
     } catch (e) {
       if (deviceId !== logDeviceId || gen !== logGen) return;
-      logErr = errText(e);
+      logErr = e;
     }
   }
 
@@ -160,10 +168,10 @@
       await clearSessionLog(deviceId);
       if (deviceId === logDeviceId) {
         logText = '';
-        logErr = '';
+        logErr = null;
       }
     } catch (e) {
-      logErr = errText(e);
+      logErr = e;
     }
   }
 
@@ -190,42 +198,46 @@
 
   /** 查看某条会话的输出。 */
   function pickSession(deviceId: string): void {
-    sessErr = '';
+    sessErr = null;
     selectedSessionId.set(deviceId);
   }
 
   /** 从设置页的会话输出区直接结束某个会话（排查异常时不必回设备页）。 */
   async function stopSession(deviceId: string): Promise<void> {
-    sessErr = '';
+    sessErr = null;
     try {
       await disconnectDevice(deviceId);
     } catch (e) {
-      sessErr = errText(e);
+      sessErr = e;
     }
   }
+
+  type Translate = (key: MessageKey, params?: MessageParams) => string;
 
   /**
    * 会话的一行说明：启动时间 + 窗口位置。
    * 位置说明与设备页同源（自动排列 / 让位 / 空间不足降级，tasks 9.6 / 9.8 / 9.9）。
    */
-  function sessionMeta(s: SessionInfo): string {
+  function sessionMeta(s: SessionInfo, tr: Translate): string {
     const time = new Date(s.startedAt).toLocaleTimeString();
     // 「未参与自动排列」的两种原因各用各的措辞（design D5）：平台不支持时说明后果。
     const win = !s.arranged
-      ? s.arrangeSkip === 'platform'
-        ? '未参与自动排列（窗口位置由系统决定）'
-        : '未参与自动排列（已指定窗口位置）'
+      ? tr(
+          s.arrangeSkip === 'platform'
+            ? 'settings.sessions.arrangePlatform'
+            : 'settings.sessions.arrangeUser',
+        )
       : s.slotReused
-        ? `窗口 (${s.windowX}, ${s.windowY}) · 空间不足已复用位置`
-        : `窗口 (${s.windowX}, ${s.windowY})`;
-    return `启动于 ${time} · ${win} · ${s.logLines} 行输出`;
+        ? tr('settings.sessions.windowReused', { x: s.windowX ?? '', y: s.windowY ?? '' })
+        : tr('settings.sessions.window', { x: s.windowX ?? '', y: s.windowY ?? '' });
+    return tr('settings.sessions.startedAt', { time, win, lines: s.logLines });
   }
 </script>
 
 <!-- 运行日志参数与日志文件同排在前：两张卡内容都不多，上下叠放会留下大片空白；
      会话输出放在页面底部，其不定高度不会顶开这两张卡。 -->
 <div class="card">
-  <h3>{RUN_LOG_CARD.title}</h3>
+  <h3>{$t(RUN_LOG_CARD.titleKey)}</h3>
   {#each RUN_LOG_CARD.fields as f (f.key)}
     <ParamField
       field={f}
@@ -239,17 +251,16 @@
 <!-- 日志文件与运行日志参数同排、各占一列；会话输出在其下、独占整行。
      卡内不展示日志目录路径与当前日志文件名 —— 查看位置由「打开日志目录」承担。 -->
 <div class="card">
-  <h3>日志文件</h3>
+  <h3>{$t('settings.log.title')}</h3>
   <!-- 「打开日志目录」与保留策略同处一行：两者是同一件事的两半（这份日志留在哪、留多久），
        而按钮的文字已经说明它去哪 —— 不必再有一个「日志目录」标签把同一件事说第二遍。
        这一行复用既有的 `.path-row`（本仓「一颗按钮 + 就地反馈文字」的横排类）；
        命名与清理口径收进标签旁的 `?`，不再常驻在卡片下方。 -->
   <div class="field">
     <span class="flabel"
-      >保留策略<HelpTip title="保留策略" label="保留策略的说明">
+      >{$t('settings.log.retention')}<HelpTip title={$t('settings.log.helpTitle')} label={$t('settings.log.helpLabel')}>
         <span class="fhelp-p"
-          >日志按日期命名（<code>yyyy-MM-dd.log</code>）保存在应用数据目录的 logs
-          文件夹中，超出保留期的会按文件名里的日期自动清理；「保留永久」不清理。</span
+          >{$t('settings.log.helpBefore')}<code>yyyy-MM-dd.log</code>{$t('settings.log.helpAfter')}</span
         >
       </HelpTip></span
     >
@@ -257,14 +268,14 @@
       <div class="seg">
         {#each RETENTIONS as r (r.value)}
           <button class:active={retention === r.value} on:click={() => setRetention(r.value)}
-            >{r.label}</button
+            >{$t(r.labelKey)}</button
           >
         {/each}
       </div>
       <button class="btn sm" on:click={openLogDirNow}>
-        <FolderOpen /> 打开日志目录
+        <FolderOpen /> {$t('settings.log.openDir')}
       </button>
-      <span class="status-text {logDirCls}">{logDirMsg}</span>
+      <span class="status-text {logDirCls}">{logDirMsg ? $t(logDirMsg) : ''}</span>
     </div>
   </div>
 </div>
@@ -272,11 +283,9 @@
 <!-- 会话输出独占整行，放在页面底部（design D1）：每个会话的输出都留存下来，用于排查异常退出。 -->
 <div class="card col2" bind:this={sessionCardEl}>
   <div class="field">
-    <span class="flabel">会话输出</span>
+    <span class="flabel">{$t('settings.sessions.title')}</span>
     {#if sessionList.length === 0}
-      <div class="ov-empty">
-        尚无会话。在设备页点「连接」后，这里会保留每个会话的输出（已结束的也会保留），用于排查异常。
-      </div>
+      <div class="ov-empty">{$t('settings.sessions.empty')}</div>
     {:else}
       <div class="sess-list">
         {#each sessionList as s (s.deviceId)}
@@ -284,12 +293,14 @@
             <button
               class="sess-pick"
               on:click={() => pickSession(s.deviceId)}
-              use:tip={'查看该会话的输出'}
+              use:tip={$t('settings.sessions.view')}
             >
               <span class="status-dot {s.running ? 'connected' : 'idle'}"></span>
               <span class="sess-name">{s.alias}</span>
               <span class="sess-state">
-                {s.running ? `运行中 · PID ${s.pid}` : `已结束 · 退出码 ${s.exitCode ?? '-'}`}
+                {s.running
+                  ? $t('settings.sessions.running', { pid: s.pid })
+                  : $t('settings.sessions.ended', { code: s.exitCode ?? '-' })}
               </span>
             </button>
             {#if s.running}
@@ -297,7 +308,7 @@
                 class="btn ghost sm"
                 on:click={() => stopSession(s.deviceId)}
               >
-                <ZapOff /> 断开
+                <ZapOff /> {$t('settings.sessions.disconnect')}
               </button>
             {/if}
           </div>
@@ -308,31 +319,31 @@
         <div class="sess-cmd">
           <code>{selSession.command}</code>
         </div>
-        <div class="sess-meta">{sessionMeta(selSession)}</div>
-        <pre class="log-view">{logText || '（该会话暂无输出）'}</pre>
+        <div class="sess-meta">{selectedMeta}</div>
+        <pre class="log-view">{logText || $t('settings.sessions.noOutput')}</pre>
         <div class="log-actions">
           <button
             class="btn ghost sm"
             on:click={refreshLog}
           >
-            <RefreshCw /> 刷新
+            <RefreshCw /> {$t('settings.sessions.refresh')}
           </button>
           <button
             class="btn ghost sm"
             on:click={clearLog}
-            use:tip={'清空该会话已保留的输出（不可恢复）'}
+            use:tip={$t('settings.sessions.clearTip')}
           >
-            <Eraser /> 清空
+            <Eraser /> {$t('settings.sessions.clear')}
           </button>
-          <span class="hint">运行中的会话每 2 秒自动刷新一次。</span>
+          <span class="hint">{$t('settings.sessions.autoRefresh')}</span>
         </div>
       {/if}
     {/if}
     {#if sessErr}
-      <div class="hint dl-error">{sessErr}</div>
+      <div class="hint dl-error">{errorTextOf(sessErr, $t)}</div>
     {/if}
     {#if logErr}
-      <div class="hint dl-error">{logErr}</div>
+      <div class="hint dl-error">{errorTextOf(logErr, $t)}</div>
     {/if}
   </div>
 </div>

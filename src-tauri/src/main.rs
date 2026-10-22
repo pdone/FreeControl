@@ -13,6 +13,7 @@ mod session;
 mod links;
 mod logger;
 mod shell;
+mod ui_message;
 mod window_icon;
 mod webview_env;
 

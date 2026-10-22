@@ -6,13 +6,14 @@
   // 自动更新走 setAutoUpdate / setUpdateFrequency（改 `config.update`），上次检查时间由检查包装写入。
   // 两者都复用既有去抖保存，不碰 `defaults.*`。页内两张偏好卡同排等宽：外观 + 自动更新。
   // 日志内容由 `SettingsLogCards` 渲染：运行日志参数 / 日志文件同排在前，会话输出独占整行放在页面底部。
-  // 语言选择不在本次范围内（后续单独提案）。
+  // 界面语言是本次新增的第三个外观字段：改 `config.ui.language`，由 i18n 订阅立即应用。
   import {
     config,
     openUpdateDialog,
     setAccent,
     setAutoUpdate,
     setThemeMode,
+    setUiLanguage,
     setUpdateFrequency,
   } from '../lib/store';
   import {
@@ -26,19 +27,26 @@
   import HelpTip from './HelpTip.svelte';
   import SettingsLogCards from './SettingsLogCards.svelte';
   import { Check, RefreshCw } from 'lucide-svelte';
-  import type { UpdateFrequency, UpdatePrefs } from '../lib/types';
+  import { DEFAULT_LANGUAGE, t, type MessageKey } from '../lib/i18n';
+  import type { LanguagePref, UpdateFrequency, UpdatePrefs } from '../lib/types';
 
-  const THEMES: Array<{ value: ThemeMode; label: string }> = [
-    { value: 'system', label: '跟随系统' },
-    { value: 'dark', label: '深色' },
-    { value: 'light', label: '浅色' },
+  const THEMES: Array<{ value: ThemeMode; labelKey: MessageKey }> = [
+    { value: 'system', labelKey: 'settings.theme.system' },
+    { value: 'dark', labelKey: 'settings.theme.dark' },
+    { value: 'light', labelKey: 'settings.theme.light' },
   ];
 
-  const UPDATES: Array<{ value: UpdateFrequency; label: string }> = [
-    { value: 'launch', label: '每次启动' },
-    { value: 'daily', label: '每天' },
-    { value: 'weekly', label: '每周' },
-    { value: 'monthly', label: '每月' },
+  const UPDATES: Array<{ value: UpdateFrequency; labelKey: MessageKey }> = [
+    { value: 'launch', labelKey: 'settings.update.freq.launch' },
+    { value: 'daily', labelKey: 'settings.update.freq.daily' },
+    { value: 'weekly', labelKey: 'settings.update.freq.weekly' },
+    { value: 'monthly', labelKey: 'settings.update.freq.monthly' },
+  ];
+
+  const LANGUAGES: Array<{ value: LanguagePref; labelKey: MessageKey }> = [
+    { value: 'system', labelKey: 'settings.language.followSystem' },
+    { value: 'zh', labelKey: 'settings.language.zh' },
+    { value: 'en', labelKey: 'settings.language.en' },
   ];
 
   const DEFAULT_UPDATE_PREFS: UpdatePrefs = {
@@ -47,6 +55,7 @@
     lastCheckedAt: null,
   };
 
+  $: language = $config?.ui?.language ?? DEFAULT_LANGUAGE;
   $: theme = ($config?.ui?.theme ?? DEFAULT_THEME) as ThemeMode;
   // 配置里的主题色已是合法 #rrggbb（后端归一化过）；这里再小写一次只为让「选中的预设」
   // 与色块取值逐字相等，不引入第二套判定。
@@ -56,7 +65,9 @@
 
   // 更新检查偏好：与外观同处「设置」，但独立落在 config.update。
   $: updatePrefs = $config?.update ?? DEFAULT_UPDATE_PREFS;
-  $: lastChecked = formatLastChecked(updatePrefs.lastCheckedAt);
+  $: lastChecked = updatePrefs.lastCheckedAt
+    ? formatTimestamp(updatePrefs.lastCheckedAt)
+    : '';
 
   function pickPreset(value: string): void {
     setAccent(value);
@@ -66,9 +77,8 @@
     setAutoUpdate((e.currentTarget as HTMLInputElement).checked);
   }
 
-  /** 上次检查时间：本地 YYYY-MM-DD HH:mm；从未检查时由调用处显示「尚未检查」。 */
-  function formatLastChecked(at: number | null): string {
-    if (!at) return '尚未检查';
+  /** 上次检查时间：本地 YYYY-MM-DD HH:mm；从未检查时由模板显示「尚未检查」。 */
+  function formatTimestamp(at: number): string {
     const d = new Date(at);
     const pad = (n: number): string => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -85,35 +95,45 @@
 </script>
 
 <div class="sec-head">
-  <h2>设置</h2>
-  <p>管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p>
+  <h2>{$t('nav.settings')}</h2>
+  <p>{$t('settings.subtitle')}</p>
 </div>
 
 <div class="grid">
   <div class="card">
-    <h3>外观</h3>
+    <h3>{$t('settings.appearance.title')}</h3>
     <div class="field">
-      <span class="flabel">主题模式<HelpTip title="主题模式" label="主题模式的说明">
-          <span class="fhelp-p"
-            >出厂默认跟随系统：取系统深浅色，运行期间随系统变化；选「深色」或「浅色」则固定，不再跟随系统。</span
-          >
+      <span class="flabel">{$t('settings.language.label')}<HelpTip title={$t('settings.language.helpTitle')} label={$t('settings.language.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.language.help')}</span>
         </HelpTip></span
       >
       <div class="seg">
-        {#each THEMES as t (t.value)}
-          <button class:active={theme === t.value} on:click={() => setThemeMode(t.value)}
-            >{t.label}</button
+        {#each LANGUAGES as l (l.value)}
+          <button class:active={language === l.value} on:click={() => setUiLanguage(l.value)}
+            >{$t(l.labelKey)}</button
           >
         {/each}
       </div>
     </div>
 
     <div class="field">
-      <span class="flabel">主题色<HelpTip title="主题色" label="主题色的说明">
-          <span class="fhelp-p"
-            >预设经过挑选，自定义主题色以可读性优先；点「自定义主题色」用系统或内核取色器取色。</span
+      <span class="flabel">{$t('settings.theme.label')}<HelpTip title={$t('settings.theme.helpTitle')} label={$t('settings.theme.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.theme.help')}</span>
+        </HelpTip></span
+      >
+      <div class="seg">
+        {#each THEMES as m (m.value)}
+          <button class:active={theme === m.value} on:click={() => setThemeMode(m.value)}
+            >{$t(m.labelKey)}</button
           >
-          <span class="fhelp-p">实底文字自动取白或黑，高亮与浅色文字按当前主题派生。</span>
+        {/each}
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="flabel">{$t('settings.accent.label')}<HelpTip title={$t('settings.accent.helpTitle')} label={$t('settings.accent.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.accent.help1')}</span>
+          <span class="fhelp-p">{$t('settings.accent.help2')}</span>
         </HelpTip></span
       >
       <div class="swatches">
@@ -124,7 +144,7 @@
             class:sel={accent === a.value}
             style:background={a.value}
             style:color={inkFor(a.value)}
-            aria-label={a.label}
+            aria-label={$t(a.labelKey)}
             aria-pressed={accent === a.value}
             on:click={() => pickPreset(a.value)}
           >
@@ -137,9 +157,14 @@
              值本就是 #rrggbb；只在 change（确认）时写入，拖动中由取色器自己预览。
              当前色不是任何预设时，这个色块承担「自定义」的选中标记（外环 + 对号）。 -->
         <label class="color-pick">
-          <span>自定义主题色</span>
+          <span>{$t('settings.accent.custom')}</span>
           <span class="color-swatch-wrap" class:sel={isCustom} style:color={inkFor(accent)}>
-            <input type="color" value={accent} on:change={applyCustom} aria-label="自定义主题色" />
+            <input
+              type="color"
+              value={accent}
+              on:change={applyCustom}
+              aria-label={$t('settings.accent.custom')}
+            />
             {#if isCustom}<Check />{/if}
           </span>
         </label>
@@ -149,14 +174,12 @@
   </div>
 
   <div class="card">
-    <h3>自动更新</h3>
+    <h3>{$t('settings.update.title')}</h3>
     <div class="field">
       <div class="toggle">
         <span class="t-label"
-          >自动检查更新<HelpTip title="自动检查更新" label="自动检查更新的说明">
-            <span class="fhelp-p"
-              >开启后在后台检查新版本；发现新版本会打开更新窗口，不会自动下载或安装。</span
-            >
+          >{$t('settings.update.autoCheck')}<HelpTip title={$t('settings.update.helpTitle')} label={$t('settings.update.helpLabel')}>
+            <span class="fhelp-p">{$t('settings.update.help')}</span>
           </HelpTip></span
         >
         <label class="switch">
@@ -167,13 +190,13 @@
     </div>
     {#if updatePrefs.autoCheck}
       <div class="field">
-        <span class="flabel">检查频率</span>
+        <span class="flabel">{$t('settings.update.frequency')}</span>
         <div class="seg">
           {#each UPDATES as f (f.value)}
             <button
               class:active={updatePrefs.frequency === f.value}
               on:click={() => setUpdateFrequency(f.value)}
-              >{f.label}</button
+              >{$t(f.labelKey)}</button
             >
           {/each}
         </div>
@@ -182,9 +205,13 @@
     <div class="field">
       <div class="path-row auto-update-status">
         <button class="btn sm" on:click={() => openUpdateDialog()}>
-          <RefreshCw />检查更新
+          <RefreshCw />{$t('settings.update.check')}
         </button>
-        <span class="hint">上次检查：{lastChecked}</span>
+        <span class="hint">
+          {updatePrefs.lastCheckedAt
+            ? $t('settings.update.lastChecked', { time: lastChecked })
+            : $t('settings.update.neverChecked')}
+        </span>
       </div>
     </div>
   </div>

@@ -11,38 +11,42 @@
     closeWindow,
   } from '../lib/store';
   import { AlertTriangle, Minus, Square, Copy, X } from 'lucide-svelte';
+  import { t, type MessageKey } from '../lib/i18n';
   import { tip } from '../lib/tooltip';
 
   // 页键 ↔ 标题（页键是「页面身份」，取自侧边栏入口名；与默认参数的**分组键**
   // `apps` / `advanced` 无关 —— 后者是落盘配置的字段名，不随页键改名）。
-  const titles: Record<string, string> = {
-    devices: '设备',
-    source: '显示源',
-    video: '视频',
-    audio: '音频',
-    control: '控制',
-    record: '录制',
-    window: '窗口',
-    advanced: '高级',
-    environment: '运行环境',
-    settings: '设置',
+  const titles: Record<string, MessageKey> = {
+    devices: 'nav.devices',
+    source: 'nav.source',
+    video: 'nav.video',
+    audio: 'nav.audio',
+    control: 'nav.control',
+    record: 'nav.record',
+    window: 'nav.window',
+    advanced: 'nav.advanced',
+    environment: 'nav.environment',
+    settings: 'nav.settings',
   };
 
-  $: title = titles[$page] ?? '设备';
+  $: title = $t(titles[$page] ?? 'nav.devices');
   // 三项计数只从 store 的 `deviceCounts` 取。这里是这三项计数在界面上的唯一展示位置 ——
   // 设备页不再重复同一份计数，也就不会有第二个位置算出不同数字。
   $: total = $deviceCounts.total;
   $: online = $deviceCounts.online;
   $: connected = $deviceCounts.connected;
+  // 英文的 1 台设备要用单数；0 / 2+ 用复数。中文两档取值相同。
+  $: deviceLabel =
+    total === 1 ? $t('topbar.device.one') : $t('topbar.device.other', { count: total });
   // 「环境未就绪」与「非最佳适配版本」是两回事（spec 两条独立要求）：
   // 前者是没装好（缺 scrcpy / adb），后者是版本不一致。二者都进黄色叹号，
   // 但文案必须分开 —— 首启缺环境时笼统报「非最佳适配版本」会把用户引向错误的处置方向。
   $: envReady = $envStatus?.ready ?? false;
   $: envOk = envReady && $compat?.status === 'ok';
-  $: envWarnText = envReady ? '非最佳适配版本' : '环境未就绪';
+  $: envWarnText = envReady ? $t('topbar.envMismatch') : $t('topbar.envNotReady');
   $: envWarnTitle = envReady
-    ? '非最佳适配版本，点击前往「运行环境」页查看原因'
-    : '运行环境未就绪（缺少 scrcpy / adb），点击前往「运行环境」页处理';
+    ? $t('topbar.envMismatchTip')
+    : $t('topbar.envNotReadyTip');
 
   // ── 两个指示的跳转（spec「顶部状态指示」/「版本兼容性指示」，design D7）──
   //
@@ -73,7 +77,7 @@
   // `data-tauri-drag-region="deep"` 由运行环境的拖拽脚本解释：**子树内任意处可拖**，而可点击元素
   // （三枚控件与下面两个状态指示 —— 都是 button 或 role=button）自带阻断，不会被拖拽吞掉点击。
   // 双击最大化也由它承担（走 `internal-toggle-maximize`，该权限已在 `core:default` 里）。
-  $: maxLabel = $windowMaximized ? '向下还原' : '最大化';
+  $: maxLabel = $windowMaximized ? $t('window.restore') : $t('window.maximize');
 </script>
 
 <!-- `data-tauri-drag-region="deep"`：仅当本窗口是自绘标题栏时才该拖 —— 不过该属性在带系统标题栏的
@@ -88,33 +92,36 @@
     class:ok={online > 0}
     role="button"
     tabindex="0"
-    use:tip={'回到设备页'}
+    use:tip={$t('topbar.devicesTip')}
     on:click={goDevices}
     on:keydown={(e) => onPillKeydown(e, goDevices)}
   >
-    <span class="dot"></span>{total} 台设备 · {online} 在线 · {connected} 已连接
+    <span class="dot"></span>{deviceLabel} · {$t('topbar.online', { count: online })} · {$t(
+      'topbar.connected',
+      { count: connected },
+    )}
   </span>
   {#if !$envStatus}
     <span
       class="pill clickable"
       role="button"
       tabindex="0"
-      use:tip={'前往运行环境页'}
+      use:tip={$t('topbar.envTip')}
       on:click={goEnvironment}
       on:keydown={(e) => onPillKeydown(e, goEnvironment)}
     >
-      <span class="dot"></span>检测运行环境…
+      <span class="dot"></span>{$t('topbar.envChecking')}
     </span>
   {:else if envOk}
     <span
       class="pill env ok clickable"
       role="button"
       tabindex="0"
-      use:tip={'前往运行环境页'}
+      use:tip={$t('topbar.envTip')}
       on:click={goEnvironment}
       on:keydown={(e) => onPillKeydown(e, goEnvironment)}
     >
-      <span class="dot"></span>scrcpy 就绪
+      <span class="dot"></span>{$t('topbar.envReady')}
     </span>
   {:else}
     <span
@@ -136,8 +143,8 @@
       <button
         class="win-btn"
         type="button"
-        use:tip={'最小化'}
-        aria-label="最小化"
+        use:tip={$t('window.minimize')}
+        aria-label={$t('window.minimize')}
         on:click={minimizeWindow}
       >
         <Minus />
@@ -154,8 +161,8 @@
       <button
         class="win-btn close"
         type="button"
-        use:tip={'关闭'}
-        aria-label="关闭"
+        use:tip={$t('window.close')}
+        aria-label={$t('window.close')}
         on:click={closeWindow}
       >
         <X />

@@ -15,6 +15,7 @@
     ChevronsLeft,
   } from 'lucide-svelte';
   import Brand from './Brand.svelte';
+  import { t, type MessageKey } from '../lib/i18n';
   import { tip } from '../lib/tooltip';
 
   // 11 个平级导航入口：设备 + 7 个参数页（承载 8 个默认参数分组）+ 运行环境页 + 设置页 + 「关于」。
@@ -26,22 +27,22 @@
   // 不动选中态与标题（app-shell 规格「统一导航入口」）。
   // 图标与页面身份对齐：「运行环境」用 Container（容器/环境语义），「设置」用 Settings
   // —— 后者由「运行环境」让出，避免同一图标指两个概念。
-  type NavItem = { key: string; label: string; icon: typeof Monitor; dialog?: true };
+  type NavItem = { key: string; labelKey: MessageKey; icon: typeof Monitor; dialog?: true };
 
   const items: Array<NavItem | { sep: true }> = [
-    { key: 'devices', label: '设备', icon: TabletSmartphone },
-    { key: 'source', label: '显示源', icon: Monitor },
-    { key: 'video', label: '视频', icon: Video },
-    { key: 'audio', label: '音频', icon: Volume2 },
-    { key: 'control', label: '控制', icon: Gamepad2 },
-    { key: 'record', label: '录制', icon: Disc },
-    { key: 'window', label: '窗口', icon: AppWindow },
-    { key: 'advanced', label: '高级', icon: LayoutGrid },
+    { key: 'devices', labelKey: 'nav.devices', icon: TabletSmartphone },
+    { key: 'source', labelKey: 'nav.source', icon: Monitor },
+    { key: 'video', labelKey: 'nav.video', icon: Video },
+    { key: 'audio', labelKey: 'nav.audio', icon: Volume2 },
+    { key: 'control', labelKey: 'nav.control', icon: Gamepad2 },
+    { key: 'record', labelKey: 'nav.record', icon: Disc },
+    { key: 'window', labelKey: 'nav.window', icon: AppWindow },
+    { key: 'advanced', labelKey: 'nav.advanced', icon: LayoutGrid },
     { sep: true },
-    { key: 'environment', label: '运行环境', icon: Container },
-    { key: 'settings', label: '设置', icon: Settings },
+    { key: 'environment', labelKey: 'nav.environment', icon: Container },
+    { key: 'settings', labelKey: 'nav.settings', icon: Settings },
     // 末位：不是页面，只开「关于」弹窗（`aboutOpen` 是它与品牌行共用的开关）
-    { key: 'about', label: '关于', icon: Info, dialog: true },
+    { key: 'about', labelKey: 'nav.about', icon: Info, dialog: true },
   ];
 
   function select(it: NavItem) {
@@ -70,20 +71,20 @@
         <div
           class="nav-item"
           class:active={!it.dialog && $page === it.key}
-          use:tip={$collapsed ? { text: it.label, placement: 'right' } : null}
+          use:tip={$collapsed ? { text: $t(it.labelKey), placement: 'right' } : null}
           on:click={() => select(it)}
           on:keydown={(e) => (e.key === 'Enter' || e.key === ' ') && select(it)}
           role="button"
           tabindex="0"
         >
           <svelte:component this={it.icon} />
-          <span class="nav-text">{it.label}</span>
+          <span class="nav-text">{$t(it.labelKey)}</span>
         </div>
       {/if}
     {/each}
   </nav>
   <button class="collapse-btn" on:click={toggle}>
     <ChevronsLeft />
-    <span class="nav-text">收起</span>
+    <span class="nav-text">{$t('sidebar.collapse')}</span>
   </button>
 </aside>

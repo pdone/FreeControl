@@ -13,6 +13,9 @@
     cancelPendingInstall,
     installRunning,
   } from '../lib/install';
+  import { channelLabel } from '../lib/channel';
+  import { t } from '../lib/i18n';
+  import { errorTextOf } from '../lib/message';
   import { AlertTriangle, Download } from 'lucide-svelte';
   import { tip } from '../lib/tooltip';
 </script>
@@ -21,28 +24,30 @@
   <div class="overlay show">
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
-      <h2>本次下载未经官方校验</h2>
+      <h2>{$t('unverified.title')}</h2>
       <p>
-        {$pendingInstall.unverifiedReason}。无法确认下载内容与官方发布是否完全一致，
-        可能由网络拦截或官方发布文件变动导致。
+        {errorTextOf($pendingInstall.unverifiedReasonMessage, $t)}{$t('unverified.bodyAfter')}
       </p>
       <div class="field">
-        <span class="flabel">下载来源</span>
-        <div class="env-path" use:tip={$pendingInstall.channelUrl}>{$pendingInstall.channel}</div>
+        <span class="flabel">{$t('unverified.source')}</span>
+        <div class="env-path" use:tip={$pendingInstall.channelUrl}
+          >{channelLabel($pendingInstall.channelView, $t)}</div
+        >
         <div class="hint">
-          资产 <code>{$pendingInstall.asset}</code> 已下载完成但尚未校验。继续安装将解压并替换
-          <code>{$scrcpyDir}</code> 中的全部文件。
+          {$t('unverified.assetBefore')}<code>{$pendingInstall.asset}</code>{$t(
+            'unverified.assetMid',
+          )}<code>{$scrcpyDir}</code>{$t('unverified.assetAfter')}
         </div>
       </div>
-      {#if $pendingInstall.note}
-        <p>{$pendingInstall.note}</p>
+      {#if $pendingInstall.noteMessage}
+        <p>{errorTextOf($pendingInstall.noteMessage, $t)}</p>
       {/if}
       <div class="actions">
         <button class="btn ghost" on:click={cancelPendingInstall} disabled={$installRunning}>
-          取消（不写入）
+          {$t('unverified.cancel')}
         </button>
         <button class="btn primary" on:click={confirmPendingInstall} disabled={$installRunning}>
-          <Download /> 继续安装
+          <Download /> {$t('unverified.confirm')}
         </button>
       </div>
     </div>

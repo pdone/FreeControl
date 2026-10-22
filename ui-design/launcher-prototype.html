@@ -1388,6 +1388,20 @@
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
+            <!-- 界面语言（产品侧 add-ui-language 的同步类别 ⑲）：只做视觉同步 —— 位置、宽度与三档标签
+                 与产品一致；原型没有运行时字典，整页翻译不在原型里实现，故这三颗按钮不绑定点击，
+                 真实切换以产品为准（验收位置与文案，不以原型验语言功能）。 -->
+            <div class="field">
+              <span class="flabel">界面语言<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="界面语言的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">界面语言</span><span class="fhelp-p">默认跟随系统语言；切换后立即生效，重启后保留。</span></span>
+              </span></span>
+              <div class="seg" id="uiLanguage">
+                <button class="active" data-v="system">跟随系统</button>
+                <button data-v="zh">简体中文</button>
+                <button data-v="en">English</button>
+              </div>
+            </div>
             <div class="field">
               <span class="flabel">主题模式<span class="fhelp">
                 <button class="fhelp-btn" type="button" aria-label="主题模式的说明"><i data-lucide="circle-help"></i></button>

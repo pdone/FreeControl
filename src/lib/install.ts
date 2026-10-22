@@ -13,8 +13,10 @@
 //   cancelPendingInstall()  放弃（后端清掉临时文件，现有环境零改动）
 //   switchChannel()         切换通道（后端中断当前尝试、改用下一条）
 //   cancelInstall()         取消本次获取（在途的 runInstall 会以 canceled 收尾）
+//
+// 进度文案由结构化字段 + 当前语言派生，不再由后端下发成品文本；切换语言时进度会一起重译。
 
-import { writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 import { listen } from '@tauri-apps/api/event';
 import {
   startScrcpyInstall,
@@ -23,26 +25,43 @@ import {
   switchScrcpyChannel,
 } from './api';
 import { envStatus, refreshEnv } from './store';
-import type { InstallProgress, InstallOutcome } from './types';
+import { t } from './i18n';
+import type {
+  ChannelView,
+  InstallPhase,
+  InstallProgress,
+  InstallOutcome,
+  UserMessage,
+} from './types';
 
 /** 是否有安装在途（按钮禁用与进度展示共用）。 */
 export const installRunning = writable<boolean>(false);
 /** 当前阶段：download | verify | extract | replace | done。 */
-export const installPhase = writable<string>('');
-/** 面向用户的进度文案（含百分比 / 条目数）。 */
-export const installText = writable<string>('');
+export const installPhase = writable<InstallPhase | ''>('');
+/** 是否在等待用户确认「未经官方校验仍继续」。 */
+export const installAwaitingConfirmation = writable<boolean>(false);
+/** 当前资产文件名。 */
+export const installAsset = writable<string | null>(null);
+/** 已下载 / 已解压的字节数或条目数。 */
+export const installDone = writable<number | null>(null);
+/** 总字节数或总条目数。 */
+export const installTotal = writable<number | null>(null);
+/** 安装完成时的版本号。 */
+export const installVersion = writable<string | null>(null);
+/** 替换阶段是否先结束了 adb 服务端。 */
+export const installReplaceStoppingAdb = writable<boolean | null>(null);
 /**
- * 当前实际生效的下载通道标签（tasks 4.2）—— 只在某条通道**已开始返回数据**（带通道名的
- * 进度事件）时被写入；一旦新一次尝试开始就被清空（见 `ensureListener`），故它不表示「上一条
- * 通道曾经成功过」，只表示「此刻正在传输的是哪条通道」。
+ * 当前实际生效的下载通道 —— 只在某条通道**已开始返回数据**（带通道名的进度事件）时被写入；
+ * 一旦新一次尝试开始就被清空（见 `ensureListener`），故它不表示「上一条通道曾经成功过」，
+ * 只表示「此刻正在传输的是哪条通道」。
  */
-export const installChannel = writable<string>('');
+export const installChannel = writable<ChannelView | null>(null);
 /** 本次尝试的序号（从 1 开始）；0 表示尚无尝试信息。 */
 export const installAttempt = writable<number>(0);
 /** 本次可用通道总数；0 表示尚无尝试信息。 */
 export const installAttemptTotal = writable<number>(0);
-/** 正在尝试的通道标签；与「已生效」的 installChannel 分开维护。 */
-export const installAttemptChannel = writable<string>('');
+/** 正在尝试的通道；与「已生效」的 installChannel 分开维护。 */
+export const installAttemptChannel = writable<ChannelView | null>(null);
 /**
  * 本次尝试的开始时间（毫秒时间戳），用于界面显示「已 X 秒」。
  *
@@ -53,20 +72,88 @@ export const installAttemptChannel = writable<string>('');
 export const installAttemptStartedAt = writable<number>(0);
 /** 进度百分比（服务端未给长度时为 0）。 */
 export const installPercent = writable<number>(0);
-/** 失败原因（tasks 4.3：可见，且后端已附手动放置引导）。 */
-export const installError = writable<string>('');
-/** 后端给出的降级/回退说明（如「无法查询官方最新版本，已回退最佳适配版本」）。 */
-export const installNote = writable<string>('');
+/** 失败原因（原始错误；渲染时按当前语言出文案）。 */
+export const installError = writable<unknown>(null);
+/** 后端给出的降级/回退说明（结构化）。 */
+export const installNote = writable<UserMessage | null>(null);
 /** 待用户确认的「未经官方校验」中间态（tasks 4.5）。 */
 export const pendingInstall = writable<InstallOutcome | null>(null);
 /** 最近一次成功安装的结果，用于展示通道与校验结论。 */
 export const lastInstall = writable<InstallOutcome | null>(null);
 
-export function errText(e: unknown): string {
-  if (typeof e === 'string') return e;
-  if (e instanceof Error) return e.message;
-  return '未知错误';
+function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return i === 0 ? `${Math.round(value)} ${units[i]}` : `${value.toFixed(1)} ${units[i]}`;
 }
+
+/** 进度文案：由阶段 + 结构化字段派生，语言切换时自动重译。 */
+export const installText = derived(
+  [
+    installAwaitingConfirmation,
+    installPhase,
+    installAsset,
+    installDone,
+    installTotal,
+    installVersion,
+    installReplaceStoppingAdb,
+    installAttempt,
+    t,
+  ],
+  ([
+    $awaiting,
+    $phase,
+    $asset,
+    $done,
+    $total,
+    $version,
+    $stoppingAdb,
+    $attempt,
+    $t,
+  ]): string => {
+    if ($awaiting) return $t('install.phase.needsConfirmation');
+    if (!$phase) return '';
+    // 尝试事件不带资产：这一行由 DownloadProgress 的通道行负责。
+    if ($attempt > 0 && !$asset) return '';
+    const asset = $asset ?? '';
+    switch ($phase) {
+      case 'download':
+        if (!asset) return '';
+        if ($done === null) return $t('install.phase.preparing', { asset });
+        if ($total !== null && $total > 0) {
+          return $t('install.phase.downloadingTotal', {
+            asset,
+            done: formatBytes($done),
+            total: formatBytes($total),
+          });
+        }
+        return $t('install.phase.downloading', { asset, done: formatBytes($done) });
+      case 'verify':
+        return $t('install.phase.verifying', { asset });
+      case 'extract':
+        if ($done === null) return $t('install.phase.extracting', { asset });
+        if ($total !== null && $total > 0) {
+          return $t('install.phase.extractingTotal', { asset, done: $done, total: $total });
+        }
+        return $t('install.phase.extractingDone', { asset, done: $done });
+      case 'replace':
+        return $stoppingAdb
+          ? $t('install.phase.replacingWithAdb')
+          : $t('install.phase.replacing');
+      case 'done':
+        return $version
+          ? $t('install.phase.done', { version: $version })
+          : $t('install.phase.replacing');
+      default:
+        return '';
+    }
+  },
+);
 
 /**
  * 环境从「未就绪」变为「就绪」时清掉上一次的失败原因。
@@ -81,7 +168,7 @@ export function errText(e: unknown): string {
 let envWasReady = false;
 envStatus.subscribe((s) => {
   const ready = s?.ready ?? false;
-  if (ready && !envWasReady) installError.set('');
+  if (ready && !envWasReady) installError.set(null);
   envWasReady = ready;
 });
 
@@ -91,22 +178,25 @@ let listenerReady: Promise<void> | null = null;
 function ensureListener(): Promise<void> {
   if (!listenerReady) {
     listenerReady = listen<InstallProgress>('scrcpy-install-progress', (event) => {
-      installPhase.set(event.payload.phase);
-      installText.set(event.payload.text);
-      installPercent.set(event.payload.percent);
-      if (event.payload.channel) installChannel.set(event.payload.channel);
+      const p = event.payload;
+      installPhase.set(p.phase);
+      installPercent.set(p.percent);
+      installAsset.set(p.asset);
+      installDone.set(p.done);
+      installTotal.set(p.total);
+      installVersion.set(p.version);
+      installReplaceStoppingAdb.set(p.replaceStoppingAdb);
+      if (p.channelView) installChannel.set(p.channelView);
       // 尝试信息是「粘性」的：只有带尝试信息的事件才更新，且一旦确定就保留到下次发起获取。
       // 否则紧随其后的下载进度事件（attempt = 0）会把「正在尝试第几条通道」抹掉。
-      if (event.payload.attempt > 0) {
+      if (p.attempt > 0) {
         // 「已生效通道」必须与新一次尝试一起失效：它是粘性的，而通道行的取值里它**优先**于
         // 尝试信息 —— 不清的话，用户点「切换通道」或应用自动降级后，这一行会一直停在
         // 上一条通道的「下载通道：X」，直到新通道返回第一块数据才更新（用户据此以为切换没生效）。
-        // 清掉后通道行立即落到尝试分支：「正在尝试通道 N/M：<新通道>（已 0 秒）」，
-        // 且此后若新通道也开始返回数据，进度事件会把它重新写回。
-        installChannel.set('');
-        installAttempt.set(event.payload.attempt);
-        installAttemptTotal.set(event.payload.attemptTotal);
-        installAttemptChannel.set(event.payload.attemptChannel);
+        installChannel.set(null);
+        installAttempt.set(p.attempt);
+        installAttemptTotal.set(p.attemptTotal);
+        installAttemptChannel.set(p.attemptChannelView);
         installAttemptStartedAt.set(Date.now());
       }
     }).then(() => undefined);
@@ -116,15 +206,37 @@ function ensureListener(): Promise<void> {
 
 function resetProgress(): void {
   installPhase.set('');
-  installText.set('');
+  installAwaitingConfirmation.set(false);
+  installAsset.set(null);
+  installDone.set(null);
+  installTotal.set(null);
+  installVersion.set(null);
+  installReplaceStoppingAdb.set(null);
   installPercent.set(0);
-  installChannel.set('');
+  installChannel.set(null);
   installAttempt.set(0);
   installAttemptTotal.set(0);
-  installAttemptChannel.set('');
+  installAttemptChannel.set(null);
   installAttemptStartedAt.set(0);
-  installError.set('');
-  installNote.set('');
+  installError.set(null);
+  installNote.set(null);
+}
+
+/** 失败时只收起进度，保留失败原因与上一次安装结论。 */
+function clearProgressFields(): void {
+  installPhase.set('');
+  installAwaitingConfirmation.set(false);
+  installAsset.set(null);
+  installDone.set(null);
+  installTotal.set(null);
+  installVersion.set(null);
+  installReplaceStoppingAdb.set(null);
+  installPercent.set(0);
+  installChannel.set(null);
+  installAttempt.set(0);
+  installAttemptTotal.set(0);
+  installAttemptChannel.set(null);
+  installAttemptStartedAt.set(0);
 }
 
 /**
@@ -143,22 +255,23 @@ export async function runInstall(mode: 'bestFit' | 'latest'): Promise<void> {
       resetProgress();
       return;
     }
-    installChannel.set(outcome.channel);
-    if (outcome.note) installNote.set(outcome.note);
+    installChannel.set(outcome.channelView);
+    installNote.set(outcome.noteMessage);
     if (outcome.status === 'needsConfirmation') {
       // 未经校验 → 必须由用户确认后才继续（tasks 4.5）。
       pendingInstall.set(outcome);
-      installText.set('下载已完成，等待确认是否继续。');
+      installAwaitingConfirmation.set(true);
       return;
     }
     lastInstall.set(outcome);
-    installText.set(`已安装 scrcpy v${outcome.version}`);
+    installPhase.set('done');
+    installVersion.set(outcome.version);
     installPercent.set(100);
     await refreshEnv();
   } catch (e) {
     // 失败时清掉进度文案，只留失败原因（进度条随之收起）。
-    installText.set('');
-    installError.set(errText(e));
+    clearProgressFields();
+    installError.set(e);
   } finally {
     installRunning.set(false);
   }
@@ -168,18 +281,20 @@ export async function runInstall(mode: 'bestFit' | 'latest'): Promise<void> {
 export async function confirmPendingInstall(): Promise<void> {
   const pending = pendingOf();
   pendingInstall.set(null);
+  installAwaitingConfirmation.set(false);
   if (!pending) return;
   installRunning.set(true);
   try {
     const outcome = await confirmScrcpyInstall();
     lastInstall.set(outcome);
-    installNote.set(outcome.note ?? '');
-    installText.set(`已安装 scrcpy v${outcome.version}`);
+    installNote.set(outcome.noteMessage);
+    installPhase.set('done');
+    installVersion.set(outcome.version);
     installPercent.set(100);
     await refreshEnv();
   } catch (e) {
-    installText.set('');
-    installError.set(errText(e));
+    clearProgressFields();
+    installError.set(e);
   } finally {
     installRunning.set(false);
   }
@@ -196,7 +311,7 @@ export async function switchChannel(): Promise<void> {
   try {
     await switchScrcpyChannel();
   } catch (e) {
-    installError.set(errText(e));
+    installError.set(e);
   }
 }
 
@@ -210,13 +325,14 @@ export async function cancelInstall(): Promise<void> {
   try {
     await cancelScrcpyInstall();
   } catch (e) {
-    installError.set(errText(e));
+    installError.set(e);
   }
 }
 
 /** 用户放弃未校验的安装：后端清掉临时文件，现有运行环境零改动。 */
 export async function cancelPendingInstall(): Promise<void> {
   pendingInstall.set(null);
+  installAwaitingConfirmation.set(false);
   resetProgress();
   await cancelInstall();
 }

@@ -13,10 +13,11 @@
   // 下次启动若仍缺失会再提示）。
   import { envStatus, scrcpyDir, envGuideDismissed, page } from '../lib/store';
   import { installRunning, runInstall } from '../lib/install';
+  import { t } from '../lib/i18n';
   import { AlertTriangle, Download } from 'lucide-svelte';
 
   $: show = !!$envStatus && !$envStatus.ready && !$envGuideDismissed;
-  $: missingText = $envStatus?.missing.join('、') ?? '';
+  $: missingText = ($envStatus?.missing ?? []).join($t('common.commaSeparator'));
 
   function startAcquire(): void {
     // 顺序不可换：只跳不关会让弹窗盖住目标页（design D2）。
@@ -32,22 +33,21 @@
   <div class="overlay show">
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
-      <h2>需要 scrcpy 运行环境</h2>
-      <p>
-        未检测到可用的 scrcpy 二进制，因此现在还不能发起投屏会话。
-        点击“下载并安装”按钮可一键部署scrcpy环境。
-      </p>
+      <h2>{$t('guide.title')}</h2>
+      <p>{$t('guide.body')}</p>
       <div class="field">
-        <span class="flabel" style="font-weight: 800;">scrcpy 目录</span>
+        <span class="flabel" style="font-weight: 800;">{$t('guide.dir')}</span>
         <div class="env-path">{$scrcpyDir}</div>
         <div class="hint">
-          缺少：<b>{missingText}</b> —— 下载并安装会把 scrcpy 与 adb 一并解压到该目录。
+          {$t('guide.missingBefore')}<b>{missingText}</b>{$t('guide.missingAfter')}
         </div>
       </div>
       <div class="actions">
-        <button class="btn ghost" on:click={() => envGuideDismissed.set(true)}>稍后再说</button>
+        <button class="btn ghost" on:click={() => envGuideDismissed.set(true)}
+          >{$t('guide.later')}</button
+        >
         <button class="btn primary" on:click={startAcquire} disabled={$installRunning}>
-          <Download /> 下载并安装
+          <Download /> {$t('guide.install')}
         </button>
       </div>
     </div>

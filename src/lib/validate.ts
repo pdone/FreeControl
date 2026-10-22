@@ -4,13 +4,23 @@
 // 不在别处再抄一份 —— 参数的合法范围只有一处声明。错误 key 与字段地址一致（`group.key`），
 // 因此「默认参数」「设备覆盖」「命令拼装」三处能共用同一份错误表。
 //
-// 语义（spec「参数输入校验」）：非法值给出明确提示，且 **不用于发起会话** ——
-// 命令拼装会跳过非法字段（见 `command.ts::buildArgs` 的 `invalid` 参数）。
+// 错误值存「消息 + 字段地址」而不是成品字符串：切换语言时已显示的错误会跟着重译。
+// 字段名由渲染方通过 `fieldRef` 取到定义后再翻译，校验层不依赖任何语言。
 
+import type { MessageKey } from './i18n/zh';
 import { ALL_GROUPS, refKey, type ParamField } from './params';
 
-/** 字段校验错误：key 为 `group.key`，值为可直接展示在界面上的提示文案。 */
-export type ParamErrors = Record<string, string>;
+/** 字段校验错误：`fieldRef` 为 `group.key`，`code` 对应字典里的校验文案。 */
+export interface ValidationMessage {
+  code: MessageKey;
+  fieldRef: string;
+  params?: Record<string, string | number>;
+}
+
+/** 字段校验错误表：key 为 `group.key`。 */
+export type ParamErrors = Record<string, ValidationMessage>;
+
+type MessageBody = Omit<ValidationMessage, 'fieldRef'>;
 
 const RES_RE = /^\d+x\d+(\/\d+)?$/;
 const SIZE_RE = /^\d+x\d+$/;
@@ -48,32 +58,32 @@ function quotesBalanced(v: string): boolean {
   return single % 2 === 0 && double % 2 === 0;
 }
 
+function message(code: MessageKey, params?: Record<string, string | number>): MessageBody {
+  return params ? { code, params } : { code };
+}
+
 /** 文本类字段的格式规则：只校验有明确格式约定的几项，其余（标题 / 路径 / 包名）不设限。 */
-function validateText(field: ParamField, raw: string): string | null {
+function validateText(field: ParamField, raw: string): MessageBody | null {
   const v = raw.trim();
   if (v === '') return null;
   switch (field.key) {
     case 'crop': {
-      if (!CROP_RE.test(v)) return `${field.label} 需为 W:H:X:Y 四个整数`;
+      if (!CROP_RE.test(v)) return message('validation.cropFormat');
       const [w, h] = v.split(':');
-      return Number(w) > 0 && Number(h) > 0 ? null : `${field.label} 的宽高需大于 0`;
+      return Number(w) > 0 && Number(h) > 0 ? null : message('validation.cropPositive');
     }
     case 'newDisplayRes':
-      return RES_RE.test(v)
-        ? null
-        : `${field.label} 需为「宽x高」或「宽x高/DPI」，例如 1920x1080/420`;
+      return RES_RE.test(v) ? null : message('validation.newDisplayFormat');
     case 'cameraSize':
-      return SIZE_RE.test(v) ? null : `${field.label} 需为「宽x高」，例如 1920x1080`;
+      return SIZE_RE.test(v) ? null : message('validation.sizeFormat');
     case 'bgColor':
-      return HEX_COLOR_RE.test(v) ? null : `${field.label} 需为 #RRGGBB 形式`;
+      return HEX_COLOR_RE.test(v) ? null : message('validation.hexColor');
     case 'port':
-      return isPortSpec(v)
-        ? null
-        : `${field.label} 需为端口或「起始:结束」，两端在 1–65535 之间`;
+      return isPortSpec(v) ? null : message('validation.port');
     case 'tunnelHost':
-      return /\s/.test(v) ? `${field.label} 不能包含空格` : null;
+      return /\s/.test(v) ? message('validation.noSpace') : null;
     case 'customArgs':
-      return quotesBalanced(v) ? null : '自定义参数中的引号未配对';
+      return quotesBalanced(v) ? null : message('validation.quotePair');
     default:
       return null;
   }
@@ -87,30 +97,44 @@ function validateText(field: ParamField, raw: string): string | null {
  * 比「跳过该字段并在界面上提示」的代价大得多 —— 规格「参数输入校验」要求非法值 MUST NOT
  * 用于发起会话，剔除由 `command.ts::buildArgs` 的 `invalid` 机制统一完成。
  */
-function validateSelect(field: ParamField, value: unknown): string | null {
+function validateSelect(field: ParamField, value: unknown): MessageBody | null {
   if (isBlank(value)) return null;
   const v = String(value).trim();
   if (v === '' || !field.options?.length) return null;
-  return field.options.some((o) => o.value === v)
-    ? null
-    : `${field.label} 的取值不在可选项内`;
+  return field.options.some((o) => o.value === v) ? null : message('validation.select');
 }
 
-/** 单字段校验：合法返回 null，非法返回提示文案（tasks 7.3）。 */
-export function validateField(field: ParamField, value: unknown): string | null {
+/** 单字段校验：合法返回 null，非法返回消息（tasks 7.3）。 */
+export function validateField(
+  field: ParamField,
+  value: unknown,
+  fieldRef: string,
+): ValidationMessage | null {
+  const withRef = (body: MessageBody | null): ValidationMessage | null =>
+    body ? { ...body, fieldRef } : null;
+
   if (field.type === 'number' || field.type === 'range') {
     if (isBlank(value)) return null;
     const n = asNumber(value);
-    if (n === null) return `${field.label} 需为数字`;
-    if (field.min !== undefined && n < field.min) return `${field.label} 不得小于 ${field.min}`;
-    if (field.max !== undefined && n > field.max) return `${field.label} 不得大于 ${field.max}`;
+    if (n === null) return withRef(message('validation.number'));
+    if (field.min !== undefined && n < field.min) {
+      return withRef(message('validation.min', { min: field.min }));
+    }
+    if (field.max !== undefined && n > field.max) {
+      return withRef(message('validation.max', { max: field.max }));
+    }
     return null;
   }
   if (field.type === 'text' || field.type === 'textarea') {
-    const v = typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);
-    return validateText(field, v);
+    const v =
+      typeof value === 'string'
+        ? value
+        : value === null || value === undefined
+          ? ''
+          : String(value);
+    return withRef(validateText(field, v));
   }
-  if (field.type === 'select') return validateSelect(field, value);
+  if (field.type === 'select') return withRef(validateSelect(field, value));
   // toggle / segmented / chips：取值由界面给定，不可能格式非法。
   return null;
 }
@@ -127,8 +151,9 @@ export function validateGroupValues(
   for (const card of group.cards) {
     for (const f of card.fields) {
       if (!(f.key in values)) continue;
-      const err = validateField(f, values[f.key]);
-      if (err) out[refKey(groupKey, f.key)] = err;
+      const fieldRef = refKey(groupKey, f.key);
+      const err = validateField(f, values[f.key], fieldRef);
+      if (err) out[fieldRef] = err;
     }
   }
   return out;
@@ -138,7 +163,9 @@ export function validateGroupValues(
  * 校验一份完整的默认参数（8 组）。
  * 只校验字段模型里存在的项：配置里残留的未知键不参与拼装，也就不该报错。
  */
-export function validateParams(groups: Record<string, Record<string, unknown>> | null | undefined): ParamErrors {
+export function validateParams(
+  groups: Record<string, Record<string, unknown>> | null | undefined,
+): ParamErrors {
   const out: ParamErrors = {};
   for (const g of ALL_GROUPS) {
     Object.assign(out, validateGroupValues(g.key, groups?.[g.key]));

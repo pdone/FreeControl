@@ -36,10 +36,13 @@
     canConnect,
     connectBlockedReason,
     page,
+    type SessionNotice,
   } from '../lib/store';
-  import { errText } from '../lib/install';
+  import { t, translateNow } from '../lib/i18n';
+  import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
   import { OVERRIDE_FIELD_REFS, fieldOf, refKey, type FieldRef } from '../lib/params';
+  import type { ValidationMessage } from '../lib/validate';
   import ParamField from './ParamField.svelte';
   import type {
     ConnectResult,
@@ -70,15 +73,15 @@
   let serial = '';
   let ip = '';
   let port = 5555;
-  let formErr = '';
+  let formErr: unknown = null;
   let saving = false;
 
   // ── 别名内联编辑（tasks 6.2）──
   let editingId: string | null = null;
   let editValue = '';
   let editCancelled = false;
-  /** 每台设备各自的错误 / 提示：提示要贴在出错的那一行，不放全局。 */
-  let rowErr: Record<string, string> = {};
+  /** 每台设备各自的错误 / 提示：提示要贴在出错的那一行，不放全局。存原始错误以便重译。 */
+  let rowErr: Record<string, unknown> = {};
 
   // ── 删除确认（tasks 6.5）──
   let pendingDelete: Device | null = null;
@@ -104,13 +107,36 @@
   $: connectableCount = $devices.filter((d) => $deviceStatus[d.id] === 'idle').length;
   // 工具条右端只承载**设备状态探测自身的异常**：检测中 / 状态不可用 / 状态待确认。
   // 探测正常时为空串、整行不渲染 —— 三项计数由顶部栏的设备概况指示承担，页内不重复。
+  $: statusError = $deviceStatusMeta.error
+    ? errorTextOf($deviceStatusMeta.error, $t)
+    : '';
   $: summary = !$deviceStatusMeta.probed
-    ? $deviceStatusMeta.error
-      ? `设备状态不可用：${$deviceStatusMeta.error}`
-      : '正在检测设备状态…'
+    ? statusError
+      ? $t('device.statusUnavailable', { reason: statusError })
+      : $t('device.statusChecking')
     : $deviceStatusMeta.stale
-      ? '状态待确认（探测失败，沿用上次结果）'
+      ? $t('device.statusStale')
       : '';
+
+  $: noticeText = $sessionNotice ? renderNotice($sessionNotice, $t) : '';
+
+  function renderNotice(notice: SessionNotice, tr: Translate): string {
+    switch (notice.kind) {
+      case 'warning':
+        return errorTextOf(notice.warning, tr);
+      case 'connectAll':
+        return connectSummary(notice.result, tr);
+      case 'disconnectAll':
+        return notice.before === 0
+          ? tr('device.disconnectSummary.none')
+          : tr('device.disconnectSummary.done', { count: notice.before - notice.after });
+      case 'error':
+        return `${tr(notice.labelKey)}${tr('common.detailSeparator')}${errorTextOf(
+          notice.error,
+          tr,
+        )}`;
+    }
+  }
 
   // ── 参数覆盖（tasks 7.4–7.8 / design D5）────────────────────
   //
@@ -166,7 +192,10 @@
   }
 
   /** 覆盖字段的校验提示：只报**该设备真正覆盖**的键，不把默认值的问题记到设备头上。 */
-  function ovError(errors: Record<string, string> | undefined, ref: FieldRef): string | null {
+  function ovError(
+    errors: Record<string, ValidationMessage> | undefined,
+    ref: FieldRef,
+  ): ValidationMessage | null {
     return errors?.[refKey(ref.group, ref.key)] ?? null;
   }
 
@@ -196,22 +225,22 @@
     setOverrideEnabled(id, (e.target as HTMLInputElement).checked);
   }
 
-  function statusLabel(s: DeviceStatusView): string {
-    if (s === 'connected') return '已连接';
+  function statusLabel(s: DeviceStatusView, tr: Translate): string {
+    if (s === 'connected') return tr('device.status.connected');
     // 状态值 `idle` 在界面上的称谓是「在线」（已探测到、未连接）—— 值本身是后端契约，不改。
-    if (s === 'idle') return '在线';
-    if (s === 'offline') return '离线';
-    return '检测中…';
+    if (s === 'idle') return tr('device.status.online');
+    if (s === 'offline') return tr('device.status.offline');
+    return tr('device.status.unknown');
   }
 
   /** 连接入口的说明：不可用时把原因写在按钮上，可用时说明这一步会做什么。
       禁用原因取自 store 的 `connectBlockedReason`（与命令条的连接按钮共用同一份措辞）。 */
-  function connectHint(d: Device, s: DeviceStatusView): string {
-    if (s === 'connected') return '断开该设备的会话';
+  function connectHint(d: Device, s: DeviceStatusView, tr: Translate): string {
+    if (s === 'connected') return tr('device.connectHint.connected');
     const blocked = connectBlockedReason(d, s);
-    if (blocked) return blocked;
-    if (s === 'offline') return '点「连接」会先尝试重新连上这台设备，成功后再打开投屏';
-    return '连接该设备';
+    if (blocked) return tr(blocked);
+    if (s === 'offline') return tr('device.connectHint.offlineWifi');
+    return tr('device.connectHint.connect');
   }
 
   function selectDevice(id: string): void {
@@ -226,41 +255,51 @@
   }
 
   /** 会话窗口位置的说明：自动排列的坐标 / 让位 / 平台不支持定位 / 空间不足降级（tasks 9.6 / 9.8 / 9.9 / design D5）。 */
-  function windowText(s: SessionInfo): string {
+  function windowText(s: SessionInfo, tr: Translate): string {
     if (!s.arranged) {
       // 两种「未参与」的原因文案不同：用户指定位置是自己的选择，平台不支持则要明确说明后果。
-      return s.arrangeSkip === 'platform'
-        ? '未参与自动排列（本会话下窗口位置由系统决定，可能出现重叠）'
-        : '未参与自动排列（该设备已指定 --window-x / --window-y）';
+      return tr(
+        s.arrangeSkip === 'platform'
+          ? 'device.window.noArrangePlatform'
+          : 'device.window.noArrangeUser',
+      );
     }
-    const pos = `窗口 (${s.windowX}, ${s.windowY})`;
-    return s.slotReused ? `${pos} · 空间不足已复用位置，可能与其他窗口重叠` : pos;
+    const pos = tr('device.window.position', { x: s.windowX ?? '', y: s.windowY ?? '' });
+    return s.slotReused
+      ? tr('device.window.reused', { x: s.windowX ?? '', y: s.windowY ?? '' })
+      : pos;
   }
 
   /** 批量连接的结果汇总：成功的台数 + 逐台失败原因 + 排列降级提示（tasks 9.2 / 9.8）。 */
-  function connectSummary(res: ConnectResult): string {
+  function connectSummary(res: ConnectResult, tr: Translate): string {
     const ok = res.outcomes.filter((o) => o.ok).length;
     const failed = res.outcomes.filter((o) => !o.ok);
-    const parts = res.outcomes.length > 0 ? [`已连接 ${ok} 台`] : [];
+    const parts =
+      res.outcomes.length > 0 ? [tr('device.connectSummary.success', { count: ok })] : [];
     if (failed.length > 0) {
-      parts.push(
-        `失败 ${failed.length} 台：` +
-          failed.map((f) => `${f.alias || f.deviceId}（${f.error ?? '未知原因'}）`).join('；'),
-      );
+      const details = failed
+        .map((f) =>
+          tr('device.connectSummary.item', {
+            alias: f.alias || f.deviceId,
+            reason: f.error ? errorTextOf(f.error, tr) : tr('device.unknownReason'),
+          }),
+        )
+        .join(tr('common.listSeparator'));
+      parts.push(tr('device.connectSummary.failed', { count: failed.length, details }));
     }
-    if (res.warning) parts.push(res.warning);
-    return parts.join(' · ') || '没有可连接的设备';
+    if (res.warning) parts.push(errorTextOf(res.warning, tr));
+    return parts.join(' · ') || tr('device.connectSummary.none');
   }
 
   /** 连接单台（tasks 9.1）；失败原因贴在对应设备那一行，不放全局。 */
   async function onConnect(d: Device): Promise<void> {
-    rowErr = { ...rowErr, [d.id]: '' };
+    rowErr = { ...rowErr, [d.id]: null };
     busy = { ...busy, [d.id]: true };
-    sessionNotice.set('');
+    sessionNotice.set(null);
     try {
       await connectDevice(d.id);
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: errText(e) };
+      rowErr = { ...rowErr, [d.id]: e };
     } finally {
       busy = { ...busy, [d.id]: false };
     }
@@ -268,12 +307,12 @@
 
   /** 断开单台（tasks 9.1）：会话结束、槽位释放，状态回到在线（未连接）。 */
   async function onDisconnect(d: Device): Promise<void> {
-    rowErr = { ...rowErr, [d.id]: '' };
+    rowErr = { ...rowErr, [d.id]: null };
     busy = { ...busy, [d.id]: true };
     try {
       await disconnectDevice(d.id);
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: errText(e) };
+      rowErr = { ...rowErr, [d.id]: e };
     } finally {
       busy = { ...busy, [d.id]: false };
     }
@@ -283,11 +322,12 @@
   async function onConnectAll(): Promise<void> {
     toolBusy = true;
     rowErr = {};
-    sessionNotice.set('');
+    sessionNotice.set(null);
     try {
-      sessionNotice.set(connectSummary(await connectAll()));
+      const result = await connectAll();
+      sessionNotice.set({ kind: 'connectAll', result });
     } catch (e) {
-      sessionNotice.set(`全部连接失败：${errText(e)}`);
+      sessionNotice.set({ kind: 'error', labelKey: 'device.connectAllFailed', error: e });
     } finally {
       toolBusy = false;
     }
@@ -297,16 +337,14 @@
   async function onDisconnectAll(): Promise<void> {
     toolBusy = true;
     rowErr = {};
-    sessionNotice.set('');
+    sessionNotice.set(null);
     const before = runningCount;
     try {
       const list = await disconnectAll();
       const after = list.filter((s) => s.running).length;
-      sessionNotice.set(
-        before === 0 ? '当前没有正在运行的会话' : `已结束 ${before - after} 个会话`,
-      );
+      sessionNotice.set({ kind: 'disconnectAll', before, after });
     } catch (e) {
-      sessionNotice.set(`全部断开失败：${errText(e)}`);
+      sessionNotice.set({ kind: 'error', labelKey: 'device.disconnectAllFailed', error: e });
     } finally {
       toolBusy = false;
     }
@@ -327,7 +365,7 @@
 
   function openAdd(): void {
     addOpen = true;
-    formErr = '';
+    formErr = null;
     alias = '';
     kind = 'usb';
     serial = '';
@@ -337,20 +375,22 @@
 
   function closeAdd(): void {
     addOpen = false;
-    formErr = '';
+    formErr = null;
   }
 
   /** 无线设备必须有 IP —— 缺失时禁用保存，其余校验以后端为准（错误原文直接展示）。 */
   $: addBlocked = kind === 'wifi' && ip.trim() === '';
 
   async function submitAdd(): Promise<void> {
-    formErr = '';
+    formErr = null;
     saving = true;
     try {
       // 别名为空时给个默认名：别名是设备列表里唯一可读的区分依据（别名本身允许中文 / 空格）。
       const device: Device = {
         id: '',
-        alias: alias.trim() || `设备${$devices.length + 1}`,
+        alias:
+          alias.trim() ||
+          translateNow('device.defaultAlias', { count: $devices.length + 1 }),
         kind,
         serial: kind === 'usb' ? serial.trim() : '',
         ip: kind === 'wifi' ? ip.trim() : '',
@@ -359,7 +399,7 @@
       await addDevice(device);
       closeAdd();
     } catch (e) {
-      formErr = errText(e);
+      formErr = e;
     } finally {
       saving = false;
     }
@@ -368,7 +408,7 @@
   // ── 别名内联编辑 ───────────────────────────────────────────
 
   function startEdit(d: Device): void {
-    rowErr = { ...rowErr, [d.id]: '' };
+    rowErr = { ...rowErr, [d.id]: null };
     editingId = d.id;
     editValue = d.alias;
     editCancelled = false;
@@ -391,14 +431,14 @@
     editCancelled = false;
     if (cancelled || value === d.alias) return;
     if (!value) {
-      rowErr = { ...rowErr, [d.id]: '别名不能为空' };
+      rowErr = { ...rowErr, [d.id]: { code: 'device.aliasEmpty' } };
       return;
     }
     try {
       // 改名立即落盘（tasks 6.2）：后端返回落盘后的整份配置，前端整体替换，重启后仍是新别名。
       await renameDevice(d.id, value);
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: errText(e) };
+      rowErr = { ...rowErr, [d.id]: e };
     }
   }
 
@@ -417,7 +457,7 @@
       await deleteDevice(d.id);
       pendingDelete = null;
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: errText(e) };
+      rowErr = { ...rowErr, [d.id]: e };
       pendingDelete = null;
     } finally {
       delBusy = false;
@@ -426,53 +466,47 @@
 </script>
 
 <div class="sec-head">
-  <h2>设备</h2>
-  <p>
-    统一管理所有设备：为每台设备设置别名并映射到连接标识（USB 为 serial，WiFi 为 IP:端口），
-    查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。
-  </p>
+  <h2>{$t('nav.devices')}</h2>
+  <p>{$t('device.subtitle')}</p>
 </div>
 
 <div class="dev-toolbar">
-  <button class="btn sm primary" on:click={openAdd}><Plus /> 添加设备</button>
-  <span
-    class="tip-host"
-    use:tip={'连接所有在线且未连接的设备（离线设备不会被尝试连接）'}
-  >
+  <button class="btn sm primary" on:click={openAdd}><Plus /> {$t('device.add')}</button>
+  <span class="tip-host" use:tip={$t('device.connectAllTip')}>
     <button
       class="btn sm"
       on:click={onConnectAll}
       disabled={toolBusy || connectableCount === 0}
     >
-      <Zap /> 全部连接{toolBusy ? '…' : ''}
+      <Zap /> {$t('device.connectAll')}{toolBusy ? '…' : ''}
     </button>
   </span>
-  <span class="tip-host" use:tip={'结束所有正在运行的会话'}>
+  <span class="tip-host" use:tip={$t('device.disconnectAllTip')}>
     <button class="btn sm" on:click={onDisconnectAll} disabled={toolBusy || runningCount === 0}>
-      <ZapOff /> 全部断开
+      <ZapOff /> {$t('device.disconnectAll')}
     </button>
   </span>
   <div class="spacer"></div>
   {#if summary}
-    <span class="status-text" use:tip={$deviceStatusMeta.error || null}>{summary}</span>
+    <span class="status-text" use:tip={statusError || null}>{summary}</span>
   {/if}
   <!-- 批量操作的结果**就地**呈现在本行内（不另起一行）：与设备概况并排，概况在前、结果在后。
        两者语义不同（前者是探测异常的长驻提醒、后者是动作回执），故并排而不互相覆盖。 -->
   {#if $sessionNotice}
-    <span class="status-text">{$sessionNotice}</span>
+    <span class="status-text">{noticeText}</span>
   {/if}
 </div>
 
 {#if $devices.length === 0}
   <div class="card col2" style="text-align:center;color:var(--text-faint);padding:40px 20px">
-    暂无设备。点击「添加设备」登记你的第一台设备（USB serial 或 WiFi IP:端口）。
+    {$t('device.empty')}
   </div>
 {:else}
   <div class="dev-list">
     {#each $devices as d (d.id)}
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
-      {@const win = sess ? windowText(sess) : ''}
+      {@const win = sess ? windowText(sess, $t) : ''}
       <div
         class="dev-card"
         class:sel={$selectedDeviceId === d.id}
@@ -495,7 +529,7 @@
                   bind:value={editValue}
                   on:blur={() => commitEdit(d)}
                   on:keydown={onEditKeydown}
-                  aria-label="设备别名"
+                  aria-label={$t('device.aliasAria')}
                 />
               {:else}
                 <span class="a-text">{d.alias}</span>
@@ -503,7 +537,7 @@
                   class="edit"
                   role="button"
                   tabindex="0"
-                  aria-label="重命名"
+                  aria-label={$t('device.renameAria')}
                   on:click|stopPropagation={() => startEdit(d)}
                   on:keydown={(e) => e.key === 'Enter' && startEdit(d)}
                 >
@@ -515,7 +549,7 @@
                    都不在此表达 —— 前者只在展开面板的标题里说。 -->
               {#if isOverrideActive(ovById[d.id])}
                 <span class="tag over">
-                  已启用设备覆盖
+                  {$t('device.overrideActive')}
                 </span>
               {/if}
             </div>
@@ -531,16 +565,18 @@
                    用语义类名进白名单，而不是靠 `:nth-child` 这类结构选择器指它 ——
                    后者在 .dev-meta 增删任一 span 时会静默指错元素。 -->
               <span class="dev-cid">
-                {d.connectionId || '（待检测）'}
+                {d.connectionId || $t('device.connectionPending')}
               </span>
               <span>·</span>
-              <span class="status-text {s}">{statusLabel(s)}</span>
+              <span class="status-text {s}">{statusLabel(s, $t)}</span>
               {#if s === 'offline'}
                 <span class="status-text offline">
                   {#if d.kind === 'wifi'}
-                    可尝试连接
+                    {$t('device.offlineTryConnect')}
                   {:else}
-                    {d.connectionId ? '不可连接' : 'serial 待检测'}
+                    {d.connectionId
+                      ? $t('device.offlineNotConnectable')
+                      : $t('device.offlineSerialPending')}
                   {/if}
                 </span>
               {/if}
@@ -551,33 +587,33 @@
               {:else if sess}
                 <span>·</span>
                 <span class="sess-hint">
-                  上次会话已结束（退出码 {sess.exitCode ?? '-'}）
+                  {$t('device.sessionEnded', { code: sess.exitCode ?? '-' })}
                 </span>
               {/if}
               {#if rowErr[d.id]}
-                <span class="status-text offline">{rowErr[d.id]}</span>
+                <span class="status-text offline">{errorTextOf(rowErr[d.id], $t)}</span>
               {/if}
             </div>
           </div>
           <div class="dev-actions">
             {#if s === 'connected'}
-              <span class="tip-host" use:tip={connectHint(d, s)}>
+              <span class="tip-host" use:tip={connectHint(d, s, $t)}>
                 <button
                   class="btn sm"
                   disabled={busy[d.id]}
                   on:click|stopPropagation={() => onDisconnect(d)}
                 >
-                  <ZapOff /> {busy[d.id] ? '断开中…' : '断开'}
+                  <ZapOff /> {busy[d.id] ? $t('device.disconnecting') : $t('device.disconnect')}
                 </button>
               </span>
             {:else}
-              <span class="tip-host" use:tip={connectHint(d, s)}>
+              <span class="tip-host" use:tip={connectHint(d, s, $t)}>
                 <button
                   class="btn sm primary"
                   disabled={!canConnect(d, s) || busy[d.id]}
                   on:click|stopPropagation={() => onConnect(d)}
                 >
-                  <Zap /> {busy[d.id] ? '连接中…' : '连接'}
+                  <Zap /> {busy[d.id] ? $t('device.connecting') : $t('device.connect')}
                 </button>
               </span>
             {/if}
@@ -585,24 +621,24 @@
               <button
                 class="btn sm ghost"
                 on:click|stopPropagation={() => openLog(d.id)}
-                use:tip={'在「设置」页查看该会话输出（用于排查问题）'}
+                use:tip={$t('device.logTip')}
               >
-                <ScrollText /> 日志
+                <ScrollText /> {$t('device.log')}
               </button>
             {/if}
             <button
               class="btn sm ghost"
               on:click|stopPropagation={() => togglePanel(d.id)}
-              use:tip={'为该设备单独设置参数（覆盖默认参数）'}
+              use:tip={$t('device.paramsTip')}
             >
-              <SlidersHorizontal /> 参数
+              <SlidersHorizontal /> {$t('device.params')}
             </button>
             <button
               class="btn sm danger"
               on:click|stopPropagation={() => askDelete(d)}
-              use:tip={'删除该设备（连带清除其参数覆盖与覆盖开关）'}
+              use:tip={$t('device.deleteTip')}
             >
-              <Trash2 /> 删除
+              <Trash2 /> {$t('device.delete')}
             </button>
           </div>
         </div>
@@ -611,15 +647,13 @@
           <div class="dev-params">
             <div class="ov-head">
               <span class="lab">
-                <SlidersHorizontal /> 为「{d.alias}」单独设置参数{ovCount(ovById[d.id]) > 0 &&
-                !ovOn(ovById[d.id])
-                  ? ' · 覆盖已禁用（取值已保留）'
+                <SlidersHorizontal /> {$t('device.overrideTitle', { alias: d.alias })}{ovCount(
+                  ovById[d.id],
+                ) > 0 && !ovOn(ovById[d.id])
+                  ? $t('device.overrideDisabled')
                   : ''}
               </span>
-              <label
-                class="switch"
-                use:tip={'启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）'}
-              >
+              <label class="switch" use:tip={$t('device.overrideTip')}>
                 <input
                   type="checkbox"
                   checked={ovOn(ovById[d.id])}
@@ -638,10 +672,8 @@
                 />
               {/each}
               <div class="field">
-                <span class="flabel">更多参数</span>
-                <div class="ov-empty">
-                  完整参数请在「显示源 / 视频 / 音频…」等标签页以默认参数设置；此处覆盖最常用项。
-                </div>
+                <span class="flabel">{$t('device.moreParams')}</span>
+                <div class="ov-empty">{$t('device.moreParamsHint')}</div>
               </div>
             </div>
           </div>
@@ -656,19 +688,28 @@
   <div class="overlay show">
     <div class="modal">
       <div class="ico"><TabletSmartphone /></div>
-      <h2>添加设备</h2>
+      <h2>{$t('device.add.title')}</h2>
       <p>
-        设置别名并选择连接方式。连接标识（serial 或 IP:端口）将作为 scrcpy 的 <code>-s</code> 参数。
+        {$t('device.add.descriptionBefore')}<code>-s</code>{$t('device.add.descriptionAfter')}
       </p>
       <div class="field">
-        <label for="dev-alias">别名</label>
-        <input id="dev-alias" type="text" bind:value={alias} placeholder="例如：我的主力机" />
+        <label for="dev-alias">{$t('device.add.alias')}</label>
+        <input
+          id="dev-alias"
+          type="text"
+          bind:value={alias}
+          placeholder={$t('device.add.aliasPlaceholder')}
+        />
       </div>
       <div class="field">
-        <span class="flabel">连接方式</span>
+        <span class="flabel">{$t('device.add.kind')}</span>
         <div class="seg">
-          <button class:active={kind === 'usb'} on:click={() => (kind = 'usb')}>USB（serial）</button>
-          <button class:active={kind === 'wifi'} on:click={() => (kind = 'wifi')}>无线（IP:端口）</button>
+          <button class:active={kind === 'usb'} on:click={() => (kind = 'usb')}
+            >{$t('device.add.usb')}</button
+          >
+          <button class:active={kind === 'wifi'} on:click={() => (kind = 'wifi')}
+            >{$t('device.add.wifi')}</button
+          >
         </div>
       </div>
       <!-- 两种连接方式同处一格（`.field-swap`）：容器高度取两者中的较高者，切换只改可见性
@@ -676,42 +717,43 @@
            两支都留在 DOM 里：`bind:value` 照常，`submitAdd` 只按当前 kind 取用对应那一支。 -->
       <div class="field-swap">
         <div class="field" class:off={kind !== 'usb'}>
-          <label for="dev-serial">设备 serial</label>
+          <label for="dev-serial">{$t('device.add.serial')}</label>
           <input
             id="dev-serial"
             type="text"
             bind:value={serial}
-            placeholder="08081FDD4006LYE（可留空，稍后自动检测）"
+            placeholder={$t('device.add.serialPlaceholder')}
           />
-          <div class="hint">
-            serial 可留空：设备会先登记，待检测到唯一一台未登记的 USB 设备后自动补全连接标识。
-          </div>
+          <div class="hint">{$t('device.add.serialHint')}</div>
         </div>
         <div class="field" class:off={kind !== 'wifi'}>
-          <label for="dev-ip">IP 地址 : 端口</label>
+          <label for="dev-ip">{$t('device.add.ip')}</label>
           <div class="row">
-            <input id="dev-ip" type="text" bind:value={ip} placeholder="192.168.1.50" />
+            <input
+              id="dev-ip"
+              type="text"
+              bind:value={ip}
+              placeholder={$t('device.add.ipPlaceholder')}
+            />
             <input
               type="number"
               bind:value={port}
               min="1"
               max="65535"
               style="max-width:110px"
-              aria-label="端口"
+              aria-label={$t('device.add.portAria')}
             />
           </div>
-          <div class="hint">
-            需先在设备上开启无线调试（<code>adb tcpip 5555</code>）；端口留默认 5555 即可。
-          </div>
+          <div class="hint">{$t('device.add.wifiHint')}</div>
         </div>
       </div>
       {#if formErr}
-        <div class="hint dl-error">{formErr}</div>
+        <div class="hint dl-error">{errorTextOf(formErr, $t)}</div>
       {/if}
       <div class="actions">
-        <button class="btn ghost" on:click={closeAdd}>取消</button>
+        <button class="btn ghost" on:click={closeAdd}>{$t('device.add.cancel')}</button>
         <button class="btn primary" on:click={submitAdd} disabled={saving || addBlocked}>
-          保存设备
+          {$t('device.add.save')}
         </button>
       </div>
     </div>
@@ -723,17 +765,19 @@
   <div class="overlay show">
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
-      <h2>删除设备？</h2>
+      <h2>{$t('device.delete.title')}</h2>
       <p>
-        将删除「{pendingDelete.alias}」（{pendingDelete.connectionId || '连接标识待检测'}）的登记记录，
-        并<b>一并清除该设备的参数覆盖与覆盖开关</b>。此操作不可撤销。
+        {$t('device.delete.before', {
+          alias: pendingDelete.alias,
+          cid: pendingDelete.connectionId || $t('device.delete.connectionPending'),
+        })}<b>{$t('device.delete.bold')}</b>{$t('device.delete.after')}
       </p>
       <div class="actions">
         <button class="btn ghost" on:click={() => (pendingDelete = null)} disabled={delBusy}>
-          取消
+          {$t('device.delete.cancel')}
         </button>
         <button class="btn danger" on:click={confirmDelete} disabled={delBusy}>
-          <Trash2 /> 删除
+          <Trash2 /> {$t('device.delete.confirm')}
         </button>
       </div>
     </div>

@@ -15,6 +15,7 @@
   // 还会被设置页的日志参数写入，若这里用「只含本卡字段的对象」覆盖整组，会抹掉去抖窗口内
   // 另一页的未落盘改动。
   import { defaults, defaultsErrors, config, scheduleSave } from '../lib/store';
+  import { t } from '../lib/i18n';
   import { ADVANCED_GROUP, CUSTOM_ARGS_CARD, NETWORK_CARD, groupOf, refKey } from '../lib/params';
   import ParamField from './ParamField.svelte';
 
@@ -66,14 +67,14 @@
 
 {#if APPS_GROUP}
   <div class="sec-head">
-    <h2>高级</h2>
-    <p>{APPS_GROUP.subtitle}</p>
+    <h2>{$t('nav.advanced')}</h2>
+    <p>{$t(APPS_GROUP.subtitleKey)}</p>
   </div>
   <div class="grid">
     {#each APPS_GROUP.cards as card}
       {#if !card.showWhen || card.showWhen(appVals)}
         <div class="card" class:col2={card.span2}>
-          <h3>{card.title}</h3>
+          <h3>{$t(card.titleKey)}</h3>
           {#each card.fields as f}
             <ParamField
               field={f}
@@ -87,7 +88,7 @@
     {/each}
 
     <div class="card" class:col2={NETWORK_CARD.span2}>
-      <h3>{NETWORK_CARD.title}</h3>
+      <h3>{$t(NETWORK_CARD.titleKey)}</h3>
       {#each NETWORK_CARD.fields as f}
         <ParamField
           field={f}
@@ -99,7 +100,7 @@
     </div>
 
     <div class="card" class:col2={CUSTOM_ARGS_CARD.span2}>
-      <h3>{CUSTOM_ARGS_CARD.title}</h3>
+      <h3>{$t(CUSTOM_ARGS_CARD.titleKey)}</h3>
       {#each CUSTOM_ARGS_CARD.fields as f}
         <ParamField
           field={f}

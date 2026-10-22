@@ -12,6 +12,7 @@
 use crate::config::AppConfig;
 use crate::scrcpy;
 use crate::shell;
+use crate::ui_message::{codes, UserError};
 use crate::AppState;
 use serde::Serialize;
 use std::fs;
@@ -120,15 +121,18 @@ pub fn set_scrcpy_dir(
     app: AppHandle,
     state: State<'_, AppState>,
     path: Option<String>,
-) -> Result<AppConfig, String> {
+) -> Result<AppConfig, UserError> {
     let install_in_flight = state.install.lock().unwrap().is_some();
     let pending_confirmation = state.pending.lock().unwrap().is_some();
-    ensure_dir_change_allowed(install_in_flight, pending_confirmation)?;
-    let normalized = normalize_custom_dir(path)?;
+    ensure_dir_change_allowed(install_in_flight, pending_confirmation)
+        .map_err(|e| UserError::new(codes::ENV_DIR_LOCKED).with_detail(e))?;
+    let normalized = normalize_custom_dir(path)
+        .map_err(|e| UserError::new(codes::ENV_INVALID_DIR).with_detail(e))?;
     let mut cfg = state.config.lock().unwrap().clone();
     cfg.scrcpy_dir = normalized;
     // 先落盘再改内存：写失败时界面上的目录不会先于磁盘变化。
-    crate::config::save_config_to_disk(&app, &cfg)?;
+    crate::config::save_config_to_disk(&app, &cfg)
+        .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
     *state.config.lock().unwrap() = cfg.clone();
     Ok(cfg)
 }

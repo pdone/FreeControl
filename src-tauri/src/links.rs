@@ -12,6 +12,7 @@
 //! 「更新日志」已由应用内的「检查更新」取代（spec `about-page`），因此这里不再有 `changelog` 键。
 
 use crate::shell;
+use crate::ui_message::{codes, UserError};
 
 /// 「关于」弹窗三颗外链入口的地址表 —— 全仓库唯一来源。
 ///
@@ -59,9 +60,11 @@ pub fn link_url(link: &str) -> Result<&'static str, String> {
 /// 返回的 `Err` 直接用于界面提示：系统没有默认浏览器、调用被拒之类都在这里落成一句话，
 /// 不让「点了没反应」发生。打开动作本身见 `shell`（Windows 上是一次 `ShellExecuteW`）。
 #[tauri::command]
-pub fn open_external_link(link: String) -> Result<(), String> {
-    let url = link_url(&link)?;
-    shell::open_url(url).map_err(|e| format!("打开链接失败：{e}"))
+pub fn open_external_link(link: String) -> Result<(), UserError> {
+    let url = link_url(&link)
+        .map_err(|e| UserError::new(codes::LINK_UNKNOWN).with_detail(e))?;
+    shell::open_url(url)
+        .map_err(|e| UserError::new(codes::LINK_OPEN_FAILED).with_detail(e))
 }
 
 #[cfg(test)]

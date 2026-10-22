@@ -31,9 +31,11 @@
     startAppUpdate,
     EVENT_APP_UPDATE_PROGRESS,
   } from '../lib/api';
-  import type { AppUpdateCheck, AppUpdateProgress } from '../lib/types';
+  import type { AppUpdateCheck, AppUpdateProgress, ChannelView } from '../lib/types';
   import { copyText } from '../lib/clipboard';
-  import { errText } from '../lib/install';
+  import { channelLabel } from '../lib/channel';
+  import { errorTextOf } from '../lib/message';
+  import { t, type MessageKey } from '../lib/i18n';
   import { tip } from '../lib/tooltip';
   import logoMark from '../../assets/icons/desktop/256x256.png';
   import {
@@ -70,16 +72,16 @@
   // ── 复制版本号（spec「版本行的复制入口」）──
   let copiedKey = '';
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
-  let copyErr = '';
+  let copyErr: unknown = null;
 
   async function copyVersion(key: string, text: string): Promise<void> {
     if (!text || text === PLACEHOLDER) return;
-    copyErr = '';
+    copyErr = null;
     try {
       await copyText(text);
     } catch (e) {
       copiedKey = '';
-      copyErr = errText(e);
+      copyErr = e;
       return;
     }
     copiedKey = key;
@@ -98,14 +100,14 @@
   }
 
   // ── 外链：只传语义键，地址在后端 `links.rs`（全仓唯一来源）──
-  let linkErr = '';
+  let linkErr: unknown = null;
 
   async function openLink(link: 'repo' | 'license' | 'website'): Promise<void> {
-    linkErr = '';
+    linkErr = null;
     try {
       await openExternalLink(link);
     } catch (e) {
-      linkErr = errText(e);
+      linkErr = e;
     }
   }
 
@@ -126,24 +128,27 @@
     current: string;
     latest: string;
     percent: number;
-    channel: string;
+    channel: ChannelView | null;
     phase: 'download' | 'verify';
     failure: FailureKind | null;
   }
 
-  const FAILURE_COPY: Record<FailureKind, { title: string; desc: string }> = {
-    check: { title: '没能连上更新服务', desc: '请检查网络连接后再试一次' },
+  const FAILURE_COPY: Record<
+    FailureKind,
+    { title: MessageKey; desc: MessageKey }
+  > = {
+    check: { title: 'about.failure.check.title', desc: 'about.failure.check.desc' },
     download: {
-      title: '更新包没有下载完成',
-      desc: '已尝试直连与代理通道，请稍后重试',
+      title: 'about.failure.download.title',
+      desc: 'about.failure.download.desc',
     },
     noAsset: {
-      title: '暂时没有可用的更新包',
-      desc: '这个版本还没有适合当前系统的安装包，请稍后再试',
+      title: 'about.failure.noAsset.title',
+      desc: 'about.failure.noAsset.desc',
     },
     write: {
-      title: '当前安装位置不可写',
-      desc: '无法自动替换程序文件。请把应用移到可写目录后重试，或手动下载新版本',
+      title: 'about.failure.write.title',
+      desc: 'about.failure.write.desc',
     },
   };
 
@@ -153,7 +158,7 @@
       current,
       latest: '',
       percent: 0,
-      channel: '',
+      channel: null,
       phase: 'download',
       failure: null,
     };
@@ -173,7 +178,7 @@
       current: res.current,
       latest: res.latest,
       percent: 0,
-      channel: '',
+      channel: null,
       phase: 'download',
       failure: null,
     };
@@ -199,8 +204,11 @@
 
   $: currentLabel = update.current || appVer;
   $: latestLabel =
-    update.kind === 'checking' ? '获取中…' : update.latest || PLACEHOLDER;
+    update.kind === 'checking' ? $t('about.update.latestPending') : update.latest || PLACEHOLDER;
   $: failureCopy = update.failure ? FAILURE_COPY[update.failure] : FAILURE_COPY.check;
+  $: channelText = $t('about.update.channel', {
+    channel: update.channel ? channelLabel(update.channel, $t) : $t('about.update.channelConnecting'),
+  });
   $: hasActions =
     update.kind === 'available' ||
     update.kind === 'downloading' ||
@@ -291,7 +299,7 @@
     if (downloading) return;
     downloading = true;
     appUpdateBusy.set(true);
-    await setUpdate({ ...update, kind: 'downloading', percent: 0, channel: '', phase: 'download' });
+    await setUpdate({ ...update, kind: 'downloading', percent: 0, channel: null, phase: 'download' });
     try {
       const outcome = await startAppUpdate();
       downloading = false;
@@ -360,7 +368,7 @@
       update = {
         ...update,
         percent: e.payload.percent,
-        channel: e.payload.channel,
+        channel: e.payload.channelView ?? null,
         phase: e.payload.phase,
       };
     }).then((unlisten) => {
@@ -382,7 +390,11 @@
 
   let primaryLabel = '';
   $: primaryLabel =
-    update.kind === 'ready' ? '立即重启并更新' : update.kind === 'available' ? '立即更新' : '';
+    update.kind === 'ready'
+      ? $t('about.update.restartApply')
+      : update.kind === 'available'
+        ? $t('about.update.apply')
+        : '';
 </script>
 
 <svelte:window on:keydown={onKeydown} />
@@ -394,11 +406,11 @@
     class:update-mode={view === 'update'}
     role="dialog"
     aria-modal="true"
-    aria-label={view === 'about' ? '关于 FreeControl2' : '检查更新'}
+    aria-label={view === 'about' ? $t('about.dialogLabel') : $t('about.updateLabel')}
     bind:this={modalEl}
     transition:scale={scaleParams}
   >
-    <button class="about-close" aria-label="关闭" on:click={close}><X /></button>
+    <button class="about-close" aria-label={$t('about.close')} on:click={close}><X /></button>
 
     <div class="about-logo"><img src={logoMark} alt="FreeControl2" on:error={hideImg} />F</div>
     <div class="about-name">FreeControl2</div>
@@ -415,12 +427,12 @@
             class="about-ver-row"
             role="button"
             tabindex="0"
-            use:tip={appVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
-            aria-label={copiedKey === 'app' ? '已复制应用版本号' : '复制应用版本号'}
+            use:tip={appVer === PLACEHOLDER ? $t('about.versionPending') : $t('about.copyVersion')}
+            aria-label={copiedKey === 'app' ? $t('about.copiedAppVersion') : $t('about.copyAppVersion')}
             on:click={() => copyVersion('app', appVer)}
             on:keydown={(e) => onRowKeydown(e, 'app', appVer)}
           >
-            <span class="about-ver-name">FreeControl2<span class="about-ver-tag">版本</span></span>
+            <span class="about-ver-name">FreeControl2<span class="about-ver-tag">{$t('about.appTag')}</span></span>
             <span class="about-ver-val">{appVer}</span>
             <span class="about-copy" class:ok={copiedKey === 'app'} aria-hidden="true">
               {#if copiedKey === 'app'}<Check />{:else}<Copy />{/if}
@@ -430,12 +442,12 @@
             class="about-ver-row"
             role="button"
             tabindex="0"
-            use:tip={scrcpyVer === PLACEHOLDER ? '版本尚未就绪' : '复制版本号'}
-            aria-label={copiedKey === 'scrcpy' ? '已复制 scrcpy 版本号' : '复制 scrcpy 版本号'}
+            use:tip={scrcpyVer === PLACEHOLDER ? $t('about.versionPending') : $t('about.copyVersion')}
+            aria-label={copiedKey === 'scrcpy' ? $t('about.copiedScrcpyVersion') : $t('about.copyScrcpyVersion')}
             on:click={() => copyVersion('scrcpy', scrcpyVer)}
             on:keydown={(e) => onRowKeydown(e, 'scrcpy', scrcpyVer)}
           >
-            <span class="about-ver-name">scrcpy<span class="about-ver-tag">适配版本</span></span>
+            <span class="about-ver-name">scrcpy<span class="about-ver-tag">{$t('about.scrcpyTag')}</span></span>
             <span class="about-ver-val">{scrcpyVer}</span>
             <span class="about-copy" class:ok={copiedKey === 'scrcpy'} aria-hidden="true">
               {#if copiedKey === 'scrcpy'}<Check />{:else}<Copy />{/if}
@@ -443,25 +455,25 @@
           </div>
         </div>
 
-        <div class="about-chips-title">技术栈</div>
+        <div class="about-chips-title">{$t('about.stack')}</div>
         <div class="chips">
           <span class="chip"><Cpu />Rust + Tauri 2</span>
           <span class="chip"><FileCode />Svelte + Vite + TypeScript</span>
-          <span class="chip"><Shapes />lucide 图标</span>
+          <span class="chip"><Shapes />{$t('about.lucide')}</span>
         </div>
 
         <!-- 三颗外链 + 一颗应用内动作；「更新日志」已由「检查更新」取代。 -->
         <div class="about-links">
-          <button class="btn" on:click={() => openLink('website')}><Globe />官网</button>
+          <button class="btn" on:click={() => openLink('website')}><Globe />{$t('about.website')}</button>
           <button class="btn" on:click={() => openLink('repo')}><Github />GitHub</button>
-          <button class="btn" on:click={openUpdate}><RefreshCw />检查更新</button>
-          <button class="btn" on:click={() => openLink('license')}><Scale />开源许可</button>
+          <button class="btn" on:click={openUpdate}><RefreshCw />{$t('about.updateLabel')}</button>
+          <button class="btn" on:click={() => openLink('license')}><Scale />{$t('about.license')}</button>
         </div>
         {#if linkErr}
-          <div class="hint dl-error">{linkErr}</div>
+          <div class="hint dl-error">{errorTextOf(linkErr, $t)}</div>
         {/if}
         {#if copyErr}
-          <div class="hint dl-error">复制失败：{copyErr}</div>
+          <div class="hint dl-error">{$t('about.copyFailed', { reason: errorTextOf(copyErr, $t) })}</div>
         {/if}
 
         <div class="about-foot">© 2026 pdone</div>
@@ -497,37 +509,39 @@
           </div>
 
           {#if update.kind === 'checking'}
-            <div class="update-title">正在检查更新…</div>
-            <div class="update-desc">正在连接更新服务，请稍候</div>
+            <div class="update-title">{$t('about.update.checkingTitle')}</div>
+            <div class="update-desc">{$t('about.update.checkingDesc')}</div>
           {:else if update.kind === 'upToDate'}
-            <div class="update-title">已是最新版本</div>
-            <div class="update-desc">你正在使用最新版本 {update.current}</div>
+            <div class="update-title">{$t('about.update.upToDateTitle')}</div>
+            <div class="update-desc">{$t('about.update.upToDateDesc', { version: update.current })}</div>
           {:else if update.kind === 'installedNewer'}
-            <div class="update-title">当前版本已高于线上版本</div>
-            <div class="update-desc">你正在使用 {update.current}，线上最新为 {update.latest}</div>
+            <div class="update-title">{$t('about.update.installedNewerTitle')}</div>
+            <div class="update-desc">
+              {$t('about.update.installedNewerDesc', { current: update.current, latest: update.latest })}
+            </div>
           {:else if update.kind === 'available'}
-            <div class="update-title">发现新版本 {update.latest}</div>
-            <div class="update-desc">下载完成后重启应用即可生效</div>
+            <div class="update-title">{$t('about.update.availableTitle', { version: update.latest })}</div>
+            <div class="update-desc">{$t('about.update.availableDesc')}</div>
           {:else if update.kind === 'downloading'}
-            <div class="update-title">正在下载新版本 {update.latest}</div>
-            <div class="update-desc">下载完成后会自动校验文件完整性</div>
+            <div class="update-title">{$t('about.update.downloadingTitle', { version: update.latest })}</div>
+            <div class="update-desc">{$t('about.update.downloadingDesc')}</div>
           {:else if update.kind === 'ready'}
-            <div class="update-title">更新已下载</div>
-            <div class="update-desc">重启应用后即可使用新版本</div>
+            <div class="update-title">{$t('about.update.readyTitle')}</div>
+            <div class="update-desc">{$t('about.update.readyDesc')}</div>
           {:else}
-            <div class="update-title">{failureCopy.title}</div>
-            <div class="update-desc">{failureCopy.desc}</div>
+            <div class="update-title">{$t(failureCopy.title)}</div>
+            <div class="update-desc">{$t(failureCopy.desc)}</div>
           {/if}
 
           <div class="update-versions" class:is-invisible={update.kind === 'failed'}>
-            <div class="update-ver"><span>当前版本</span><b>{currentLabel}</b></div>
-            <div class="update-ver"><span>最新版本</span><b>{latestLabel}</b></div>
+            <div class="update-ver"><span>{$t('about.update.current')}</span><b>{currentLabel}</b></div>
+            <div class="update-ver"><span>{$t('about.update.latest')}</span><b>{latestLabel}</b></div>
           </div>
 
           {#if update.kind === 'downloading'}
             <div class="update-progress">
               <div class="update-progress-head">
-                <span>{update.phase === 'verify' ? '正在校验文件…' : '正在下载新版本…'}</span>
+                <span>{update.phase === 'verify' ? $t('about.update.verifying') : $t('about.update.downloading')}</span>
                 <span>{update.phase === 'verify' ? 100 : update.percent}%</span>
               </div>
               <div class="update-progress-track">
@@ -536,7 +550,7 @@
                   style:width={`${update.phase === 'verify' ? 100 : update.percent}%`}
                 />
               </div>
-              <div class="update-channel">下载通道：{update.channel || '正在连接…'}</div>
+              <div class="update-channel">{channelText}</div>
             </div>
           {/if}
 
@@ -547,19 +561,23 @@
                   {#if update.kind === 'ready'}<RotateCw />{:else}<CloudDownload />{/if}{primaryLabel}
                 </button>
               {:else if update.kind === 'downloading'}
-                <button class="btn" on:click={cancelDownload}>取消下载</button>
+                <button class="btn" on:click={cancelDownload}>{$t('about.update.cancelDownload')}</button>
               {:else if update.kind === 'checking'}
-                <button class="btn" disabled><RefreshCw />重新检查</button>
+                <button class="btn" disabled><RefreshCw />{$t('about.update.recheck')}</button>
               {:else if update.kind === 'upToDate' || update.kind === 'installedNewer'}
-                <button class="btn" on:click={recheck}><RefreshCw />重新检查</button>
+                <button class="btn" on:click={recheck}><RefreshCw />{$t('about.update.recheck')}</button>
               {:else if update.kind === 'failed'}
-                <button class="btn" on:click={retry}><RefreshCw />重试</button>
+                <button class="btn" on:click={retry}><RefreshCw />{$t('about.update.retry')}</button>
               {/if}
             </div>
           {/if}
 
           {#if update.kind === 'ready' && $deviceCounts.connected > 0}
-            <div class="update-hint">重启会断开 {$deviceCounts.connected} 台正在投屏的设备</div>
+            <div class="update-hint">
+              {$deviceCounts.connected === 1
+                ? $t('about.update.restartHint.one')
+                : $t('about.update.restartHint.other', { count: $deviceCounts.connected })}
+            </div>
           {/if}
         </div>
       </div>

@@ -32,6 +32,7 @@ use crate::config::{self, AppConfig, Device};
 use crate::logger;
 use crate::scrcpy;
 use crate::session;
+use crate::ui_message::{codes, UserError};
 use crate::AppState;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -55,13 +56,14 @@ fn mutate_and_persist<F>(
     app: &AppHandle,
     state: &State<'_, AppState>,
     mutate: F,
-) -> Result<AppConfig, String>
+) -> Result<AppConfig, UserError>
 where
-    F: FnOnce(&mut AppConfig) -> Result<(), String>,
+    F: FnOnce(&mut AppConfig) -> Result<(), UserError>,
 {
     let mut candidate = state.config.lock().unwrap().clone();
     mutate(&mut candidate)?;
-    config::save_config_to_disk(app, &candidate)?;
+    config::save_config_to_disk(app, &candidate)
+        .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
     *state.config.lock().unwrap() = candidate.clone();
     Ok(candidate)
 }
@@ -85,10 +87,12 @@ pub fn add_device(
     app: AppHandle,
     state: State<'_, AppState>,
     mut device: Device,
-) -> Result<AppConfig, String> {
+) -> Result<AppConfig, UserError> {
     device.id.clear();
     mutate_and_persist(&app, &state, |cfg| {
-        let id = cfg.upsert_device(device)?;
+        let id = cfg
+            .upsert_device(device)
+            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))?;
         // 用 upsert 分配好的 id 回查：日志里的连接标识与落盘的那一条逐字一致
         // （直接打印入参会在无线设备未填端口时记下一个 `:0` 的假标识）。
         if let Some(d) = cfg.devices.iter().find(|d| d.id == id) {
@@ -104,9 +108,11 @@ pub fn update_device(
     app: AppHandle,
     state: State<'_, AppState>,
     device: Device,
-) -> Result<AppConfig, String> {
+) -> Result<AppConfig, UserError> {
     mutate_and_persist(&app, &state, |cfg| {
-        let id = cfg.upsert_device(device)?;
+        let id = cfg
+            .upsert_device(device)
+            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))?;
         if let Some(d) = cfg.devices.iter().find(|d| d.id == id) {
             log_device("修改", d);
         }
@@ -123,8 +129,9 @@ pub fn delete_device(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
-) -> Result<AppConfig, String> {
-    session::stop_and_forget(&app, &id)?;
+) -> Result<AppConfig, UserError> {
+    session::stop_and_forget(&app, &id)
+        .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;
     let cfg = mutate_and_persist(&app, &state, |cfg| {
         // 先取快照再删：删掉之后配置里已经没有它了，而日志要记的正是刚刚删掉的那一条。
         let snapshot = cfg.devices.iter().find(|d| d.id == id).cloned();
@@ -134,7 +141,7 @@ pub fn delete_device(
             }
             Ok(())
         } else {
-            Err("设备不存在".to_string())
+            Err(UserError::new(codes::DEVICE_NOT_FOUND))
         }
     })?;
     publish_status(&app);
@@ -227,8 +234,8 @@ pub struct DeviceStatusPayload {
     pub stale: bool,
     /// 是否至少成功探测过一次（前端据此区分「检测中」与真正的「离线」）
     pub probed: bool,
-    /// 最近一次探测失败的原因（成功时为 `None`）
-    pub error: Option<String>,
+    /// 最近一次探测失败的原因（成功时为 `None`）；文案由前端按 code 出
+    pub error: Option<UserError>,
     /// 后端当前持有的设备列表（可能含订阅期间补全的 serial；前端据此同步）
     pub devices: Vec<Device>,
 }
@@ -453,12 +460,16 @@ pub fn build_payload(app: &AppHandle) -> DeviceStatusPayload {
     let probe = probe_snapshot(&state);
     let sessions = session::active_ids(&state);
     let statuses = merge_statuses(&devices, probe.devices.as_ref(), &sessions);
+    // 只有「沿用了上次结果」才算待确认；从未探测成功时 probed=false，前端显示「检测中」。
+    let stale = probe.error.is_some() && probe.devices.is_some();
+    let probed = probe.devices.is_some();
     DeviceStatusPayload {
         statuses,
-        // 只有「沿用了上次结果」才算待确认；从未探测成功时 probed=false，前端显示「检测中」。
-        stale: probe.error.is_some() && probe.devices.is_some(),
-        probed: probe.devices.is_some(),
-        error: probe.error,
+        stale,
+        probed,
+        error: probe
+            .error
+            .map(|e| UserError::new(codes::DEVICE_STATUS_PROBE_FAILED).with_detail(e)),
         devices,
     }
 }

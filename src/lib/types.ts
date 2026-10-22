@@ -2,6 +2,22 @@
 
 export type DeviceKind = 'usb' | 'wifi';
 
+/**
+ * 后端上屏消息：稳定 code + 可选参数。
+ * 文案由前端字典按当前语言出；`detail` 只承载技术细节，原样展示。
+ */
+export interface UserMessage {
+  code: string;
+  params?: Record<string, string | number>;
+}
+
+export interface UserError extends UserMessage {
+  detail?: string;
+}
+
+/** 下载通道的展示形状：官方通道没有地址，代理通道带自己的前缀地址。 */
+export type ChannelView = { kind: 'official' } | { kind: 'proxy'; url: string };
+
 export interface Device {
   id: string;
   alias: string;
@@ -40,7 +56,7 @@ export interface DeviceStatusPayload {
   /** 是否至少成功探测过一次（未成功时前端显示「检测中」而不是「离线」） */
   probed: boolean;
   /** 最近一次探测失败的原因（成功时为 null） */
-  error: string | null;
+  error: UserError | null;
   /** 后端当前持有的设备列表（可能含订阅期间补全的 serial） */
   devices: Device[];
 }
@@ -89,7 +105,7 @@ export interface ConnectOutcome {
   deviceId: string;
   alias: string;
   ok: boolean;
-  error: string | null;
+  error: UserError | null;
 }
 
 export interface ConnectResult {
@@ -98,7 +114,7 @@ export interface ConnectResult {
   /** 本次排列发生了槽位复用（空间不足） */
   degraded: boolean;
   /** 面向用户的提示（当前只有排列降级） */
-  warning: string | null;
+  warning: UserMessage | null;
 }
 
 export interface OverrideEntry {
@@ -121,16 +137,25 @@ export interface Logging {
   retention: string;
 }
 
+/** 生效语言：中英两套字典。 */
+export type Lang = 'zh' | 'en';
+
+/** 界面语言偏好：跟随系统或固定一档。 */
+export type LanguagePref = 'system' | Lang;
+
 /**
- * 外观偏好（后端 `config::Ui`）：主题模式与主题色。
+ * 外观偏好（后端 `config::Ui`）：界面语言、主题模式与主题色。
  *
+ * - `language`：`system`（跟随系统，出厂默认）/ `zh` / `en`；
  * - `theme`：`system`（跟随系统，出厂默认）/ `dark` / `light`；
  * - `accent`：`#rrggbb`（小写；预设值与自定义 RGB 归一化后的结果同形）。
  *
- * 后端把未知主题与非法主题色一律退化为出厂默认，因此前端不必为「读到没见过的值」
- * 准备分支。这两个字段**不属于** `defaults.*`（scrcpy 参数），改动不经过参数组。
+ * 后端把未知语言、未知主题与非法主题色一律退化为出厂默认，因此前端不必为
+ * 「读到没见过的值」准备分支。这三个字段**不属于** `defaults.*`（scrcpy 参数），
+ * 改动不经过参数组。
  */
 export interface UiPrefs {
+  language: LanguagePref;
   theme: 'system' | 'dark' | 'light';
   accent: string;
 }
@@ -207,7 +232,7 @@ export interface AppUpdateCheck {
 export interface AppUpdateProgress {
   phase: 'download' | 'verify';
   percent: number;
-  channel: string;
+  channelView: ChannelView | null;
 }
 
 export interface AppUpdateOutcome {
@@ -227,15 +252,24 @@ export type InstallPhase = 'download' | 'verify' | 'extract' | 'replace' | 'done
 export interface InstallProgress {
   phase: InstallPhase;
   percent: number;
-  text: string;
-  /** 已生效（成功）的通道标签；尚未确定时为空串 */
-  channel: string;
   /** 本次尝试的序号（从 1 开始）；0 表示该事件不带尝试信息 */
   attempt: number;
   /** 本次可用通道总数；0 表示该事件不带尝试信息 */
   attemptTotal: number;
-  /** 正在尝试的通道标签；空串表示该事件不带尝试信息 */
-  attemptChannel: string;
+  /** 当前资产文件名 */
+  asset: string | null;
+  /** 已下载 / 已解压的字节数或条目数 */
+  done: number | null;
+  /** 总字节数或总条目数 */
+  total: number | null;
+  /** 安装完成时的版本号 */
+  version: string | null;
+  /** 已生效通道的结构化形状 */
+  channelView: ChannelView | null;
+  /** 正在尝试通道的结构化形状 */
+  attemptChannelView: ChannelView | null;
+  /** 替换阶段是否先结束了 adb 服务端 */
+  replaceStoppingAdb: boolean | null;
 }
 
 /**
@@ -249,12 +283,14 @@ export interface InstallOutcome {
   status: 'done' | 'needsConfirmation' | 'canceled';
   version: string;
   asset: string;
-  /** 本次实际生效的下载通道标签 */
-  channel: string;
   channelUrl: string;
   verified: boolean;
-  unverifiedReason: string | null;
-  note: string | null;
+  /** 已生效通道的结构化形状；取消时为空 */
+  channelView: ChannelView | null;
+  /** 未经官方校验的原因（结构化） */
+  unverifiedReasonMessage: UserError | null;
+  /** 下载目标回退等说明（结构化） */
+  noteMessage: UserMessage | null;
 }
 
 export interface CompatStatus {

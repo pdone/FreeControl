@@ -28,7 +28,8 @@ export async function copyText(text: string): Promise<void> {
   ta.select();
   ta.setSelectionRange(0, ta.value.length);
   try {
-    if (!document.execCommand('copy')) throw new Error('剪贴板不可用，复制被拒绝');
+    // 抛消息对象而不是成品字符串：复制失败提示要随界面语言重译（见 `message.ts`）。
+    if (!document.execCommand('copy')) throw { code: 'clipboard.unavailable' };
   } finally {
     document.body.removeChild(ta);
   }

@@ -9,6 +9,7 @@
 // `:root[data-theme='light']` 那一套），因此换颜色不会漏掉任何一处组件样式。
 // 纯函数（`normalizeHex` / `relativeLuminance` / `inkFor` / `resolveTheme`）与 DOM 解耦，
 // 便于按本仓既有做法用 esbuild 打包后直接核对。
+import type { MessageKey } from './i18n/zh';
 import type { UiPrefs } from './types';
 
 export type ThemeMode = UiPrefs['theme'];
@@ -22,15 +23,15 @@ export type ResolvedTheme = 'dark' | 'light';
  * 「向日葵黄 / 胡萝卜橙」与 `--warn` 的琥珀语义相近，但这是用户明确选定的取值；
  * 警示态仍靠文案与图标区分，不单靠颜色。
  */
-export const ACCENTS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: '#6366f1', label: '靛蓝' },
-  { value: '#1abc9c', label: '绿松石色' },
-  { value: '#2ecc71', label: '翡翠绿' },
-  { value: '#3498db', label: '彼得河蓝' },
-  { value: '#9b59b6', label: '紫水晶色' },
-  { value: '#f1c40f', label: '向日葵黄' },
-  { value: '#e67e22', label: '胡萝卜橙' },
-  { value: '#e74c3c', label: '茜草红' },
+export const ACCENTS: ReadonlyArray<{ value: string; labelKey: MessageKey }> = [
+  { value: '#6366f1', labelKey: 'accent.indigo' },
+  { value: '#1abc9c', labelKey: 'accent.turquoise' },
+  { value: '#2ecc71', labelKey: 'accent.emerald' },
+  { value: '#3498db', labelKey: 'accent.peterRiver' },
+  { value: '#9b59b6', labelKey: 'accent.amethyst' },
+  { value: '#f1c40f', labelKey: 'accent.sunflower' },
+  { value: '#e67e22', labelKey: 'accent.carrot' },
+  { value: '#e74c3c', labelKey: 'accent.madder' },
 ];
 
 export const DEFAULT_THEME: ThemeMode = 'system';

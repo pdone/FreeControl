@@ -42,6 +42,7 @@
 //!   回退到最佳适配版本并在结果里说明）。两者都装入同一个约定目录（目录名按 best-fit 拼），
 //!   因此后者可能装入与最佳适配不一致的版本 —— 由 `scrcpy::get_compat_status` 给出黄色叹号警示。
 
+use crate::ui_message::{codes, ChannelView, UserError, UserMessage};
 use crate::{assets, config, device, logger, scrcpy, session, AppState};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -118,10 +119,21 @@ pub enum Channel {
 
 impl Channel {
     /// 界面展示用标签（design D8「标明当前所用通道」）。
+    ///
+    /// 这是迁移期的兼容字段：新前端改用 [`Channel::view`] 的结构化形状，
+    /// 待前端切换完成后删除 `label` 与进度里的旧字符串字段。
     pub fn label(&self) -> String {
         match self {
             Channel::Official => "GitHub 直连".to_string(),
             Channel::Proxy { url } => format!("代理 {}", url),
+        }
+    }
+
+    /// 与语言无关的展示形状：官方 / 代理 + 代理地址。
+    pub fn view(&self) -> ChannelView {
+        match self {
+            Channel::Official => ChannelView::Official,
+            Channel::Proxy { url } => ChannelView::Proxy { url: url.clone() },
         }
     }
 
@@ -1419,6 +1431,9 @@ fn prioritize(channels: &[Channel], first: Option<&Channel>) -> Vec<Channel> {
 // ── 安装流程 ───────────────────────────────────────────────
 
 /// 进度事件载荷。
+///
+/// 结构化字段（`asset` / `done` / `total` / `version` / `*_view`）是新的界面来源；
+/// `text` 与两个字符串通道字段是迁移期兼容项，待前端接入字典后删除。
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallProgress {
@@ -1426,50 +1441,79 @@ pub struct InstallProgress {
     pub phase: String,
     /// 0–100；服务端未提供长度时保持 0
     pub percent: u8,
-    /// 面向用户的文案（含当前通道）
-    pub text: String,
-    /// **已生效（成功）的通道**标签；尚未确定时为空串
-    pub channel: String,
     /// 本次尝试的序号（从 1 开始）；0 表示该事件不带尝试信息
     pub attempt: u32,
     /// 本次可用通道总数；0 表示该事件不带尝试信息
     pub attempt_total: u32,
-    /// 正在尝试的通道标签；空串表示该事件不带尝试信息
-    pub attempt_channel: String,
+    /// 当前资产文件名（如 `scrcpy-win64-v5.0.1.zip`）
+    pub asset: Option<String>,
+    /// 已下载 / 已解压的字节数或条目数
+    pub done: Option<u64>,
+    /// 总字节数或总条目数；未知时为 None
+    pub total: Option<u64>,
+    /// 安装完成时的版本号
+    pub version: Option<String>,
+    /// 已生效通道的结构化形状
+    pub channel_view: Option<ChannelView>,
+    /// 正在尝试通道的结构化形状
+    pub attempt_channel_view: Option<ChannelView>,
+    /// 替换阶段是否先结束了 adb 服务端（仅 `replace` 阶段有意义）
+    pub replace_stopping_adb: Option<bool>,
 }
 
 impl InstallProgress {
     /// 普通进度事件（不带尝试信息）。
-    fn plain(phase: &str, percent: u8, text: String, channel: &str) -> Self {
+    fn plain(phase: &str, percent: u8, channel: Option<&Channel>) -> Self {
         InstallProgress {
             phase: phase.to_string(),
             percent,
-            text,
-            channel: channel.to_string(),
             attempt: 0,
             attempt_total: 0,
-            attempt_channel: String::new(),
+            asset: None,
+            done: None,
+            total: None,
+            version: None,
+            channel_view: channel.map(Channel::view),
+            attempt_channel_view: None,
+            replace_stopping_adb: None,
         }
+    }
+
+    fn with_asset(mut self, asset: impl Into<String>) -> Self {
+        self.asset = Some(asset.into());
+        self
+    }
+
+    fn with_counts(mut self, done: Option<u64>, total: Option<u64>) -> Self {
+        self.done = done;
+        self.total = total;
+        self
+    }
+
+    fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.version = Some(version.into());
+        self
     }
 
     /// 「正在尝试通道 N/M」事件：在每次尝试**之前**发出（design D3）。
     ///
-    /// `text` 与 `channel` 都留空，且都是有意的：
-    /// - `text` 空 —— 这句话里含「已耗时秒数」，只有前端算得出来；`attempt` 等字段已经
-    ///   把「第几条 / 共几条 / 哪条通道」交代清楚，后端再拼一句就会与前端那句**并排重复**
-    ///   （两者现在渲染在同一行）。
-    /// - `channel` 空 —— 它只承载「已生效」的通道，若拿它承载「正在尝试」，
-    ///   一次失败的尝试就会污染「本次走的是哪条通道」的展示。
+    /// `channel_view` 留空是有意的：它只承载「已生效」的通道；正在尝试的通道放在
+    /// `attempt_channel_view`，一次失败的尝试不会污染「本次走的是哪条通道」的展示。
+    /// 具体的「正在尝试通道 N/M（已 X 秒）」由前端按 attempt 字段拼。
     fn attempt(index: u32, total: u32, channel: &Channel) -> Self {
         InstallProgress {
             phase: "download".to_string(),
             // 换一条通道即从头下起，进度随之复位。
             percent: 0,
-            text: String::new(),
-            channel: String::new(),
             attempt: index,
             attempt_total: total,
-            attempt_channel: channel.label(),
+            asset: None,
+            done: None,
+            total: None,
+            version: None,
+            channel_view: None,
+            attempt_channel_view: Some(channel.view()),
+            replace_stopping_adb: None,
         }
     }
 }
@@ -1489,11 +1533,14 @@ pub struct InstallOutcome {
     pub status: String,
     pub version: String,
     pub asset: String,
-    pub channel: String,
     pub channel_url: String,
     pub verified: bool,
-    pub unverified_reason: Option<String>,
-    pub note: Option<String>,
+    /// 已生效通道的结构化形状；取消时为空
+    pub channel_view: Option<ChannelView>,
+    /// 未经官方校验的原因（结构化）
+    pub unverified_reason_message: Option<UserError>,
+    /// 下载目标回退等说明（结构化）
+    pub note_message: Option<UserMessage>,
 }
 
 impl InstallOutcome {
@@ -1503,13 +1550,30 @@ impl InstallOutcome {
             status: "canceled".to_string(),
             version: String::new(),
             asset: String::new(),
-            channel: String::new(),
             channel_url: String::new(),
             verified: false,
-            unverified_reason: None,
-            note: None,
+            channel_view: None,
+            unverified_reason_message: None,
+            note_message: None,
         }
     }
+}
+
+/// 通道的日志标签：日志仍是开发者可读的中文，界面文案由前端字典出。
+fn channel_log_label(view: &Option<ChannelView>) -> String {
+    match view {
+        Some(ChannelView::Official) => "GitHub 直连".to_string(),
+        Some(ChannelView::Proxy { url }) => format!("代理 {url}"),
+        None => String::new(),
+    }
+}
+
+/// 下载目标回退说明的结构化版本：`note` 原文只进日志，界面按 code 重新出文案。
+fn note_message(note: &Option<String>, version: &str) -> Option<UserMessage> {
+    note.as_ref().map(|_| {
+        UserMessage::new(codes::INSTALL_FALLBACK_TO_BEST_FIT)
+            .with_params(serde_json::json!({ "version": version }))
+    })
 }
 
 /// 等待用户确认「未经校验继续安装」的中间态（保留已下载文件，避免重复下载）。
@@ -1529,11 +1593,14 @@ impl PendingInstall {
             status: "needsConfirmation".to_string(),
             version: self.target.version.clone(),
             asset: self.target.asset.clone(),
-            channel: self.channel.label(),
             channel_url: self.channel_url.clone(),
             verified: false,
-            unverified_reason: Some(self.unverified_reason.clone()),
-            note: self.target.note.clone(),
+            channel_view: Some(self.channel.view()),
+            unverified_reason_message: Some(
+                UserError::new(codes::INSTALL_UNVERIFIED)
+                    .with_detail(self.unverified_reason.clone()),
+            ),
+            note_message: note_message(&self.target.note, &self.target.version),
         }
     }
 }
@@ -1548,21 +1615,19 @@ impl PendingInstall {
 /// 保留它的理由变成另一件事：解压与原子替换是同步 FS + `zip` 解码，会把 tokio 的工作
 /// 线程堵住较长时间 —— 那正是阻塞线程池该承担的活。阻塞任务内的 panic 会以 `Err` 回传
 /// （而不是把进程带走），错误信息里带上原因。
-pub(crate) async fn run_blocking<T, F>(task: F) -> Result<T, String>
+pub(crate) async fn run_blocking<T, E, F>(task: F) -> Result<T, E>
 where
     T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
+    E: From<String> + Send + 'static,
+    F: FnOnce() -> Result<T, E> + Send + 'static,
 {
     tauri::async_runtime::spawn_blocking(task)
         .await
-        .map_err(|e| format!("后台任务执行失败：{}", e))?
+        .map_err(|e| E::from(format!("后台任务执行失败：{}", e)))?
 }
 
-fn emit_progress(app: &AppHandle, phase: &str, percent: u8, text: String, channel: &str) {
-    let _ = app.emit(
-        PROGRESS_EVENT,
-        InstallProgress::plain(phase, percent, text, channel),
-    );
+fn emit_progress(app: &AppHandle, progress: InstallProgress) {
+    let _ = app.emit(PROGRESS_EVENT, progress);
 }
 
 /// 每条通道尝试**之前**发出的事件（design D3）：界面据此显示
@@ -1659,10 +1724,7 @@ async fn download_and_verify(
 
     emit_progress(
         app,
-        "download",
-        0,
-        format!("正在准备 {}…", target.asset),
-        "",
+        InstallProgress::plain("download", 0, None).with_asset(target.asset.clone()),
     );
 
     // ① 下载：GitHub 直连 → 配置里的代理地址依次降级；已确认可用的通道已排到最前（E1）。
@@ -1672,9 +1734,9 @@ async fn download_and_verify(
         |index, total, channel| emit_attempt(app, index, total, channel),
         |channel| {
             let url = channel.url_for(&target.url);
-            // 标签在 async 块**外面**算好：块内若借用闭包的 `&Channel` 参数，
+            // 通道在 async 块**外面**克隆好：块内若借用闭包的 `&Channel` 参数，
             // 返回的 future 就会带上「本次调用」的生命周期，不再是同一个类型。
-            let label = channel.label();
+            let channel_progress = channel.clone();
             // 同样在块外取好引用：`async move` 会把捕获项整体移入，而 `FnMut` 闭包
             // 不允许移出非 Copy 的捕获项（`Client` / `PathBuf` / `Arc` 都不是 Copy）。
             let client = &client;
@@ -1693,24 +1755,15 @@ async fn download_and_verify(
                         return;
                     }
                     last_percent = percent;
-                    let text = match total {
-                        // 文案里**不带百分比**：`percent` 由同一行的百分格单独展示，
-                        // 两处都写会在同一行重复（design D8 的「不重复」原则，
-                        // 也是让文案 + 通道 + 百分比能放进一行所必需的）。
-                        Some(t) if t > 0 => format!(
-                            "正在下载 {}（{} / {}）…",
-                            target.asset,
-                            humansize(done),
-                            humansize(t)
-                        ),
-                        _ => format!("正在下载 {}（已下载 {}）…", target.asset, humansize(done)),
-                    };
                     emit_progress(
                         app,
-                        "download",
-                        if percent < 0 { 0 } else { percent as u8 },
-                        text,
-                        &label,
+                        InstallProgress::plain(
+                            "download",
+                            if percent < 0 { 0 } else { percent as u8 },
+                            Some(&channel_progress),
+                        )
+                        .with_asset(target.asset.clone())
+                        .with_counts(Some(done), total),
                     );
                 })
                 .await
@@ -1725,10 +1778,8 @@ async fn download_and_verify(
     let channel_url = channel.url_for(&target.url);
     emit_progress(
         app,
-        "verify",
-        100,
-        format!("正在校验 {} 的 SHA-256…", target.asset),
-        &channel.label(),
+        InstallProgress::plain("verify", 100, Some(&channel))
+            .with_asset(target.asset.clone()),
     );
     let sums = match race_cancel(
         &ctl,
@@ -1845,20 +1896,25 @@ fn apply_pending(app: &AppHandle, pending: PendingInstall) -> Result<(), String>
     );
 
     let raw = staging.join("raw");
-    emit_progress(app, "extract", 0, format!("正在解压 {}…", target.asset), &label);
+    emit_progress(
+        app,
+        InstallProgress::plain("extract", 0, Some(&channel))
+            .with_asset(target.asset.clone()),
+    );
     let app_progress = app.clone();
-    let label_progress = label.clone();
+    let channel_progress = channel.clone();
     // 解压方式随平台（zip / tar.gz）；tar.gz 的总条目数不可知，文案与百分比都退让一档。
     extract_archive(&archive, scrcpy::current()?, &raw, |done, total| {
         let percent = match total {
             Some(t) if t > 0 => (done * 100) / t,
             _ => 0,
         };
-        let text = match total {
-            Some(t) => format!("正在解压 {}（{} / {} 项）…", target.asset, done, t),
-            None => format!("正在解压 {}（已解压 {} 项）…", target.asset, done),
-        };
-        emit_progress(&app_progress, "extract", percent as u8, text, &label_progress);
+        emit_progress(
+            &app_progress,
+            InstallProgress::plain("extract", percent as u8, Some(&channel_progress))
+                .with_asset(target.asset.clone())
+                .with_counts(Some(done as u64), total.map(|t| t as u64)),
+        );
     })?;
 
     let payload = find_payload_root(&raw).ok_or_else(|| {
@@ -1879,25 +1935,17 @@ fn apply_pending(app: &AppHandle, pending: PendingInstall) -> Result<(), String>
         ));
     }
 
-    emit_progress(
-        app,
-        "replace",
-        100,
-        if had_occupier {
-            "正在结束 adb 服务端并替换运行环境目录…".to_string()
-        } else {
-            "正在替换运行环境目录…".to_string()
-        },
-        &label,
-    );
+    let mut replace_progress =
+        InstallProgress::plain("replace", 100, Some(&channel)).with_asset(target.asset.clone());
+    replace_progress.replace_stopping_adb = Some(had_occupier);
+    emit_progress(app, replace_progress);
     replace_dir(&payload, &target_dir)?;
 
     emit_progress(
         app,
-        "done",
-        100,
-        format!("已安装 scrcpy v{}", target.version),
-        &label,
+        InstallProgress::plain("done", 100, Some(&channel))
+            .with_asset(target.asset.clone())
+            .with_version(target.version.clone()),
     );
     Ok(())
 }
@@ -1918,19 +1966,23 @@ fn finish_install_blocking(
     app: &AppHandle,
     pending: PendingInstall,
 ) -> Result<InstallOutcome, String> {
+    let verified = pending.unverified_reason.is_empty();
     let outcome = InstallOutcome {
         status: "done".to_string(),
         version: pending.target.version.clone(),
         asset: pending.target.asset.clone(),
-        channel: pending.channel.label(),
         channel_url: pending.channel_url.clone(),
-        verified: pending.unverified_reason.is_empty(),
-        unverified_reason: if pending.unverified_reason.is_empty() {
+        verified,
+        channel_view: Some(pending.channel.view()),
+        unverified_reason_message: if verified {
             None
         } else {
-            Some(pending.unverified_reason.clone())
+            Some(
+                UserError::new(codes::INSTALL_UNVERIFIED)
+                    .with_detail(pending.unverified_reason.clone()),
+            )
         },
-        note: pending.target.note.clone(),
+        note_message: note_message(&pending.target.note, &pending.target.version),
     };
     apply_pending(app, pending)?;
     // 一次下载成功完成 ⇒ 清空通道记忆：下一次获取重新从官方通道开始尝试（design D7）。
@@ -2010,21 +2062,22 @@ pub fn get_proxy_list(state: State<'_, AppState>) -> ProxyList {
 ///
 /// 抽成「只动配置、不落盘」的纯函数，是为了让「列表内一律可删、没有只读项」这条规则
 /// 能被单测直接覆盖 —— 命令层只负责落盘与回传列表。
-fn push_proxy(cfg: &mut config::AppConfig, raw: &str) -> Result<(), String> {
-    let normalized = validate_proxy_address(raw)?;
+fn push_proxy(cfg: &mut config::AppConfig, raw: &str) -> Result<(), UserError> {
+    let normalized = validate_proxy_address(raw)
+        .map_err(|e| UserError::new(codes::PROXY_INVALID).with_detail(e))?;
     if cfg.channels.proxies.iter().any(|c| c == &normalized) {
-        return Err("该地址已在列表中".to_string());
+        return Err(UserError::new(codes::PROXY_DUPLICATE));
     }
     cfg.channels.proxies.push(normalized);
     Ok(())
 }
 
 /// 删除一条代理地址：**列表内一律可删**，包括出厂默认的那两条（design D9）。
-fn remove_proxy(cfg: &mut config::AppConfig, url: &str) -> Result<(), String> {
+fn remove_proxy(cfg: &mut config::AppConfig, url: &str) -> Result<(), UserError> {
     let before = cfg.channels.proxies.len();
     cfg.channels.proxies.retain(|c| c != url);
     if cfg.channels.proxies.len() == before {
-        return Err("该地址不在列表中".to_string());
+        return Err(UserError::new(codes::PROXY_NOT_FOUND));
     }
     Ok(())
 }
@@ -2036,13 +2089,14 @@ pub fn add_proxy_address(
     app: AppHandle,
     state: State<'_, AppState>,
     url: String,
-) -> Result<ProxyList, String> {
+) -> Result<ProxyList, UserError> {
     {
         let mut cfg = state.config.lock().unwrap();
         push_proxy(&mut cfg, &url)?;
         let snapshot = cfg.clone();
         drop(cfg);
-        config::save_config_to_disk(&app, &snapshot)?;
+        config::save_config_to_disk(&app, &snapshot)
+            .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
     }
     // 只改一处配置即可生效：通道列表每次下载时按配置现算。
     Ok(proxy_list(&state))
@@ -2054,24 +2108,29 @@ pub fn remove_proxy_address(
     app: AppHandle,
     state: State<'_, AppState>,
     url: String,
-) -> Result<ProxyList, String> {
+) -> Result<ProxyList, UserError> {
     {
         let mut cfg = state.config.lock().unwrap();
         remove_proxy(&mut cfg, &url)?;
         let snapshot = cfg.clone();
         drop(cfg);
-        config::save_config_to_disk(&app, &snapshot)?;
+        config::save_config_to_disk(&app, &snapshot)
+            .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
     }
     Ok(proxy_list(&state))
 }
 
 /// 检查更新（tasks 4.9）：查询官方最新发布版本并与已安装版本比较。
 #[tauri::command]
-pub async fn check_update(app: AppHandle, state: State<'_, AppState>) -> Result<UpdateInfo, String> {
+pub async fn check_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<UpdateInfo, UserError> {
     // 配置读取很快；网络请求是 async（design D1），不再需要阻塞线程池。
     let proxies = proxy_addresses(&state);
     let channels = resolve_channels(&proxies);
-    let client = http_client()?;
+    let client = http_client()
+        .map_err(|e| UserError::new(codes::UPDATE_CHECK_FAILED).with_detail(e))?;
     let state_ref = app.state::<AppState>();
     // 「检查更新」不是下载流程：**不发**尝试事件 —— 否则会在运行环境卡片上凭空拉起一条
     // 下载进度条（前端按 `installText` 非空展示该区块），且检查结束后无人清理它。
@@ -2088,13 +2147,19 @@ pub async fn check_update(app: AppHandle, state: State<'_, AppState>) -> Result<
     )
     .await
     // 这条路径没有人工干预入口，`Canceled` 不会出现；真出现也只是把它当一条中止原因。
-    .map_err(|abort| match abort {
-        InstallAbort::AllFailed(reason) => reason,
-        InstallAbort::Canceled => "已取消".to_string(),
+    .map_err(|abort| {
+        let reason = match abort {
+            InstallAbort::AllFailed(reason) => reason,
+            InstallAbort::Canceled => "已取消".to_string(),
+        };
+        UserError::new(codes::UPDATE_CHECK_FAILED).with_detail(reason)
     })?;
-    let latest = parse_latest_release(&body)?.version;
+    let latest = parse_latest_release(&body)
+        .map_err(|e| UserError::new(codes::UPDATE_CHECK_FAILED).with_detail(e))?
+        .version;
 
-    let dir = scrcpy::scrcpy_dir(&app)?;
+    let dir = scrcpy::scrcpy_dir(&app)
+        .map_err(|e| UserError::new(codes::UPDATE_CHECK_FAILED).with_detail(e))?;
     let installed = scrcpy::detect_installed_version(&dir);
     let (state_key, installed_text) = classify_update(installed.as_deref(), &latest);
 
@@ -2119,16 +2184,19 @@ pub async fn check_update(app: AppHandle, state: State<'_, AppState>) -> Result<
 pub async fn start_scrcpy_install(
     app: AppHandle,
     mode: Option<String>,
-) -> Result<InstallOutcome, String> {
+) -> Result<InstallOutcome, UserError> {
     let latest = mode.as_deref().unwrap_or("bestFit") == "latest";
     let state = app.state::<AppState>();
-    let target_dir = scrcpy::scrcpy_dir(&app)?;
+    let target_dir = scrcpy::scrcpy_dir(&app)
+        .map_err(|e| UserError::new(codes::INSTALL_FAILED).with_detail(e))?;
     // 自定义目录的安装闸门：在下载前就失败，避免白下一次、也避免下载完成后才拒绝。
-    enforce_install_gate(&target_dir, scrcpy::custom_dir(&app).is_some())?;
+    enforce_install_gate(&target_dir, scrcpy::custom_dir(&app).is_some())
+        .map_err(|e| UserError::new(codes::INSTALL_FAILED).with_detail(e))?;
     // ① 这里只确认没有本应用会话在运行（design D1）：有会话时替换会掐断它，必须先断开。
     //    目录被 adb 服务端占用**不在此拦截** —— 它由本应用的探测拉起，用户没有可断的东西；
     //    替换前会自动结束它（见 `prepare_replace`），此处只把这件事记进日志。
-    ensure_sessions_stopped(&session::active_ids(&state))?;
+    ensure_sessions_stopped(&session::active_ids(&state))
+        .map_err(|e| UserError::new(codes::INSTALL_FAILED).with_detail(e))?;
     if occupied_file(&target_dir).is_some() {
         logger::info(
             "env",
@@ -2155,7 +2223,7 @@ pub async fn start_scrcpy_install(
                     format!(
                         "运行环境安装完成：v{}（通道 {}，{}）",
                         outcome.version,
-                        outcome.channel,
+                        channel_log_label(&outcome.channel_view),
                         if outcome.verified {
                             "已通过官方校验"
                         } else {
@@ -2173,7 +2241,7 @@ pub async fn start_scrcpy_install(
         }
         Err(InstallError::Failed(reason)) => {
             logger::error("env", format!("运行环境获取失败：{reason}"));
-            Err(reason)
+            Err(UserError::new(codes::INSTALL_FAILED).with_detail(reason))
         }
     }
 }
@@ -2183,21 +2251,23 @@ pub async fn start_scrcpy_install(
 /// 只在「当前没有进行中的获取」时报错 —— 按钮只在进行中出现，出现这个错误说明界面状态
 /// 已经过期；提示一句比静默无反应更容易排查。
 #[tauri::command]
-pub fn switch_scrcpy_channel(state: State<'_, AppState>) -> Result<(), String> {
+pub fn switch_scrcpy_channel(state: State<'_, AppState>) -> Result<(), UserError> {
     match install_ctl(&state) {
         Some(ctl) => {
             logger::info("env", "用户请求切换下载通道");
             ctl.request_skip();
             Ok(())
         }
-        None => Err("当前没有进行中的下载，无法切换通道".to_string()),
+        None => Err(UserError::new(codes::INSTALL_NO_INSTALL)),
     }
 }
 
 /// 用户确认「未经校验继续安装」后继续（tasks 4.5）：复用已下载文件，不重复下载。
 #[tauri::command]
-pub async fn confirm_scrcpy_install(app: AppHandle) -> Result<InstallOutcome, String> {
-    run_blocking(move || confirm_install_blocking(&app)).await
+pub async fn confirm_scrcpy_install(app: AppHandle) -> Result<InstallOutcome, UserError> {
+    run_blocking(move || confirm_install_blocking(&app))
+        .await
+        .map_err(|e| UserError::new(codes::INSTALL_CONFIRM_FAILED).with_detail(e))
 }
 
 fn confirm_install_blocking(app: &AppHandle) -> Result<InstallOutcome, String> {
@@ -2243,20 +2313,6 @@ pub fn cancel_scrcpy_install(state: State<'_, AppState>) -> Result<(), String> {
     }
     discard_pending(&state);
     Ok(())
-}
-
-// ── 人类可读体积（进度文案用） ─────────────────────────────
-
-fn humansize(bytes: u64) -> String {
-    const UNIT: f64 = 1024.0;
-    let b = bytes as f64;
-    if b < UNIT {
-        return format!("{} B", bytes);
-    }
-    if b < UNIT * UNIT {
-        return format!("{:.1} KB", b / UNIT);
-    }
-    format!("{:.1} MB", b / (UNIT * UNIT))
 }
 
 #[cfg(test)]
@@ -2599,13 +2655,16 @@ mod tests {
     fn canceled_outcome_is_a_status_not_an_error() {
         let outcome = InstallOutcome::canceled();
         assert_eq!(outcome.status, "canceled");
-        assert!(outcome.version.is_empty() && outcome.channel.is_empty());
-        assert!(outcome.note.is_none() && outcome.unverified_reason.is_none());
+        assert!(outcome.version.is_empty());
+        assert!(outcome.channel_view.is_none());
+        assert!(outcome.note_message.is_none());
+        assert!(outcome.unverified_reason_message.is_none());
 
         // 前端按 camelCase 取 `status`；字段名即契约。
         let json = serde_json::to_value(&outcome).unwrap();
         assert_eq!(json["status"], "canceled");
         assert_eq!(json["channelUrl"], "");
+        assert!(json["channelView"].is_null());
     }
 
     #[test]
@@ -3619,26 +3678,34 @@ mod tests {
         );
         assert_eq!((progress.attempt, progress.attempt_total), (2, 3));
         assert_eq!(progress.phase, "download");
-        assert_eq!(progress.attempt_channel, "代理 https://gh-proxy.org");
-        assert!(
-            progress.channel.is_empty(),
-            "尚未生效的通道不得写进 channel —— 它表示的是「已生效的通道」"
+        assert_eq!(
+            progress.attempt_channel_view,
+            Some(ChannelView::Proxy {
+                url: "https://gh-proxy.org".to_string()
+            })
         );
         assert!(
-            progress.text.is_empty(),
-            "尝试事件不带文案：这句话（含已耗时秒数）由前端拼，后端再拼一遍就会与它并排重复"
+            progress.channel_view.is_none(),
+            "尚未生效的通道不得写进 channel_view —— 它表示的是「已生效的通道」"
         );
 
-        let plain = InstallProgress::plain("extract", 50, "正在解压".to_string(), "GitHub 直连");
+        let plain = InstallProgress::plain("extract", 50, Some(&Channel::Official))
+            .with_asset("scrcpy-win64-v5.0.1.zip")
+            .with_counts(Some(3), Some(10));
         assert_eq!((plain.attempt, plain.attempt_total), (0, 0));
-        assert!(plain.attempt_channel.is_empty(), "普通进度事件不带尝试信息");
+        assert!(plain.attempt_channel_view.is_none(), "普通进度事件不带尝试信息");
+        assert_eq!(plain.channel_view, Some(ChannelView::Official));
+        assert_eq!(plain.asset.as_deref(), Some("scrcpy-win64-v5.0.1.zip"));
+        assert_eq!((plain.done, plain.total), (Some(3), Some(10)));
 
         // 前端按 camelCase 取值，字段名即契约。
         let json = serde_json::to_value(&progress).unwrap();
         assert_eq!(json["attempt"], 2);
         assert_eq!(json["attemptTotal"], 3);
-        assert_eq!(json["attemptChannel"], progress.attempt_channel);
-        assert_eq!(json["channel"], "");
+        assert_eq!(json["attemptChannelView"]["kind"], "proxy");
+        assert_eq!(json["attemptChannelView"]["url"], "https://gh-proxy.org");
+        assert!(json["channelView"].is_null());
+        assert!(json.get("text").is_none());
     }
 
     #[test]
@@ -3986,7 +4053,7 @@ mod tests {
 
         // 阻塞工作（解压 / 替换）仍走阻塞线程池，返回值原样带回。
         let on_blocking = tauri::async_runtime::block_on(async {
-            run_blocking(|| {
+            run_blocking(|| -> Result<u8, String> {
                 let client = http_client()?;
                 drop(client);
                 Ok(7u8)

@@ -21,7 +21,9 @@
   } from '../lib/store';
   import { buildCommandParts, commandText } from '../lib/command';
   import { copyText } from '../lib/clipboard';
-  import { errText } from '../lib/install';
+  import { t, type MessageKey } from '../lib/i18n';
+  import { errorTextOf } from '../lib/message';
+  import { validationText } from '../lib/paramText';
   import { tip } from '../lib/tooltip';
   import type { DeviceStatusView } from '../lib/types';
 
@@ -30,8 +32,8 @@
 
   /** 命令条上的会话入口：在途标志（连接与断开共用一个）。 */
   let busy = false;
-  /** 会话操作失败的信息（短语 + 详情）—— 命令条自持：`sessionNotice` 只在设备页渲染，停在其他页面时看不到。 */
-  let actionFail: { label: string; detail: string } | null = null;
+  /** 会话操作失败的信息（短语键 + 详情）—— 命令条自持：`sessionNotice` 只在设备页渲染，停在其他页面时看不到。 */
+  let actionFail: { labelKey: MessageKey; error: unknown } | null = null;
 
   // 只有「选中 + 连接标识已知」时才展示命令：标识待检测时命令是不完整的，
   // 与其展示一条残缺命令，不如继续给占位提示（tasks 8.3）。
@@ -41,6 +43,7 @@
       ? buildCommandParts(dev.connectionId, $effectiveParams, $effectiveErrors)
       : null;
   $: errors = Object.values($effectiveErrors);
+  $: errorTexts = errors.map((e) => validationText(e, $t));
 
   // 命令预览的横向滑动（design D2）：可滚时把滚轮位移转成 scrollLeft，
   // 不可滚时完全放行 —— 命令条不在内容滚动容器内，放行也不会带来页面滚动。
@@ -64,22 +67,32 @@
   $: isConnectable = !!dev && canConnect(dev, connStatus);
   // 可点：未在途，且处于「断开」态或可连接的「连接」态（与设备卡片一样「没有可做的事就置灰」）。
   $: entryEnabled = !!dev && !busy && (isConnected || isConnectable);
-  $: entryLabel = dev ? `${isConnected ? '断开' : '连接'}设备 ${dev.alias}` : '会话入口';
+  $: blocked = dev ? connectBlockedReason(dev, connStatus) : '';
+  $: entryLabel = dev
+    ? $t(
+        isConnected
+          ? 'launchbar.entryLabel.disconnect'
+          : 'launchbar.entryLabel.connect',
+        { alias: dev.alias },
+      )
+    : $t('launchbar.entryLabel.none');
   $: entryTitle = !dev
-    ? '请先选择一台设备'
+    ? $t('launchbar.entryTitle.noDevice')
     : busy
-      ? '正在处理…'
+      ? $t('launchbar.entryTitle.busy')
       : isConnected
-        ? '断开该设备的会话'
+        ? $t('launchbar.entryTitle.disconnect')
         : isConnectable
-          ? '连接该设备'
-          : connectBlockedReason(dev, connStatus) || '当前无法连接该设备';
+          ? $t('launchbar.entryTitle.connect')
+          : blocked
+            ? $t(blocked)
+            : $t('launchbar.entryTitle.blocked');
 
   /** 复制成功反馈的显示时长（与原型一致：按钮短暂变为对勾）。 */
   const COPIED_MS = 1400;
   let copied = false;
   let copyTimer: ReturnType<typeof setTimeout> | null = null;
-  let copyErr = '';
+  let copyErr: unknown = null;
 
   /**
    * 一键复制（tasks 8.4）。
@@ -94,12 +107,12 @@
   async function copyCommand(): Promise<void> {
     const p = parts;
     if (!p) return;
-    copyErr = '';
+    copyErr = null;
     try {
       await copyText(commandText(p));
     } catch (e) {
       copied = false;
-      copyErr = e instanceof Error ? e.message : String(e);
+      copyErr = e;
       return;
     }
     copied = true;
@@ -128,7 +141,10 @@
     try {
       await (disconnect ? disconnectDevice(d.id) : connectDevice(d.id));
     } catch (e) {
-      actionFail = { label: disconnect ? '断开失败' : '连接失败', detail: errText(e) };
+      actionFail = {
+        labelKey: disconnect ? 'launchbar.disconnectFailed' : 'launchbar.connectFailed',
+        error: e,
+      };
     } finally {
       busy = false;
     }
@@ -151,38 +167,40 @@
       {#each parts.args as a}<b>{a}</b>{' '}{/each}
     </div>
   {:else if dev}
-    <div class="cmd-preview">
-      该设备的连接标识尚未确定（USB serial 待检测），暂无法拼装命令
-    </div>
+    <div class="cmd-preview">{$t('launchbar.noCommand')}</div>
   {:else}
-    <div class="cmd-preview">选择一台设备查看命令</div>
+    <div class="cmd-preview">{$t('launchbar.pickDevice')}</div>
   {/if}
   {#if errors.length > 0}
-    <span class="lb-warn" use:tip={errors.join('\n')}>
-      <AlertTriangle /> {errors.length} 项参数非法，已不参与拼装
+    <span class="lb-warn" use:tip={errorTexts.join('\n')}>
+      <AlertTriangle /> {$t('launchbar.invalidCount', { count: errors.length })}
     </span>
   {/if}
   {#if copyErr}
-    <span class="lb-warn" use:tip={copyErr}><AlertTriangle /> 复制失败</span>
+    <span class="lb-warn" use:tip={errorTextOf(copyErr, $t)}
+      ><AlertTriangle /> {$t('launchbar.copyFailed')}</span
+    >
   {/if}
   {#if actionFail}
-    <span class="lb-warn" use:tip={actionFail.detail}><AlertTriangle /> {actionFail.label}</span>
+    <span class="lb-warn" use:tip={errorTextOf(actionFail.error, $t)}
+      ><AlertTriangle /> {$t(actionFail.labelKey)}</span
+    >
   {/if}
   <!-- 两枚按钮都会条件禁用，而 `disabled` 元素不派发指针事件：故提示的接线挂在外层承载元素上
        （见 app.css 的 `.tip-host`），由它代表内部那枚按钮。 -->
   <span
     class="tip-host"
     use:tip={!parts
-      ? '尚未生成命令，无可复制内容'
+      ? $t('launchbar.copyTip.empty')
       : copied
-        ? '已复制到剪贴板'
-        : '复制命令（纯文本）'}
+        ? $t('launchbar.copyTip.copied')
+        : $t('launchbar.copyTip.copy')}
   >
     <button
       class="copy-btn"
       class:ok={copied}
       disabled={!parts}
-      aria-label={copied ? '已复制命令' : '复制命令'}
+      aria-label={copied ? $t('launchbar.copyAria.copied') : $t('launchbar.copyAria.copy')}
       on:click={copyCommand}
     >
       {#if copied}<Check />{:else}<Copy />{/if}

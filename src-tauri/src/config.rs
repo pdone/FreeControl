@@ -220,11 +220,20 @@ pub const DEFAULT_THEME: &str = THEME_SYSTEM;
 /// 出厂默认主题色：产品默认 indigo（与 `app.css` 的 `--accent` 同一份取值）。
 pub const DEFAULT_ACCENT: &str = "#6366f1";
 
-/// 外观设置（`ui` 段）：主题模式与主题色。
+/// 界面语言取值（自描述字符串，不用数字档位）。
+pub const LANGUAGE_SYSTEM: &str = "system";
+pub const LANGUAGE_ZH: &str = "zh";
+pub const LANGUAGE_EN: &str = "en";
+
+/// 出厂默认界面语言：跟随系统。
+pub const DEFAULT_LANGUAGE: &str = LANGUAGE_SYSTEM;
+
+/// 外观设置（`ui` 段）：界面语言、主题模式与主题色。
 ///
-/// 两者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
+/// 三者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
 /// 取值模型与生效方式归前端所有（与 8 组默认参数的分工一致）。
 ///
+/// - `language`：`system` / `zh` / `en`；
 /// - `theme`：`system` / `dark` / `light`；
 /// - `accent`：`#RRGGBB`（前端把自定义 RGB 归一化成这一形状后再存，大小写不敏感）。
 ///
@@ -233,12 +242,19 @@ pub const DEFAULT_ACCENT: &str = "#6366f1";
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Ui {
+    /// "system" | "zh" | "en"
+    #[serde(default = "default_language")]
+    pub language: String,
     /// "system" | "dark" | "light"
     #[serde(default = "default_theme")]
     pub theme: String,
     /// 主题色，形如 "#6366f1"
     #[serde(default = "default_accent")]
     pub accent: String,
+}
+
+fn default_language() -> String {
+    DEFAULT_LANGUAGE.to_string()
 }
 
 fn default_theme() -> String {
@@ -252,6 +268,7 @@ fn default_accent() -> String {
 impl Default for Ui {
     fn default() -> Self {
         Ui {
+            language: default_language(),
             theme: default_theme(),
             accent: default_accent(),
         }
@@ -259,9 +276,15 @@ impl Default for Ui {
 }
 
 impl Ui {
-    /// 加载时归一化：未知主题退 `system`，非法主题色退默认；
+    /// 加载时归一化：未知语言退 `system`、未知主题退 `system`、非法主题色退默认；
     /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」。
     pub fn normalize(&mut self) {
+        if !matches!(
+            self.language.as_str(),
+            LANGUAGE_SYSTEM | LANGUAGE_ZH | LANGUAGE_EN
+        ) {
+            self.language = default_language();
+        }
         if !matches!(
             self.theme.as_str(),
             THEME_SYSTEM | THEME_DARK | THEME_LIGHT
@@ -798,7 +821,7 @@ mod tests {
         let dir = unique_temp_dir("ui-default");
         fs::create_dir_all(&dir).unwrap();
         let path = config_path_in(&dir);
-        // 老文件（无 ui 字段）：按出厂默认「跟随系统 + indigo」处理，其余字段照常读出。
+        // 老文件（无 ui 字段）：按出厂默认「跟随系统语言 + 跟随系统主题 + indigo」处理，其余字段照常读出。
         fs::write(
             &path,
             br#"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]}}"#,
@@ -807,25 +830,27 @@ mod tests {
 
         let cfg = load_config_from(&path).unwrap();
 
+        assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn ui_unknown_theme_and_invalid_accent_fall_back() {
+    fn ui_unknown_values_fall_back() {
         let dir = unique_temp_dir("ui-fallback");
         fs::create_dir_all(&dir).unwrap();
         let path = config_path_in(&dir);
         fs::write(
             &path,
-            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"theme":"sepia","accent":"red"}}"##,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"language":"fr","theme":"sepia","accent":"red"}}"##,
         )
         .unwrap();
 
         let cfg = load_config_from(&path).unwrap();
 
-        // 手工改错两个字段只影响它们自己：主题回「跟随系统」、主题色回 indigo。
+        // 手工改错三个字段只影响它们自己：语言回「跟随系统」、主题回「跟随系统」、主题色回 indigo。
+        assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
         let _ = fs::remove_dir_all(&dir);
@@ -836,11 +861,13 @@ mod tests {
         let dir = unique_temp_dir("ui-round");
         let path = config_path_in(&dir);
         let mut cfg = load_config_from(&path).unwrap();
+        cfg.ui.language = LANGUAGE_EN.to_string();
         cfg.ui.theme = THEME_LIGHT.to_string();
         cfg.ui.accent = "#ABCDEF".to_string();
         save_config_to(&path, &cfg).unwrap();
 
         let loaded = load_config_from(&path).unwrap();
+        assert_eq!(loaded.ui.language, LANGUAGE_EN);
         assert_eq!(loaded.ui.theme, THEME_LIGHT);
         // 大小写归一：同一颜色不会因写法不同被判成「不是预设」。
         assert_eq!(loaded.ui.accent, "#abcdef");
@@ -848,6 +875,7 @@ mod tests {
         // 落盘结构里带 ui 段（不是只在内存里）。
         let raw = fs::read_to_string(&path).unwrap();
         assert!(raw.contains("\"ui\""));
+        assert!(raw.contains("\"language\""));
         assert!(raw.contains("\"theme\""));
         assert!(raw.contains("\"accent\""));
         let _ = fs::remove_dir_all(&dir);
@@ -856,21 +884,41 @@ mod tests {
     #[test]
     fn ui_normalize_keeps_valid_values_and_rejects_malformed_hex() {
         let mut ui = Ui {
+            language: LANGUAGE_ZH.to_string(),
             theme: THEME_DARK.to_string(),
             accent: "#3B82F6".to_string(),
         };
         ui.normalize();
+        assert_eq!(ui.language, LANGUAGE_ZH);
         assert_eq!(ui.theme, THEME_DARK);
         assert_eq!(ui.accent, "#3b82f6");
 
         for bad in ["#12345", "6366f1", "#gggggg", "", "#1234567", " #6366f1x "] {
             let mut ui = Ui {
+                language: LANGUAGE_SYSTEM.to_string(),
                 theme: THEME_SYSTEM.to_string(),
                 accent: bad.to_string(),
             };
             ui.normalize();
             assert_eq!(ui.accent, DEFAULT_ACCENT, "accent {bad:?} 应退回默认");
         }
+    }
+
+    #[test]
+    fn ui_normalize_unknown_language_falls_back_to_system() {
+        let mut ui = Ui {
+            language: "fr".to_string(),
+            theme: THEME_SYSTEM.to_string(),
+            accent: DEFAULT_ACCENT.to_string(),
+        };
+        ui.normalize();
+        assert_eq!(ui.language, DEFAULT_LANGUAGE);
+
+        // 缺字段同样按出厂默认处理；合法值原样保留。
+        let mut ui = Ui::default();
+        ui.language = LANGUAGE_EN.to_string();
+        ui.normalize();
+        assert_eq!(ui.language, LANGUAGE_EN);
     }
 
     // ── 更新检查偏好（add-app-self-update tasks 8.5）────────────

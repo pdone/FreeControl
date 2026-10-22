@@ -12,6 +12,12 @@ import {
   DEFAULT_THEME,
 } from './theme';
 import {
+  applyLanguage,
+  DEFAULT_LANGUAGE,
+  isLanguagePref,
+  type MessageKey,
+} from './i18n';
+import {
   getConfig,
   saveConfig,
   getCompatStatus,
@@ -55,28 +61,44 @@ import type {
   UiPrefs,
   UpdateFrequency,
   UpdatePrefs,
+  UserError,
+  UserMessage,
 } from './types';
 
 export const config = writable<AppConfig | null>(null);
 
-// ── 外观偏好（主题模式 / 主题色）──────────────────────────────
+// ── 外观偏好（界面语言 / 主题模式 / 主题色）──────────────────
 //
 // 生效方式：配置一到就应用（模块加载时先应用出厂默认 —— 与 CSS 的
 // `prefers-color-scheme` 兜底同一结果，配置读完后换成盘上的取值）。
 // 同一份取值只应用一次：设备写命令会整体替换 config，但 ui 段没变，不必重复写样式。
-const PENDING_UI: UiPrefs = { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT };
+//
+// 语言例外：配置尚未到达时**不要**应用 PENDING_UI.language —— 首帧应沿用
+// i18n 模块读到的本机快照 / 系统语言，等配置到达后再以 ui.language 为准。
+const PENDING_UI: UiPrefs = {
+  language: DEFAULT_LANGUAGE,
+  theme: DEFAULT_THEME,
+  accent: DEFAULT_ACCENT,
+};
 
 function uiOf(c: AppConfig | null): UiPrefs {
   return c?.ui ?? PENDING_UI;
 }
 
 let appliedUiKey = '';
+let appliedLanguageKey = '';
 config.subscribe((c) => {
   const ui = uiOf(c);
   const key = `${ui.theme}|${ui.accent}`;
-  if (key === appliedUiKey) return;
-  appliedUiKey = key;
-  applyAppearance(ui);
+  if (key !== appliedUiKey) {
+    appliedUiKey = key;
+    applyAppearance(ui);
+  }
+  if (!c) return;
+  const language = isLanguagePref(ui.language) ? ui.language : DEFAULT_LANGUAGE;
+  if (language === appliedLanguageKey) return;
+  appliedLanguageKey = language;
+  applyLanguage(language);
 });
 
 // 系统深浅色变化：只有当前为「跟随系统」时才会真正重算并重挂 data-theme。
@@ -94,6 +116,12 @@ export function setThemeMode(theme: UiPrefs['theme']): void {
  */
 export function setAccent(accent: string): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), accent } } : c));
+  scheduleSave();
+}
+
+/** 界面语言（设置页）：改配置 → 订阅立即应用 → 去抖落盘。 */
+export function setUiLanguage(language: UiPrefs['language']): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), language } } : c));
   scheduleSave();
 }
 
@@ -186,7 +214,7 @@ export const deviceStatus = writable<Record<string, DeviceStatus>>({});
 export const deviceStatusMeta = writable<{
   probed: boolean;
   stale: boolean;
-  error: string | null;
+  error: UserError | null;
 }>({ probed: false, stale: false, error: null });
 /**
  * 设备计数的**唯一来源**：只有顶栏的设备概况读它（设备页不再回显同一份计数，
@@ -231,8 +259,18 @@ export const selectedSessionId = writable<string | null>(null);
  * 可见、布局尚未生效」的时序问题。会话输出卡在设置页底部，普通点击「设置」入口不置位。
  */
 export const revealSessionOutput = writable(false);
-/** 会话相关的一次性提示（批量连接结果、窗口排列降级等）。 */
-export const sessionNotice = writable<string>('');
+/**
+ * 会话相关的一次性提示（批量连接结果、窗口排列降级等）。
+ *
+ * 存结构化数据而不是成品字符串：切换语言时仍显示的回执会跟着重译。
+ */
+export type SessionNotice =
+  | { kind: 'warning'; warning: UserMessage }
+  | { kind: 'connectAll'; result: ConnectResult }
+  | { kind: 'disconnectAll'; before: number; after: number }
+  | { kind: 'error'; labelKey: MessageKey; error: unknown };
+
+export const sessionNotice = writable<SessionNotice | null>(null);
 export const compat = writable<CompatStatus | null>(null);
 /** scrcpy 运行环境状态（Group 3）：目录 · 就绪 · 缺失清单。 */
 export const envStatus = writable<EnvStatus | null>(null);
@@ -422,7 +460,7 @@ export async function connectDevice(deviceId: string): Promise<ConnectResult> {
   const request: ConnectRequest = { deviceId, args: argsForDevice(deviceId) };
   const res = await connectDeviceCmd(request);
   applySessions(res.sessions);
-  sessionNotice.set(res.warning ?? '');
+  sessionNotice.set(res.warning ? { kind: 'warning', warning: res.warning } : null);
   return res;
 }
 
@@ -447,12 +485,15 @@ export function canConnect(d: Device, status: DeviceStatusView | undefined): boo
  * 判定以 [`canConnect`] 为准，其后按状态给原因，顺序与设备页原有 tooltip 一致
  * （connected → unknown → 连接标识待检测 → 离线 USB），保证两处逐字相同。
  */
-export function connectBlockedReason(d: Device, status: DeviceStatusView | undefined): string {
+export function connectBlockedReason(
+  d: Device,
+  status: DeviceStatusView | undefined,
+): MessageKey | '' {
   if (canConnect(d, status)) return '';
-  if (status === 'connected') return '该设备已连接';
-  if (status === 'unknown' || status === undefined) return '正在检测设备状态，请稍候';
-  if (!d.connectionId) return '连接标识待检测（serial 未知），暂时无法连接';
-  if (status === 'offline') return '设备离线：adb 中未检测到该设备，无法连接';
+  if (status === 'connected') return 'device.connectBlocked.connected';
+  if (status === 'unknown' || status === undefined) return 'device.connectBlocked.checking';
+  if (!d.connectionId) return 'device.connectBlocked.noId';
+  if (status === 'offline') return 'device.connectBlocked.offline';
   return '';
 }
 
@@ -466,13 +507,13 @@ export async function connectAll(): Promise<ConnectResult> {
     .filter((d) => statuses[d.id] === 'idle' && !!d.connectionId)
     .map((d) => ({ deviceId: d.id, args: argsForDevice(d.id) }));
   if (requests.length === 0) {
-    const notice = '没有可连接的设备（只有在线且未连接的设备会被连接，离线设备不会被尝试）';
-    sessionNotice.set(notice);
+    const notice: UserMessage = { code: 'session.noConnectableDevices' };
+    sessionNotice.set({ kind: 'warning', warning: notice });
     return { outcomes: [], sessions: get(sessions), degraded: false, warning: notice };
   }
   const res = await connectAllCmd(requests);
   applySessions(res.sessions);
-  sessionNotice.set(res.warning ?? '');
+  sessionNotice.set(res.warning ? { kind: 'warning', warning: res.warning } : null);
   return res;
 }
 
@@ -994,7 +1035,11 @@ export async function initApp(): Promise<void> {
       // 与后端「缺字段即 7 天」一致；外观偏好同理（跟随系统 + indigo）；
       // 更新检查偏好同理（关闭 + 每次启动 + 从未检查）。
       logging: { retention: '7d' },
-      ui: { theme: DEFAULT_THEME, accent: DEFAULT_ACCENT },
+      ui: {
+        language: DEFAULT_LANGUAGE,
+        theme: DEFAULT_THEME,
+        accent: DEFAULT_ACCENT,
+      },
       update: DEFAULT_UPDATE,
     });
   }
