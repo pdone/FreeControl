@@ -52,7 +52,10 @@ pub fn get_devices(state: State<'_, AppState>) -> Vec<Device> {
 ///
 /// 修改先作用于副本：校验或落盘失败时内存与磁盘都保持原样，不会出现
 /// 「界面报错、内存却已经改了」这种半生效状态（重启后又变回去）。
-fn mutate_and_persist<F>(
+///
+/// `pub(crate)`：无线配对 / 发现（`crate::wireless`）登记设备时复用同一套事务语义，
+/// 不另写一份「先落盘再改内存」的顺序。
+pub(crate) fn mutate_and_persist<F>(
     app: &AppHandle,
     state: &State<'_, AppState>,
     mutate: F,
@@ -318,6 +321,10 @@ pub fn merge_statuses(
 /// 只在「恰好一台待补全设备 + 恰好一条未认领标识」时补全：这是唯一能 1:1 对应的情形，
 /// 多对多时任何自动指派都可能张冠李戴 —— 宁可留空由用户自己填。
 /// 已在别处登记过的标识不会被抢走，否则会凭空改掉另一台设备的连接标识。
+///
+/// **mDNS 服务名不算候选**（[`is_mdns_service_name`]）：已配对的无线设备会被 adb 自动连出一条
+/// 以服务名命名的 transport，它与用户显式 `adb connect` 出来的 `IP:端口` 指向同一台设备。
+/// 不排除它，一台 serial 留空的 USB 设备就可能被写上 `adb-xxx._adb-tls-connect._tcp`。
 pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Option<String> {
     let claimed: HashSet<String> = cfg
         .devices
@@ -325,7 +332,11 @@ pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Optio
         .map(|d| d.connection_id())
         .filter(|s| !s.is_empty())
         .collect();
-    let unclaimed: Vec<&String> = adb.iter().filter(|s| !claimed.contains(*s)).collect();
+    let unclaimed: Vec<&String> = adb
+        .iter()
+        .filter(|s| !claimed.contains(*s))
+        .filter(|s| !is_mdns_service_name(s))
+        .collect();
     if unclaimed.len() != 1 {
         return None;
     }
@@ -342,6 +353,15 @@ pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Optio
     let serial = unclaimed[0].clone();
     cfg.devices[unknown[0]].serial = serial.clone();
     Some(serial)
+}
+
+/// 形如 `adb-5c17e2d3-URzewu._adb-tls-connect._tcp` 的标识：adb 通过 mDNS **自动**连接
+/// 已配对无线设备时产生的 transport 名，2026-10-23 实测与 `IP:端口` 并存于同一条设备。
+///
+/// 它不是任何 USB 设备的 serial（USB 侧永远是设备硬件序列号），故只在「补全 serial」这一处
+/// 被排除；`merge_statuses` 仍按 `IP:端口` 匹配，不受这条 transport 影响。
+pub fn is_mdns_service_name(serial: &str) -> bool {
+    serial.contains("._adb-tls-") || serial.ends_with("._adb._tcp")
 }
 
 // ── 探测（子进程） ─────────────────────────────────────────
@@ -718,7 +738,7 @@ fn housekeeping(app: &AppHandle) {
 }
 
 /// 建立到 adb 服务端的连接；连不上时先拉起一次服务端（首启，或它被结束后）。
-fn connect_server(app: &AppHandle) -> Result<TcpStream, String> {
+pub(crate) fn connect_server(app: &AppHandle) -> Result<TcpStream, String> {
     let endpoint = server_endpoint();
     if let Ok(stream) = TcpStream::connect(endpoint.as_str()) {
         return Ok(stream);
@@ -786,7 +806,7 @@ fn server_endpoint_from(
 }
 
 /// 进程环境中的端点（读取与 adb 客户端同一组变量）。
-fn server_endpoint() -> String {
+pub(crate) fn server_endpoint() -> String {
     let socket = std::env::var("ADB_SERVER_SOCKET").ok();
     let address = std::env::var("ANDROID_ADB_SERVER_ADDRESS").ok();
     let port = std::env::var("ANDROID_ADB_SERVER_PORT").ok();
@@ -806,7 +826,7 @@ fn is_host_port(s: &str) -> bool {
 }
 
 /// 按 adb 的 host 协议编码一次请求：4 位十六进制长度 + 净荷。
-fn encode_frame(payload: &str) -> Vec<u8> {
+pub(crate) fn encode_frame(payload: &str) -> Vec<u8> {
     let mut out = format!("{:04x}", payload.len()).into_bytes();
     out.extend_from_slice(payload.as_bytes());
     out
@@ -892,7 +912,7 @@ fn read_exact_with_budget(
 ///
 /// 这一层不是可选的：帧流前面就是这个状态码，漏读会把 `OKAY` 当成帧长度。
 /// `FAIL` 后面跟一段长度前缀的错误原文，原样带回给调用方（界面与日志都要能读出原因）。
-fn read_status(stream: &mut TcpStream, budget: Duration) -> Result<(), String> {
+pub(crate) fn read_status(stream: &mut TcpStream, budget: Duration) -> Result<(), String> {
     let mut code = [0u8; 4];
     read_exact_with_budget(stream, &mut code, budget)?;
     match &code {
@@ -910,7 +930,7 @@ fn read_status(stream: &mut TcpStream, budget: Duration) -> Result<(), String> {
 }
 
 /// 等待下一个完整帧（一次性请求用）；超出预算或对端关闭即失败。
-fn read_one_frame(stream: &mut TcpStream, budget: Duration) -> Result<String, String> {
+pub(crate) fn read_one_frame(stream: &mut TcpStream, budget: Duration) -> Result<String, String> {
     let deadline = Instant::now() + budget;
     let mut reader = FrameReader::default();
     let mut buf = [0u8; 4096];
@@ -996,6 +1016,30 @@ fn query_devices_at(endpoint: &str) -> Result<HashSet<String>, String> {
     read_status(&mut stream, SERVER_REPLY_TIMEOUT)?;
     let payload = read_one_frame(&mut stream, SERVER_REPLY_TIMEOUT)?;
     Ok(parse_track_devices(&payload))
+}
+
+/// 向 adb 服务端发一条 **host 服务**请求并取回一帧净荷（`host:mdns:services` 这类）。
+///
+/// 与 [`query_devices_now`] 同一套帧协议、同一个端点解析，因此同样**不创建子进程**；
+/// 连不上时按 [`connect_server`] 的规则拉起服务端（首启，或它被结束后）。
+///
+/// 服务名不在此处校验：`FAIL` 的原文（如 `unknown host service 'mdns:services'`）
+/// 原样带回给调用方 —— 「adb 不支持这项服务」与「服务端出问题」的处置完全不同。
+pub(crate) fn query_host(app: &AppHandle, service: &str) -> Result<String, String> {
+    let mut stream = connect_server(app)?;
+    query_host_on(&mut stream, service)
+}
+
+/// 在一条**尚未发过请求**的连接上发一次 host 服务请求并读回一帧。
+fn query_host_on(stream: &mut TcpStream, service: &str) -> Result<String, String> {
+    stream
+        .set_read_timeout(Some(SUBSCRIBE_TICK))
+        .map_err(|e| format!("设置读超时失败：{e}"))?;
+    stream
+        .write_all(&encode_frame(service))
+        .map_err(|e| format!("向 adb 服务端发送请求失败：{e}"))?;
+    read_status(stream, SERVER_REPLY_TIMEOUT)?;
+    read_one_frame(stream, SERVER_REPLY_TIMEOUT)
 }
 
 /// 一次设备状态判定该做什么（纯函数）：安装进行期间整体跳过。
@@ -1192,6 +1236,32 @@ mod tests {
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(wifi("", "平板", "192.168.1.5", 5555)).unwrap();
         assert!(adopt_unknown_serial(&mut cfg, &set(&["192.168.1.5:5555"])).is_none());
+    }
+
+    #[test]
+    fn does_not_adopt_an_mdns_service_name_for_a_usb_device() {
+        // 2026-10-23 真机实测：已配对的无线设备会被 adb 自动连出一条**服务名** transport，
+        // 它与显式 `adb connect` 出的 `IP:端口` 同时在 `adb devices` 里（同一台设备两条）。
+        // 不排除它，一台 serial 留空的 USB 设备就会被写上这串服务名。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["adb-abc._adb-tls-connect._tcp"])).is_none());
+        assert_eq!(cfg.devices[0].connection_id(), "", "不该被写上服务名");
+
+        // 同一次探测里既有真 serial 又有服务名：服务名不参与计数，真 serial 照旧补上。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+        let adopted =
+            adopt_unknown_serial(&mut cfg, &set(&["S-9", "adb-abc._adb-tls-connect._tcp"]));
+        assert_eq!(adopted.as_deref(), Some("S-9"));
+        assert_eq!(cfg.devices[0].connection_id(), "S-9");
+
+        // 旧式 `_adb._tcp` 与服务名形态都要排除；真 serial 与无线标识不受影响。
+        assert!(is_mdns_service_name("adb-x._adb._tcp"));
+        assert!(is_mdns_service_name("adb-5c17e2d3-URzewu._adb-tls-connect._tcp"));
+        assert!(!is_mdns_service_name("08081FDD4006LYE"));
+        assert!(!is_mdns_service_name("192.168.1.5:5555"));
     }
 
     // ── 6.3：带超时的子进程执行 ───────────────────────────────
@@ -1451,6 +1521,41 @@ mod tests {
 
         let err = query_devices_at(&endpoint).unwrap_err();
         assert!(err.contains("无法连接"), "实际错误：{err}");
+    }
+
+    #[test]
+    fn host_service_query_reads_a_single_frame() {
+        // 与一次性设备查询同形，只换服务名：请求净荷逐字相等、返回净荷原样带回。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let n = stream.read(&mut buf).unwrap();
+            assert_eq!(&buf[..n], &encode_frame("host:mdns:services")[..]);
+            write_okay_frame(&mut stream, "List of discovered mdns services\n");
+        });
+
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        let got = query_host_on(&mut stream, "host:mdns:services").unwrap();
+
+        assert_eq!(got, "List of discovered mdns services\n");
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn host_service_query_surfaces_fail_reason() {
+        // adb 不支持某项 host 服务时回 `unknown host service`：原文必须带回，
+        // 上层据此区分「adb 能力不足」与「服务端出问题」——两者给用户的处置完全不同。
+        let (endpoint, handle) = stub_server(|mut stream| {
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf);
+            stream.write_all(b"FAIL").unwrap();
+            stream.write_all(&encode_frame("unknown host service")).unwrap();
+        });
+
+        let mut stream = TcpStream::connect(&endpoint).unwrap();
+        let err = query_host_on(&mut stream, "host:mdns:services").unwrap_err();
+
+        assert!(err.contains("unknown host service"), "实际错误：{err}");
+        handle.join().unwrap();
     }
 
     #[test]

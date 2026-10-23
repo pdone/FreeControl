@@ -801,6 +801,25 @@
   .modal p { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
   .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
   .modal code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; color: var(--accent-text); font-size: 12px; }
+  /* 无线连接弹窗（config.yaml ㉚；类名与取值与产品 src/app.css 的同名类一致）。
+     两条约束驱动取值：状态行固定行高（一句提示换文案时弹窗不跳高度）、结果列表有上限高度 + 滚动
+     （结果超过上限后弹窗不再长高；0 台时该区域整体不渲染）。 */
+  .wl-sec { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; }
+  .wl-sec:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .wl-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .wl-head .flabel { margin: 0; flex: 1; font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
+  .wl-head-actions { flex: none; }
+  .wl-status { font-size: 12px; color: var(--text-faint); line-height: 18px; min-height: 18px; }
+  .wl-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 160px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+  .wl-item { display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-height: 38px; box-sizing: border-box; }
+  .wl-item + .wl-item { border-top: 1px solid var(--border); }
+  .wl-cid { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; user-select: text; cursor: text; }
+  .wl-radio { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+  .wl-row-err { padding: 0 10px 6px; font-size: 11px; color: var(--danger); }
+  .wl-sweep { margin-top: 10px; }
+  .wl-sweep .btn { margin-top: 6px; }
+  .wl-err { color: var(--danger); }
+  .wl-ok { color: var(--success); }
 </style>
 </head>
 <body>
@@ -1535,13 +1554,65 @@
       <div class="field off" id="mWifiField">
         <label>IP 地址 : 端口</label>
         <div class="row"><input type="text" id="mIp" placeholder="192.168.1.50" /><input type="number" id="mPort" value="5555" style="max-width:110px" /></div>
-        <div class="hint">需先在设备上开启无线调试（<code>adb tcpip 5555</code>）；端口留默认 5555 即可。</div>
+        <div class="hint">Android 11 及以上需先在设备上完成配对（点下方「扫描或配对」）；无线调试的端口是随机的，一般不是 5555。</div>
+        <!-- 配对 / 发现入口（config.yaml ㉚）：本行让无线分支比 USB 分支高，但两支同处一格、
+             取较高者 ⇒ 切换连接方式时弹窗高度与位置不变。 -->
+        <div class="row" style="margin-top:8px"><button class="btn sm" id="mWireless" data-tip="发现局域网设备，或用配对码完成一次配对"><i data-lucide="search"></i>扫描或配对</button></div>
       </div>
     </div>
     <div class="actions">
       <button class="btn ghost" id="mCancel">取消</button>
       <button class="btn primary" id="mSave">保存设备</button>
     </div>
+  </div>
+</div>
+
+<!-- 无线连接 Modal（config.yaml ㉚：承载**操作** —— 输入配对码、选择并加入设备）。
+     两段并列而不是两个 tab：真实路径常是「先试发现、配对兜底」，藏起一段只会多点一次。
+     原型不真的扫描网络：点「扫描局域网设备」用演示数据呈现结果，「加入」把该行换成「已登记」。 -->
+<div class="overlay" id="wirelessModal">
+  <div class="modal">
+    <div class="ico"><i data-lucide="wifi"></i></div>
+    <h2>无线连接</h2>
+    <p>发现局域网里已开启无线调试的设备，或用设备上的配对码完成一次配对。</p>
+
+    <section class="wl-sec">
+      <div class="wl-head">
+        <span class="flabel">局域网设备</span>
+        <div class="wl-head-actions"><button class="btn sm" id="wlScan"><i data-lucide="search"></i>扫描局域网设备</button></div>
+      </div>
+      <!-- 两种状态都写在标记里、互斥显示：语言层按文本节点替换，脚本只切换显隐。
+           若由脚本写 textContent，切换界面语言时这一行不会跟着变。 -->
+      <div class="wl-status"><span id="wlStatusIdle">尚未扫描。</span><span id="wlStatusDone" hidden>找到 2 台设备</span></div>
+      <ul class="wl-list" id="wlList" hidden>
+        <li class="wl-item"><span class="wl-cid">192.168.1.20:40301</span><button class="btn sm primary" id="wlJoin1">加入</button></li>
+        <li class="wl-item"><span class="wl-cid">192.168.1.31:5555</span><span class="tag over">已登记</span></li>
+      </ul>
+      <div class="wl-sweep" id="wlSweep" hidden>
+        <div class="hint">只覆盖仍在使用 adb tcpip 5555 的设备；Android 11 及以上的无线调试端口是随机的，扫不到属正常。</div>
+        <button class="btn sm ghost"><i data-lucide="refresh-cw"></i>扫描 5555 端口</button>
+      </div>
+    </section>
+
+    <section class="wl-sec">
+      <div class="wl-head">
+        <span class="flabel">配对码</span>
+        <div class="wl-head-actions"><button class="btn sm ghost"><i data-lucide="refresh-cw"></i>重新查找</button></div>
+      </div>
+      <div class="hint">在设备的「无线调试」里点「使用配对码配对设备」，把上面的 6 位数字填在这里。</div>
+      <div class="wl-status">已找到待配对设备：192.168.1.20:37123</div>
+      <div class="field">
+        <label for="wlPairAddress">配对地址（IP:配对端口）</label>
+        <input type="text" id="wlPairAddress" value="192.168.1.20:37123" placeholder="192.168.1.20:37123" />
+        <div class="hint">也可以手动填写配对地址；配对完成后应用会自动解析连接端口。</div>
+      </div>
+      <div class="field">
+        <label for="wlPairCode">配对码</label>
+        <div class="row"><input type="text" id="wlPairCode" placeholder="6 位数字" /><button class="btn primary"><i data-lucide="key-round"></i>配对并连接</button></div>
+      </div>
+    </section>
+
+    <div class="actions"><button class="btn ghost" id="wlClose">关闭</button></div>
   </div>
 </div>
 
@@ -2000,8 +2071,27 @@
   "设备 serial": "Device serial",
   "serial 可留空：设备会先登记，待检测到唯一一台未登记的 USB 设备后自动补全连接标识。": "The serial can be empty: the device is registered first, and its connection ID is filled in after a unique unregistered USB device is detected.",
   "IP 地址 : 端口": "IP address : port",
-  "需先在设备上开启无线调试（": "Enable wireless debugging on the device first (",
-  "）；端口留默认 5555 即可。": "); the default port 5555 is fine.",
+  "Android 11 及以上需先在设备上完成配对（点下方「扫描或配对」）；无线调试的端口是随机的，一般不是 5555。": "On Android 11 and newer, pair the device first (use \"Scan or pair\" below); the wireless debugging port is random and usually not 5555.",
+  "扫描或配对": "Scan or pair",
+  "发现局域网设备，或用配对码完成一次配对": "Find devices on the network, or pair with a pairing code",
+  "无线连接": "Wireless connection",
+  "发现局域网里已开启无线调试的设备，或用设备上的配对码完成一次配对。": "Find devices on your network with wireless debugging on, or pair with the code shown on the device.",
+  "局域网设备": "Devices on the network",
+  "扫描局域网设备": "Scan network",
+  "尚未扫描。": "Not scanned yet.",
+  "找到 2 台设备": "2 devices found",
+  "加入": "Add",
+  "已登记": "Added",
+  "只覆盖仍在使用 adb tcpip 5555 的设备；Android 11 及以上的无线调试端口是随机的，扫不到属正常。": "Covers only devices still using adb tcpip 5555; on Android 11 and newer the wireless debugging port is random, so finding nothing here is normal.",
+  "扫描 5555 端口": "Scan port 5555",
+  "配对码": "Pairing code",
+  "重新查找": "Look again",
+  "在设备的「无线调试」里点「使用配对码配对设备」，把上面的 6 位数字填在这里。": "Tap \"Pair device with pairing code\" in Wireless debugging on the device, then enter the 6-digit code here.",
+  "已找到待配对设备：192.168.1.20:37123": "Found a device waiting to pair: 192.168.1.20:37123",
+  "配对地址（IP:配对端口）": "Pairing address (IP:pairing port)",
+  "也可以手动填写配对地址；配对完成后应用会自动解析连接端口。": "You can also type the pairing address yourself; the app resolves the connection port after pairing.",
+  "6 位数字": "6 digits",
+  "配对并连接": "Pair and connect",
   "保存设备": "Save device",
   "版本": "Version",
   "适配版本": "Best-fit",
@@ -3234,6 +3324,28 @@
     addModal.classList.remove('show');
     document.getElementById('mAlias').value=''; document.getElementById('mSerial').value=''; document.getElementById('mIp').value='';
     renderDeviceList(); renderPreview(); updatePills();
+  });
+
+  /* ===================== 无线连接 Modal（config.yaml ㉚） =====================
+     原型不真的扫描网络：点「扫描局域网设备」用演示数据把结果列表放出来，
+     「加入」把该行换成「已登记」。两个弹窗不叠放 —— 与产品侧一致（先收起添加设备）。 */
+  const wirelessModal=document.getElementById('wirelessModal');
+  document.getElementById('mWireless').addEventListener('click', ()=>{
+    addModal.classList.remove('show');
+    wirelessModal.classList.add('show');
+    lucide.createIcons();
+  });
+  document.getElementById('wlClose').addEventListener('click', ()=>wirelessModal.classList.remove('show'));
+  document.getElementById('wlScan').addEventListener('click', ()=>{
+    document.getElementById('wlStatusIdle').hidden=true;
+    document.getElementById('wlStatusDone').hidden=false;
+    document.getElementById('wlList').hidden=false;
+    document.getElementById('wlSweep').hidden=true;
+  });
+  document.getElementById('wlJoin1').addEventListener('click', (ev)=>{
+    const tag=document.createElement('span');
+    tag.className='tag over'; tag.textContent='已登记';
+    ev.currentTarget.replaceWith(tag);
   });
 
   /* ===================== scrcpy 运行环境（「更多」页） =====================

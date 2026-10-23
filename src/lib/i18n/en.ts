@@ -475,7 +475,7 @@ export const en: Record<MessageKey, string> = {
   "device.add.ipPlaceholder": "192.168.1.50",
   "device.add.portAria": "Port",
   "device.add.wifiHint":
-    "Enable wireless debugging on the device first (adb tcpip 5555); the default port 5555 is usually fine.",
+    'On Android 11 and newer, pair the device first (use "Scan or pair" below); the wireless debugging port is random and usually not 5555.',
   "device.add.cancel": "Cancel",
   "device.add.save": "Save device",
   "device.delete.title": "Delete device?",
@@ -485,6 +485,62 @@ export const en: Record<MessageKey, string> = {
   "device.delete.cancel": "Cancel",
   "device.delete.confirm": "Delete",
   "device.delete.connectionPending": "Connection ID pending",
+  // ── Wireless pairing and discovery (spec `device-management`) ──
+  "wireless.title": "Wireless connection",
+  "wireless.description":
+    "Find devices on your network with wireless debugging on, or pair with the code shown on the device.",
+  "wireless.discover.title": "Devices on the network",
+  "wireless.discover.idle": "Not scanned yet.",
+  "wireless.discover.scanning": "Scanning the network…",
+  "wireless.discover.count": "{count} device(s) found",
+  "wireless.discover.empty":
+    "No devices found. Make sure wireless debugging is on and the device is on the same network.",
+  "wireless.discover.scan": "Scan network",
+  "wireless.discover.rescan": "Scan again",
+  "wireless.discover.cancel": "Stop scanning",
+  "wireless.discover.join": "Add",
+  "wireless.discover.joining": "Connecting…",
+  "wireless.discover.registered": "Added",
+  "wireless.discover.joined": 'Added "{alias}"; you can connect to it now.',
+  "wireless.discover.sweep": "Scan port 5555",
+  "wireless.discover.sweepHint":
+    "Covers only devices still using adb tcpip 5555; on Android 11 and newer the wireless debugging port is random, so finding nothing here is normal.",
+  "wireless.discover.sweeping": "Scanning port 5555 on the local network…",
+  "wireless.pair.title": "Pairing code",
+  "wireless.pair.hint":
+    'Tap "Pair device with pairing code" in Wireless debugging on the device, then enter the 6-digit code here.',
+  "wireless.pair.detecting": "Looking for a device waiting to pair…",
+  "wireless.pair.found": "Found a device waiting to pair: {address}",
+  "wireless.pair.multiple": "{count} devices are waiting to pair; pick one:",
+  "wireless.pair.none":
+    "No device is waiting to pair. Make sure the pairing dialog on the device is still open.",
+  "wireless.pair.redetect": "Look again",
+  "wireless.pair.address": "Pairing address (IP:pairing port)",
+  "wireless.pair.addressPlaceholder": "192.168.1.20:37123",
+  "wireless.pair.code": "Pairing code",
+  "wireless.pair.codePlaceholder": "6 digits",
+  "wireless.pair.submit": "Pair and connect",
+  "wireless.pair.pairing": "Pairing…",
+  "wireless.pair.success": 'Paired and connected: "{alias}"',
+  "wireless.pair.manualHint":
+    "You can also type the pairing address yourself; the app resolves the connection port after pairing.",
+  "wireless.close": "Close",
+  "wireless.entry": "Scan or pair",
+  "wireless.entryTip": "Find devices on the network, or pair with a pairing code",
+  "wireless.resolve": "Resolve port again",
+  "wireless.resolveBusy": "Resolving…",
+  "wireless.resolveTip":
+    "The port changes after the device restarts or wireless debugging is toggled; resolve it again and write it back",
+  "wireless.addressInvalid":
+    "Invalid pairing address; expected something like 192.168.1.20:37123",
+  "wireless.codeRequired": "Enter the pairing code",
+  "wireless.pairFailed": "Pairing failed",
+  "wireless.portUnresolved": "Could not resolve the connection port",
+  "wireless.connectFailed": "Could not connect to the device",
+  "wireless.mdnsFailed": "Network discovery is unavailable",
+  "wireless.sweepUnavailable":
+    "Could not determine this machine's address on the network, so port 5555 cannot be scanned",
+  "wireless.notWireless": "That device is not a wireless device",
   "launchbar.noCommand":
     "The connection ID is not known yet (USB serial pending), so the command cannot be built",
   "launchbar.pickDevice": "Select a device to see the command",

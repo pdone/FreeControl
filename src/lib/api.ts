@@ -9,11 +9,17 @@ import type {
   ConnectResult,
   Device,
   DeviceStatusPayload,
+  DiscoveredDevice,
   EnvStatus,
   InstallOutcome,
+  JoinRequest,
+  PairRequest,
+  PairingTarget,
   ProxyList,
   SessionInfo,
   UpdateInfo,
+  WirelessJoin,
+  WirelessScan,
 } from './types';
 
 // 与 src-tauri/src 中 `#[tauri::command]` 函数一一对应。
@@ -54,6 +60,31 @@ export const updateDevice = (device: Device): Promise<AppConfig> =>
   invoke('update_device', { device });
 export const deleteDevice = (id: string): Promise<AppConfig> =>
   invoke('delete_device', { id });
+
+// ── 无线配对与发现（spec `device-management` 的三条新增要求）──
+//
+// 全部是**用户触发**的一次性动作：没有定时器、没有后台轮询，只有命令被调用的那几秒里
+// 才有网络活动（与「空闲时不发起探测」的既有性质一致）。
+
+/** 多播发现：窗口内累积服务表，返回当前可连的无线设备。多播不可用时 `mdnsError` 非空。 */
+export const scanWireless = (): Promise<WirelessScan> => invoke('scan_wireless');
+/** 5555 网段扫描（兜底）：只对 TCP 探测通过的候选发起连接。 */
+export const scanWirelessPorts = (): Promise<DiscoveredDevice[]> =>
+  invoke('scan_wireless_ports');
+/** 查找正在等待配对的设备（设备侧「使用配对码配对设备」弹窗打开期间才存在）。 */
+export const scanPairingTargets = (): Promise<PairingTarget[]> =>
+  invoke('scan_pairing_targets');
+/** 取消进行中的扫描（发现窗与网段扫描都会在下一拍退出）。 */
+export const cancelWirelessScan = (): Promise<void> => invoke('cancel_wireless_scan');
+/** 配对并连接：配对成功后自动解析连接端口，再建链并登记。 */
+export const pairWireless = (request: PairRequest): Promise<WirelessJoin> =>
+  invoke('pair_wireless', { request });
+/** 把扫描结果里的一台设备连上并登记（不涉及配对）。 */
+export const joinWireless = (request: JoinRequest): Promise<WirelessJoin> =>
+  invoke('join_wireless', { request });
+/** 重新解析一台无线设备的连接端口，并按新端口建链、写回记录。 */
+export const resolveWifiPort = (deviceId: string): Promise<WirelessJoin> =>
+  invoke('resolve_wifi_port', { deviceId });
 
 // ── 会话控制（Group 9 / tasks 9.1–9.4）──
 

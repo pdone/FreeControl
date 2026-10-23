@@ -80,6 +80,16 @@ pub mod codes {
     pub const DEVICE_NOT_FOUND: &str = "device.notFound";
     pub const DEVICE_STATUS_PROBE_FAILED: &str = "device.statusProbeFailed";
 
+    // 无线配对与发现（spec `device-management` 的三条新增要求）。
+    pub const WIRELESS_ADDRESS_INVALID: &str = "wireless.addressInvalid";
+    pub const WIRELESS_CODE_REQUIRED: &str = "wireless.codeRequired";
+    pub const WIRELESS_PAIR_FAILED: &str = "wireless.pairFailed";
+    pub const WIRELESS_PORT_UNRESOLVED: &str = "wireless.portUnresolved";
+    pub const WIRELESS_CONNECT_FAILED: &str = "wireless.connectFailed";
+    pub const WIRELESS_MDNS_FAILED: &str = "wireless.mdnsFailed";
+    pub const WIRELESS_SWEEP_UNAVAILABLE: &str = "wireless.sweepUnavailable";
+    pub const WIRELESS_NOT_WIRELESS: &str = "wireless.notWireless";
+
     pub const SESSION_DEVICE_NOT_FOUND: &str = "session.deviceNotFound";
     pub const SESSION_DEVICE_OFFLINE: &str = "session.deviceOffline";
     pub const SESSION_CONNECTION_UNKNOWN: &str = "session.connectionUnknown";

@@ -23,6 +23,7 @@
 ## Features
 
 - **Device list** — one alias per device, mapped to a USB serial or `IP:port`; add, rename and remove, with live online/connected status
+- **Wireless pairing and discovery** — pair once with the on-device code, and list the devices on your network with wireless debugging on in one click
 - **Parameter panels** — the common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box
 - **Per-device overrides** — a device's own parameter set, switched on or off as a whole
 - **Connection control** — connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app
@@ -59,7 +60,7 @@ Get the latest version from [Releases](https://github.com/pdone/FreeControl2/rel
 If Gatekeeper blocks the first launch on macOS, clear it either way: open System Settings → Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`.
 
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
-2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, enter `IP:port`.
+2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, click "Scan or pair" — on Android 11 and above use the pairing code shown on the device, otherwise you can still enter `IP:port` directly.
 3. **Connect and mirror** — click "Connect" on the device card. Several devices can be connected at once; the command preview at the bottom shows the exact command being run.
 4. From there you can adjust the defaults on the parameter pages, or give a single device its own override.
 
@@ -130,7 +131,7 @@ FreeControl2/
 
 **USB** — make sure the device has "Developer options" and "USB debugging" enabled, the cable is intact, the driver is fine on Windows (no yellow warning in Device Manager), and `adb devices` lists it. If "Developer options" is missing, tap "Build number" seven times in "Settings" - "About phone".
 
-**Wireless** — the first time you need USB: run `adb tcpip 5555`, unplug, then `adb connect <IP>:5555`. On Android 11 and above you can also use the pairing code under "Wireless debugging" (`adb pair <IP>:<port>`, then `adb connect <IP>:<port>`). The device and the computer must be on the same network.
+**Wireless** — click "Scan or pair" in "Add device". On Android 11 and above, tap "Pair device with pairing code" in the device's "Wireless debugging", then enter the 6-digit code: the app resolves the connection port and connects by itself. The port changes when the device restarts or wireless debugging is toggled, so click "Resolve port again" on the device card when it shows as offline. Devices still using `adb tcpip 5555` are found by the scan, or you can enter `IP:port` yourself. The device and the computer must be on the same network.
 
 ### It says scrcpy or adb is missing
 

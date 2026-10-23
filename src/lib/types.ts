@@ -61,6 +61,64 @@ export interface DeviceStatusPayload {
   devices: Device[];
 }
 
+// ── 无线配对与发现（spec `device-management` 的三条新增要求）──
+
+/**
+ * 扫描结果里的一台设备。
+ *
+ * `registered` 按 **IP** 判定：同一台设备的连接端口会随设备侧重启而变化，
+ * 连接标识不能当身份用（否则会出现「明明是同一台，却每条端口都算新设备」）。
+ */
+export interface DiscoveredDevice {
+  ip: string;
+  port: number;
+  /** 连接标识（`IP:端口`），与 `Device.connectionId` 同形 */
+  connectionId: string;
+  registered: boolean;
+  /** 来源：多播发现 / 5555 网段扫描 */
+  source: 'mdns' | 'sweep';
+}
+
+/**
+ * 一次发现窗的结果。
+ *
+ * 多播本身不可用时后端仍返回 `devices: []` + `mdnsError`：界面据此决定要不要露出
+ * 5555 兜底入口，而不是把整次扫描判成失败。
+ */
+export interface WirelessScan {
+  devices: DiscoveredDevice[];
+  mdnsError: UserError | null;
+}
+
+/** 一台等待配对的设备（配对服务只在设备弹窗打开期间存在，故每次都要现查）。 */
+export interface PairingTarget {
+  ip: string;
+  port: number;
+  connectionId: string;
+}
+
+/** 配对请求：`address` 是设备的配对地址（`IP:配对端口`）。 */
+export interface PairRequest {
+  address: string;
+  code: string;
+  /** 用户指定的别名；留空则由机型推导 */
+  alias?: string;
+}
+
+/** 加入请求：把扫描结果里的一台设备连上并登记。 */
+export interface JoinRequest {
+  ip: string;
+  port: number;
+  alias?: string;
+}
+
+/** 配对 / 加入成功后的结果。 */
+export interface WirelessJoin {
+  deviceId: string;
+  alias: string;
+  connectionId: string;
+}
+
 /**
  * 一个会话（Group 9）：一台设备一个受本应用管理的 scrcpy 进程。
  *

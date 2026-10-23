@@ -6,6 +6,7 @@
 mod scrcpy;
 mod config;
 mod device;
+mod wireless;
 mod assets;
 mod app_update;
 mod download;
@@ -281,6 +282,13 @@ fn main() {
             device::add_device,
             device::update_device,
             device::delete_device,
+            wireless::scan_wireless,
+            wireless::scan_wireless_ports,
+            wireless::scan_pairing_targets,
+            wireless::cancel_wireless_scan,
+            wireless::pair_wireless,
+            wireless::join_wireless,
+            wireless::resolve_wifi_port,
             session::connect_device,
             session::connect_all,
             session::disconnect_device,

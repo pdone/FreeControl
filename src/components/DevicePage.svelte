@@ -44,6 +44,8 @@
   import { OVERRIDE_FIELD_REFS, fieldOf, refKey, type FieldRef } from '../lib/params';
   import type { ValidationMessage } from '../lib/validate';
   import ParamField from './ParamField.svelte';
+  import WirelessModal from './WirelessModal.svelte';
+  import { resolveWifiPort } from '../lib/api';
   import type {
     ConnectResult,
     Device,
@@ -64,6 +66,8 @@
     ScrollText,
     Usb,
     Wifi,
+    Search,
+    RefreshCw,
   } from 'lucide-svelte';
 
   // ── 新增设备（tasks 6.1）──
@@ -245,6 +249,19 @@
 
   function selectDevice(id: string): void {
     selectedDeviceId.set(id);
+  }
+
+  /**
+   * 记录里的 IP 是否是可解析的 IPv4。
+   *
+   * 「重新解析端口」靠多播**按 IP** 找服务，而 IP 这一栏也允许填主机名
+   * （`adb connect mi10:5555` 是合法的旧法记录）—— 那种记录永远解析不出来，
+   * 按钮露出来只会给一句注定失败的报错，故直接不露。
+   */
+  function isIpv4(raw: string): boolean {
+    const parts = raw.trim().split('.');
+    if (parts.length !== 4) return false;
+    return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
   }
 
   function onCardKeydown(e: KeyboardEvent, id: string): void {
@@ -463,6 +480,34 @@
       delBusy = false;
     }
   }
+
+  // ── 无线连接（spec `device-management`：配对 / 局域网发现 / 端口重解析）──
+
+  /** 无线连接弹窗（配对码 + 局域网发现）。入口在添加设备弹窗的无线分支里。 */
+  let wirelessOpen = false;
+
+  function openWireless(): void {
+    // 两个弹窗不叠放：先收起添加设备。配对 / 发现完成后设备已经在列表里。
+    addOpen = false;
+    wirelessOpen = true;
+  }
+
+  /**
+   * 重新解析某台无线设备的连接端口。
+   *
+   * 只在卡片处于离线时才露出入口 —— 那正是「端口随设备侧重启 / 重开无线调试而变」的表现。
+   */
+  async function onResolvePort(d: Device): Promise<void> {
+    rowErr = { ...rowErr, [d.id]: null };
+    busy = { ...busy, [d.id]: true };
+    try {
+      await resolveWifiPort(d.id);
+    } catch (e) {
+      rowErr = { ...rowErr, [d.id]: e };
+    } finally {
+      busy = { ...busy, [d.id]: false };
+    }
+  }
 </script>
 
 <div class="sec-head">
@@ -626,6 +671,21 @@
                 <ScrollText /> {$t('device.log')}
               </button>
             {/if}
+            <!-- 无线设备的端口会随设备侧重启 / 重开无线调试而变，表现为「离线」。
+                 入口只在离线、且记录里填的是 IPv4 时露出（见 `isIpv4`）——
+                 避免给正常在线的设备多加一颗按钮，也避免对主机名记录承诺做不到的事。 -->
+            {#if s === 'offline' && d.kind === 'wifi' && isIpv4(d.ip)}
+              <span class="tip-host" use:tip={$t('wireless.resolveTip')}>
+                <button
+                  class="btn sm ghost"
+                  disabled={busy[d.id]}
+                  on:click|stopPropagation={() => onResolvePort(d)}
+                >
+                  <RefreshCw />
+                  {busy[d.id] ? $t('wireless.resolveBusy') : $t('wireless.resolve')}
+                </button>
+              </span>
+            {/if}
             <button
               class="btn sm ghost"
               on:click|stopPropagation={() => togglePanel(d.id)}
@@ -745,6 +805,14 @@
             />
           </div>
           <div class="hint">{$t('device.add.wifiHint')}</div>
+          <!-- 配对 / 发现的入口放在无线分支内：用户在这一步才需要它。
+               本行让无线分支比 USB 分支高，但两支同处一格、取较高者 —— 切换连接方式时
+               弹窗高度与位置依旧不变（规格「添加设备弹窗在连接方式切换下的几何稳定」）。 -->
+          <div class="row" style="margin-top:8px">
+            <button class="btn sm" on:click={openWireless} use:tip={$t('wireless.entryTip')}>
+              <Search /> {$t('wireless.entry')}
+            </button>
+          </div>
         </div>
       </div>
       {#if formErr}
@@ -783,3 +851,7 @@
     </div>
   </div>
 {/if}
+
+<!-- 无线连接（spec `device-management`：配对码配对 + 局域网发现）。独立弹窗而不是塞进
+     「添加设备」：结果列表高度不定，塞进去会破坏那一处「切换连接方式不改变几何」的约定。 -->
+<WirelessModal bind:open={wirelessOpen} on:close={() => (wirelessOpen = false)} />

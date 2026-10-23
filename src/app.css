@@ -2275,6 +2275,102 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-family: var(--font-sans); /* 显式声明，与主界面字体一致（D15） */
 }
 
+/* ---------- 无线连接弹窗（spec `device-management`：配对码 + 局域网发现） ----------
+   类名与取值与 ui-design/launcher-prototype.html 同名同值（config.yaml ㉚）。
+   两个约束驱动这里的取值，改之前先看：
+   1. 状态行 `.wl-status` 有固定行高与最小高度 —— 文案在「未扫描 / 扫描中 / N 台 / 空结果」
+      之间切换时这一行高度不变（弹窗高度随结果条数变化是允许的，随**一句提示变长**变高不行）；
+   2. 结果列表 `.wl-list` 有上限高度并可滚动 —— 结果条数超过上限后弹窗不再长高
+      （0 台时该区域整体不渲染）。 */
+.wl-sec {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.wl-sec:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+.wl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wl-head .flabel {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.wl-head-actions {
+  flex: none;
+}
+.wl-status {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 18px;
+  min-height: 18px;
+}
+.wl-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.wl-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+.wl-item + .wl-item {
+  border-top: 1px solid var(--border);
+}
+/* 连接标识是技术值：可选中、文本光标（app.css 开头的三态规则）。 */
+.wl-cid {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  user-select: text;
+  cursor: text;
+}
+.wl-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+}
+.wl-row-err {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  color: var(--danger);
+}
+.wl-sweep {
+  margin-top: 10px;
+}
+.wl-sweep .btn {
+  margin-top: 6px;
+}
+.wl-err {
+  color: var(--danger);
+}
+.wl-ok {
+  color: var(--success);
+}
+
 /* ---------- 关于弹窗（spec `about-page`；类名与取值与 ui-design/launcher-prototype.html 同名同值） ----------
    弹出 / 关闭动画**不在这里**：用 Svelte 的过渡（AboutDialog 的 `transition:fade` / `transition:scale`），
    CSS 只管静态呈现 —— 故原型那组 keyframes 与 `.closing` 类在本文件里没有对应物。

@@ -369,6 +369,16 @@ export function applyDeviceStatus(payload: DeviceStatusPayload): void {
   );
 }
 
+/**
+ * 主动取一次设备状态快照。
+ *
+ * 事件是主通道，但无线配对 / 发现完成后界面要立刻反映新设备与新端口 —— 不能干等事件：
+ * 事件只在**变化时**推送，且与命令返回的先后顺序不确定。
+ */
+export async function refreshDeviceStatus(): Promise<void> {
+  applyDeviceStatus(await getDeviceStatus());
+}
+
 /** 新增设备（tasks 5.3 / 6.1）：id 由后端分配，故新设备要从更新后的列表里认。 */
 export async function addDevice(device: Device): Promise<Device | null> {
   const before = new Set(get(devices).map((d) => d.id));
