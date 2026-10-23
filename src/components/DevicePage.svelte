@@ -14,7 +14,6 @@
     deviceStatus,
     deviceStatusMeta,
     selectedDeviceId,
-    addDevice,
     renameDevice,
     deleteDevice,
     overrides,
@@ -38,18 +37,17 @@
     page,
     type SessionNotice,
   } from '../lib/store';
-  import { t, translateNow } from '../lib/i18n';
+  import { t } from '../lib/i18n';
   import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
   import { OVERRIDE_FIELD_REFS, fieldOf, refKey, type FieldRef } from '../lib/params';
   import type { ValidationMessage } from '../lib/validate';
   import ParamField from './ParamField.svelte';
-  import WirelessModal from './WirelessModal.svelte';
+  import AddDeviceDialog from './AddDeviceDialog.svelte';
   import { resolveWifiPort } from '../lib/api';
   import type {
     ConnectResult,
     Device,
-    DeviceKind,
     DeviceStatusView,
     OverrideEntry,
     SessionInfo,
@@ -60,25 +58,16 @@
     ZapOff,
     Pencil,
     Trash2,
-    TabletSmartphone,
     AlertTriangle,
     SlidersHorizontal,
     ScrollText,
     Usb,
     Wifi,
-    Search,
     RefreshCw,
   } from 'lucide-svelte';
 
-  // ── 新增设备（tasks 6.1）──
+  // ── 新增设备 ──
   let addOpen = false;
-  let alias = '';
-  let kind: DeviceKind = 'usb';
-  let serial = '';
-  let ip = '';
-  let port = 5555;
-  let formErr: unknown = null;
-  let saving = false;
 
   // ── 别名内联编辑（tasks 6.2）──
   let editingId: string | null = null;
@@ -382,44 +371,6 @@
 
   function openAdd(): void {
     addOpen = true;
-    formErr = null;
-    alias = '';
-    kind = 'usb';
-    serial = '';
-    ip = '';
-    port = 5555;
-  }
-
-  function closeAdd(): void {
-    addOpen = false;
-    formErr = null;
-  }
-
-  /** 无线设备必须有 IP —— 缺失时禁用保存，其余校验以后端为准（错误原文直接展示）。 */
-  $: addBlocked = kind === 'wifi' && ip.trim() === '';
-
-  async function submitAdd(): Promise<void> {
-    formErr = null;
-    saving = true;
-    try {
-      // 别名为空时给个默认名：别名是设备列表里唯一可读的区分依据（别名本身允许中文 / 空格）。
-      const device: Device = {
-        id: '',
-        alias:
-          alias.trim() ||
-          translateNow('device.defaultAlias', { count: $devices.length + 1 }),
-        kind,
-        serial: kind === 'usb' ? serial.trim() : '',
-        ip: kind === 'wifi' ? ip.trim() : '',
-        port: kind === 'wifi' ? Number(port) || 5555 : 0,
-      };
-      await addDevice(device);
-      closeAdd();
-    } catch (e) {
-      formErr = e;
-    } finally {
-      saving = false;
-    }
   }
 
   // ── 别名内联编辑 ───────────────────────────────────────────
@@ -482,15 +433,6 @@
   }
 
   // ── 无线连接（spec `device-management`：配对 / 局域网发现 / 端口重解析）──
-
-  /** 无线连接弹窗（配对码 + 局域网发现）。入口在添加设备弹窗的无线分支里。 */
-  let wirelessOpen = false;
-
-  function openWireless(): void {
-    // 两个弹窗不叠放：先收起添加设备。配对 / 发现完成后设备已经在列表里。
-    addOpen = false;
-    wirelessOpen = true;
-  }
 
   /**
    * 重新解析某台无线设备的连接端口。
@@ -743,91 +685,6 @@
   </div>
 {/if}
 
-<!-- 添加设备（spec「添加 USB 设备 / 添加无线设备」；布局对齐原型 addModal） -->
-{#if addOpen}
-  <div class="overlay show">
-    <div class="modal">
-      <div class="ico"><TabletSmartphone /></div>
-      <h2>{$t('device.add.title')}</h2>
-      <p>
-        {$t('device.add.descriptionBefore')}<code>-s</code>{$t('device.add.descriptionAfter')}
-      </p>
-      <div class="field">
-        <label for="dev-alias">{$t('device.add.alias')}</label>
-        <input
-          id="dev-alias"
-          type="text"
-          bind:value={alias}
-          placeholder={$t('device.add.aliasPlaceholder')}
-        />
-      </div>
-      <div class="field">
-        <span class="flabel">{$t('device.add.kind')}</span>
-        <div class="seg">
-          <button class:active={kind === 'usb'} on:click={() => (kind = 'usb')}
-            >{$t('device.add.usb')}</button
-          >
-          <button class:active={kind === 'wifi'} on:click={() => (kind = 'wifi')}
-            >{$t('device.add.wifi')}</button
-          >
-        </div>
-      </div>
-      <!-- 两种连接方式同处一格（`.field-swap`）：容器高度取两者中的较高者，切换只改可见性
-           ⇒ 弹窗高度与位置不随连接方式变化（openspec/config.yaml ⑭ 的「等高收尾」）。
-           两支都留在 DOM 里：`bind:value` 照常，`submitAdd` 只按当前 kind 取用对应那一支。 -->
-      <div class="field-swap">
-        <div class="field" class:off={kind !== 'usb'}>
-          <label for="dev-serial">{$t('device.add.serial')}</label>
-          <input
-            id="dev-serial"
-            type="text"
-            bind:value={serial}
-            placeholder={$t('device.add.serialPlaceholder')}
-          />
-          <div class="hint">{$t('device.add.serialHint')}</div>
-        </div>
-        <div class="field" class:off={kind !== 'wifi'}>
-          <label for="dev-ip">{$t('device.add.ip')}</label>
-          <div class="row">
-            <input
-              id="dev-ip"
-              type="text"
-              bind:value={ip}
-              placeholder={$t('device.add.ipPlaceholder')}
-            />
-            <input
-              type="number"
-              bind:value={port}
-              min="1"
-              max="65535"
-              style="max-width:110px"
-              aria-label={$t('device.add.portAria')}
-            />
-          </div>
-          <div class="hint">{$t('device.add.wifiHint')}</div>
-          <!-- 配对 / 发现的入口放在无线分支内：用户在这一步才需要它。
-               本行让无线分支比 USB 分支高，但两支同处一格、取较高者 —— 切换连接方式时
-               弹窗高度与位置依旧不变（规格「添加设备弹窗在连接方式切换下的几何稳定」）。 -->
-          <div class="row" style="margin-top:8px">
-            <button class="btn sm" on:click={openWireless} use:tip={$t('wireless.entryTip')}>
-              <Search /> {$t('wireless.entry')}
-            </button>
-          </div>
-        </div>
-      </div>
-      {#if formErr}
-        <div class="hint dl-error">{errorTextOf(formErr, $t)}</div>
-      {/if}
-      <div class="actions">
-        <button class="btn ghost" on:click={closeAdd}>{$t('device.add.cancel')}</button>
-        <button class="btn primary" on:click={submitAdd} disabled={saving || addBlocked}>
-          {$t('device.add.save')}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
-
 <!-- 删除确认（spec「设备记录的增删」：删除前给出确认，避免误删） -->
 {#if pendingDelete}
   <div class="overlay show">
@@ -852,6 +709,4 @@
   </div>
 {/if}
 
-<!-- 无线连接（spec `device-management`：配对码配对 + 局域网发现）。独立弹窗而不是塞进
-     「添加设备」：结果列表高度不定，塞进去会破坏那一处「切换连接方式不改变几何」的约定。 -->
-<WirelessModal bind:open={wirelessOpen} on:close={() => (wirelessOpen = false)} />
+<AddDeviceDialog open={addOpen} on:close={() => (addOpen = false)} />

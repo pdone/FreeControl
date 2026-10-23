@@ -810,24 +810,6 @@ select,
   color: var(--warn);
   font-weight: 600;
 }
-/* 添加设备弹窗的连接方式两支**同处一格**（openspec/config.yaml ⑭ 的「等高收尾」）：
-   容器高度取两者中的较高者，切换只改可见性 ⇒ 不重算高度、不产生位移。
-   此前两支互斥渲染（`{#if}` / `display: none`），高度差一行，而弹窗垂直居中（`.overlay`
-   的 `place-items: center`），于是切换连接方式即整块上下跳动。
-   不活跃者用 `visibility: hidden` 而不是 `display: none`：占位、不可聚焦、对辅助技术不可见，
-   三者都要 —— 用户看不到它，Tab 也不会落进去。
-   外部外边距显式化，不依赖「栅格容器是否把子项外边距计入轨道高度」这类细节。 */
-.field-swap {
-  display: grid;
-  margin-bottom: 14px;
-}
-.field-swap > .field {
-  grid-area: 1 / 1;
-  margin-bottom: 0;
-}
-.field-swap > .field.off {
-  visibility: hidden;
-}
 .field > label code,
 .field > .flabel code {
   background: var(--code-bg);
@@ -2275,22 +2257,138 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-family: var(--font-sans); /* 显式声明，与主界面字体一致（D15） */
 }
 
-/* ---------- 无线连接弹窗（spec `device-management`：配对码 + 局域网发现） ----------
+/* ---------- 添加设备弹窗的扫描 / 配对区（spec `device-management`） ----------
    类名与取值与 ui-design/launcher-prototype.html 同名同值（config.yaml ㉚）。
    两个约束驱动这里的取值，改之前先看：
    1. 状态行 `.wl-status` 有固定行高与最小高度 —— 文案在「未扫描 / 扫描中 / N 台 / 空结果」
       之间切换时这一行高度不变（弹窗高度随结果条数变化是允许的，随**一句提示变长**变高不行）；
    2. 结果列表 `.wl-list` 有上限高度并可滚动 —— 结果条数超过上限后弹窗不再长高
       （0 台时该区域整体不渲染）。 */
-.wl-sec {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-  margin-top: 16px;
+.add-device-modal {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  transition: height 180ms ease;
 }
-.wl-sec:first-of-type {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
+.add-close {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: 0.16s;
+}
+.add-close:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.add-close svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+.add-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.add-overlay.closing .add-device-modal {
+  pointer-events: none;
+}
+.add-device-inner {
+  display: flow-root;
+  min-width: 0;
+}
+.add-device-modal h2 {
+  margin-bottom: 20px;
+}
+.add-methods {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+.add-methods button {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 7px;
+  white-space: normal;
+}
+.add-methods button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.method-detail {
+  font-size: 11px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.add-device-modal .add-port {
+  flex: 0 1 110px;
+}
+.add-device-modal .wl-head {
+  position: relative;
+}
+.add-device-modal .fhelp.up .fhelp-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.add-device-modal .fhelp.up .fhelp-panel::before {
+  top: auto;
+  bottom: -6px;
+}
+.add-device-modal:has(.fhelp:hover),
+.add-device-modal:has(.fhelp:focus-within) {
+  overflow: visible !important;
+}
+.status-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: update-spin 1.1s linear infinite;
+}
+.add-device-modal .hint {
+  font-size: 11px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.add-device-modal .hint:not(.dl-error):not(.wl-err):not(.wl-ok) {
+  color: var(--text-faint);
+}
+.add-device-modal .pair-address-label {
+  font-weight: 400;
+}
+.pair-status {
+  margin-top: 5px;
+}
+@media (max-width: 560px) {
+  .add-methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .add-device-modal {
+    transition: none;
+  }
+  .status-spinner {
+    animation: none;
+  }
 }
 .wl-head {
   display: flex;
@@ -2335,14 +2433,31 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .wl-item + .wl-item {
   border-top: 1px solid var(--border);
 }
+.wl-item.wl-result {
+  display: block;
+}
+.wl-result-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wl-alias-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.wl-alias-row input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
 /* 连接标识是技术值：可选中、文本光标（app.css 开头的三态规则）。 */
 .wl-cid {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 12.5px;
+  overflow-wrap: anywhere;
   user-select: text;
   cursor: text;
 }

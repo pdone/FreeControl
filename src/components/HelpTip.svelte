@@ -18,9 +18,11 @@
   export let title: string;
   /** 入口的无障碍名称（如「更新的说明」）—— 入口是只有图标的按钮，必须自带名称。 */
   export let label: string;
+  /** 靠近弹窗底部时向上展开，避免被外壳裁切。 */
+  export let up = false;
 </script>
 
-<span class="fhelp">
+<span class="fhelp" class:up>
   <button class="fhelp-btn" type="button" aria-label={label}>
     <CircleHelp />
   </button>

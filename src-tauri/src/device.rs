@@ -92,7 +92,7 @@ pub fn add_device(
     mut device: Device,
 ) -> Result<AppConfig, UserError> {
     device.id.clear();
-    mutate_and_persist(&app, &state, |cfg| {
+    let cfg = mutate_and_persist(&app, &state, |cfg| {
         let id = cfg
             .upsert_device(device)
             .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))?;
@@ -102,7 +102,11 @@ pub fn add_device(
             log_device("新增", d);
         }
         Ok(())
-    })
+    })?;
+    // 新设备的 id 此前不在状态表里；不重算并推送，设备卡会一直停在「检测中…」
+    // —— adb 设备列表没变时订阅端不会补帧。
+    publish_status(&app);
+    Ok(cfg)
 }
 
 /// 更新设备：别名内联编辑、探测到 serial 后补全连接标识都走这里（spec「编辑别名」）。
