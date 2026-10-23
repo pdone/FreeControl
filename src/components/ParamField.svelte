@@ -5,6 +5,7 @@
   import { labelText, validationText } from '../lib/paramText';
   import type { ValidationMessage } from '../lib/validate';
   import FieldLabel from './FieldLabel.svelte';
+  import ParamSelect from './ParamSelect.svelte';
 
   export let field: PF;
   export let value: unknown;
@@ -57,9 +58,6 @@
   function onToggle(e: Event) {
     set((e.target as HTMLInputElement).checked);
   }
-  function onSelect(e: Event) {
-    set((e.target as HTMLSelectElement).value);
-  }
   function onRange(e: Event) {
     set(Number((e.target as HTMLInputElement).value));
   }
@@ -103,11 +101,8 @@
 {:else if field.type === 'select'}
   <div class="field">
     <FieldLabel {field} />
-    <select on:change={onSelect}>
-      {#each field.options ?? [] as o}
-        <option value={o.value} selected={value === o.value}>{labelText(o, $t)}</option>
-      {/each}
-    </select>
+    <!-- 自绘下拉（design D1–D3）：原生 `<select>` 的弹出列表由宿主绘制，帮助面板压不过它。 -->
+    <ParamSelect {field} {value} on:change={(e) => set(e.detail)} />
     {#if error}
       <div class="hint dl-error">{errorText}</div>
     {:else if hint}

@@ -67,8 +67,9 @@
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   font-synthesis: none;
-  /* 让 WebView2/Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
-     textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。 */
+  /* 让 WebView2/Chromium 把原生控件按暗色绘制：滚动条、textarea 右下角缩放手柄等
+     一律走暗色，避免深色界面里蹦出浅色系统部件。
+     （下拉列表已由应用自绘，见下方 `.sel` 一组规则 —— 它不再随本属性走。） */
   color-scheme: dark;
 }
 
@@ -179,7 +180,6 @@ body {
 }
 input,
 textarea,
-select,
 [contenteditable] {
   user-select: text;
   cursor: auto;
@@ -841,9 +841,9 @@ select,
 .fhelp {
   display: inline-block;
 }
-/* 入口的层叠随展开状态变化（config ㉖）：常驻 4 **低于**面板的 5 —— 展开的面板因此盖住同页
+/* 入口的层叠随展开状态变化（config ㉖）：常驻 4 **低于**面板的 45 —— 展开的面板因此盖住同页
    其它 `?` 入口（面板高度远超 14px 的字段间距，相邻字段的图标原先会从面板里透出来，且仍可悬停、
-   点击）；只在自己这块展开时（`:hover` / `:focus-within`）上提到 6，压过面板的 6px / 36px 透明桥
+   点击）；只在自己这块展开时（`:hover` / `:focus-within`）上提到 46，压过面板的 6px / 36px 透明桥
    —— 否则点击会落到桥上、入口拿不到焦点（表现为只有悬浮、点击不固定）。面板若新增第三种展开
    来源（脚本切类等），此处的上提条件 MUST 同批补上。 */
 .fhelp-btn {
@@ -864,10 +864,11 @@ select,
 .fhelp-btn:hover {
   color: var(--text-dim);
 }
-/* 悬停唯一 + 焦点唯一 ⇒ 此刻同页不会有第二块面板处于同一姿态，这次上提不会重新戳穿别人的面板。 */
+/* 悬停唯一 + 焦点唯一 ⇒ 此刻同页不会有第二块面板处于同一姿态，这次上提不会重新戳穿别人的面板。
+   取值随面板一起上移（面板 45 ⇒ 入口 46）：透明桥是面板的一部分，压在桥下面就会吃掉落点。 */
 .fhelp:hover .fhelp-btn,
 .fhelp:focus-within .fhelp-btn {
-  z-index: 6;
+  z-index: 46;
 }
 .fhelp-btn svg {
   width: 14px;
@@ -897,7 +898,10 @@ select,
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 5;
+  /* 层叠取值 45：越过页面内的两类下拉（目录菜单 40 / 自绘的下拉列表 5），
+     仍在模态遮罩 50 与 hover 提示层 70 之下 —— 弹窗盖住页面面板、提示盖住一切的关系不变。
+     展开中的入口随之取 46（见上方 `.fhelp-btn`），压过本面板的透明桥。 */
+  z-index: 45;
   display: none;
   width: max-content;
   max-width: min(440px, 100%);
@@ -1300,7 +1304,6 @@ select,
 
 input[type="text"],
 input[type="number"],
-select,
 textarea {
   width: 100%;
   background: var(--panel-2);
@@ -1319,7 +1322,6 @@ textarea {
   font-size: 12.5px;
 }
 input:focus,
-select:focus,
 textarea:focus {
   /* 焦点框用对比度兜底后的强调色：亮主题色（黄 / 绿）下 raw --accent 压在白底上
      几乎看不见，而焦点指示不能靠色相区分。 */
@@ -1330,12 +1332,119 @@ input[aria-invalid='true'],
 textarea[aria-invalid='true'] {
   border-color: color-mix(in srgb, var(--danger) 55%, transparent);
 }
-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 30px;
+
+/* ---------- 下拉参数的自绘列表（spec `parameter-configuration`「下拉参数的列表控件」） ----------
+   为什么不用原生 `<select>`：它展开的列表由 WebView 自己画在网页之上，`z-index` 完全无效 ——
+   帮助面板（45）压不过它。自绘后列表回到页面层叠里，且取值、校验与拼装结果一字不变。
+   按钮与上方输入框共用同一套盒模型与配色（9px 11px、13px、--panel-2、1px --border、--radius-sm），
+   右侧箭头改用 lucide 的 ChevronDown（与全仓图标同源，不再用数据 URI）。
+   层叠取 5：**高于**常驻的 `?` 入口（4）—— 列表向上展开时会盖住标签行，此时那块 `?`
+   图标必须被列表压住（停在列表底下会从列表里透出来）；仍低于帮助面板（45），
+   于是同一处既展开列表又展开面板时，仍然是面板在上。 */
+.sel {
+  position: relative;
+}
+.sel-trigger {
+  position: relative;
+  width: 100%;
+  padding: 9px 30px 9px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  /* 与 `input[type=text]` 同高：那里没有显式行高，这里也取 normal（继承 body 的行高会矮一截）。 */
+  line-height: normal;
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.12s;
+}
+/* 单行省略：取值都是短技术值，宽度不够时截断而不是把字段撑高。 */
+.sel-text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sel-trigger svg {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  color: var(--text-faint);
+  stroke-width: 2;
+  pointer-events: none;
+  transition: transform 0.16s ease;
+}
+.sel-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.sel-trigger:focus-visible,
+.sel-trigger[aria-expanded="true"] {
+  border-color: var(--accent-hover);
+}
+/* 列表：与按钮同宽、贴着按钮落下（放不下时由 `up` 翻到上方），高度上限由脚本按滚动容器量出。
+   `visibility` 在落位完成前藏住它，避免在上一帧的位置闪一下（与提示层的 placed 同一手法）。
+   层叠 5：见上（高于 `?` 入口的 4、低于帮助面板的 45）。 */
+.sel-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  visibility: hidden;
+  padding: 5px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 2px;
+  overflow-y: auto;
+  /* 入场与目录菜单 / 帮助面板同族：180ms 淡入 + 4px 下落，不加 scale。
+     位移量沿用 `menu-in` 读的那个变量名（`--menu-dy`），不另起一套。 */
+  --menu-dy: -4px;
+  animation: menu-in 180ms ease-out;
+}
+.sel-list.on {
+  visibility: visible;
+}
+.sel-list.up {
+  top: auto;
+  bottom: calc(100% + 4px);
+  --menu-dy: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sel-list {
+    --menu-dy: 0px;
+  }
+}
+/* 选项：项高与内边距取目录菜单项的同族取值（8px 10px、12px 字）；当前项（键盘或指针所在）
+   用 --accent-soft，已选值另加 --accent-text，两者可区分。 */
+.sel-opt {
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+.sel-opt.active {
+  background: var(--accent-soft);
+}
+.sel-opt[aria-selected="true"] {
+  color: var(--accent-text);
+  font-weight: 600;
 }
 .row {
   display: flex;

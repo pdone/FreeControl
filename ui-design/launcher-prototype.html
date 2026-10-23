@@ -115,7 +115,7 @@
      例外里 cursor 写 auto 而**不是** text：让 range / checkbox 仍拿各自的光标，
      只有文本输入才解析成 I 形。 */
   body { user-select: none; cursor: default; }
-  input, textarea, select, [contenteditable] { user-select: text; cursor: auto; }
+  input, textarea, [contenteditable] { user-select: text; cursor: auto; }
   /* 技术值白名单：作为值**独立承载**、会被用户带出应用的技术文本一律保持可选中。
      说明文字里的【裸】技术值（如提示语中的 %APPDATA%/… 目录约定、设备卡上的 PID 与窗口坐标）
      不在其列 —— 本规则只认有独立承载的技术值，不为一句提示去改文案结构（见 spec 的做法约定）。
@@ -327,13 +327,13 @@
   /* 入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色 ——
      再画一圈就成了"圈中圈"。`.fhelp` 保持不定位：面板的定位祖先是标签行 / 开关行（见上方注释）。
      与产品侧 .fhelp-btn 同款。 */
-  /* 入口的层叠随展开状态变化（config ㉖）：常驻 4 低于面板的 5，于是展开的面板盖住同页其它入口；
-     只在自己这块展开时（:hover / :focus-within）上提到 6，压过面板的 6px / 36px 透明桥 ——
+  /* 入口的层叠随展开状态变化（config ㉖）：常驻 4 低于面板的 45，于是展开的面板盖住同页其它入口；
+     只在自己这块展开时（:hover / :focus-within）上提到 46，压过面板的 6px / 36px 透明桥 ——
      否则点击会落到桥上、入口拿不到焦点（点击固定失效）。面板若新增第三种展开来源，此处须同批补条件。 */
   .fhelp-btn { position: relative; z-index: 4; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; transition: color .16s; }
   .fhelp-btn:hover { color: var(--text-dim); }
   .fhelp:hover .fhelp-btn,
-  .fhelp:focus-within .fhelp-btn { z-index: 6; }
+  .fhelp:focus-within .fhelp-btn { z-index: 46; }
   .fhelp-btn svg { width: 14px; height: 14px; }
   /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
      原固定值 440px 退居上限，且上限定为 `min(440px, 100%)`，随字段可用宽收窄，window 窄了不截断。 */
@@ -341,7 +341,8 @@
      「与帮助面板风格一致」必须是**同源**；抄一份字面量过去只会各自漂移（与产品侧 app.css 同构）。 */
   .fhelp-panel,
   .tip-panel { padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); box-shadow: var(--shadow); color: var(--text-dim); font-size: 12px; line-height: 1.6; font-weight: 400; letter-spacing: 0; text-transform: none; }
-  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: none; width: max-content; max-width: min(440px, 100%); }
+  /* 层叠 45：越过页面内的两类下拉（目录菜单 40 / 自绘的下拉列表 5），仍在模态遮罩 50 与提示层 70 之下。 */
+  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 45; display: none; width: max-content; max-width: min(440px, 100%); }
   .fhelp-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
   /* 详情分段的每一段（config ④）：块级；段间留白与 `.hint` 那一档同值（5px 上下取整）。 */
   .fhelp-p { display: block; }
@@ -446,13 +447,33 @@
      通道行三格已实测超宽，再塞按钮会破掉「整行恒为单行」的约定。 */
   .dl .dl-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 
-  input[type=text], input[type=number], select, textarea {
+  input[type=text], input[type=number], textarea {
     width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
     border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .12s;
   }
   textarea { resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
-  input:focus, select:focus, textarea:focus { border-color: var(--accent-hover); }
-  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+  input:focus, textarea:focus { border-color: var(--accent-hover); }
+  /* 下拉参数的自绘列表（config ㉛，与产品侧 app.css 的 `.sel` 一组同名同值）：
+     原生 `<select>` 的弹出列表由浏览器画在网页之上，层叠取值对它无效 —— 帮助面板（45）压不过它，
+     故换成「按钮 + 页面内列表」。层叠取 5：高于常驻的 `?` 入口（4，向上展开时列表会盖住标签行，
+     那块图标必须被压住）、低于帮助面板（45，两者同时展开时面板仍在上）。 */
+  .sel { position: relative; }
+  .sel-trigger { position: relative; width: 100%; padding: 9px 30px 9px 11px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-family: inherit; font-size: 13px; line-height: normal; text-align: left; outline: none; cursor: pointer; user-select: none; transition: border-color .12s; }
+  .sel-text { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .sel-trigger svg { position: absolute; right: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px; color: var(--text-faint); stroke-width: 2; pointer-events: none; transition: transform .16s ease; }
+  .sel-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .sel-trigger:focus-visible,
+  .sel-trigger[aria-expanded="true"] { border-color: var(--accent-hover); }
+  .sel-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; padding: 5px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); display: grid; gap: 2px; overflow-y: auto; --menu-dy: -4px; animation: menu-in 180ms ease-out; }
+  .sel-list.hidden { display: none; }
+  .sel-list.up { top: auto; bottom: calc(100% + 4px); --menu-dy: 4px; }
+  @media (prefers-reduced-motion: reduce) {
+    .sel-list { --menu-dy: 0px; }
+  }
+  /* 选项：项高与内边距取目录菜单项的同族取值；当前项用 --accent-soft，已选值另加 --accent-text。 */
+  .sel-opt { width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer; user-select: none; }
+  .sel-opt.active { background: var(--accent-soft); }
+  .sel-opt[aria-selected="true"] { color: var(--accent-text); font-weight: 600; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
 
@@ -981,7 +1002,15 @@
               <div class="field"><span class="flabel">摄像头朝向（--camera-facing）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="摄像头朝向（--camera-facing）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">摄像头朝向（--camera-facing）</span><span class="fhelp-p">按朝向选择设备摄像头：front 前置、back 后置、external 外接。</span><span class="fhelp-p">不选则由 scrcpy 使用检测到的第一个摄像头。</span></span>
-            </span></span><select data-g="source" data-k="cameraFacing" data-t="select"><option value="">自动</option><option>front</option><option>back</option><option>external</option></select>
+            </span></span><div class="sel" data-g="source" data-k="cameraFacing" data-t="select" data-v="">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="摄像头朝向（--camera-facing）"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="摄像头朝向（--camera-facing）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="" aria-selected="true">自动</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="front" aria-selected="false">front</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="back" aria-selected="false">back</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="external" aria-selected="false">external</button>
+                </div>
+              </div>
                 </div>
               <div class="field"><span class="flabel">尺寸（--camera-size）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="尺寸（--camera-size）的说明"><i data-lucide="circle-help"></i></button>
@@ -1017,7 +1046,17 @@
             <div class="field"><span class="flabel">视频编码（--video-codec）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="视频编码（--video-codec）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">视频编码（--video-codec）</span><span class="fhelp-p">选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。</span><span class="fhelp-p">选「自动」时按 scrcpy 自身的默认决定。</span></span>
-            </span></span><select data-g="video" data-k="videoCodec" data-t="select"><option value="" selected>自动</option><option>h264</option><option>h265</option><option>av1</option><option>vp8</option><option>vp9</option></select></div>
+            </span></span><div class="sel" data-g="video" data-k="videoCodec" data-t="select" data-v="">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="视频编码（--video-codec）"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="视频编码（--video-codec）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="" aria-selected="true">自动</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="h264" aria-selected="false">h264</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="h265" aria-selected="false">h265</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="av1" aria-selected="false">av1</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="vp8" aria-selected="false">vp8</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="vp9" aria-selected="false">vp9</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">长边分辨率（--max-size）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="长边分辨率（--max-size）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">长边分辨率（--max-size）</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
@@ -1041,7 +1080,15 @@
             <div class="field"><span class="flabel">硬件解码（--hwdec）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="硬件解码（--hwdec）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">硬件解码（--hwdec）</span><span class="fhelp-p">「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。</span><span class="fhelp-p">disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。</span><span class="fhelp-p">与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。</span><span class="fhelp-p">需要 scrcpy 5.0 及以上。</span></span>
-            </span></span><select data-g="video" data-k="hwdec" data-t="select"><option value="" selected>自动</option><option>disabled</option><option>vaapi</option><option>d3d11va</option></select>
+            </span></span><div class="sel" data-g="video" data-k="hwdec" data-t="select" data-v="">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="硬件解码（--hwdec）"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="硬件解码（--hwdec）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="" aria-selected="true">自动</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="vaapi" aria-selected="false">vaapi</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="d3d11va" aria-selected="false">d3d11va</button>
+                </div>
+              </div>
               <div class="hint">「后台录制」开启时不生效</div></div>
           </div>
           <div class="card">
@@ -1057,7 +1104,14 @@
             <div class="field"><span class="flabel">渲染适配（--render-fit）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="渲染适配（--render-fit）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">渲染适配（--render-fit）</span><span class="fhelp-p">控制画面在窗口里的适配方式。</span><span class="fhelp-p">letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。</span></span>
-            </span></span><select data-g="video" data-k="renderFit" data-t="select"><option>letterbox</option><option>stretched</option><option>unscaled</option></select></div>
+            </span></span><div class="sel" data-g="video" data-k="renderFit" data-t="select" data-v="letterbox">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="渲染适配（--render-fit）"><span class="sel-text">letterbox</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="渲染适配（--render-fit）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="letterbox" aria-selected="true">letterbox</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="stretched" aria-selected="false">stretched</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="unscaled" aria-selected="false">unscaled</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">视频缓冲（--video-buffer）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="视频缓冲（--video-buffer）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">视频缓冲（--video-buffer）</span><span class="fhelp-p">在显示前增加一段缓冲，用来吸收网络抖动。</span><span class="fhelp-p">它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。</span></span>
@@ -1080,11 +1134,31 @@
             <div class="field"><span class="flabel">音频源（--audio-source）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="音频源（--audio-source）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">音频源（--audio-source）</span><span class="fhelp-p">选择音频采集来源，只在音频转发开启时才有意义。</span><span class="fhelp-p">output 转发整机音频输出并让设备端静音；playback 只采集应用的播放声音（应用可主动退出采集）；mic 系列采集麦克风 —— mic-unprocessed 取原始信号、mic-camcorder 按录像场景调优、mic-voice-communication 启用回声消除与自动增益；voice-call 与 voice-performance 分别对应通话与演出场景。</span><span class="fhelp-p">设备实际支持的来源随厂商实现而异。</span></span>
-            </span></span><select data-g="audio" data-k="audioSource" data-t="select" id="aSource"><option>output</option><option>playback</option><option>mic</option><option>mic-unprocessed</option><option>mic-camcorder</option><option>mic-voice-communication</option><option>voice-call</option><option>voice-performance</option></select></div>
+            </span></span><div class="sel" data-g="audio" data-k="audioSource" data-t="select" data-v="output" id="aSource">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="音频源（--audio-source）"><span class="sel-text">output</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="音频源（--audio-source）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="output" aria-selected="true">output</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="playback" aria-selected="false">playback</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mic" aria-selected="false">mic</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mic-unprocessed" aria-selected="false">mic-unprocessed</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mic-camcorder" aria-selected="false">mic-camcorder</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mic-voice-communication" aria-selected="false">mic-voice-communication</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="voice-call" aria-selected="false">voice-call</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="voice-performance" aria-selected="false">voice-performance</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">音频编码（--audio-codec）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="音频编码（--audio-codec）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">音频编码（--audio-codec）</span><span class="fhelp-p">选择音频编码格式：opus 为 scrcpy 默认，aac 兼容性好，flac 无损但体积大，raw 不压缩、体积最大。</span></span>
-            </span></span><select data-g="audio" data-k="audioCodec" data-t="select"><option>opus</option><option>aac</option><option>flac</option><option>raw</option></select></div>
+            </span></span><div class="sel" data-g="audio" data-k="audioCodec" data-t="select" data-v="opus">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="音频编码（--audio-codec）"><span class="sel-text">opus</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="音频编码（--audio-codec）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="opus" aria-selected="true">opus</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aac" aria-selected="false">aac</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="flac" aria-selected="false">flac</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="raw" aria-selected="false">raw</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">复制音频（--audio-dup，设备同时播放）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="复制音频（--audio-dup，设备同时播放）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">复制音频（--audio-dup，设备同时播放）</span><span class="fhelp-p">转发音频的同时让设备继续外放，而不是转发后设备静音。</span><span class="fhelp-p">只在音频源为 playback 时可用。</span></span>
@@ -1129,15 +1203,38 @@
             <div class="field"><span class="flabel">键盘（--keyboard）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="键盘（--keyboard）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">键盘（--keyboard）</span><span class="fhelp-p">选择键盘事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 需要先在设备的「设置 → 系统 → 语言和输入法 → 物理键盘」里配好键盘布局。</span></span>
-            </span></span><select data-g="control" data-k="keyboard" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            </span></span><div class="sel" data-g="control" data-k="keyboard" data-t="select" data-v="uhid">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="键盘（--keyboard）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="键盘（--keyboard）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="false">sdk</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">鼠标（--mouse）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="鼠标（--mouse）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">鼠标（--mouse）</span><span class="fhelp-p">选择鼠标事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送鼠标事件；sdk 通过 Android 系统接口投递；uhid 模拟物理 HID 鼠标；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 会捕获电脑鼠标（相对移动模式），按 LAlt、LSuper 或 RSuper 可把鼠标交还给电脑。</span></span>
-            </span></span><select data-g="control" data-k="mouse" data-t="select"><option>uhid</option><option>sdk</option><option>aoa</option><option>disabled</option></select></div>
+            </span></span><div class="sel" data-g="control" data-k="mouse" data-t="select" data-v="uhid">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="鼠标（--mouse）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="鼠标（--mouse）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="false">sdk</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">游戏手柄（--gamepad）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="游戏手柄（--gamepad）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">游戏手柄（--gamepad）</span><span class="fhelp-p">选择手柄的注入方式。</span><span class="fhelp-p">disabled 不向设备发送手柄事件；uhid 把电脑手柄模拟成设备上的物理手柄；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span></span>
-            </span></span><select data-g="control" data-k="gamepad" data-t="select"><option>uhid</option><option>aoa</option><option>disabled</option></select></div>
+            </span></span><div class="sel" data-g="control" data-k="gamepad" data-t="select" data-v="uhid">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="游戏手柄（--gamepad）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="游戏手柄（--gamepad）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">快捷键修饰键（--shortcut-mod）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="快捷键修饰键（--shortcut-mod）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">快捷键修饰键（--shortcut-mod）</span><span class="fhelp-p">指定 scrcpy 快捷键的修饰键，默认是左 Alt 或左 Super。</span><span class="fhelp-p">可同时选择多个，任一命中即触发；改动后所有快捷键的组合随之变化。</span></span>
@@ -1208,7 +1305,19 @@
             <div class="field"><span class="flabel">格式（--record-format）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="格式（--record-format）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">格式（--record-format）</span><span class="fhelp-p">强制录制文件的容器格式，仅在启用录制时生效。</span><span class="fhelp-p">默认 mp4；与文件扩展名不一致时，文件内容与后缀会对不上。</span></span>
-            </span></span><select data-g="record" data-k="recordFormat" data-t="select"><option>mp4</option><option>mkv</option><option>m4a</option><option>mka</option><option>opus</option><option>aac</option><option>flac</option><option>wav</option></select></div>
+            </span></span><div class="sel" data-g="record" data-k="recordFormat" data-t="select" data-v="mp4">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="格式（--record-format）"><span class="sel-text">mp4</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="格式（--record-format）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mp4" aria-selected="true">mp4</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mkv" aria-selected="false">mkv</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="m4a" aria-selected="false">m4a</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="mka" aria-selected="false">mka</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="opus" aria-selected="false">opus</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aac" aria-selected="false">aac</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="flac" aria-selected="false">flac</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="wav" aria-selected="false">wav</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">录制方向（--record-orientation）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="录制方向（--record-orientation）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">录制方向（--record-orientation）</span><span class="fhelp-p">只影响录制文件的方向，不改变镜像画面。</span><span class="fhelp-p">90 与 270 会交换输出文件的宽高。</span></span>
@@ -1228,7 +1337,14 @@
             <div class="field"><span class="flabel">退出时暂停（--pause-on-exit）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="退出时暂停（--pause-on-exit）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">退出时暂停（--pause-on-exit）</span><span class="fhelp-p">会话结束后暂停等待，而不是立即退出；选 if-error 时只在出错后暂停。</span><span class="fhelp-p">它的原意是让命令行窗口停住，以便读报错；本应用会把 scrcpy 的输出收进会话日志，因此通常用不到。</span></span>
-            </span></span><select data-g="record" data-k="pauseOnExit" data-t="select"><option>false</option><option>true</option><option>if-error</option></select></div>
+            </span></span><div class="sel" data-g="record" data-k="pauseOnExit" data-t="select" data-v="false">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="退出时暂停（--pause-on-exit）"><span class="sel-text">false</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="退出时暂停（--pause-on-exit）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="false" aria-selected="true">false</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="true" aria-selected="false">true</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="if-error" aria-selected="false">if-error</button>
+                </div>
+              </div></div>
           </div>
         </div>
       </section>
@@ -1523,7 +1639,16 @@
             <div class="field"><span class="flabel">日志级别（--verbosity）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="日志级别（--verbosity）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">日志级别（--verbosity）</span><span class="fhelp-p">设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。</span><span class="fhelp-p">发布版 scrcpy 默认 info；调到 debug 或 verbose 会显著放大日志量。</span></span>
-            </span></span><select data-g="advanced" data-k="verbosity" data-t="select"><option>info</option><option>debug</option><option>verbose</option><option>warn</option><option>error</option></select></div>
+            </span></span><div class="sel" data-g="advanced" data-k="verbosity" data-t="select" data-v="info">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="日志级别（--verbosity）"><span class="sel-text">info</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="日志级别（--verbosity）">
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="info" aria-selected="true">info</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="debug" aria-selected="false">debug</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="verbose" aria-selected="false">verbose</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="warn" aria-selected="false">warn</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="error" aria-selected="false">error</button>
+                </div>
+              </div></div>
             <div class="field"><span class="flabel">显示 FPS 计数（--print-fps）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="显示 FPS 计数（--print-fps）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">显示 FPS 计数（--print-fps）</span><span class="fhelp-p">在日志里持续打印实际帧率，用来判断画面是否掉帧。</span></span>
@@ -2637,6 +2762,9 @@
     if (t==='range') return Number(el.value);
     if (t==='multichips') return [...el.querySelectorAll('.chip.active')].map(c=>c.textContent);
     if (t==='seg') return el.querySelector('button.active').dataset.v;
+    // 自绘下拉（config ㉛）：取值存在 `data-v` 上，不再从 DOM 文本或 `value` 读 ——
+    // 译文替换的是文本节点，取值必须与语言无关。
+    if (t==='select') return el.dataset.v ?? '';
     return el.value;
   }
   function writeControl(el, val){
@@ -2645,6 +2773,7 @@
     else if (t==='range') el.value = val;
     else if (t==='multichips') el.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', val.includes(c.textContent)));
     else if (t==='seg') el.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.v===String(val)));
+    else if (t==='select'){ el.dataset.v = String(val ?? ''); selSync(el); }
     else el.value = val;
   }
   function setParam(target, g, k, val){
@@ -2675,6 +2804,181 @@
     setParam('default','control','shortMod',[...document.querySelectorAll('#shortMod .chip.active')].map(x=>x.textContent));
     onParamsChanged();
   });
+
+  /* ===================== 自绘下拉（config ㉛，与产品侧 ParamSelect 同一套键位与收起时机） =====================
+     结构：`.sel[data-v]` > `.sel-trigger`(combobox) + `.sel-list`(listbox) > `.sel-opt`(option，tabindex=-1)。
+     焦点留在按钮上，当前项用 aria-activedescendant 指过去；选项文本只作显示，取值一律走 `data-v`。 */
+  const SEL_GAP = 4, SEL_M = 8;
+  let selOpenEl = null, selActive = 0;
+  const selTyped = { text: '', at: 0 };
+
+  function selOpts(el){ return [...el.querySelectorAll('.sel-opt')]; }
+  function selTrigger(el){ return el.querySelector('.sel-trigger'); }
+  function selList(el){ return el.querySelector('.sel-list'); }
+
+  /* 最近的滚动容器（`.content` 等）：列表择向与限高按它的可视矩形算，而不是视口。 */
+  function selPort(el){
+    let p = el.parentElement;
+    while (p){
+      if (getComputedStyle(p).overflowY !== 'visible'){
+        const r = p.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      }
+      p = p.parentElement;
+    }
+    return { top: 0, bottom: innerHeight };
+  }
+
+  function selSync(el){
+    const v = el.dataset.v ?? '';
+    let text = '', idx = 0;
+    selOpts(el).forEach((o, i)=>{
+      const on = (o.dataset.v ?? '') === v;
+      o.id = `${el.dataset.k}-opt-${i}`;
+      o.setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on){ text = o.textContent; idx = i; }
+    });
+    el.querySelector('.sel-text').textContent = text;
+    return idx;
+  }
+
+  function selMark(el){
+    const opts = selOpts(el);
+    opts.forEach((o, i)=>o.classList.toggle('active', i === selActive));
+    const cur = opts[selActive];
+    if (cur) selTrigger(el).setAttribute('aria-activedescendant', cur.id);
+    else selTrigger(el).removeAttribute('aria-activedescendant');
+  }
+
+  function selReveal(el){
+    const list = selList(el), o = selOpts(el)[selActive];
+    if (!list || !o) return;
+    const top = o.offsetTop, bottom = top + o.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  }
+
+  function selClose(el){
+    if (!el) return;
+    const list = selList(el);
+    list.classList.add('hidden');
+    list.classList.remove('up');
+    list.style.maxHeight = '';
+    selTrigger(el).setAttribute('aria-expanded', 'false');
+    selTrigger(el).removeAttribute('aria-activedescendant');
+    if (selOpenEl === el) selOpenEl = null;
+  }
+
+  function selOpen(el, dir){
+    if (selOpenEl && selOpenEl !== el) selClose(selOpenEl);
+    const opts = selOpts(el);
+    if (!opts.length) return;
+    const list = selList(el);
+    selActive = (dir === -1) ? opts.length - 1 : selSync(el);
+    list.classList.remove('hidden', 'up');
+    list.style.maxHeight = '';
+    list.style.visibility = 'hidden';
+    selTrigger(el).setAttribute('aria-expanded', 'true');
+    selOpenEl = el;
+    // 先量自然高度与上下可用空间，再决定朝哪边开、限多高（与产品侧同一口径：余量 8px、缝 4px）。
+    const natural = list.scrollHeight;
+    const r = el.getBoundingClientRect();
+    const port = selPort(el);
+    const below = port.bottom - r.bottom - SEL_GAP - SEL_M;
+    const above = r.top - port.top - SEL_GAP - SEL_M;
+    const up = below < Math.min(natural, 220) && above > below;
+    list.style.maxHeight = Math.min(natural, Math.max(76, up ? above : below)) + 'px';
+    list.classList.toggle('up', up);
+    list.style.visibility = '';
+    selMark(el);
+    selReveal(el);
+  }
+
+  function selMove(el, delta){
+    const n = selOpts(el).length;
+    if (!n) return;
+    selActive = (selActive + delta + n) % n;
+    selMark(el);
+    selReveal(el);
+  }
+
+  function selJump(el, ch){
+    const now = Date.now();
+    selTyped.text = (now - selTyped.at > 700) ? ch : selTyped.text + ch;
+    selTyped.at = now;
+    const q = selTyped.text.toLowerCase();
+    const opts = selOpts(el);
+    const from = selTyped.text.length === 1 ? selActive + 1 : selActive;
+    for (let i = 0; i < opts.length; i++){
+      const idx = (from + i) % opts.length;
+      if (opts[idx].textContent.trim().toLowerCase().startsWith(q)){
+        selActive = idx; selMark(el); selReveal(el); return;
+      }
+    }
+  }
+
+  function selChoose(el){
+    const o = selOpts(el)[selActive];
+    if (!o) return;
+    el.dataset.v = o.dataset.v ?? '';
+    selSync(el);
+    selClose(el);
+    // 复用既有的 `input` 监听（`[data-g]` 上按 `data-t` 绑定），拼装与联动一行都不用改。
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    selTrigger(el).focus();
+  }
+
+  document.querySelectorAll('.sel').forEach(el=>{
+    const trig = selTrigger(el);
+    selSync(el);
+    trig.addEventListener('click', ()=>{ selOpenEl === el ? selClose(el) : selOpen(el, 1); });
+    trig.addEventListener('keydown', e=>{
+      const k = e.key;
+      if (selOpenEl !== el){
+        if (k==='Enter' || k===' ' || k==='ArrowDown' || k==='ArrowUp' || k==='Home' || k==='End'){
+          if (k!=='Enter') e.preventDefault();
+          e.stopPropagation();
+          selOpen(el, (k==='ArrowUp' || k==='End') ? -1 : 1);
+          return;
+        }
+        if (k.length === 1 && k !== ' '){ e.preventDefault(); selOpen(el, 1); selJump(el, k); }
+        return;
+      }
+      if (k==='ArrowDown' || k==='ArrowUp' || k==='Home' || k==='End' || k==='Enter' || k===' ' || k==='Escape' || k.length === 1){
+        e.stopPropagation();
+      }
+      switch (k){
+        case 'ArrowDown': e.preventDefault(); selMove(el, 1); break;
+        case 'ArrowUp': e.preventDefault(); selMove(el, -1); break;
+        case 'Home': e.preventDefault(); selActive = 0; selMark(el); selReveal(el); break;
+        case 'End': e.preventDefault(); selActive = selOpts(el).length - 1; selMark(el); selReveal(el); break;
+        case 'Enter': case ' ': e.preventDefault(); selChoose(el); break;
+        case 'Escape': e.preventDefault(); selClose(el); break;
+        case 'Tab': selClose(el); break;     // 焦点交给浏览器移走，这里只收起
+        default: if (k.length === 1){ e.preventDefault(); selJump(el, k); }
+      }
+    });
+    selOpts(el).forEach((o, i)=>{
+      o.addEventListener('mousedown', e=>e.preventDefault());   // 点选项不把焦点从按钮上挪走
+      o.addEventListener('mousemove', ()=>{ if (selOpenEl === el){ selActive = i; selMark(el); } });
+      o.addEventListener('click', ()=>{ selActive = i; selChoose(el); });
+    });
+  });
+
+  // 点击列表外、页面滚动（含 `.content` 内部滚动）、窗口缩放：一律收起；Esc 兜一道（焦点若已不在按钮上）。
+  document.addEventListener('click', e=>{
+    if (selOpenEl && !selOpenEl.contains(e.target)) selClose(selOpenEl);
+  });
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape' && selOpenEl) selClose(selOpenEl);
+  });
+  window.addEventListener('scroll', e=>{
+    if (!selOpenEl) return;
+    const list = selList(selOpenEl);
+    if (list && e.target instanceof Node && list.contains(e.target)) return;
+    selClose(selOpenEl);
+  }, true);
+  window.addEventListener('resize', ()=>{ if (selOpenEl) selClose(selOpenEl); });
 
   function toggleSourceUI(){
     const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
