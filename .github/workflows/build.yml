@@ -160,16 +160,16 @@ jobs:
       - name: 构建（`beforeBuildCommand` 自带 `vite build`）
         run: npm run tauri build -- ${{ matrix.args }}
 
-      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），版本段与架构段由这里补上：
-      # 从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），只改名、不改内容。
-      # 两份产物都带架构段（`_x64` / `_arm64`），命名对称、一眼可辨（spec `release-build`）。
-      - name: Windows 产物按应用版本与架构命名
+      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），平台段、版本段与架构段
+      # 都由这里补上：从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），
+      # 只改名、不改内容。三平台统一为 `{产品名}_{版本}_{平台}_{架构}`（spec `release-build`）。
+      - name: Windows 产物按应用版本、平台与架构命名
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           $src = "src-tauri/target/release/FreeControl2.exe"
-          $dst = "src-tauri/target/release/FreeControl2_${version}_${{ matrix.arch }}.exe"
+          $dst = "src-tauri/target/release/FreeControl2_${version}_windows_${{ matrix.arch }}.exe"
           if (-not (Test-Path $src)) { throw "找不到构建产物 $src" }
           Move-Item $src $dst
           Write-Host "产物：$dst"
@@ -182,7 +182,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $file = "src-tauri/target/release/FreeControl2_${version}_${{ matrix.arch }}.exe"
+          $file = "src-tauri/target/release/FreeControl2_${version}_windows_${{ matrix.arch }}.exe"
           $expected = @{ x64 = 0x8664; arm64 = 0xAA64 }['${{ matrix.arch }}']
           $bytes = [IO.File]::ReadAllBytes($file)
           $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)          # PE 签名在文件中的偏移
@@ -190,11 +190,30 @@ jobs:
           Write-Host ("PE Machine = 0x{0:X4}（期望 0x{1:X4}）" -f $machine, $expected)
           if ($machine -ne $expected) { throw "产物架构不符：$file 的 Machine=0x$('{0:X4}' -f $machine)" }
 
+      # macOS 的 dmg 由 bundler 按 `{产品名}_{版本}_{aarch64|x64}` 命名，这里改写为
+      # `macos_{arm64|x64}`：补齐平台段，架构段换成该平台自己的叫法（macOS 上 `uname -m`
+      # 报的是 `arm64`，`aarch64` 只是编译器目标的叫法）。改名只动文件名，dmg 内的 `.app`
+      # 与它上面的 ad-hoc 签名都不受影响。这一步排在自检之前，自检读的就是最终要上传的名字。
+      - name: macOS 产物按应用版本、平台与架构命名
+        if: runner.os == 'macOS'
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          case "${{ matrix.arch }}" in
+            aarch64) SEG=arm64 ;;
+            x64) SEG=x64 ;;
+            *) echo "::error::未知架构 ${{ matrix.arch }}"; exit 1 ;;
+          esac
+          SRC="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_${{ matrix.arch }}.dmg"
+          DST="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_macos_${SEG}.dmg"
+          [ -f "$SRC" ] || { echo "::error::找不到构建产物 $SRC"; exit 1; }
+          mv "$SRC" "$DST"
+          echo "产物：$DST"
+
       # 无 Apple 实机时，「构建成功」不等于「产物架构与签名形态正确」—— 与 Windows 读 PE 头对应。
       # 1) `lipo -archs` 必须**恰好**是该腿的架构（含两个架构也判失败，防止误出 universal）；
       # 2) ad-hoc 签名是 Apple 芯片能运行的最低门槛（`bundle.macOS.signingIdentity = "-"`）；
       # 3) `minos` 只记日志，用于核对 `minimumSystemVersion`；
-      # 4) dmg 恰好一份，文件名里的架构段与这条腿一致。
+      # 4) dmg 恰好一份，文件名是改名后的 `_macos_{arm64|x64}.dmg`，且不残留 `aarch64`。
       # 检查 `.app` 而不是挂载 dmg：dmg 是 Tauri 从同一个 `.app` 打出来的，多一次
       # `hdiutil attach` 只会在 runner 上多一个偶发失败点。
       # 这份 `.app` 靠出包参数里的 `app` 保住 —— 只请求 `dmg` 时 bundler 会删掉它
@@ -207,8 +226,8 @@ jobs:
           [ -f "$BIN" ] || { echo "::error::找不到 $BIN"; exit 1; }
 
           case "${{ matrix.arch }}" in
-            aarch64) EXPECTED=arm64 ;;
-            x64) EXPECTED=x86_64 ;;
+            aarch64) EXPECTED=arm64; SEG=arm64 ;;
+            x64) EXPECTED=x86_64; SEG=x64 ;;
             *) echo "::error::未知架构 ${{ matrix.arch }}"; exit 1 ;;
           esac
           ARCHS=$(lipo -archs "$BIN")
@@ -226,7 +245,7 @@ jobs:
           echo "部署目标：$(vtool -show-build "$BIN" | awk '/minos/ {print $2}')"
 
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          DMG="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_${{ matrix.arch }}.dmg"
+          DMG="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_macos_${SEG}.dmg"
           [ -f "$DMG" ] || { echo "::error::找不到 $DMG"; exit 1; }
           COUNT=$(ls src-tauri/target/release/bundle/dmg/*.dmg | wc -l)
           [ "$COUNT" -eq 1 ] || { echo "::error::dmg 数量应为 1，实际 $COUNT"; exit 1; }
@@ -241,6 +260,22 @@ jobs:
           name: FreeControl2-windows-${{ matrix.arch }}
           path: src-tauri/target/release/FreeControl2_*.exe
           if-no-files-found: error
+
+      # Linux 两份的默认名带打包架构段（`_amd64`），这里补平台段，与三平台统一为
+      # `{产品名}_{版本}_{平台}_{架构}`（spec `release-build`）。只改名、不改内容：
+      # deb 的包内元数据与 AppImage 的自解压头都不依赖文件名。架构段用 dpkg 的 `amd64`，
+      # 不跟 Windows / macOS 的 `x64` 混用。
+      - name: Linux 产物按应用版本、平台与架构命名
+        if: runner.os == 'Linux'
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          APPIMAGE="src-tauri/target/release/bundle/appimage/FreeControl2_${VERSION}_amd64.AppImage"
+          DEB="src-tauri/target/release/bundle/deb/FreeControl2_${VERSION}_amd64.deb"
+          [ -f "$APPIMAGE" ] || { echo "::error::找不到构建产物 $APPIMAGE"; exit 1; }
+          [ -f "$DEB" ] || { echo "::error::找不到构建产物 $DEB"; exit 1; }
+          mv "$APPIMAGE" "src-tauri/target/release/bundle/appimage/FreeControl2_${VERSION}_linux_amd64.AppImage"
+          mv "$DEB" "src-tauri/target/release/bundle/deb/FreeControl2_${VERSION}_linux_amd64.deb"
+          ls -l src-tauri/target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/deb/*.deb
 
       - name: 上传 Linux 产物
         if: runner.os == 'Linux'
@@ -283,6 +318,29 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
+      # 正文取自两份更新日志中该版本的中英两节（spec `release-build`「草稿发行的正文取自更新日志」）。
+      # 取不到时退回通用说明并留痕 —— 产物优先：正文缺失不该让这次产物取不回来（design D4）。
+      - name: 生成草稿正文（取自更新日志）
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          FALLBACK="自动构建的草稿发行。Windows 产物为免安装单文件（x64 与 ARM64 各一份）；macOS 产物为 dmg（Apple 芯片与 Intel 各一份，ad-hoc 签名，首次打开需按 README 放行）；请人工确认后再发布。"
+          if node scripts/release-notes.mjs "$VERSION" --out notes.md; then
+            SOURCE="更新日志 v$VERSION（Update.md / Update.en.md）"
+          else
+            echo "::warning::更新日志里没有 v$VERSION 的条目，草稿正文退回通用说明。"
+            printf '未在更新日志中找到 v%s 的条目，以下是这次出包的通用说明，请人工补充。\n\n%s\n' \
+              "$VERSION" "$FALLBACK" > notes.md
+            SOURCE="通用说明（更新日志缺 v$VERSION 一节）"
+          fi
+          {
+            echo "### 草稿正文"
+            echo ""
+            echo "- 来源：$SOURCE"
+            echo "- 版本：v$VERSION"
+            echo "- 正文文件：$(wc -c < notes.md | tr -d ' ') 字节"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: 下载三平台产物（合并到一个目录）
         uses: actions/download-artifact@v8
         with:
@@ -301,9 +359,16 @@ jobs:
           # （2026-10-10 首次手动触发实测）。macOS 的 dmg 走单一通配路径上传，落在 `dist/` 根目录。
           # 少一份时通配符保持字面量，gh 会报「文件不存在」而失败 —— 与上传步骤的
           # `if-no-files-found: error` 同一口径，不静默少传。
-          ASSETS=(dist/*_x64.exe dist/*_arm64.exe dist/appimage/*.AppImage dist/deb/*.deb \
-                  dist/*_aarch64.dmg dist/*_x64.dmg)
+          # 六个名字与三平台改名步骤（`{产品名}_{版本}_{平台}_{架构}`）逐字对齐。
+          ASSETS=(dist/*_windows_x64.exe dist/*_windows_arm64.exe \
+                  dist/appimage/*_linux_amd64.AppImage dist/deb/*_linux_amd64.deb \
+                  dist/*_macos_arm64.dmg dist/*_macos_x64.dmg)
           ls -l "${ASSETS[@]}"
+          {
+            echo "### 本次产物"
+            echo ""
+            for asset in "${ASSETS[@]}"; do echo "- $(basename "$asset")"; done
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # 既有发行的三种状态：none / draft / published。
           # `--jq '.isDraft'` 对草稿给 true、对已发布给 false；tag 不存在时命令非零退出，按 none 处理。
@@ -333,16 +398,21 @@ jobs:
             echo "::warning::$TAG 已发布，本次产物落到取件草稿 $TARGET（该草稿只用于取件，永不发布）。"
           fi
 
+          # 正文：只有正式档位（TARGET == TAG）贴更新日志；取件草稿换回取件说明
+          # （spec「取件草稿不贴更新日志」）。
+          if [ "$TARGET" != "$TAG" ]; then
+            printf '取件草稿：%s 已发布，这里只用于取回同版本的新产物 —— 永不发布。确认后如需正式发行，请先升版本再出包。\n' \
+              "$TAG" > notes.md
+            echo "- 正文：已换回取件说明（$TARGET 不贴更新日志）" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           if [ "$STATE" = "none" ]; then
-            if [ "$TARGET" = "$TAG" ]; then
-              NOTES="自动构建的草稿发行。Windows 产物为免安装单文件（x64 与 ARM64 各一份）；macOS 产物为 dmg（Apple 芯片与 Intel 各一份，ad-hoc 签名，首次打开需按 README 放行）；请人工确认后再发布。"
-            else
-              NOTES="取件草稿：$TAG 已发布，这里只用于取回同版本的新产物 —— 永不发布。确认后如需正式发行，请先升版本再出包。"
-            fi
             gh release create "$TARGET" --draft \
               --title "FreeControl2 $TARGET" \
-              --notes "$NOTES" \
+              --notes-file notes.md \
               "${ASSETS[@]}"
           else
             gh release upload "$TARGET" --clobber "${ASSETS[@]}"
+            # 同版本重出时正文也要跟着刷新，否则停在上一次出包的内容（design D5）。
+            gh release edit "$TARGET" --notes-file notes.md
           fi

@@ -55,7 +55,7 @@
 
 **运行要求**：Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。Linux 提供 AppImage 与 deb，macOS 11 及以上提供 dmg（Safari 需为 16.2 或更新）。
 
-从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_x64.exe` 或 `FreeControl2_<版本>_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
+从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_windows_x64.exe` 或 `FreeControl2_<版本>_windows_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
 
 macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`。
 
@@ -96,7 +96,7 @@ npm run tauri build -- --bundles dmg
 
 产物在 `src-tauri/target/release/bundle/dmg/`。本仓库的 macOS 产物为 ad-hoc 签名、未经公证，首次打开需按上文放行。
 
-手动触发 `.github/workflows/build.yml` 出包时，产物先汇集成**草稿发行**（不自动发布）。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**。
+手动触发 `.github/workflows/build.yml` 出包时，产物先汇集成**草稿发行**（不自动发布）。草稿的正文取自 `Update.md` 与 `Update.en.md` 中该版本的中英两节，同版本重出时随之刷新。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**，正文仍是取件说明。
 
 ### 本地开发
 

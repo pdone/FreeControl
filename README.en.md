@@ -56,7 +56,7 @@
 
 **To run**: Windows 10 / 11 (one portable single file each for x64 and ARM64) · the WebView2 runtime that ships with the system (usually preinstalled on 10 / 11; installable via Microsoft's Evergreen bootstrapper if missing) · an Android device with USB debugging enabled. Linux gets AppImage and deb; macOS 11 and later gets dmg (Safari 16.2 or newer).
 
-Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is a single portable file — pick `FreeControl2_<version>_x64.exe` or `FreeControl2_<version>_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts; on macOS it ships as dmg (one each for Apple silicon and Intel), which you open and drag the app into Applications.
+Get the latest version from [Releases](https://github.com/pdone/FreeControl2/releases/latest): on Windows it is a single portable file — pick `FreeControl2_<version>_windows_x64.exe` or `FreeControl2_<version>_windows_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts; on macOS it ships as dmg (one each for Apple silicon and Intel), which you open and drag the app into Applications.
 
 If Gatekeeper blocks the first launch on macOS, clear it either way: open System Settings → Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`.
 
@@ -97,7 +97,7 @@ npm run tauri build -- --bundles dmg
 
 The artifact is written to `src-tauri/target/release/bundle/dmg/`. The macOS artifacts are ad-hoc signed and not notarized, so the first launch needs the clearance described above.
 
-When you trigger `.github/workflows/build.yml` manually, the artifacts are collected into a **draft release** (never published automatically). If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**.
+When you trigger `.github/workflows/build.yml` manually, the artifacts are collected into a **draft release** (never published automatically). The draft body is the version's Chinese and English sections from `Update.md` and `Update.en.md`, and it is refreshed when you rebuild the same version. If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**, and its body stays the pickup note.
 
 ### Local development
 

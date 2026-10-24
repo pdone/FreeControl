@@ -23,22 +23,24 @@ async function viaApi() {
   const pick = (re) => rel.assets?.find((a) => re.test(a.name))?.browser_download_url ?? null;
   return {
     tag: rel.tag_name,
-    // Windows 按架构各一份（两份都带 `_x64` / `_arm64` 段），故按名字区分，不能只按 `.exe` 后缀取第一份。
+    // 产物名自 v1.2.0 起统一为 `{产品名}_{版本}_{平台}_{架构}`。exe 按架构各一份（`_x64` /
+    // `_arm64`），不能只按 `.exe` 后缀取第一份；这两条与 AppImage / deb 的匹配都以 `$` 结尾，
+    // 加了平台段照样命中，不必跟着改。只有 macOS 的架构段由 `aarch64` 改成了 `arm64`，
+    // 那一条必须换 —— 否则 Apple 芯片那份永远取不到。
     windows: pick(/_x64\.exe$/i),
     windowsArm64: pick(/_arm64\.exe$/i),
     appimage: pick(/\.AppImage$/),
     deb: pick(/\.deb$/),
-    // macOS 沿用 Tauri 的架构写法（`aarch64` / `x64`），与 deb / AppImage 的 `amd64` 不同。
-    macosArm64: pick(/_aarch64\.dmg$/i),
-    macosX64: pick(/_x64\.dmg$/i),
+    macosArm64: pick(/_macos_arm64\.dmg$/i),
+    macosX64: pick(/_macos_x64\.dmg$/i),
   };
 }
 
 // 兜底：不占用 API 限额，从 /releases/latest 的 302 读出 tag，再按工作流的产物命名拼直链
-// （见 .github/workflows/build.yml：Windows 为 `FreeControl2_<v>_x64.exe` 与 `_arm64.exe`，
-// AppImage/deb 带 `_amd64`，macOS 的 dmg 带 `_aarch64` / `_x64`）。
-// dmg 没有可比对的资产清单，只能拼出来后用 HEAD 核实：早于 macOS 档位的发行里没有这两份，
-// 拼出的链接会 404 —— 置空让它单独回退到发行页，不拖垮整页。
+// （见 .github/workflows/build.yml：`FreeControl2_<v>_windows_{x64|arm64}.exe`、
+// `_linux_amd64.{AppImage|deb}`、`_macos_{arm64|x64}.dmg`）。这条路径没有资产清单可比对，
+// 名字拼错只能靠 HEAD 发现，故六条全名与构建侧的改名步骤逐字对齐。
+// dmg 早于 macOS 档位的发行里没有，拼出的链接会 404 —— 置空让它单独回退到发行页，不拖垮整页。
 async function assetExists(url) {
   try {
     const res = await fetch(url, { method: 'HEAD', redirect: 'manual' });
@@ -54,15 +56,15 @@ async function viaRedirect() {
   if (!tag) throw new Error('重定向里没有 tag');
   const v = tag.replace(/^v/, '');
   const base = `https://github.com/${REPO}/releases/download/${tag}`;
-  const macosArm64 = `${base}/FreeControl2_${v}_aarch64.dmg`;
-  const macosX64 = `${base}/FreeControl2_${v}_x64.dmg`;
+  const macosArm64 = `${base}/FreeControl2_${v}_macos_arm64.dmg`;
+  const macosX64 = `${base}/FreeControl2_${v}_macos_x64.dmg`;
   const [hasArm, hasIntel] = await Promise.all([assetExists(macosArm64), assetExists(macosX64)]);
   return {
     tag,
-    windows: `${base}/FreeControl2_${v}_x64.exe`,
-    windowsArm64: `${base}/FreeControl2_${v}_arm64.exe`,
-    appimage: `${base}/FreeControl2_${v}_amd64.AppImage`,
-    deb: `${base}/FreeControl2_${v}_amd64.deb`,
+    windows: `${base}/FreeControl2_${v}_windows_x64.exe`,
+    windowsArm64: `${base}/FreeControl2_${v}_windows_arm64.exe`,
+    appimage: `${base}/FreeControl2_${v}_linux_amd64.AppImage`,
+    deb: `${base}/FreeControl2_${v}_linux_amd64.deb`,
     macosArm64: hasArm ? macosArm64 : null,
     macosX64: hasIntel ? macosX64 : null,
   };

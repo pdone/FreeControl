@@ -155,38 +155,64 @@ fn arch_aliases(arch: &str) -> &'static [&'static str] {
     }
 }
 
-/// macOS 的 dmg 沿用 Tauri 打包的架构写法（`aarch64` / `x64`），与 Linux 的别名表不通用：
-/// 混在一起会让 Linux 误认带 `x64` 的文件。
+/// macOS 文件名里的架构段：沿用 Tauri 的 `x64` / `arm64`。与 Linux 的别名表不通用 ——
+/// 混在一起会让 Linux 误认带 `x64` 的文件；而 `aarch64` 是编译器目标的叫法，macOS 上
+/// `uname -m` 报的是 `arm64`，故文件名里不再出现 `aarch64`。
 fn dmg_arch_segment(arch: &str) -> Option<&'static str> {
     match arch {
         "x86_64" => Some("x64"),
-        "aarch64" => Some("aarch64"),
+        "aarch64" => Some("arm64"),
         _ => None,
     }
 }
 
 /// 当前平台 / 架构 / 运行形态可能对应的资产名（按优先级排列）。
+///
+/// 命名规则见规格 `release-build`：`{产品名}_{版本}_{平台}_{架构}`。v1.2.0 起加平台段，
+/// macOS 的架构段由 `aarch64` 改写为 `arm64`。每个分支在新名之后各留旧名兜底 ——
+/// 「新代码读旧发行」仍成立（规格 `app-update`「历史命名仍可识别」）；反方向的
+/// 「旧代码读新发行」代码侧救不了，那批用户须手动下载一次。
 fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
     match kind {
         PackageKind::WindowsExe => match arch {
             "x86_64" => vec![
+                format!("FreeControl2_{version}_windows_x64.exe"),
+                // 改名前的 v1.1.x 命名与 v1.0.1 的无架构段命名，都只可能是 x64。
                 format!("FreeControl2_{version}_x64.exe"),
-                // v1.0.1 的历史命名：不带架构段，只可能是 x64。
                 format!("FreeControl2_{version}.exe"),
             ],
-            "aarch64" => vec![format!("FreeControl2_{version}_arm64.exe")],
+            "aarch64" => vec![
+                format!("FreeControl2_{version}_windows_arm64.exe"),
+                format!("FreeControl2_{version}_arm64.exe"),
+            ],
             _ => Vec::new(),
         },
         PackageKind::AppImage => arch_aliases(arch)
             .iter()
-            .map(|a| format!("FreeControl2_{version}_{a}.AppImage"))
+            .flat_map(|a| {
+                [
+                    format!("FreeControl2_{version}_linux_{a}.AppImage"),
+                    format!("FreeControl2_{version}_{a}.AppImage"),
+                ]
+            })
             .collect(),
         PackageKind::Deb => arch_aliases(arch)
             .iter()
-            .map(|a| format!("FreeControl2_{version}_{a}.deb"))
+            .flat_map(|a| {
+                [
+                    format!("FreeControl2_{version}_linux_{a}.deb"),
+                    format!("FreeControl2_{version}_{a}.deb"),
+                ]
+            })
             .collect(),
         PackageKind::Dmg => dmg_arch_segment(arch)
-            .map(|a| vec![format!("FreeControl2_{version}_{a}.dmg")])
+            .map(|a| {
+                let legacy = if a == "arm64" { "aarch64" } else { a };
+                vec![
+                    format!("FreeControl2_{version}_macos_{a}.dmg"),
+                    format!("FreeControl2_{version}_{legacy}.dmg"),
+                ]
+            })
             .unwrap_or_default(),
     }
 }
@@ -798,16 +824,23 @@ mod tests {
     }
 
     #[test]
-    fn windows_asset_prefers_arch_and_accepts_legacy_x64_name() {
+    fn windows_asset_prefers_platform_segment_and_accepts_legacy_names() {
         let assets = vec![
-            asset("FreeControl2_1.0.2_arm64.exe", Some(&digest('a'))),
-            asset("FreeControl2_1.0.2_x64.exe", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_windows_arm64.exe", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_windows_x64.exe", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_x64.exe", Some(&digest('c'))),
         ];
         let plan =
             parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::WindowsExe).unwrap();
-        assert_eq!(plan.asset, "FreeControl2_1.0.2_x64.exe");
+        assert_eq!(plan.asset, "FreeControl2_1.0.2_windows_x64.exe");
         assert_eq!(plan.version, "1.0.2");
         assert_eq!(plan.digest, "b".repeat(64));
+
+        // 改名前的 v1.1.x 命名（无平台段）仍能识别。
+        let legacy = vec![asset("FreeControl2_1.0.1_x64.exe", Some(&digest('c')))];
+        let plan =
+            parse_release_for(&body("v1.0.1", legacy), "x86_64", PackageKind::WindowsExe).unwrap();
+        assert_eq!(plan.asset, "FreeControl2_1.0.1_x64.exe");
 
         // v1.0.1 只有不带架构段的旧命名，x64 仍能识别。
         let legacy = vec![asset("FreeControl2_1.0.1.exe", Some(&digest('c')))];
@@ -823,20 +856,20 @@ mod tests {
     #[test]
     fn windows_arm64_never_picks_x64() {
         let assets = vec![
-            asset("FreeControl2_1.0.2_x64.exe", Some(&digest('a'))),
-            asset("FreeControl2_1.0.2_arm64.exe", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_windows_x64.exe", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_windows_arm64.exe", Some(&digest('b'))),
         ];
         let plan =
             parse_release_for(&body("v1.0.2", assets), "aarch64", PackageKind::WindowsExe).unwrap();
-        assert_eq!(plan.asset, "FreeControl2_1.0.2_arm64.exe");
+        assert_eq!(plan.asset, "FreeControl2_1.0.2_windows_arm64.exe");
     }
 
     #[test]
     fn linux_picks_appimage_or_deb_by_arch() {
         let assets = vec![
-            asset("FreeControl2_1.0.2_amd64.AppImage", Some(&digest('a'))),
-            asset("FreeControl2_1.0.2_amd64.deb", Some(&digest('b'))),
-            asset("FreeControl2_1.0.2_arm64.AppImage", Some(&digest('c'))),
+            asset("FreeControl2_1.0.2_linux_amd64.AppImage", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_linux_amd64.deb", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_linux_arm64.AppImage", Some(&digest('c'))),
         ];
         let appimage = parse_release_for(
             &body("v1.0.2", assets.clone()),
@@ -844,25 +877,38 @@ mod tests {
             PackageKind::AppImage,
         )
         .unwrap();
-        assert_eq!(appimage.asset, "FreeControl2_1.0.2_amd64.AppImage");
+        assert_eq!(appimage.asset, "FreeControl2_1.0.2_linux_amd64.AppImage");
         let deb =
             parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::Deb).unwrap();
-        assert_eq!(deb.asset, "FreeControl2_1.0.2_amd64.deb");
+        assert_eq!(deb.asset, "FreeControl2_1.0.2_linux_amd64.deb");
+
+        // 改名前的无平台段命名仍能取到（最新发行停在旧版时的兜底）。
+        let legacy = vec![asset("FreeControl2_1.0.1_amd64.deb", Some(&digest('d')))];
+        let deb =
+            parse_release_for(&body("v1.0.1", legacy), "x86_64", PackageKind::Deb).unwrap();
+        assert_eq!(deb.asset, "FreeControl2_1.0.1_amd64.deb");
     }
 
     #[test]
-    fn macos_picks_dmg_by_tauri_arch_segment() {
+    fn macos_picks_dmg_by_platform_and_arch() {
         let assets = vec![
-            asset("FreeControl2_1.0.2_aarch64.dmg", Some(&digest('a'))),
-            asset("FreeControl2_1.0.2_x64.dmg", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_macos_arm64.dmg", Some(&digest('a'))),
+            asset("FreeControl2_1.0.2_macos_x64.dmg", Some(&digest('b'))),
+            asset("FreeControl2_1.0.2_aarch64.dmg", Some(&digest('c'))),
         ];
         let arm =
             parse_release_for(&body("v1.0.2", assets.clone()), "aarch64", PackageKind::Dmg).unwrap();
-        assert_eq!(arm.asset, "FreeControl2_1.0.2_aarch64.dmg");
+        assert_eq!(arm.asset, "FreeControl2_1.0.2_macos_arm64.dmg");
         assert_eq!(arm.digest, "a".repeat(64));
         let intel =
             parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::Dmg).unwrap();
-        assert_eq!(intel.asset, "FreeControl2_1.0.2_x64.dmg");
+        assert_eq!(intel.asset, "FreeControl2_1.0.2_macos_x64.dmg");
+
+        // 改名前的 `_aarch64.dmg` 仍能取到。
+        let legacy = vec![asset("FreeControl2_1.0.1_aarch64.dmg", Some(&digest('d')))];
+        let arm =
+            parse_release_for(&body("v1.0.1", legacy), "aarch64", PackageKind::Dmg).unwrap();
+        assert_eq!(arm.asset, "FreeControl2_1.0.1_aarch64.dmg");
     }
 
     #[test]

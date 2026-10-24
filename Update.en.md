@@ -16,6 +16,8 @@
 - Parameter dropdowns no longer use the system popup list but a list drawn inside the page: long lists scroll and the keyboard works, and the parameter help panel sits above the list instead of being covered by it.
 - Device status now comes straight from the adb service: devices going online or offline and connection changes show up right away, and the actual online state is checked once more before connecting.
 - Hover feedback and panel entrance timings were evened out, and switching between dark and light cross-fades the page once — not on first apply, and not with reduced motion on.
+- Installer file names now carry the platform and architecture (for example `FreeControl2_1.2.0_windows_x64.exe` and `FreeControl2_1.2.0_macos_arm64.dmg`), so the releases page shows at a glance which file is for your system.
+- On older versions, "Check for updates" reports that no update package is available; download this version once by hand, after which automatic updates resume.
 
 ### Fixed
 
