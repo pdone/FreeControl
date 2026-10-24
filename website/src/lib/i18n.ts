@@ -39,6 +39,7 @@ const zh = {
     subtitle: '把 scrcpy 的能力做成可视化的壳。界面上能改的，最终都落到配置里。',
     items: [
       { icon: 'TabletSmartphone', name: '设备清单', desc: '每台设备一个别名，映射到 USB 序列号或 IP:端口，可增删改，在线状态实时可见' },
+      { icon: 'Wifi', name: '无线配对与发现', desc: '用配对码完成一次配对，点一下即列出局域网里已开启无线调试的设备' },
       { icon: 'SlidersHorizontal', name: '参数面板', desc: '六组常用选项做成控件，逐项对应 scrcpy 长选项名；每个参数项都能点开「?」看详情，另有自定义参数框' },
       { icon: 'Layers', name: '设备级参数覆盖', desc: '单台设备一套参数，可整体启用或停用' },
       { icon: 'Plug', name: '连接控制', desc: '单台或全部连接 / 断开，多台设备可同时投屏，进程与输出由程序托管' },
@@ -47,6 +48,7 @@ const zh = {
       { icon: 'ScrollText', name: '日志', desc: '逐会话输出持久化，保留 7 天 / 30 天 / 永久（卡片在「设置」页）' },
       { icon: 'Terminal', name: '命令预览', desc: '底部显示将执行的完整命令，可一键复制' },
       { icon: 'Palette', name: '外观', desc: '深浅色主题与主题色可切换（默认跟随系统），侧栏可收成图标栏' },
+      { icon: 'Languages', name: '界面语言', desc: '设置页可在简体中文与英文之间切换，也可跟随系统' },
     ],
   },
   compare: {
@@ -208,6 +210,7 @@ const en: Dict = {
     subtitle: 'A visual shell around what scrcpy can do. Everything you change in the UI lands in the config.',
     items: [
       { icon: 'TabletSmartphone', name: 'Device list', desc: 'One alias per device, mapped to a USB serial or IP:port; add, rename and remove, with live online/connected status' },
+      { icon: 'Wifi', name: 'Wireless pairing and discovery', desc: 'Pair once with the on-device code, then list the devices with wireless debugging on in one click' },
       { icon: 'SlidersHorizontal', name: 'Parameter panels', desc: 'The common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box' },
       { icon: 'Layers', name: 'Per-device overrides', desc: "A device's own parameter set, switched on or off as a whole" },
       { icon: 'Plug', name: 'Connection control', desc: 'Connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app' },
@@ -216,6 +219,7 @@ const en: Dict = {
       { icon: 'ScrollText', name: 'Logs', desc: 'Per-session output persisted, kept for 7 days / 30 days / forever (the cards live on the Settings page)' },
       { icon: 'Terminal', name: 'Command preview', desc: 'The exact command about to run, shown at the bottom and copyable' },
       { icon: 'Palette', name: 'Appearance', desc: 'Light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail' },
+      { icon: 'Languages', name: 'Interface language', desc: 'Switch the UI between Chinese and English on the Settings page, or follow the system' },
     ],
   },
   compare: {

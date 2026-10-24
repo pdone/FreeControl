@@ -2,6 +2,25 @@
 
 <a href="Update.md">中文</a> | English
 
+## v1.2.0
+
+### New
+
+- A macOS build: one dmg for Apple silicon and one for Intel; open it and drag the app into "Applications" to use it, allowing it through on first launch as the docs describe. Both "Check for updates" in "About" and the website downloads pick the build for your architecture.
+- Interface language: switch the UI between Simplified Chinese and English on the Settings page, or follow the system. Headings, buttons and hints switch right away, with no restart.
+- Wireless pairing and discovery: pair once with the pairing code, then list the devices on your network that have wireless debugging on in one click; the connection port is worked out by the app.
+- Adding a device is one dialog now: USB, a manual address, a network scan and a pairing code all live in the same place, and you can name the device or each scan result up front.
+
+### Improved
+
+- Parameter dropdowns no longer use the system popup list but a list drawn inside the page: long lists scroll and the keyboard works, and the parameter help panel sits above the list instead of being covered by it.
+- Device status now comes straight from the adb service: devices going online or offline and connection changes show up right away, and the actual online state is checked once more before connecting.
+- Hover feedback and panel entrance timings were evened out, and switching between dark and light cross-fades the page once — not on first apply, and not with reduced motion on.
+
+### Fixed
+
+- After switching the runtime to another directory, one click on "Connect" now succeeds, with no repeated retries.
+
 ## v1.1.0
 
 ### New
