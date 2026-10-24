@@ -11,6 +11,7 @@
     "check:i18n": "node --experimental-strip-types scripts/check-i18n.mjs",
     "check:i18n:proto": "node --experimental-strip-types scripts/check-proto-i18n.mjs",
     "icons": "node scripts/sync-icons.mjs",
+    "notes": "node scripts/release-notes.mjs",
     "app:dev": "tauri dev",
     "app:build": "tauri build --no-bundle",
     "test:rs": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
