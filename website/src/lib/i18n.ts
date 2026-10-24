@@ -354,14 +354,32 @@ export type Lang = 'zh' | 'en';
 
 const STORAGE_KEY = 'freecontrol2-website-lang';
 
+/**
+ * 系统首选语言 → 站点语言（spec `project-website`「中英双语成对且可切换」）。
+ *
+ * 只取首选一项：`fr-FR, zh-CN` 这类系统仍按不受支持的 `fr-FR` 回退中文，不从次选里
+ * 挑一个受支持的语言 —— 与产品侧 `src/lib/i18n/resolve.ts` 同一口径，避免界面语言
+ * 与访客实际首选不符。非浏览器环境（构建期）同样回退中文。
+ */
+function systemLang(): Lang {
+  if (typeof navigator === 'undefined') return 'zh';
+  const primary = navigator.languages?.[0] ?? navigator.language;
+  if (!primary) return 'zh';
+  const lower = primary.trim().toLowerCase();
+  if (lower.startsWith('zh')) return 'zh';
+  if (lower.startsWith('en')) return 'en';
+  return 'zh';
+}
+
+/** 首帧语言：站内选过就用存的，否则按系统首选判定。 */
 function initialLang(): Lang {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'zh' || saved === 'en') return saved;
   } catch {
-    // 存储不可用时退回默认语言
+    // 存储不可用就按系统语言判定，切换仍在本页生效
   }
-  return 'zh';
+  return systemLang();
 }
 
 export const lang = writable<Lang>(initialLang());
