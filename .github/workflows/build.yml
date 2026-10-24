@@ -8,8 +8,10 @@
 #   - Windows x64（`windows-latest`）与 Windows ARM64（`windows-11-arm`）：`--no-bundle`，
 #     各产出一份裸 exe（免安装单文件）；
 #   - Linux x86_64：`--bundles appimage,deb`；
-#   - macOS ARM64（`macos-15`）与 macOS x86_64（`macos-15-intel`）：`--bundles dmg`，
-#     各产出一份 dmg。`macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，预计 2027 年秋下线，
+#   - macOS ARM64（`macos-15`）与 macOS x86_64（`macos-15-intel`）：`--bundles app,dmg`，
+#     各产出一份 dmg。`app` 不能省：只请求 `dmg` 时 bundler 把 `.app` 当中间件，打完 dmg 就地
+#     删掉（日志里的 `Cleaning .../bundle/macos/FreeControl2.app`），随后的自检便无据可查。
+#     `macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，预计 2027 年秋下线，
 #     届时需另开变更决定删掉该档还是换自托管 runner。
 #
 # 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
@@ -119,11 +121,13 @@ jobs:
           - os: ubuntu-22.04
             args: --bundles appimage,deb
           # 两条 macOS 腿各出原生 dmg：`lipo` 自检保证 arm64 那份不经仿真。
+          # `app` 与 `dmg` 一并请求：只请求 `dmg` 时 bundler 自造 `.app` 后又在收尾把它清掉，
+          # 点名 `app` 后 `.app` 作为正式产物留在 `bundle/macos/`，自检才有据可查，也免去重造。
           - os: macos-15
-            args: --bundles dmg
+            args: --bundles app,dmg
             arch: aarch64
           - os: macos-15-intel
-            args: --bundles dmg
+            args: --bundles app,dmg
             arch: x64
     runs-on: ${{ matrix.os }}
     steps:
@@ -193,6 +197,8 @@ jobs:
       # 4) dmg 恰好一份，文件名里的架构段与这条腿一致。
       # 检查 `.app` 而不是挂载 dmg：dmg 是 Tauri 从同一个 `.app` 打出来的，多一次
       # `hdiutil attach` 只会在 runner 上多一个偶发失败点。
+      # 这份 `.app` 靠出包参数里的 `app` 保住 —— 只请求 `dmg` 时 bundler 会删掉它
+      # （2026-10-24 首次手动出包即因此两腿同时失败，run 40073851524）。
       - name: 校验产物架构与签名（Mach-O）
         if: runner.os == 'macOS'
         run: |
