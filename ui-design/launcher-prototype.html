@@ -698,12 +698,6 @@
      `display: inline-flex` 盖掉，`hidden` 就成了摆设（同 `.dev-params.hidden` 那条的由来）。 */
   .btn.hidden { display: none; }
 
-  .dev-params { border-top: 1px dashed var(--border); padding-top: 12px; display: grid; gap: 12px; }
-  .dev-params.hidden { display: none; }
-  .ov-head { display: flex; align-items: center; justify-content: space-between; }
-  .ov-head .lab { font-size: 12.5px; color: var(--text-dim); display: flex; align-items: center; gap: 7px; }
-  .ov-head .lab svg { width: 15px; height: 15px; stroke: var(--accent-hover); }
-  .ov-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
   .ov-empty { font-size: 12px; color: var(--text-faint); }
 
   /* ---------- 关于弹窗（侧边栏「关于」入口与品牌行共用这一个弹窗）：版式取自验收参考图 ---------- */
@@ -832,10 +826,13 @@
 
   /* Launch bar */
   .launchbar { position: fixed; left: 210px; right: 0; bottom: 0; display: flex; align-items: center; gap: 16px; --lb-btn-size: 34px; padding: 14px 26px; background: var(--launchbar-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--border); transition: left .18s ease; }
-  .launchbar .cmd-preview { flex: 1; font-family: inherit; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
-  .launchbar .cmd-preview::-webkit-scrollbar { display: none; }
-  .launchbar .cmd-preview b { color: var(--accent-hover); font-weight: 600; }
-  .launchbar .cmd-preview .dev { color: var(--teal); }
+  /* 命令预览的**唯一**定义处：页面底部命令条与设备参数弹窗底部共用（config ㉞）。
+     原先挂在 `.launchbar` 下；泛化成 `.cmd-preview` 后两处计算样式一致，不再各抄一份。 */
+  .cmd-preview { flex: 1; min-width: 0; font-family: inherit; font-size: 12px; color: var(--text-dim); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+  .cmd-preview::-webkit-scrollbar { display: none; }
+  .cmd-preview b { color: var(--accent-hover); font-weight: 600; }
+  .cmd-preview .dev { color: var(--teal); }
+  .cmd-preview.empty { color: var(--text-faint); }
   .launchbar .lb-label { display: inline-flex; align-items: center; gap: 7px; color: var(--text-faint); font-size: 12px; flex: none; }
   .launchbar .lb-label svg { width: 15px; height: 15px; stroke: currentColor; }
   /* 复制 / 连接两个图标按钮共用一套样式；尺寸取按钮自己的单一变量、恒为正方形，
@@ -858,6 +855,50 @@
   .modal p { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
   .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
   .modal code { background: var(--code-bg); padding: 2px 6px; border-radius: 5px; color: var(--accent-text); font-size: 12px; }
+
+  /* ---------- 设备参数弹窗（config ㉞）：三区结构 / 两档尺寸 / 分节列数 ----------
+     外壳复用 .overlay / .modal，分节卡复用 .card，预览复用 .cmd-preview —— 只补弹窗自身
+     需要的布局取值，不新造颜色常量，也不重建间距体系。 */
+  .overlay.dev-params-overlay { padding: 24px; box-sizing: border-box; }
+  .modal.dev-params-modal { position: relative; display: flex; flex-direction: column; width: min(720px, 100%); max-height: calc(100vh - 48px); padding: 0; text-align: left; overflow: hidden; transition: width .18s ease; }
+  /* 扩大：占满可用区（遮罩的 24px 内边距提供四周留白）；每次打开由脚本复位。 */
+  .modal.dev-params-modal.expanded { width: 100%; height: calc(100vh - 48px); max-height: none; }
+  /* 开合动画复用关于弹窗那组 keyframes（同一套时长与曲线）。 */
+  .overlay.dev-params-overlay.show { animation: about-fade-in .18s ease both; }
+  .overlay.dev-params-overlay.show .dev-params-modal { animation: about-panel-in .2s cubic-bezier(.2, .9, .3, 1.05) both; }
+  .overlay.dev-params-overlay.closing { animation: about-fade-out .16s ease both; }
+  .overlay.dev-params-overlay.closing .dev-params-modal { animation: about-panel-out .16s ease both; }
+  @media (prefers-reduced-motion: reduce) {
+    .overlay.dev-params-overlay.show, .overlay.dev-params-overlay.show .dev-params-modal,
+    .overlay.dev-params-overlay.closing, .overlay.dev-params-overlay.closing .dev-params-modal { animation-duration: .01ms; }
+    .modal.dev-params-modal { transition-duration: .01ms; }
+  }
+  /* 头部：标题 / 启停开关 / 扩大缩小 / 关闭，固定不随体区滚动。 */
+  .dp-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px 20px; border-bottom: 1px solid var(--border); }
+  .dp-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .dp-title svg { flex: none; width: 16px; height: 16px; stroke: var(--accent-hover); }
+  .dp-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-actions { flex: none; display: flex; align-items: center; gap: 6px; }
+  .dp-switch { margin-right: 4px; }
+  .dp-icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .16s; }
+  .dp-icon-btn:hover { background: var(--panel-2); color: var(--text); }
+  .dp-icon-btn svg { width: 17px; height: 17px; stroke: currentColor; }
+  /* 禁用且填过取值：只靠变灰分不清「已禁用」与「已清空」，故必须有文字说明。 */
+  .dp-note { flex: none; padding: 8px 20px; font-size: 12px; color: var(--warn); background: var(--accent-weak); border-bottom: 1px solid var(--border); }
+  /* 只有体区滚动：min-height:0 让 flex 子项真正收缩，溢出不外泄到整页。 */
+  .dp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
+  /* 列数按**弹窗自身宽度**（不按视口）：常态 2 列，扩大后 3–4 列，下限 280px 保证最小窗口也够到 3 列档。 */
+  .dp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; max-width: 1360px; margin: 0 auto; }
+  .dp-grid.ov-off { opacity: .45; pointer-events: none; }
+  .dp-grid .card.wide { grid-column: 1 / -1; }
+  /* 帮助面板在滚动体区内向上展开：向下展开会被体区下缘裁掉（同产品侧 .dp-body.panel-up）。 */
+  .dp-body.panel-up .fhelp-panel { top: auto; bottom: calc(100% + 6px); }
+  .dp-body.panel-up .fhelp-panel::before { top: auto; bottom: -6px; }
+  .dp-body.panel-up .toggle .fhelp-panel::before { bottom: -36px; height: 36px; }
+  /* 底部只读预览：固定不随体区滚动；预览本体的呈现由 .cmd-preview 承担。 */
+  .dp-foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--panel-2); }
+  .dp-foot-label { flex: none; display: inline-flex; align-items: center; color: var(--text-faint); }
+  .dp-foot-label svg { width: 15px; height: 15px; stroke: currentColor; }
   /* 只测自然内容内层，避免外壳的尺寸过渡反过来影响测量。 */
   #addModal { padding: 16px; }
   .add-device-modal { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow: hidden; transition: height 180ms ease; }
@@ -1482,10 +1523,10 @@
             <h3>自定义参数（直接透传给 scrcpy）</h3>
             <div class="field"><span class="flabel">额外参数<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="额外参数的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">它不属于设备覆盖：无论该设备是否启用覆盖，都会带上这段参数。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
             </span></span>
               <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
-              <div class="hint">对所有设备生效，直接追加到命令末尾</div></div>
+              <div class="hint">默认对所有设备生效，按设备覆盖后只对该设备生效</div></div>
           </div>
         </div>
       </section>
@@ -1939,6 +1980,27 @@
   </div>
 </div>
 
+<!-- 设备参数弹窗（config ㉞）：头部 / 可滚动体区 / 底部只读预览三区。内容由脚本按
+     「弹窗所属设备」填充；打开不改变设备选中态，预览也不跟随选中设备。 -->
+<div class="overlay dev-params-overlay" id="paramsModal">
+  <div class="modal dev-params-modal" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
+    <header class="dp-head">
+      <span class="dp-title"><i data-lucide="sliders-horizontal"></i><span class="dp-title-text" id="dpTitle"></span></span>
+      <span class="dp-actions">
+        <label class="switch dp-switch" data-tip="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" id="dpSwitch" /><span class="slider"></span></label>
+        <span class="tip-host" id="dpExpandTip" data-tip="扩大"><button class="dp-icon-btn" id="dpExpand" type="button" aria-label="扩大"><i data-lucide="maximize-2"></i></button></span>
+        <button class="dp-icon-btn" id="dpClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
+      </span>
+    </header>
+    <div class="dp-note" id="dpNote" hidden>覆盖已禁用 · 取值已保留</div>
+    <div class="dp-body" id="dpBody"><div class="dp-grid" id="dpGrid"></div></div>
+    <footer class="dp-foot">
+      <span class="dp-foot-label" aria-hidden="true"><i data-lucide="terminal"></i></span>
+      <div class="cmd-preview" id="dpPreview"></div>
+    </footer>
+  </div>
+</div>
+
 <!-- 图标库版本**锁定**，与产品侧 package.json 的 lucide-svelte 0.456.0 同版：
      原先写 `@latest`，实测 CDN 已把品牌图标（`github`）从新版里移除，导致原型上「关于」弹窗的
      GitHub 入口少一个图标、与产品不一致 —— 浮动版本会让原型悄悄漂离产品，故改为定版引用。 -->
@@ -2101,6 +2163,7 @@
   "只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。": "Mirror only, no injection: mouse and keyboard events are not sent to the device, making it read-only.",
   "Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。": "Not applied with Flex Display (scrcpy considers it incompatible).",
   "禁用设备控制": "Disable device control",
+  "支持 ? 模糊匹配 / + 强制停止": "Supports ? fuzzy match and + force-stop",
   "键盘（--keyboard）": "Keyboard (--keyboard)",
   "选择键盘事件的注入方式。": "Choose how keyboard events are injected.",
   "disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。": "disabled sends no keyboard events; sdk injects through Android system APIs; uhid emulates the computer keyboard as a physical keyboard on the device; aoa emulates a physical keyboard over AOAv2 and works over USB only.",
@@ -2226,9 +2289,9 @@
   "自定义参数（直接透传给 scrcpy）": "Custom arguments (passed directly to scrcpy)",
   "额外参数": "Extra arguments",
   "把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
-  "它不属于设备覆盖：无论该设备是否启用覆盖，都会带上这段参数。": "It is not a device override: it is included whether or not the device has overrides enabled.",
+  "写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。": "In the default parameters it applies to all devices; once overridden in a device's parameters dialog it applies only to that device. Turning that device's override switch off makes it use the default value instead.",
   "引号必须成对，否则校验会拦下并给出提示。": "Quotes must be paired, otherwise validation will block it and show a hint.",
-  "对所有设备生效，直接追加到命令末尾": "Applies to all devices and is appended to the end of the command",
+  "默认对所有设备生效，按设备覆盖后只对该设备生效": "Applies to all devices by default; once overridden per device, it applies only to that device",
   "管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。": "Manage the scrcpy environment folder, updates and download channels (GitHub direct + proxy addresses).",
   "scrcpy 目录": "scrcpy folder",
   "未设置自定义目录时，约定目录为": "With no custom directory the conventional path is",
@@ -2510,13 +2573,18 @@
   "重命名": "Rename",
   "为该设备单独设置参数（覆盖默认参数）": "Set parameters for this device (override the defaults)",
   "删除该设备（连带清除其参数覆盖与覆盖开关）": "Delete this device (also clears its parameter override and switch)",
-  "· 覆盖已禁用（取值已保留）": "· override disabled (values kept)",
   "为「{0}」单独设置参数{1}": "Set parameters for \"{0}\"{1}",
+  "视频与显示": "Video & display",
+  "窗口与控制": "Window & control",
+  "录制与音频": "Recording & audio",
+  "启动与透传": "Launch & passthrough",
+  "扩大": "Expand",
+  "缩小": "Shrink",
+  "覆盖已禁用 · 取值已保留": "Override disabled · values kept",
+  "该设备的连接标识尚未确定（USB serial 待检测），暂无法拼装命令": "The connection ID is not known yet (USB serial pending), so the command cannot be built",
   "镜像时熄灭手机屏；视频源为摄像头时不生效": "Turns the phone screen off while mirroring; not used with the camera source",
   "禁用控制": "Disable control",
   "启动应用（--start-app）": "Launch app (--start-app)",
-  "更多参数": "More parameters",
-  "完整参数请在「显示源 / 视频 / 音频…」标签页以默认参数设置；此处覆盖最常用项。": "Set the full set of parameters on the Display source / Video / Audio… pages; the most-used ones can be overridden here.",
   "启动应用（--start-app）的说明": "About Launch app (--start-app)",
   "启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）": "Enable or disable this device's parameter override (disabling keeps the values)",
   "刚刚断开": "disconnected just now",
@@ -2815,8 +2883,6 @@
   };
   // 每台设备覆盖的启用 / 禁用开关（默认启用）——与覆盖值一并持久化，禁用不清值
   const ovEnabled = {};
-  // 已展开参数面板的设备（跨重渲染保持）
-  const openPanels = new Set();
   // 设备清单
   let devices = [
     { id:'d1', alias:'Pixel 8',     type:'usb',  serial:'08081FDD4006LYE',           status:'connected', last:'当前连接' },
@@ -3208,7 +3274,8 @@
     if (p.advanced.customArgs.trim()) a.push(p.advanced.customArgs.trim());
     return a;
   }
-  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  // 同时转义引号：注入的取值会落进 value="…" 属性（如窗口标题 / 透传参数可能带引号）。
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function renderPreview(){
     const el = document.getElementById('cmdPreview');
     const d = getDev(selectedId);
@@ -3304,11 +3371,9 @@
             <button class="btn sm ghost" data-ov="${d.id}" data-tip="为该设备单独设置参数（覆盖默认参数）"><i data-lucide="sliders-horizontal"></i>参数</button>
             <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其参数覆盖与覆盖开关）"><i data-lucide="trash-2"></i>删除</button>
           </div>
-        </div>
-        <div class="dev-params hidden" data-ovpanel="${d.id}"></div>`;
+        </div>`;
       if (d.literalAlias) card.querySelector('.a-text').dataset.protoLiteral = '';
       box.appendChild(card);
-      renderOvPanel(d, card.querySelector('[data-ovpanel]'));
     });
     lucide.createIcons();
     box.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click', e=>{
@@ -3319,19 +3384,10 @@
     box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); deleteDevice(b.dataset.del); }));
     box.querySelectorAll('[data-conn]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); connectDev(b.dataset.conn); }));
     box.querySelectorAll('[data-disc]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); disconnectDev(b.dataset.disc); }));
+    // 打开参数弹窗：不改变选中设备（design D3），预览由弹窗自己按所属设备渲染。
     box.querySelectorAll('[data-ov]').forEach(b=>b.addEventListener('click', e=>{
-      e.stopPropagation(); selectedId=b.dataset.ov; renderPreview();
-      const panel=box.querySelector(`[data-ovpanel="${b.dataset.ov}"]`);
-      const show = panel.classList.contains('hidden');
-      panel.classList.toggle('hidden');
-      if (show){ openPanels.add(b.dataset.ov); renderOvPanel(getDev(b.dataset.ov), panel); }
-      else { openPanels.delete(b.dataset.ov); }
+      e.stopPropagation(); openParamsDialog(b.dataset.ov);
     }));
-    // 保持已展开的参数面板
-    openPanels.forEach(id=>{
-      const card=box.querySelector(`.dev-card[data-id="${id}"]`); if(!card) return;
-      const panel=card.querySelector('[data-ovpanel]'); panel.classList.remove('hidden'); renderOvPanel(getDev(id), panel);
-    });
   }
   function startRename(id){
     const d=getDev(id); const span=document.querySelector(`[data-edit="${id}"]`).previousElementSibling;
@@ -3341,96 +3397,222 @@
   }
   function deleteDevice(id){
     if (id===selectedId) selectedId = devices.find(x=>x.id!==id)?.id || null;
-    openPanels.delete(id);
     devices = devices.filter(d=>d.id!==id); delete overrides[id]; delete ovEnabled[id];
     renderDeviceList(); renderPreview(); updatePills();
   }
 
-  /* ===================== 每设备参数覆盖面板 ===================== */
-  function ovLabelHtml(d, enabled){
-    const n = overrideCount(d.id);
-    const off = n>0 && !enabled ? ' · 覆盖已禁用（取值已保留）' : '';
-    return `<i data-lucide="sliders-horizontal"></i>为「${escapeHtml(d.alias)}」单独设置参数${off}`;
+  /* ===================== 设备参数弹窗（config ㉞） =====================
+     打开不改变 selectedId；底部预览用 merged(弹窗设备)，不读页面底部的选中设备。
+     分节与字段顺序取自产品侧 OVERRIDE_GROUPS，标签与说明沿用参数页同一份文本。 */
+  const paramsModal = document.getElementById('paramsModal');
+  const paramsShell = paramsModal.querySelector('.dev-params-modal');
+  const dpTitle = document.getElementById('dpTitle');
+  const dpSwitch = document.getElementById('dpSwitch');
+  const dpNote = document.getElementById('dpNote');
+  const dpBody = document.getElementById('dpBody');
+  const dpGrid = document.getElementById('dpGrid');
+  const dpPreview = document.getElementById('dpPreview');
+  const dpExpand = document.getElementById('dpExpand');
+  const dpExpandTip = document.getElementById('dpExpandTip');
+  let paramsDeviceId = null;
+  let paramsExpanded = false;
+
+  const DP_SECTIONS = [
+    { title:'视频与显示', fields:[
+      { g:'video', k:'maxSize', label:'长边分辨率（--max-size）', kind:'range', min:0, max:2560, step:64,
+        fmt:v=>v==0?'自动':v+' px',
+        help:['限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。','摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。'] },
+      { g:'video', k:'bitrate', label:'视频码率（--video-bit-rate）', kind:'range', min:0, max:64, step:1,
+        fmt:v=>v==0?'自动':v+' Mbps',
+        help:['视频编码的比特率，scrcpy 默认 8 Mbps。','越高画面越清晰，占用的带宽与解码资源也越多。'] },
+      { g:'video', k:'maxFps', label:'最大帧率（--max-fps）', kind:'range', min:0, max:240, step:1,
+        fmt:v=>v==0?'不限制':v+' fps',
+        help:['限制采集帧率，Android 10 起获得官方支持。','实际帧率随画面变化：静止画面不会跑满上限。'] },
+      { g:'video', k:'crop', label:'裁剪（--crop W:H:X:Y）', kind:'text',
+        help:['在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。','坐标以设备自然方向为基准（手机竖放、平板横放）。','Flex Display 下不生效。'] },
+      // 只在主屏档生效（摄像头源或虚拟显示器下 scrcpy 拒绝该 flag）；显隐读合并后的有效值。
+      { g:'source', k:'displayId', label:'显示 id（--display-id）', kind:'number',
+        hint:'0 / 留空 = 主屏；虚拟显示器与摄像头源下不生效',
+        show:m=>m.source.videoSource!=='camera' && m.source.displayMode==='main',
+        help:['镜像指定 id 的设备显示。可用 scrcpy --list-displays 列出可用 id。','非 0 值与 --new-display 互斥（scrcpy 拒绝两者同时指定）；摄像头源下该参数不可用。'] },
+    ]},
+    { title:'窗口与控制', fields:[
+      { g:'window', k:'windowTitle', label:'窗口标题（--window-title）', kind:'text',
+        hint:'留空 = 标题用设备名',
+        help:['自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。'] },
+      { g:'window', k:'fullscreen', label:'全屏（--fullscreen）', kind:'toggle', hint:'启动即全屏',
+        help:['启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。'] },
+      { g:'control', k:'turnScreenOff', label:'关闭屏幕（--turn-screen-off）', kind:'toggle', hint:'镜像时熄灭手机屏',
+        help:['启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。','视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。'] },
+      { g:'control', k:'noControl', label:'只读 / 仅查看（--no-control）', kind:'toggle', hint:'禁用设备控制',
+        help:['只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。','Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。'] },
+    ]},
+    { title:'录制与音频', fields:[
+      // --record 只在默认参数的「录制」开启时下发；路径字段始终可见。
+      { g:'record', k:'recordPath', label:'文件路径', kind:'text',
+        help:['录制文件的保存路径，仅在启用录制时生效。','扩展名决定容器格式（如 .mp4 / .mkv），与「格式」不一致时会得到名不副实的文件。'] },
+      { g:'audio', k:'audioOff', label:'禁用音频转发（--no-audio 开启）', kind:'toggle', hint:'禁用音频转发',
+        help:['开关打开时不转发设备音频：画面照常镜像，声音仍从手机发出。','关掉开关才启用音频转发；音频转发需要 Android 11 及以上。'] },
+    ]},
+    { title:'启动与透传', wide:true, fields:[
+      { g:'apps', k:'startApp', label:'启动应用（--start-app）', kind:'text',
+        hint:'支持 ? 模糊匹配 / + 强制停止',
+        help:['连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。','按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。'] },
+      { g:'advanced', k:'customArgs', label:'额外参数', kind:'textarea',
+        hint:'默认对所有设备生效，按设备覆盖后只对该设备生效',
+        help:['把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。','写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。','引号必须成对，否则校验会拦下并给出提示。'] },
+    ]},
+  ];
+
+  function dpFieldHtml(d, f){
+    const val = ovVal(d.id, f.g, f.k);
+    const help = `<span class="fhelp"><button class="fhelp-btn" type="button" aria-label="${escapeHtml(f.label)}的说明"><i data-lucide="circle-help"></i></button><span class="fhelp-panel"><span class="fhelp-title">${escapeHtml(f.label)}</span>${f.help.map(p=>`<span class="fhelp-p">${escapeHtml(p)}</span>`).join('')}</span></span>`;
+    const open = `<div class="field"><span class="flabel">${escapeHtml(f.label)}${help}</span>`;
+    let control;
+    if (f.kind === 'range'){
+      control = `<div class="range-row"><input type="range" min="${f.min}" max="${f.max}" step="${f.step}" data-ovk="${f.g}.${f.k}" value="${Number(val)}"><span class="range-val">${f.fmt(Number(val))}</span></div>`;
+    } else if (f.kind === 'toggle'){
+      // 开关行文本即该字段的 hint（与产品弹窗同源）。
+      control = `<div class="toggle"><span class="t-label">${escapeHtml(f.hint || f.tlabel || '')}</span><label class="switch"><input type="checkbox" data-ovk="${f.g}.${f.k}" ${val?'checked':''}><span class="slider"></span></label></div>`;
+    } else if (f.kind === 'textarea'){
+      control = `<textarea rows="3" data-ovk="${f.g}.${f.k}">${escapeHtml(String(val ?? ''))}</textarea>`;
+    } else {
+      control = `<input type="${f.kind === 'number' ? 'number' : 'text'}" data-ovk="${f.g}.${f.k}" value="${escapeHtml(String(val ?? ''))}">`;
+    }
+    // 非开关字段的 hint 在控件下方；开关字段的 hint 已作为开关行文本。
+    const hint = (f.kind !== 'toggle' && f.hint) ? `<div class="hint">${escapeHtml(f.hint)}</div>` : '';
+    return `${open}${control}${hint}</div>`;
   }
-  function renderOvPanel(d, panel){
-    const n = overrideCount(d.id);
+
+  function findDpField(g, k){
+    for (const s of DP_SECTIONS) for (const f of s.fields) if (f.g === g && f.k === k) return f;
+    return null;
+  }
+
+  function renderParamsDialog(){
+    const d = getDev(paramsDeviceId); if (!d) return;
     const enabled = isOvEnabled(d.id);
-    panel.innerHTML=`
-      <div class="ov-head">
-        <span class="lab">${ovLabelHtml(d, enabled)}</span>
-        <label class="switch" data-tip="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" data-ovenable ${enabled?'checked':''}><span class="slider"></span></label>
-      </div>
-      <div class="ov-grid" data-ovgrid style="${enabled?'':'opacity:.45;pointer-events:none'}">
-        <div class="field"><span class="flabel">长边分辨率（--max-size）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="长边分辨率（--max-size）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">长边分辨率（--max-size）</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
-            </span></span>
-          <div class="range-row"><input type="range" min="0" max="2560" step="64" data-ovk="video.maxSize" value="${ovVal(d.id,'video','maxSize')}"><span class="range-val">${ovVal(d.id,'video','maxSize')==0?'自动':ovVal(d.id,'video','maxSize')+' px'}</span></div></div>
-        <div class="field"><span class="flabel">视频码率（--video-bit-rate）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="视频码率（--video-bit-rate）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">视频码率（--video-bit-rate）</span><span class="fhelp-p">视频编码的比特率，scrcpy 默认 8 Mbps。</span><span class="fhelp-p">越高画面越清晰，占用的带宽与解码资源也越多。</span></span>
-            </span></span>
-          <div class="range-row"><input type="range" min="0" max="64" data-ovk="video.bitrate" value="${ovVal(d.id,'video','bitrate')}"><span class="range-val">${ovVal(d.id,'video','bitrate')==0?'自动':ovVal(d.id,'video','bitrate')+' Mbps'}</span></div></div>
-        <div class="field"><span class="flabel">最大帧率（--max-fps）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="最大帧率（--max-fps）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">最大帧率（--max-fps）</span><span class="fhelp-p">限制采集帧率，Android 10 起获得官方支持。</span><span class="fhelp-p">实际帧率随画面变化：静止画面不会跑满上限。</span></span>
-            </span></span>
-          <div class="range-row"><input type="range" min="0" max="240" data-ovk="video.maxFps" value="${ovVal(d.id,'video','maxFps')}"><span class="range-val">${ovVal(d.id,'video','maxFps')==0?'不限制':ovVal(d.id,'video','maxFps')+' fps'}</span></div></div>
-        <div class="field"><span class="flabel">窗口标题（--window-title）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="窗口标题（--window-title）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">窗口标题（--window-title）</span><span class="fhelp-p">自定义 scrcpy 窗口的标题，多设备同时投屏时可用来区分窗口。</span></span>
-            </span></span>
-          <input type="text" data-ovk="window.windowTitle" value="${escapeHtml(ovVal(d.id,'window','windowTitle'))}"></div>
-        <div class="field"><span class="flabel">关闭屏幕（--turn-screen-off）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="关闭屏幕（--turn-screen-off）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">关闭屏幕（--turn-screen-off）</span><span class="fhelp-p">启动后立即关闭设备屏幕，画面仍照常镜像，设备端的触控与按键照常可用。</span><span class="fhelp-p">视频源为摄像头时不生效：此时画面不来自设备屏幕，熄屏无从谈起。</span></span>
-            </span></span>
-          <div class="toggle"><span class="t-label">镜像时熄灭手机屏；视频源为摄像头时不生效</span><label class="switch"><input type="checkbox" data-ovk="control.turnScreenOff" ${ovVal(d.id,'control','turnScreenOff')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><span class="flabel">只读 / 仅查看（--no-control）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="只读 / 仅查看（--no-control）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">只读 / 仅查看（--no-control）</span><span class="fhelp-p">只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。</span><span class="fhelp-p">Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。</span></span>
-            </span></span>
-          <div class="toggle"><span class="t-label">禁用控制</span><label class="switch"><input type="checkbox" data-ovk="control.noControl" ${ovVal(d.id,'control','noControl')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><span class="flabel">全屏（--fullscreen）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="全屏（--fullscreen）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">全屏（--fullscreen）</span><span class="fhelp-p">启动即进入全屏；退出全屏用 scrcpy 的全屏快捷键。</span></span>
-            </span></span>
-          <div class="toggle"><span class="t-label">启动即全屏</span><label class="switch"><input type="checkbox" data-ovk="window.fullscreen" ${ovVal(d.id,'window','fullscreen')?'checked':''}><span class="slider"></span></label></div></div>
-        <div class="field"><span class="flabel">启动应用（--start-app）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="启动应用（--start-app）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">启动应用（--start-app）</span><span class="fhelp-p">连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。</span><span class="fhelp-p">按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。</span></span>
-            </span></span>
-          <input type="text" data-ovk="apps.startApp" value="${escapeHtml(ovVal(d.id,'apps','startApp'))}"></div>
-        <div class="field"><label>更多参数</label>
-          <div class="ov-empty">完整参数请在「显示源 / 视频 / 音频…」标签页以默认参数设置；此处覆盖最常用项。</div></div>
-      </div>`;
+    const m = merged(d.id);
+    dpTitle.textContent = `为「${d.alias}」单独设置参数`;
+    dpSwitch.checked = enabled;
+    dpNote.hidden = !(!enabled && overrideCount(d.id) > 0);
+    dpGrid.className = 'dp-grid' + (enabled ? '' : ' ov-off');
+    dpGrid.innerHTML = DP_SECTIONS.map(sec => {
+      const fields = sec.fields.filter(f => !f.show || f.show(m));
+      if (!fields.length) return '';
+      return `<section class="card${sec.wide ? ' wide' : ''}"><h3>${escapeHtml(sec.title)}</h3>${fields.map(f => dpFieldHtml(d, f)).join('')}</section>`;
+    }).join('');
     lucide.createIcons();
-    const enabler = panel.querySelector('[data-ovenable]');
-    enabler.addEventListener('change', ()=>{
-      // 禁用只停用，不删除覆盖值：重新启用后原取值仍然生效（design.md D5）
-      ovEnabled[d.id] = enabler.checked;
-      const grid=panel.querySelector('[data-ovgrid]');
-      grid.style.opacity = enabler.checked?'1':'0.45'; grid.style.pointerEvents = enabler.checked?'auto':'none';
-      const lab=panel.querySelector('.ov-head .lab');
-      if (lab){ lab.innerHTML = ovLabelHtml(d, enabler.checked); lucide.createIcons(); }
-      renderPreview(); refreshOvBadge(d);
-    });
-    panel.querySelectorAll('[data-ovk]').forEach(inp=>{
-      const ev = inp.type==='checkbox' ? 'change' : 'input';
-      inp.addEventListener(ev, ()=>{
-        selectedId=d.id;
-        const [g,k]=inp.dataset.ovk.split('.');
-        let v = inp.type==='checkbox' ? inp.checked : (inp.type==='range'?Number(inp.value):inp.value);
-        (overrides[d.id] ||= {})[g] ||= {}; overrides[d.id][g][k]=v;
-        // 同步数值回显
-        const rv=inp.parentElement.querySelector('.range-val');
-        if (rv){ if(g==='video'&&k==='maxSize') rv.textContent=v==0?'自动':v+' px'; else if(k==='bitrate') rv.textContent=v==0?'自动':v+' Mbps'; else if(k==='maxFps') rv.textContent=v==0?'不限制':v+' fps'; }
-        renderPreview(); refreshOvBadge(d);
+    paintRanges(dpGrid);
+    dpBody.classList.remove('panel-up');
+    dpBody.scrollTop = 0;
+    bindDpFields(d);
+    renderParamsPreview();
+  }
+
+  function bindDpFields(d){
+    dpGrid.querySelectorAll('[data-ovk]').forEach(inp => {
+      const ev = inp.type === 'checkbox' ? 'change' : 'input';
+      inp.addEventListener(ev, () => {
+        const [g,k] = inp.dataset.ovk.split('.');
+        const v = inp.type === 'checkbox' ? inp.checked : (inp.type === 'range' ? Number(inp.value) : inp.value);
+        (overrides[d.id] ||= {})[g] ||= {}; overrides[d.id][g][k] = v;
+        const rv = inp.closest('.field')?.querySelector('.range-val');
+        const f = findDpField(g, k);
+        if (rv && f && f.fmt) rv.textContent = f.fmt(Number(v));
+        renderParamsPreview();
+        // 页面底部命令条按 selectedId 重渲染（选中态不变）：弹窗设备恰为选中设备时才会变。
+        renderPreview();
+        refreshOvBadge(d);
       });
     });
-    // 面板整体重建，程序化 value 不触发 input，故需在重建后再算一次填充比例
-    paintRanges(panel);
   }
+
+  function renderParamsPreview(){
+    const d = getDev(paramsDeviceId); if (!d) return;
+    const cid = devIdentifier(d);
+    if (!cid){
+      dpPreview.textContent = '该设备的连接标识尚未确定（USB serial 待检测），暂无法拼装命令';
+      dpPreview.classList.add('empty');
+      return;
+    }
+    dpPreview.classList.remove('empty');
+    const args = buildArgs(merged(d.id));
+    dpPreview.innerHTML = `scrcpy -s <span class="dev">${escapeHtml(cid)}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
+  }
+
+  function syncExpandBtn(){
+    const label = paramsExpanded ? '缩小' : '扩大';
+    dpExpand.setAttribute('aria-label', label);
+    dpExpand.setAttribute('aria-pressed', String(paramsExpanded));
+    dpExpand.innerHTML = `<i data-lucide="${paramsExpanded ? 'minimize-2' : 'maximize-2'}"></i>`;
+    dpExpandTip.dataset.tip = label;
+    lucide.createIcons();
+    if (window.__tipRefresh) window.__tipRefresh();
+  }
+
+  function openParamsDialog(id){
+    const d = getDev(id); if (!d) return;
+    paramsDeviceId = id;
+    // 扩大状态每次打开都复位（不记忆、不落盘）。
+    paramsExpanded = false;
+    paramsShell.classList.remove('expanded');
+    syncExpandBtn();
+    renderParamsDialog();
+    paramsModal.classList.remove('closing');
+    paramsModal.classList.add('show');
+  }
+
+  function closeParamsDialog(){
+    if (!paramsModal.classList.contains('show') || paramsModal.classList.contains('closing')) return;
+    paramsModal.classList.add('closing');
+  }
+
+  dpSwitch.addEventListener('change', () => {
+    const d = getDev(paramsDeviceId); if (!d) return;
+    // 禁用只停用、不删除覆盖值：重新启用后原取值仍然生效。
+    ovEnabled[d.id] = dpSwitch.checked;
+    renderParamsDialog();
+    renderPreview();
+    refreshOvBadge(d);
+  });
+  dpExpand.addEventListener('click', () => {
+    paramsExpanded = !paramsExpanded;
+    paramsShell.classList.toggle('expanded', paramsExpanded);
+    syncExpandBtn();
+  });
+  document.getElementById('dpClose').addEventListener('click', closeParamsDialog);
+  paramsModal.addEventListener('click', e => { if (e.target === paramsModal) closeParamsDialog(); });
+  paramsShell.addEventListener('animationend', e => {
+    if (e.animationName !== 'about-panel-out' || !paramsModal.classList.contains('closing')) return;
+    paramsModal.classList.remove('show', 'closing');
+    paramsDeviceId = null;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && paramsModal.classList.contains('show')) closeParamsDialog();
+  });
+
+  // 帮助面板在滚动体区内择向：下方放不下一块有意义的说明时向上展开（阈值同产品侧）。
+  function trackDpPanelSpace(e){
+    const field = e.target.closest?.('.field'); if (!field) return;
+    const room = dpBody.getBoundingClientRect().bottom - field.getBoundingClientRect().bottom;
+    dpBody.classList.toggle('panel-up', room < 220);
+  }
+  dpBody.addEventListener('pointerover', trackDpPanelSpace);
+  dpBody.addEventListener('focusin', trackDpPanelSpace);
+  dpBody.addEventListener('pointerleave', () => dpBody.classList.remove('panel-up'));
+  dpBody.addEventListener('focusout', () => dpBody.classList.remove('panel-up'));
+
+  // 预览横向浏览：与页面底部命令条同款（滚轮转 scrollLeft）。
+  dpPreview.addEventListener('wheel', e => {
+    const el = dpPreview;
+    if (el.scrollWidth <= el.clientWidth + 1) return;
+    const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const amount = e.deltaMode === 1 ? raw * 16 : e.deltaMode === 2 ? raw * el.clientWidth : raw;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollLeft = Math.max(0, Math.min(max, el.scrollLeft + amount));
+    e.preventDefault();
+  }, { passive: false });
   function refreshOvBadge(d){
     const card=document.querySelector(`#deviceList .dev-card[data-id="${d.id}"]`); if(!card) return;
     const alias=card.querySelector('.dev-alias'); if(!alias) return;
