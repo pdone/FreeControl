@@ -301,8 +301,8 @@
      `<label>` 里嵌一个按钮时，点标签行**任意处**都会被转发去激活它、它随即拿到焦点，
      `:focus-within` 就把说明面板钉住了：等于整行都是「帮助按钮」的热区。
      实测（无头 Edge，改前）：点标签文字 → `activeElement` 变成 `BUTTON`、面板展开。 */
-  .field > label,
-  .field > .flabel { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; }
+  .field > label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; }
+  .field > .flabel { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); margin-bottom: 7px; }
   .field .hint { font-size: 11px; color: var(--text-faint); margin-top: 5px; }
   .field .hint b { color: var(--warn); font-weight: 600; }   /* 提示里的告警片段（如可读性不足） */
   .field > label code,
@@ -330,11 +330,14 @@
   .fhelp { display: inline-block; }
   /* 入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色 ——
      再画一圈就成了"圈中圈"。`.fhelp` 保持不定位：面板的定位祖先是标签行 / 开关行（见上方注释）。
+     图标与文本的垂直对齐由标签行（`.field > .flabel` / `.toggle .t-label` / `.wl-head .flabel`）的
+     flex 居中承担，入口自身不再 `vertical-align`（config ㉝）。按钮须为块级 flex：inline-flex 会让
+     `.fhelp` 内部仍走行内排版，strut 撑高包装盒、图标在盒内偏上，居中的是「偏上的盒子」。
      与产品侧 .fhelp-btn 同款。 */
   /* 入口的层叠随展开状态变化（config ㉖）：常驻 4 低于面板的 45，于是展开的面板盖住同页其它入口；
      只在自己这块展开时（:hover / :focus-within）上提到 46，压过面板的 6px / 36px 透明桥 ——
      否则点击会落到桥上、入口拿不到焦点（点击固定失效）。面板若新增第三种展开来源，此处须同批补条件。 */
-  .fhelp-btn { position: relative; z-index: 4; margin-left: 6px; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; transition: color .16s; }
+  .fhelp-btn { position: relative; z-index: 4; padding: 0; border: none; background: none; color: var(--text-faint); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .16s; }
   .fhelp-btn:hover { color: var(--text-dim); }
   .fhelp:hover .fhelp-btn,
   .fhelp:focus-within .fhelp-btn { z-index: 46; }
@@ -516,7 +519,7 @@
   .row > * { flex: 1; }
 
   .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; }
-  .toggle .t-label { font-size: 13px; }
+  .toggle .t-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
   /* 开关行里的帮助入口以整行为定位祖先（面板宽度=字段可用宽）；图标到面板的落差大于 6px 桥，加长。 */
   .toggle .fhelp-panel::before { top: -36px; height: 36px; }
   .switch { position: relative; width: 42px; height: 24px; flex: none; }
@@ -884,7 +887,7 @@
   .add-device-modal .hint { font-size: 11px; color: var(--text-faint); margin-top: 5px; overflow-wrap: anywhere; }
   .add-device-modal .add-port { flex: 0 1 110px; }
   .add-device-modal .wl-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .add-device-modal .wl-head .flabel { margin: 0; flex: 1; font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
+  .add-device-modal .wl-head .flabel { display: flex; align-items: center; gap: 6px; margin: 0; flex: 1; font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
   .add-device-modal .pair-address-head label { flex: 1; font-size: 12.5px; color: var(--text-dim); }
   .add-device-modal .fhelp.up .fhelp-panel { top: auto; bottom: calc(100% + 6px); }
   .add-device-modal .fhelp.up .fhelp-panel::before { top: auto; bottom: -6px; }

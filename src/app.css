@@ -799,13 +799,22 @@ textarea,
 }
 .field > label,
 .field > .flabel {
-  display: block;
   font-size: 12.5px;
   color: var(--text-dim);
   margin-bottom: 7px;
   /* 详情面板的定位祖先（见下方 `.fhelp` 段注释）：块级、宽度恒等于字段可用宽，
      面板的 `max-width: 100%` 因此才有意义。 */
   position: relative;
+}
+/* `.flabel` 还须让 `?` 入口与标签文字垂直居中：flex 居中由浏览器按盒子精确计算，
+   摆脱 `vertical-align` 的基线数学（见下方 `.fhelp` 段）。`.field > label` 无 `?`，保持 block。 */
+.field > label {
+  display: block;
+}
+.field > .flabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .field .hint {
   font-size: 11px;
@@ -829,6 +838,9 @@ textarea,
 /* ---------- 字段标签右侧的详情入口与详情面板 ----------
    每个字段：字段下方一句**简短常驻说明**（`.hint`），细节收进 `.fhelp-panel`，由标签旁 `?` 按需展开。
    入口是 lucide 的 circle-help：图标自带圆圈，故按钮本身**不画**边框与底色（再画一圈就是"圈中圈"）。
+   入口与标签文字（含 `<code>` 胶囊）的垂直居中对齐由标签行容器（`.field > .flabel` /
+   `.toggle .t-label` / `.wl-head .flabel`）的 flex 居中承担；入口自身不再 `vertical-align`
+   （`vertical-align: middle` 对齐的是 baseline + x-height，随字号漂移，flex 才按盒子精确居中）。
    面板【绝对定位、不参与布局】⇒ 展开既不改变卡片高度、也不推动下方元素。
    展开全由 CSS 承担（没有脚本、没有展开态）：`.fhelp:hover`（悬浮）与 `.fhelp:focus-within`
    （键盘聚焦，以及**鼠标点击后保持展开** —— 点击会让按钮获得焦点）。于是「同一时刻最多一块被固定」
@@ -855,16 +867,17 @@ textarea,
 .fhelp-btn {
   position: relative;
   z-index: 4;
-  margin-left: 6px;
   padding: 0;
   border: none;
   background: none;
   color: var(--text-faint);
   cursor: pointer;
-  display: inline-flex;
+  /* 必须是块级 flex 而非 inline-flex：inline-flex 会让 .fhelp（被块化后）内部仍走行内排版，
+     继承行高的 strut 把包装盒撑到 ~18.75px、图标坐在基线上偏上约 3px —— 容器居中的是
+     「偏上的盒子」，整体仍偏高。块级化后 .fhelp 内无行盒，高度恰为图标 14px。 */
+  display: flex;
   align-items: center;
   justify-content: center;
-  vertical-align: middle;
   transition: color 0.16s;
 }
 .fhelp-btn:hover {
@@ -1708,6 +1721,9 @@ textarea[aria-invalid='true'] {
   position: relative;
 }
 .toggle .t-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
 }
 /* 图标在行内垂直居中，到面板顶端的落差大于原来的 6px 透明桥，这里加长，
@@ -2750,6 +2766,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-bottom: 8px;
 }
 .wl-head .flabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   flex: 1;
   font-size: 12.5px;
