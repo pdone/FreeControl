@@ -1083,22 +1083,65 @@ export interface FieldRef {
   key: string;
 }
 
+/** 设备参数弹窗里的一块分节：一组覆盖项 + 它的分节名。 */
+export interface OverrideGroup {
+  titleKey: MessageKey;
+  /** 整行铺满（多行文本这类需要横向空间的卡片用）。 */
+  span?: boolean;
+  fields: FieldRef[];
+}
+
 /**
- * 设备页覆盖面板的「最常用项」（tasks 7.8）：
- * 分辨率 / 码率 / 帧率 / 窗口标题 / 关屏 / 只读 / 全屏 / 启动应用。
+ * 设备参数弹窗的覆盖项，按分节组织（design D1）。
  *
- * 「启动应用」压在末位：面板后半段是「更多参数」提示行，新项插在它之前；
- * 该 flag 的标签与 placeholder 直接取自 apps 组，不在这里另写一份。
+ * 每项仍是 `FieldRef`，标签 / 量程 / 提示 / `showWhen` 一律由 `fieldOf()` 从 8 组字段
+ * 模型里取 —— 弹窗不另写一份定义，否则同一个 flag 会有两套标签与量程。
+ *
+ * **分节名只是呈现层的归类标签**：它 MUST NOT 落进 `values`，也 MUST NOT 成为校验错误的
+ * 键前缀 —— 落盘与校验用的仍是 `group.key`（如 `video.maxSize`），分节与参数分组是两回事。
+ *
+ * 收录口径：**每台设备真的可能不一样的项**。不收录 `--window-x` / `--window-y`
+ * （一旦出现，该设备会被后端踢出多窗口自动排列），也不收录 `--port`（多开时容易互撞）
+ * 与纯调试取向的项（`--verbosity` / `--print-fps` / `--no-cleanup`）。
  */
-export const OVERRIDE_FIELD_REFS: FieldRef[] = [
-  { group: 'video', key: 'maxSize' },
-  { group: 'video', key: 'bitrate' },
-  { group: 'video', key: 'maxFps' },
-  { group: 'window', key: 'windowTitle' },
-  { group: 'control', key: 'turnScreenOff' },
-  { group: 'control', key: 'noControl' },
-  { group: 'window', key: 'fullscreen' },
-  { group: 'apps', key: 'startApp' },
+export const OVERRIDE_GROUPS: OverrideGroup[] = [
+  {
+    titleKey: 'device.params.group.video',
+    fields: [
+      { group: 'video', key: 'maxSize' },
+      { group: 'video', key: 'bitrate' },
+      { group: 'video', key: 'maxFps' },
+      { group: 'video', key: 'crop' },
+      // 只在主屏档生效（摄像头源或虚拟显示器下 scrcpy 拒绝该 flag），见 command.ts。
+      { group: 'source', key: 'displayId' },
+    ],
+  },
+  {
+    titleKey: 'device.params.group.window',
+    fields: [
+      { group: 'window', key: 'windowTitle' },
+      { group: 'window', key: 'fullscreen' },
+      { group: 'control', key: 'turnScreenOff' },
+      { group: 'control', key: 'noControl' },
+    ],
+  },
+  {
+    titleKey: 'device.params.group.record',
+    fields: [
+      // `--record` 只在默认参数的「录制」开启时下发，弹窗里填了路径也要那开关配合。
+      { group: 'record', key: 'recordPath' },
+      { group: 'audio', key: 'audioOff' },
+    ],
+  },
+  {
+    titleKey: 'device.params.group.apps',
+    // 透传参数是多行文本，需要横向空间；与「启动应用」同块故整块铺满。
+    span: true,
+    fields: [
+      { group: 'apps', key: 'startApp' },
+      { group: 'advanced', key: 'customArgs' },
+    ],
+  },
 ];
 
 /** 字段地址的字符串形式（与校验错误的 key 一致）。 */

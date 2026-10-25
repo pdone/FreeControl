@@ -3260,3 +3260,234 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     animation: none;
   }
 }
+
+/* ---------- 设备参数弹窗（spec `parameter-configuration`「设备参数弹窗」/ design D2–D8）----------
+   三区结构：头部 / 可滚动体区 / 底部预览。只有体区滚动 —— 头部与预览因此永远可见。
+   宽度取 720px 而非 `.modal` 默认的 520px：13 项分 4 块、2 列排布，520px 会把每列压到
+   二百多像素。这是对 `.modal` 默认宽度的**有意偏离**（同 `about-modal` 那次）。
+   「扩大」占满可用区、四周各留 24px（与 `.modal` 的 48px 横向留白同一口径）。 */
+.dp-overlay {
+  padding: 24px;
+  box-sizing: border-box;
+}
+/* 点遮罩关闭的那一层：铺满遮罩、位于面板之下（面板已 relative，按 DOM 顺序在其上）。 */
+.dp-backdrop {
+  position: absolute;
+  inset: 0;
+}
+.dp-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 48px);
+  /* 三区各自的内边距由内部承担，外壳只留边框与圆角。 */
+  padding: 0;
+  text-align: left;
+  overflow: hidden;
+  transition: width 0.18s ease, max-width 0.18s ease;
+}
+.dp-modal.expanded {
+  width: 100%;
+  height: calc(100dvh - 48px);
+  max-height: none;
+}
+.dp-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.dp-title {
+  flex: 1;
+  min-width: 0; /* 允许标题在长别名下省略，而不是把开关挤出头部 */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.dp-title svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  stroke: var(--accent-hover);
+}
+.dp-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dp-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dp-switch {
+  margin-right: 4px;
+}
+/* 裸图标按钮（扩大 / 缩小、关闭）：与「关于」弹窗的关闭键同一套 hover 反馈。 */
+.dp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: 0.16s;
+}
+.dp-icon-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.dp-icon-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+/* 覆盖处于禁用、且填过取值：必须有文字说明（只靠变灰分不清「已禁用」与「已清空」）。 */
+.dp-note {
+  flex: none;
+  padding: 8px 20px;
+  font-size: 12px;
+  color: var(--warn);
+  background: var(--accent-weak);
+  border-bottom: 1px solid var(--border);
+}
+.dp-body {
+  flex: 1;
+  /* 关键：flex 子项默认 min-height:auto 会拒绝收缩、把溢出泄漏到整页（同 `.content` 那条）。
+     置 0 之后体区才真正成为唯一滚动容器。 */
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.dp-grid {
+  display: grid;
+  /* 列数按**弹窗自身宽度**自适应（不按视口）：常态约 680px 得 2 列；扩大后随宽度
+     增至 3–4 列。`max-width` 收口 4 列 —— 5 列以上每张卡片只剩二百多像素，
+     分节标题与字段会互相挤压，「卡片即分节」的读法就散了。
+     下限取 280px 而非 300px：最小窗口（1000×720）扩大后网格可用宽约 910px，
+     300px 下限只能排 2 列（3 列需 924px），够不到设计要求的 3 列档；
+     280px 下三档分别是 2 / 3 / 4 列（1440 及更宽封顶 4 列）。 */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+.dp-card {
+  /* 分节卡的面与 `.card` 同源（同一组 token），内边距略紧：弹窗里字段密度高于参数页，
+     沿用 16px 会显得空。 */
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px 16px;
+}
+/* 透传参数那块要横向空间：整行铺满。 */
+.dp-card.wide {
+  grid-column: 1 / -1;
+}
+.dp-card h3 {
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+/* 覆盖被禁用：取值仍显示（不清值），但不接受编辑、明显变灰（沿用原面板的手法）。 */
+.dp-grid.ov-off {
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* 帮助面板在滚动体区内向上展开（design D7）：向下展开会被体区下缘裁掉。
+   只翻转**当前**那一块 —— 同一时刻最多一块面板展开（焦点唯一性）。 */
+.dp-body.panel-up .fhelp-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.dp-body.panel-up .fhelp-panel::before {
+  top: auto;
+  bottom: -6px;
+}
+/* 开关类字段的桥更高（36px，见 `.toggle .fhelp-panel::before`）：翻转方向时这一档要跟着改，
+   否则指针从图标移进面板会断在中间那段空隙里。 */
+.dp-body.panel-up .toggle .fhelp-panel::before {
+  bottom: -36px;
+  height: 36px;
+}
+.dp-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.dp-foot-label {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-faint);
+}
+.dp-foot-label svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+/* 预览的呈现与命令条同一套：等宽文本、取值着色、横向滚动而不换行。 */
+.dp-preview {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+.dp-preview::-webkit-scrollbar {
+  display: none;
+}
+.dp-preview b {
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+.dp-preview .dev {
+  color: var(--teal);
+}
+.dp-preview.empty {
+  color: var(--text-faint);
+}
+.dp-warn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--danger);
+}
+.dp-warn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dp-modal {
+    transition-duration: 0.01ms;
+  }
+}

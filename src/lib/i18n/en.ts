@@ -444,9 +444,13 @@ export const en: Record<MessageKey, string> = {
   "device.overrideDisabled": " · override disabled (values kept)",
   "device.overrideTip":
     "Enable or disable this device's parameter override (disabling keeps the values)",
-  "device.moreParams": "More parameters",
-  "device.moreParamsHint":
-    "Set the full parameter set as defaults on the Source / Video / Audio… pages; this panel overrides the most common ones.",
+  "device.params.group.video": "Video & display",
+  "device.params.group.window": "Window & control",
+  "device.params.group.record": "Recording & audio",
+  "device.params.group.apps": "Launch & passthrough",
+  "device.params.expand": "Expand",
+  "device.params.collapse": "Shrink",
+  "device.params.disabledNote": "Override disabled · values kept",
   "device.status.connected": "Connected",
   "device.status.online": "Online",
   "device.status.offline": "Offline",

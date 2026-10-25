@@ -17,12 +17,6 @@
     renameDevice,
     deleteDevice,
     overrides,
-    overrideErrors,
-    defaults,
-    setOverrideValue,
-    setOverrideEnabled,
-    countOverrideKeys,
-    isOverrideEnabled,
     isOverrideActive,
     sessions,
     sessionNotice,
@@ -40,16 +34,13 @@
   import { t } from '../lib/i18n';
   import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
-  import { OVERRIDE_FIELD_REFS, fieldOf, refKey, type FieldRef } from '../lib/params';
-  import type { ValidationMessage } from '../lib/validate';
-  import ParamField from './ParamField.svelte';
   import AddDeviceDialog from './AddDeviceDialog.svelte';
+  import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import { resolveWifiPort } from '../lib/api';
   import type {
     ConnectResult,
     Device,
     DeviceStatusView,
-    OverrideEntry,
     SessionInfo,
   } from '../lib/types';
   import {
@@ -133,89 +124,24 @@
 
   // ── 参数覆盖（tasks 7.4–7.8 / design D5）────────────────────
   //
-  // 模型：`overrides[deviceId] = { enabled, values }`，写回 config 后去抖落盘。
-  // 开关关闭时取值**不清除**（面板照旧回显），只是不再参与命令拼装。
+  // 覆盖的编辑面已改为弹窗（spec「设备参数弹窗」，design D2–D8）：设备卡只留「参数」
+  // 入口，不再在卡内展开面板 —— 一台设备改参数不会把其它设备推走，列表几何因此与
+  // 是否在改参数无关。
   //
   // **Svelte 的依赖跟踪只认「模板/响应式表达式里直接出现的变量」**：把 `$store` 藏在
   // 函数体里读，订阅会生效但各块的更新都会被 dirty 检查跳过 —— 表现为「覆盖值改了、
-  // 命令预览（另一个组件）也变了，可本页的『已启用设备覆盖』标识与面板输入不跟着动」。
-  // 所以这里先把用到的 store 值显式取出来（下面三条 `$:`），模板直接引用它们，
-  // 计算则交给接收参数的纯函数。
+  // 命令预览（另一个组件）也变了，可本页的『已启用设备覆盖』标识不跟着动」。
+  // 所以这里先把用到的 store 值显式取出来，模板直接引用它们。
 
-  /** 覆盖面板是否展开（按设备 id 记住，列表重渲染不会自己收起）。 */
-  let openPanels: Record<string, boolean> = {};
+  /** 正在编辑参数的设备 id（`null` = 弹窗关闭）。 */
+  let paramsDeviceId: string | null = null;
 
   /** 覆盖表：`deviceId → { enabled, values }`。 */
   $: ovById = $overrides;
-  /** 各设备覆盖取值的字段错误。 */
-  $: ovErrById = $overrideErrors;
-  /** 默认参数（8 组），面板未覆盖的项回显用。 */
-  $: defaultGroups = $defaults as unknown as Record<string, Record<string, unknown>>;
 
-  function ovValuesOf(
-    entry: OverrideEntry | undefined,
-  ): Record<string, Record<string, unknown>> {
-    return (entry?.values as Record<string, Record<string, unknown>>) ?? {};
-  }
-
-  /**
-   * 覆盖取值项数：只服务于展开面板标题的「覆盖已禁用（取值已保留）」判定。
-   *
-   * 判据取「有取值」而非「有条目」—— 拨开关后又关掉、一条值都没填的设备，不该在标题里
-   * 报出一个空的禁用提示（用户看不到任何"已保留的取值"）。设备列表那枚两态标识的判据是
-   * store 的 `isOverrideActive`（有取值 && 开关启用），此处不再承担标识。
-   */
-  function ovCount(entry: OverrideEntry | undefined): number {
-    return countOverrideKeys(entry?.values as Record<string, unknown>);
-  }
-
-  function ovOn(entry: OverrideEntry | undefined): boolean {
-    return isOverrideEnabled(entry);
-  }
-
-  /** 面板回显：有覆盖值就显示覆盖值（禁用状态也保留可见），否则回落到默认值。 */
-  function ovDisplay(
-    entry: OverrideEntry | undefined,
-    ref: FieldRef,
-    defaults: Record<string, Record<string, unknown>>,
-  ): unknown {
-    const group = ovValuesOf(entry)[ref.group];
-    if (group && ref.key in group) return group[ref.key];
-    return defaults[ref.group]?.[ref.key];
-  }
-
-  /** 覆盖字段的校验提示：只报**该设备真正覆盖**的键，不把默认值的问题记到设备头上。 */
-  function ovError(
-    errors: Record<string, ValidationMessage> | undefined,
-    ref: FieldRef,
-  ): ValidationMessage | null {
-    return errors?.[refKey(ref.group, ref.key)] ?? null;
-  }
-
-  /**
-   * 覆盖面板要渲染的字段（7.8）：直接引用 8 组字段模型里的定义。
-   *
-   * 这里先解析成列表再 `{#each}`，**不要**在 `{#each}` 里用 `{@const}` + `{#if}` 包裹
-   * ParamField —— 那样 Svelte 会把子组件的属性更新挂在 `{@const}` 的 dirty 位上，
-   * 而该值恒为常量 ⇒ 覆盖值变化时面板里输入框的数值回显（如 `8 Mbps`）不会跟着刷新。
-   */
-  $: ovFields = OVERRIDE_FIELD_REFS.map((ref) => ({ ref, field: fieldOf(ref.group, ref.key) })).filter(
-    (x): x is { ref: FieldRef; field: NonNullable<ReturnType<typeof fieldOf>> } => !!x.field,
-  );
-
-  function togglePanel(id: string): void {
-    // 展开参数面板即视为选中该设备：预览要跟着这台设备走（避免「改的是这台、预览的是那台」）。
-    selectDevice(id);
-    openPanels = { ...openPanels, [id]: !openPanels[id] };
-  }
-
-  function onOvChange(id: string, ref: FieldRef, v: unknown): void {
-    selectDevice(id);
-    setOverrideValue(id, ref.group, ref.key, v);
-  }
-
-  function onOvEnable(id: string, e: Event): void {
-    setOverrideEnabled(id, (e.target as HTMLInputElement).checked);
+  function openParams(id: string): void {
+    // 打开弹窗**不改**选中设备：这是「查看这台」，不是「切换选中」（design D3）。
+    paramsDeviceId = id;
   }
 
   function statusLabel(s: DeviceStatusView, tr: Translate): string {
@@ -630,7 +556,7 @@
             {/if}
             <button
               class="btn sm ghost"
-              on:click|stopPropagation={() => togglePanel(d.id)}
+              on:click|stopPropagation={() => openParams(d.id)}
               use:tip={$t('device.paramsTip')}
             >
               <SlidersHorizontal /> {$t('device.params')}
@@ -644,42 +570,6 @@
             </button>
           </div>
         </div>
-
-        {#if openPanels[d.id]}
-          <div class="dev-params">
-            <div class="ov-head">
-              <span class="lab">
-                <SlidersHorizontal /> {$t('device.overrideTitle', { alias: d.alias })}{ovCount(
-                  ovById[d.id],
-                ) > 0 && !ovOn(ovById[d.id])
-                  ? $t('device.overrideDisabled')
-                  : ''}
-              </span>
-              <label class="switch" use:tip={$t('device.overrideTip')}>
-                <input
-                  type="checkbox"
-                  checked={ovOn(ovById[d.id])}
-                  on:change={(e) => onOvEnable(d.id, e)}
-                />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="ov-grid" class:ov-off={!ovOn(ovById[d.id])}>
-              {#each ovFields as item (item.ref.group + '.' + item.ref.key)}
-                <ParamField
-                  field={item.field}
-                  value={ovDisplay(ovById[d.id], item.ref, defaultGroups)}
-                  error={ovError(ovErrById[d.id], item.ref)}
-                  on:change={(e) => onOvChange(d.id, item.ref, e.detail)}
-                />
-              {/each}
-              <div class="field">
-                <span class="flabel">{$t('device.moreParams')}</span>
-                <div class="ov-empty">{$t('device.moreParamsHint')}</div>
-              </div>
-            </div>
-          </div>
-        {/if}
       </div>
     {/each}
   </div>
@@ -710,3 +600,8 @@
 {/if}
 
 <AddDeviceDialog open={addOpen} on:close={() => (addOpen = false)} />
+
+<!-- 参数弹窗用 `{#if}` 挂载：组件卸载即丢弃「扩大」状态，每次打开都回到常态（design D4）。 -->
+{#if paramsDeviceId}
+  <DeviceParamsDialog deviceId={paramsDeviceId} on:close={() => (paramsDeviceId = null)} />
+{/if}
