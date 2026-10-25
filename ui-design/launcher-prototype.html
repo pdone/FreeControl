@@ -343,13 +343,15 @@
   .fhelp:focus-within .fhelp-btn { z-index: 46; }
   .fhelp-btn svg { width: 14px; height: 14px; }
   /* 宽度按内容自适应（config ⑭）：短说明得到窄面板，长说明被上限截住后正常换行 ——
-     原固定值 440px 退居上限，且上限定为 `min(440px, 100%)`，随字段可用宽收窄，window 窄了不截断。 */
+     固定上限为 `min(520px, 100%)`：520px 是上限本身（原 440px，整行卡片与宽窗口下说明被折得过窄，
+     故放宽，与产品侧 .modal 默认宽度同值），`100%` 是「不得超过字段可用宽」的闸门 ——
+     随字段可用宽收窄，window 窄了不截断、也不引出横向滚动。 */
   /* 浮层「面」的唯一定义处：帮助面板的详情面板与 hover 提示层共用同一套取值 ——
      「与帮助面板风格一致」必须是**同源**；抄一份字面量过去只会各自漂移（与产品侧 app.css 同构）。 */
   .fhelp-panel,
   .tip-panel { padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); box-shadow: var(--shadow); color: var(--text-dim); font-size: 12px; line-height: 1.6; font-weight: 400; letter-spacing: 0; text-transform: none; }
   /* 层叠 45：越过页面内的两类下拉（目录菜单 40 / 自绘的下拉列表 5），仍在模态遮罩 50 与提示层 70 之下。 */
-  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 45; display: none; width: max-content; max-width: min(440px, 100%); }
+  .fhelp-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 45; display: none; width: max-content; max-width: min(520px, 100%); }
   .fhelp-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
   /* 详情分段的每一段（config ④）：块级；段间留白与 `.hint` 那一档同值（5px 上下取整）。 */
   .fhelp-p { display: block; }

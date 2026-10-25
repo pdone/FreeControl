@@ -910,8 +910,13 @@ textarea,
   letter-spacing: 0;
   text-transform: none;
 }
-/* 宽度按内容自适应、上限「440px 与字段可用宽取小」：短说明得到窄面板，长说明被上限截住后正常换行；
+/* 宽度按内容自适应、上限「520px 与字段可用宽取小」：短说明得到窄面板，长说明被上限截住后正常换行；
    窗口一窄，字段可用宽随之变小、面板跟着收窄，不会撞出窗口。
+   两条口径分工：`520px` 是固定上限（原为 440px —— 整行卡片与宽窗口下字段远宽于它，说明被折成
+   三四行，故适度放宽，减少换行）；`100%` 是「不得超过字段可用宽」的闸门，MUST NOT 撤掉 ——
+   面板绝对定位在标签行内、`left: 0`，一旦宽过字段，右列卡片的面板就会越出内容区、
+   在 `.content`（`overflow-y: auto`，另一轴随之为 auto）上引出横向滚动条。
+   520px 与 `.modal` 的默认宽度同值，不为本处另造尺寸档位。
    （`100%` 的解析基准是上面那个定位祖先 —— 标签行。） */
 .fhelp-panel {
   position: absolute;
@@ -923,7 +928,7 @@ textarea,
   z-index: 45;
   display: none;
   width: max-content;
-  max-width: min(440px, 100%);
+  max-width: min(520px, 100%);
 }
 .fhelp-panel::before {
   content: "";
