@@ -12,7 +12,9 @@
     openUpdateDialog,
     setAccent,
     setAutoUpdate,
+    setCodeFont,
     setThemeMode,
+    setUiFont,
     setUiLanguage,
     setUpdateFrequency,
   } from '../lib/store';
@@ -25,6 +27,7 @@
     type ThemeMode,
   } from '../lib/theme';
   import HelpTip from './HelpTip.svelte';
+  import FontPicker from './FontPicker.svelte';
   import SettingsLogCards from './SettingsLogCards.svelte';
   import { Check, RefreshCw } from 'lucide-svelte';
   import { DEFAULT_LANGUAGE, t, type MessageKey } from '../lib/i18n';
@@ -212,6 +215,48 @@
             ? $t('settings.update.lastChecked', { time: lastChecked })
             : $t('settings.update.neverChecked')}
         </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card col2">
+    <h3>{$t('settings.fonts.title')}</h3>
+    <div class="field">
+      <span class="flabel"
+        >{$t('settings.fonts.ui.label')}<HelpTip title={$t('settings.fonts.ui.helpTitle')} label={$t('settings.fonts.ui.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.fonts.ui.help')}</span>
+        </HelpTip></span
+      >
+      <FontPicker
+        label={$t('settings.fonts.ui.label')}
+        value={$config?.ui?.uiFont ?? null}
+        on:change={(e) => setUiFont(e.detail)}
+      />
+      <div class="font-preview">
+        <span class="font-preview-label">{$t('settings.fonts.preview')}</span>
+        <span style:font-family="var(--font-sans)"
+          >{$t('settings.fonts.previewText')}</span
+        >
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="flabel"
+        >{$t('settings.fonts.code.label')}<HelpTip title={$t('settings.fonts.code.helpTitle')} label={$t('settings.fonts.code.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.fonts.code.help')}</span>
+        </HelpTip></span
+      >
+      <FontPicker
+        label={$t('settings.fonts.code.label')}
+        value={$config?.ui?.codeFont ?? null}
+        showMonoBadge
+        on:change={(e) => setCodeFont(e.detail)}
+      />
+      <div class="font-preview">
+        <span class="font-preview-label">{$t('settings.fonts.preview')}</span>
+        <span style:font-family="var(--font-mono)"
+          >{$t('settings.fonts.codePreviewText')}</span
+        >
       </div>
     </div>
   </div>

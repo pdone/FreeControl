@@ -228,14 +228,15 @@ pub const LANGUAGE_EN: &str = "en";
 /// 出厂默认界面语言：跟随系统。
 pub const DEFAULT_LANGUAGE: &str = LANGUAGE_SYSTEM;
 
-/// 外观设置（`ui` 段）：界面语言、主题模式与主题色。
+/// 外观设置（`ui` 段）：界面语言、主题模式、主题色与两个字体字段。
 ///
-/// 三者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
+/// 五者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
 /// 取值模型与生效方式归前端所有（与 8 组默认参数的分工一致）。
 ///
 /// - `language`：`system` / `zh` / `en`；
 /// - `theme`：`system` / `dark` / `light`；
-/// - `accent`：`#RRGGBB`（前端把自定义 RGB 归一化成这一形状后再存，大小写不敏感）。
+/// - `accent`：`#RRGGBB`（前端把自定义 RGB 归一化成这一形状后再存，大小写不敏感）；
+/// - `ui_font` / `code_font`：界面字体与代码字体的族名；`None` / 空值表示系统默认。
 ///
 /// 未知取值一律退化为出厂默认 —— 与保留策略同一条哲学：手工改错一个字段不该让界面
 /// 「变脸」到不可用。缺字段同样取出厂默认，老配置文件照常可读。
@@ -251,6 +252,14 @@ pub struct Ui {
     /// 主题色，形如 "#6366f1"
     #[serde(default = "default_accent")]
     pub accent: String,
+    /// 界面字体族名；`None` 表示系统默认。
+    ///
+    /// 宽容读取：非字符串结构按 `None` 处理，避免手工改坏一个字段就让整份配置读不出来。
+    #[serde(default, deserialize_with = "deserialize_optional_font")]
+    pub ui_font: Option<String>,
+    /// 代码字体族名；`None` 表示系统默认。
+    #[serde(default, deserialize_with = "deserialize_optional_font")]
+    pub code_font: Option<String>,
 }
 
 fn default_language() -> String {
@@ -271,13 +280,16 @@ impl Default for Ui {
             language: default_language(),
             theme: default_theme(),
             accent: default_accent(),
+            ui_font: None,
+            code_font: None,
         }
     }
 }
 
 impl Ui {
     /// 加载时归一化：未知语言退 `system`、未知主题退 `system`、非法主题色退默认；
-    /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」。
+    /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」；
+    /// 两个字体字段去首尾空白，空值与含控制字符的取值按系统默认处理。
     pub fn normalize(&mut self) {
         if !matches!(
             self.language.as_str(),
@@ -292,6 +304,35 @@ impl Ui {
             self.theme = default_theme();
         }
         self.accent = normalize_hex(&self.accent).unwrap_or_else(default_accent);
+        self.ui_font = normalize_font(std::mem::take(&mut self.ui_font));
+        self.code_font = normalize_font(std::mem::take(&mut self.code_font));
+    }
+}
+
+/// 字体字段的宽容反序列化：字符串原样读入，其它结构按 `None`。
+///
+/// 与标量字段「未知取值退默认」同一口径：手工把字体字段写成数组 / 对象 / 数字，
+/// 不该让整份配置读不出来。旧版 `ui.fonts` 数组不是这里的字段，会被 serde 忽略。
+fn deserialize_optional_font<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    Ok(match raw {
+        serde_json::Value::String(name) => Some(name),
+        _ => None,
+    })
+}
+
+/// 字体字段归一化：去首尾空白；空值或含控制字符的取值按系统默认处理。
+///
+/// 不与当前枚举结果求交集：字体被卸载后保留族名，重装即恢复；CSS 会自动跳过不存在的族。
+fn normalize_font(raw: Option<String>) -> Option<String> {
+    let name = raw?.trim().to_string();
+    if name.is_empty() || name.chars().any(char::is_control) {
+        None
+    } else {
+        Some(name)
     }
 }
 
@@ -833,6 +874,10 @@ mod tests {
         assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        assert!(
+            cfg.ui.ui_font.is_none() && cfg.ui.code_font.is_none(),
+            "缺字体字段应按系统默认处理"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -853,6 +898,7 @@ mod tests {
         assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        assert!(cfg.ui.ui_font.is_none() && cfg.ui.code_font.is_none());
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -864,6 +910,8 @@ mod tests {
         cfg.ui.language = LANGUAGE_EN.to_string();
         cfg.ui.theme = THEME_LIGHT.to_string();
         cfg.ui.accent = "#ABCDEF".to_string();
+        cfg.ui.ui_font = Some("Alibaba PuHuiTi 3.0".to_string());
+        cfg.ui.code_font = Some("Cascadia Mono".to_string());
         save_config_to(&path, &cfg).unwrap();
 
         let loaded = load_config_from(&path).unwrap();
@@ -871,6 +919,11 @@ mod tests {
         assert_eq!(loaded.ui.theme, THEME_LIGHT);
         // 大小写归一：同一颜色不会因写法不同被判成「不是预设」。
         assert_eq!(loaded.ui.accent, "#abcdef");
+        assert_eq!(
+            loaded.ui.ui_font.as_deref(),
+            Some("Alibaba PuHuiTi 3.0")
+        );
+        assert_eq!(loaded.ui.code_font.as_deref(), Some("Cascadia Mono"));
 
         // 落盘结构里带 ui 段（不是只在内存里）。
         let raw = fs::read_to_string(&path).unwrap();
@@ -878,7 +931,96 @@ mod tests {
         assert!(raw.contains("\"language\""));
         assert!(raw.contains("\"theme\""));
         assert!(raw.contains("\"accent\""));
+        assert!(raw.contains("\"uiFont\""));
+        assert!(raw.contains("\"codeFont\""));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_font_fields_invalid_structure_falls_back() {
+        let dir = unique_temp_dir("ui-fonts-invalid");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        // 两个字体字段被写成数字 / 数组：各自按 None 处理，其余字段照常读出。
+        fs::write(
+            &path,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"language":"en","theme":"dark","accent":"#123456","uiFont":123,"codeFont":["Arial"]}}"##,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        assert!(cfg.ui.ui_font.is_none());
+        assert!(cfg.ui.code_font.is_none());
+        assert_eq!(cfg.ui.language, LANGUAGE_EN);
+        assert_eq!(cfg.ui.theme, THEME_DARK);
+        assert_eq!(cfg.ui.accent, "#123456");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_old_fonts_array_is_ignored() {
+        let dir = unique_temp_dir("ui-fonts-old");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        // 旧的 ui.fonts 数组从未随版本发布：不映射到两个新字段，其余配置照常读出。
+        fs::write(
+            &path,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"language":"en","theme":"dark","accent":"#123456","fonts":["Arial","Consolas"]}}"##,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        assert!(cfg.ui.ui_font.is_none());
+        assert!(cfg.ui.code_font.is_none());
+        assert_eq!(cfg.ui.language, LANGUAGE_EN);
+        assert_eq!(cfg.ui.accent, "#123456");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_font_fields_trim_and_normalize() {
+        let dir = unique_temp_dir("ui-fonts-normalize");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        fs::write(
+            &path,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"uiFont":"  Arial  ","codeFont":"   "}}"##,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+        assert_eq!(cfg.ui.ui_font.as_deref(), Some("Arial"));
+        assert!(cfg.ui.code_font.is_none());
+
+        // 控制字符整条按系统默认处理；合法值去首尾空白。
+        let mut ui = Ui {
+            language: LANGUAGE_SYSTEM.to_string(),
+            theme: THEME_SYSTEM.to_string(),
+            accent: DEFAULT_ACCENT.to_string(),
+            ui_font: Some("阿里\n巴巴".to_string()),
+            code_font: Some("  Cascadia Mono  ".to_string()),
+        };
+        ui.normalize();
+        assert!(ui.ui_font.is_none());
+        assert_eq!(ui.code_font.as_deref(), Some("Cascadia Mono"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ui_font_fields_unknown_family_is_preserved() {
+        let mut ui = Ui {
+            language: LANGUAGE_SYSTEM.to_string(),
+            theme: THEME_SYSTEM.to_string(),
+            accent: DEFAULT_ACCENT.to_string(),
+            ui_font: Some("已卸载的字体".to_string()),
+            code_font: Some("Arial".to_string()),
+        };
+        ui.normalize();
+        // 归一化不查本机安装情况：已卸载 / 未知族名保留，由 CSS 跳过。
+        assert_eq!(ui.ui_font.as_deref(), Some("已卸载的字体"));
+        assert_eq!(ui.code_font.as_deref(), Some("Arial"));
     }
 
     #[test]
@@ -887,6 +1029,8 @@ mod tests {
             language: LANGUAGE_ZH.to_string(),
             theme: THEME_DARK.to_string(),
             accent: "#3B82F6".to_string(),
+            ui_font: None,
+            code_font: None,
         };
         ui.normalize();
         assert_eq!(ui.language, LANGUAGE_ZH);
@@ -898,6 +1042,8 @@ mod tests {
                 language: LANGUAGE_SYSTEM.to_string(),
                 theme: THEME_SYSTEM.to_string(),
                 accent: bad.to_string(),
+                ui_font: None,
+            code_font: None,
             };
             ui.normalize();
             assert_eq!(ui.accent, DEFAULT_ACCENT, "accent {bad:?} 应退回默认");
@@ -910,6 +1056,8 @@ mod tests {
             language: "fr".to_string(),
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
+            ui_font: None,
+            code_font: None,
         };
         ui.normalize();
         assert_eq!(ui.language, DEFAULT_LANGUAGE);

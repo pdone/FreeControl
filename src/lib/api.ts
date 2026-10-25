@@ -17,6 +17,7 @@ import type {
   PairingTarget,
   ProxyList,
   SessionInfo,
+  SystemFont,
   UpdateInfo,
   WirelessJoin,
   WirelessScan,
@@ -27,6 +28,13 @@ import type {
 export const getConfig = (): Promise<AppConfig> => invoke('get_config');
 export const saveConfig = (config: AppConfig): Promise<void> =>
   invoke('save_config', { config });
+
+/**
+ * 本机可用字体族（「设置」页「字体」卡）。
+ * `refresh = true` 绕过端口进程缓存重扫，供安装新字体后的刷新按钮使用。
+ */
+export const listSystemFonts = (refresh = false): Promise<SystemFont[]> =>
+  invoke('list_system_fonts', { refresh });
 
 export const getCompatStatus = (): Promise<CompatStatus> =>
   invoke('get_compat_status');

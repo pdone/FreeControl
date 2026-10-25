@@ -1,11 +1,16 @@
 import './app.css';
 import { initLanguage } from './lib/i18n';
+import { initFontStacks } from './lib/fonts';
 import App from './App.svelte';
 import { revealWindowWhenPainted } from './lib/store';
 
 // 挂载前先把首帧语言写到根元素：配置是异步读取的，这里用本机上次生效的语言
 // （没有快照时按系统语言）兜住配置到达前的第一帧；配置到达后由 store 的订阅覆盖。
 initLanguage();
+
+// 字体同理由 localStorage 的首帧缓存兜住：配置到达后由 store 的订阅换成盘上的顺序，
+// 避免窗口已经显示、配置随后到达时肉眼可见地换一次字体。
+initFontStacks();
 
 const app = new App({
   target: document.getElementById('app')!,

@@ -11,6 +11,7 @@ import {
   DEFAULT_ACCENT,
   DEFAULT_THEME,
 } from './theme';
+import { applyFontStacks, writeFontCache } from './fonts';
 import {
   applyLanguage,
   DEFAULT_LANGUAGE,
@@ -23,6 +24,7 @@ import {
   getCompatStatus,
   getDevices,
   getDeviceStatus,
+  listSystemFonts,
   addDevice as addDeviceCmd,
   updateDevice as updateDeviceCmd,
   deleteDevice as deleteDeviceCmd,
@@ -58,6 +60,7 @@ import type {
   OverrideEntry,
   ProxyList,
   SessionInfo,
+  SystemFont,
   UiPrefs,
   UpdateFrequency,
   UpdatePrefs,
@@ -79,6 +82,8 @@ const PENDING_UI: UiPrefs = {
   language: DEFAULT_LANGUAGE,
   theme: DEFAULT_THEME,
   accent: DEFAULT_ACCENT,
+  uiFont: null,
+  codeFont: null,
 };
 
 function uiOf(c: AppConfig | null): UiPrefs {
@@ -86,6 +91,11 @@ function uiOf(c: AppConfig | null): UiPrefs {
 }
 
 let appliedUiKey = '';
+/**
+ * 已应用的字体键；用 `null` 而不是空串作初始值：空列表的键也是空串，
+ * 若从空串起步，配置首次到达为「空列表」时不会清掉 `main.ts` 读过的首帧缓存。
+ */
+let appliedFontsKey: string | null = null;
 let appliedLanguageKey = '';
 config.subscribe((c) => {
   const ui = uiOf(c);
@@ -95,6 +105,15 @@ config.subscribe((c) => {
     applyAppearance(ui);
   }
   if (!c) return;
+  // 字体：只在配置到达后应用；配置为空时保留 `main.ts` 读过的那份首帧缓存。
+  const uiFont = ui.uiFont ?? null;
+  const codeFont = ui.codeFont ?? null;
+  const fontsKey = `${uiFont ?? ''}\u0000${codeFont ?? ''}`;
+  if (fontsKey !== appliedFontsKey) {
+    appliedFontsKey = fontsKey;
+    applyFontStacks({ uiFont, codeFont });
+    writeFontCache({ uiFont, codeFont });
+  }
   const language = isLanguagePref(ui.language) ? ui.language : DEFAULT_LANGUAGE;
   if (language === appliedLanguageKey) return;
   appliedLanguageKey = language;
@@ -123,6 +142,57 @@ export function setAccent(accent: string): void {
 export function setUiLanguage(language: UiPrefs['language']): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), language } } : c));
   scheduleSave();
+}
+
+/**
+ * 界面字体（设置页）：`null` 表示系统默认。
+ * 与其它外观偏好同一条写入路径：改配置 → 订阅立即应用 → 去抖落盘。
+ */
+export function setUiFont(uiFont: string | null): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), uiFont } } : c));
+  scheduleSave();
+}
+
+/** 代码字体（设置页）：`null` 表示系统默认。 */
+export function setCodeFont(codeFont: string | null): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), codeFont } } : c));
+  scheduleSave();
+}
+
+// ── 字体候选列表（设置页两个字段共用）────────────────────────
+//
+// 同一份本机字体列表服务「界面字体」与「代码字体」两个字段；菜单首次打开时读取，
+// 后端另有进程缓存，所以第二个字段打开时不会重复扫描。刷新按钮绕过缓存重扫。
+
+export const systemFonts = writable<SystemFont[]>([]);
+export const systemFontsLoading = writable(false);
+export const systemFontsError = writable<string | null>(null);
+export const systemFontsLoaded = writable(false);
+
+let systemFontsInFlight: Promise<void> | null = null;
+
+/** 读取 / 刷新本机字体列表；并发调用复用同一次在途请求。 */
+export function loadSystemFonts(refresh = false): Promise<void> {
+  if (systemFontsInFlight) return systemFontsInFlight;
+  if (!refresh && get(systemFontsLoaded)) return Promise.resolve();
+
+  systemFontsLoading.set(true);
+  systemFontsError.set(null);
+  const run = listSystemFonts(refresh)
+    .then((list) => {
+      systemFonts.set(list);
+      systemFontsLoaded.set(true);
+    })
+    .catch((e) => {
+      console.error('读取本机字体失败', e);
+      systemFontsError.set(e instanceof Error ? e.message : String(e));
+    })
+    .finally(() => {
+      systemFontsLoading.set(false);
+      systemFontsInFlight = null;
+    });
+  systemFontsInFlight = run;
+  return run;
 }
 
 // ── 更新检查偏好（add-app-self-update）────────────────────────
@@ -311,12 +381,15 @@ export async function loadProxies(): Promise<void> {
  * 否则随后的去抖保存会把前端残留的旧覆盖写回盘上，被删设备的覆盖又「复活」。
  */
 function applyConfig(c: AppConfig): void {
-  // 去抖窗口内可能已有未落盘的参数改动（默认参数 / 某台设备的覆盖取值）。设备写命令
-  // 返回的是后端那份配置，直接整体替换会把这次改动吞掉，故按「保留本地」处理：
+  // 去抖窗口内可能已有未落盘的用户改动（默认参数、某台设备的覆盖取值，以及外观 / 日志 /
+  // 更新偏好）。设备写命令返回的是后端那份配置，直接整体替换会把这次改动吞掉，故按
+  // 「保留本地」处理：
   //   · 默认参数：整体保留本地那份；
   //   · 覆盖表：只保留**新配置里仍然存在**的设备 —— 被删设备的覆盖必须以后端为准
-  //     （后端已连带清除），留下就是「复活」。
-  // 其余字段（设备、通道）一律以后端为准 —— 后端已落盘。
+  //     （后端已连带清除），留下就是「复活」；
+  //   · ui / logging / update：前端写入的偏好，后端返回的配置尚未包含去抖窗口里的改动，
+  //     整体保留本地副本。
+  // 其余字段（设备、通道、运行环境目录）一律以后端为准 —— 后端已落盘。
   const local = get(config);
   if (dirty && local) {
     const alive = new Set(c.devices.map((d) => d.id));
@@ -324,7 +397,14 @@ function applyConfig(c: AppConfig): void {
     for (const [id, entry] of Object.entries(local.overrides ?? {})) {
       if (alive.has(id)) overrides[id] = entry;
     }
-    config.set({ ...c, defaults: local.defaults, overrides });
+    config.set({
+      ...c,
+      defaults: local.defaults,
+      overrides,
+      ui: local.ui,
+      logging: local.logging,
+      update: local.update,
+    });
   } else {
     config.set(c);
   }
@@ -1049,6 +1129,8 @@ export async function initApp(): Promise<void> {
         language: DEFAULT_LANGUAGE,
         theme: DEFAULT_THEME,
         accent: DEFAULT_ACCENT,
+        uiFont: null,
+        codeFont: null,
       },
       update: DEFAULT_UPDATE,
     });

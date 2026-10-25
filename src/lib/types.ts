@@ -202,20 +202,35 @@ export type Lang = 'zh' | 'en';
 export type LanguagePref = 'system' | Lang;
 
 /**
- * 外观偏好（后端 `config::Ui`）：界面语言、主题模式与主题色。
+ * 本机字体（后端 `fonts::SystemFont`）。
+ *
+ * `family` 是落盘与 CSS 使用的 canonical 族名；`aliases` 保留全部语言的族名，
+ * 供中文界面显示与两种名字的搜索；`monospaced` 只用于列表上的等宽标记。
+ */
+export interface SystemFont {
+  family: string;
+  aliases: string[];
+  monospaced: boolean;
+}
+
+/**
+ * 外观偏好（后端 `config::Ui`）：界面语言、主题模式、主题色与两个字体字段。
  *
  * - `language`：`system`（跟随系统，出厂默认）/ `zh` / `en`；
  * - `theme`：`system`（跟随系统，出厂默认）/ `dark` / `light`；
- * - `accent`：`#rrggbb`（小写；预设值与自定义 RGB 归一化后的结果同形）。
+ * - `accent`：`#rrggbb`（小写；预设值与自定义 RGB 归一化后的结果同形）；
+ * - `uiFont` / `codeFont`：界面字体与代码字体的族名；`null` 表示系统默认。
  *
- * 后端把未知语言、未知主题与非法主题色一律退化为出厂默认，因此前端不必为
- * 「读到没见过的值」准备分支。这三个字段**不属于** `defaults.*`（scrcpy 参数），
- * 改动不经过参数组。
+ * 后端把未知语言、未知主题、非法主题色与非字符串字体字段一律退化为出厂默认，
+ * 因此前端不必为「读到没见过的值」准备分支。这些字段**不属于** `defaults.*`
+ * （scrcpy 参数），改动不经过参数组。
  */
 export interface UiPrefs {
   language: LanguagePref;
   theme: 'system' | 'dark' | 'light';
   accent: string;
+  uiFont: string | null;
+  codeFont: string | null;
 }
 
 /**

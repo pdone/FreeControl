@@ -55,6 +55,10 @@
     --scroll-track: #14171d;   /* 滚动条槽（务必保持不透明，勿改回 transparent） */
     --scroll-thumb: #333a47;
     --scroll-thumb-hover: #4b5464;
+    /* 界面主字体的默认栈：字体卡未选择任何字体时的取值，也是演示字体栈末尾的兜底。 */
+    --font-sans-default: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-mono-default: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --font-mono: var(--font-mono-default);
     font-synthesis: none;
     /* 让 WebView2 / Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
        textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。
@@ -102,7 +106,7 @@
   html, body { height: 100%; }
   body {
     background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: var(--font-sans-default);
     font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
   }
 
@@ -451,7 +455,7 @@
     width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
     border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .12s;
   }
-  textarea { resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+  textarea { resize: vertical; font-family: var(--font-mono); font-size: 12.5px; }
   input:focus, textarea:focus { border-color: var(--accent-hover); }
   /* 下拉参数的自绘列表（config ㉛，与产品侧 app.css 的 `.sel` 一组同名同值）：
      原生 `<select>` 的弹出列表由浏览器画在网页之上，层叠取值对它无效 —— 帮助面板（45）压不过它，
@@ -474,6 +478,40 @@
   .sel-opt { width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer; user-select: none; }
   .sel-opt.active { background: var(--accent-soft); }
   .sel-opt[aria-selected="true"] { color: var(--accent-text); font-weight: 600; }
+  /* ---------- 字体字段（config ㉜，与产品侧 app.css 的 `.font-*` 同名同值） ----------
+     菜单是「搜索 + 系统默认 + family 列表」的单选结构；层叠与 `.sel-list` 同档（5）：
+     高于常驻 `?` 入口、低于帮助面板（45）。所有取值只用既有调色板变量。 */
+  .font-picker { position: relative; }
+  .font-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; display: flex; flex-direction: column; padding: 5px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); overflow: hidden; --menu-dy: -4px; animation: menu-in 180ms ease-out; }
+  .font-menu.hidden { display: none; }
+  .font-menu.up { top: auto; bottom: calc(100% + 4px); --menu-dy: 4px; }
+  @media (prefers-reduced-motion: reduce) { .font-menu { --menu-dy: 0px; } .font-spin { animation: none; } }
+  .font-search { flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 6px 7px; border-bottom: 1px solid var(--border); }
+  .font-search > svg { width: 14px; height: 14px; stroke: var(--text-faint); flex: none; }
+  .font-search input { flex: 1; min-width: 0; width: auto; padding: 3px 0; border: 0; background: transparent; color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; }
+  .font-search input::placeholder { color: var(--text-faint); }
+  .font-refresh { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-faint); cursor: pointer; transition: background-color .16s, color .16s; }
+  .font-refresh:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+  .font-refresh:disabled { opacity: .4; cursor: not-allowed; }
+  .font-refresh svg { width: 14px; height: 14px; }
+  .font-spin { animation: update-spin 1.1s linear infinite; }
+  .font-default { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer; user-select: none; }
+  .font-default:hover { background: var(--panel-2); }
+  .font-default.picked { color: var(--accent-text); }
+  .font-default.picked .font-check { background: var(--accent-soft); border-color: var(--accent-line); }
+  .font-default:not(.picked) .font-check svg { visibility: hidden; }
+  .font-body { position: relative; min-height: 0; max-height: 200px; overflow-y: auto; padding-top: 4px; }
+  .font-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--text); }
+  .font-opt { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer; user-select: none; }
+  .font-opt.active { background: var(--accent-soft); }
+  .font-check { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid var(--border-strong); border-radius: 4px; color: var(--accent-text); }
+  .font-opt.picked .font-check { background: var(--accent-soft); border-color: var(--accent-line); }
+  .font-check svg { width: 12px; height: 12px; stroke-width: 2.4; }
+  .font-mono-tag { flex: none; padding: 1px 5px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-faint); font-size: 10px; }
+  .font-empty { padding: 9px 8px; font-size: 12px; color: var(--text-faint); }
+  .font-preview { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; padding: 7px 10px; border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 12.5px; color: var(--text-dim); overflow: hidden; }
+  .font-preview-label { flex: none; font-size: 11px; color: var(--text-faint); }
+  .font-preview > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
 
@@ -1555,7 +1593,7 @@
 
       <!-- ============ 设置（应用自身偏好与日志） ============ -->
       <section class="section" id="sec-settings">
-        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、字体、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
@@ -1629,6 +1667,42 @@
                 <button class="btn sm" id="settingsCheckUpdate"><i data-lucide="refresh-cw"></i>检查更新</button>
                 <span class="hint" id="lastCheckText">上次检查：尚未检查</span>
               </div>
+            </div>
+          </div>
+
+          <!-- 字体（config ㉜）：列表为固定演示数据，原型不扫描系统字体；预览字体在本机缺失时
+               按系统字体回退是预期行为。真实应用的「重新扫描本机字体」在原型里只重新渲染演示列表。 -->
+          <div class="card col2">
+            <h3>字体</h3>
+            <div class="field">
+              <span class="flabel">界面字体<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="界面字体的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">界面字体</span><span class="fhelp-p">作用于界面、命令预览与内联 code；缺字由系统默认无衬线栈补齐。</span></span>
+              </span></span>
+              <div class="font-picker" id="fontUiPicker">
+                <button class="sel-trigger" type="button" id="fontUiTrigger" aria-haspopup="listbox" aria-expanded="false" aria-label="界面字体"><span class="sel-text" id="fontUiSummary">系统默认</span><i data-lucide="chevron-down"></i></button>
+                <div class="font-menu hidden" id="fontUiMenu">
+                  <div class="font-search"><i data-lucide="search"></i><input type="search" id="fontUiSearch" placeholder="搜索字体" aria-label="搜索字体" /><button class="font-refresh" type="button" aria-label="重新扫描本机字体" title="重新扫描本机字体"><i data-lucide="refresh-cw"></i></button></div>
+                  <button class="font-default picked" type="button" id="fontUiDefault"><span class="font-check"><i data-lucide="check"></i></span><span class="font-name">系统默认</span></button>
+                  <div class="font-body" id="fontUiList" role="listbox" aria-label="界面字体"></div>
+                </div>
+              </div>
+              <div class="font-preview"><span class="font-preview-label">预览</span><span id="fontUiPreview" style="font-family: var(--font-sans)">FreeControl2 字体预览 Aa 0123</span></div>
+            </div>
+            <div class="field">
+              <span class="flabel">代码字体<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="代码字体的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">代码字体</span><span class="fhelp-p">作用于会话输出、路径输入、自定义参数与日志视图；缺字由系统默认等宽栈补齐；中文通常落到系统 CJK 字体。</span></span>
+              </span></span>
+              <div class="font-picker" id="fontCodePicker">
+                <button class="sel-trigger" type="button" id="fontCodeTrigger" aria-haspopup="listbox" aria-expanded="false" aria-label="代码字体"><span class="sel-text" id="fontCodeSummary">系统默认</span><i data-lucide="chevron-down"></i></button>
+                <div class="font-menu hidden" id="fontCodeMenu">
+                  <div class="font-search"><i data-lucide="search"></i><input type="search" id="fontCodeSearch" placeholder="搜索字体" aria-label="搜索字体" /><button class="font-refresh" type="button" aria-label="重新扫描本机字体" title="重新扫描本机字体"><i data-lucide="refresh-cw"></i></button></div>
+                  <button class="font-default picked" type="button" id="fontCodeDefault"><span class="font-check"><i data-lucide="check"></i></span><span class="font-name">系统默认</span></button>
+                  <div class="font-body" id="fontCodeList" role="listbox" aria-label="代码字体"></div>
+                </div>
+              </div>
+              <div class="font-preview"><span class="font-preview-label">预览</span><span id="fontCodePreview" style="font-family: var(--font-mono)">scrcpy -s 0123 · 中文</span></div>
             </div>
           </div>
 
@@ -2189,7 +2263,7 @@
   "兼容性演示": "Compatibility demo",
   "预览非最佳适配版本样式": "Preview the not-best-fit style",
   "原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。": "Prototype-only switch: when ticked, the runtime indicator at the top switches to the yellow not-best-fit state and the reason behind View reason expands in the status field (the real app derives this from the compatibility status the backend reports).",
-  "管理本程序自身的外观、更新与日志：主题、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
+  "管理本程序自身的外观、更新与日志：主题、字体、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, fonts, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
   "界面语言": "Interface language",
   "默认跟随系统语言；切换后立即生效，重启后保留。": "Follows your system language by default. Changes apply immediately and are remembered after restart.",
   "跟随系统": "Follow system",
@@ -2201,6 +2275,21 @@
   "预设经过挑选，自定义主题色以可读性优先；点「自定义主题色」用系统或内核取色器取色。": "The presets are chosen for readability. Custom colors prioritize contrast; click Custom accent color to pick one with the system color picker.",
   "实底文字自动取白或黑，高亮与浅色文字按当前主题派生。": "Text on a solid accent background is automatically white or black; highlights and light text are derived from the current theme.",
   "自定义主题色": "Custom accent color",
+  "字体": "Font",
+  "界面字体": "Interface font",
+  "界面字体的说明": "About the interface font",
+  "作用于界面、命令预览与内联 code；缺字由系统默认无衬线栈补齐。": "Applies to the interface, command preview and inline code. Missing glyphs fall back to the system sans stack.",
+  "代码字体": "Code font",
+  "代码字体的说明": "About the code font",
+  "作用于会话输出、路径输入、自定义参数与日志视图；缺字由系统默认等宽栈补齐；中文通常落到系统 CJK 字体。": "Applies to session output, path inputs, custom arguments and the log view. Missing glyphs fall back to the system monospace stack; Chinese usually falls back to the system CJK font.",
+  "系统默认": "System default",
+  "搜索字体": "Search fonts",
+  "没有匹配的字体": "No matching fonts",
+  "等宽": "Mono",
+  "预览": "Preview",
+  "FreeControl2 字体预览 Aa 0123": "FreeControl2 font preview Aa 0123",
+  "scrcpy -s 0123 · 中文": "scrcpy -s 0123 · CJK",
+  "重新扫描本机字体": "Rescan installed fonts",
   "自动更新": "App updates",
   "自动检查更新": "Check for updates automatically",
   "开启后在后台检查新版本；发现新版本会打开更新窗口，不会自动下载或安装。": "Checks for new versions in the background. When one is found, the update window opens; nothing is downloaded or installed automatically.",
@@ -4812,6 +4901,232 @@
     document.querySelectorAll('#autoUpdateFrequency button').forEach(x=>x.classList.toggle('active', x===b));
   });
   document.getElementById('settingsCheckUpdate').addEventListener('click', ()=>openUpdateDirect('default'));
+
+  /* ===================== 字体（设置页） =====================
+     原型只演示两个独立字段的选择方式：列表是固定演示数据，不扫描系统字体、不落盘。
+     预览字体在查看者机器上缺失时按系统字体回退是预期行为；真实应用的枚举、刷新与
+     持久化由产品侧承担。 */
+  const FONT_DEMO = [
+    { family: 'Cascadia Code', aliases: ['Cascadia Code'], mono: true },
+    { family: 'Consolas', aliases: ['Consolas'], mono: true },
+    { family: 'Alibaba PuHuiTi 3.0', aliases: ['Alibaba PuHuiTi 3.0'], mono: false },
+    { family: 'Microsoft YaHei', aliases: ['Microsoft YaHei'], mono: false },
+    { family: 'Segoe UI', aliases: ['Segoe UI'], mono: false },
+    { family: 'Arial', aliases: ['Arial'], mono: false },
+    { family: 'Times New Roman', aliases: ['Times New Roman'], mono: false },
+    { family: 'JetBrains Mono', aliases: ['JetBrains Mono'], mono: true },
+    { family: 'PingFang SC', aliases: ['PingFang SC'], mono: false },
+  ];
+  const FONT_KEYS = ['ui', 'code'];
+  const fontCfg = {
+    ui: { variable: '--font-sans', fallback: 'var(--font-sans-default)', monoBadge: false },
+    code: { variable: '--font-mono', fallback: 'var(--font-mono-default)', monoBadge: true },
+  };
+  const fontState = {
+    ui: { value: null, query: '', active: -1, open: false },
+    code: { value: null, query: '', active: -1, open: false },
+  };
+  const fontEls = Object.fromEntries(FONT_KEYS.map((key) => {
+    const prefix = key === 'ui' ? 'fontUi' : 'fontCode';
+    return [key, {
+      picker: document.getElementById(prefix + 'Picker'),
+      trigger: document.getElementById(prefix + 'Trigger'),
+      summary: document.getElementById(prefix + 'Summary'),
+      menu: document.getElementById(prefix + 'Menu'),
+      search: document.getElementById(prefix + 'Search'),
+      list: document.getElementById(prefix + 'List'),
+      defaultButton: document.getElementById(prefix + 'Default'),
+    }];
+  }));
+
+  function fontStackCss(key) {
+    const family = fontState[key].value;
+    if (!family) return '';
+    return `"${family.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", ${fontCfg[key].fallback}`;
+  }
+  function applyFontVars() {
+    for (const key of FONT_KEYS) {
+      const value = fontStackCss(key);
+      if (value) document.documentElement.style.setProperty(fontCfg[key].variable, value);
+      else document.documentElement.style.removeProperty(fontCfg[key].variable);
+    }
+  }
+  function filteredFonts(key) {
+    const q = fontState[key].query.trim().toLowerCase();
+    return FONT_DEMO.map((f, idx) => ({ f, idx })).filter(({ f }) =>
+      !q || [f.family, ...f.aliases].some((n) => n.toLowerCase().includes(q)));
+  }
+  function renderFontList(key) {
+    const list = filteredFonts(key);
+    const listEl = fontEls[key].list;
+    if (!list.length) {
+      listEl.innerHTML = '<div class="font-empty">没有匹配的字体</div>';
+      return;
+    }
+    listEl.innerHTML = list.map(({ f, idx }, i) => {
+      const selected = fontState[key].value === f.family;
+      return `
+        <button class="font-opt${i === fontState[key].active ? ' active' : ''}${selected ? ' picked' : ''}" type="button" role="option" tabindex="-1" data-font-idx="${idx}" data-opt="${i}" aria-selected="${selected}">
+          <span class="font-check">${selected ? '<i data-lucide="check"></i>' : ''}</span>
+          <span class="font-name" data-proto-literal>${escapeHtml(f.family)}</span>
+          ${fontCfg[key].monoBadge && f.mono ? '<span class="font-mono-tag">等宽</span>' : ''}
+        </button>`;
+    }).join('');
+    lucide.createIcons();
+  }
+  function renderFontField(key) {
+    const state = fontState[key];
+    const els = fontEls[key];
+    els.summary.textContent = state.value || '系统默认';
+    els.defaultButton.classList.toggle('picked', state.value === null);
+    renderFontList(key);
+  }
+  function renderFonts() {
+    for (const key of FONT_KEYS) renderFontField(key);
+    applyFontVars();
+  }
+  function revealFont(key) {
+    const listEl = fontEls[key].list;
+    const el = listEl.querySelector(`[data-opt="${fontState[key].active}"]`);
+    if (!el) return;
+    const top = el.offsetTop;
+    const bottom = top + el.offsetHeight;
+    if (top < listEl.scrollTop) listEl.scrollTop = top;
+    else if (bottom > listEl.scrollTop + listEl.clientHeight) listEl.scrollTop = bottom - listEl.clientHeight;
+  }
+  function placeFontMenu(key) {
+    const els = fontEls[key];
+    els.menu.classList.remove('up');
+    els.menu.style.maxHeight = '';
+    const trigger = els.trigger.getBoundingClientRect();
+    const natural = els.menu.scrollHeight;
+    const below = innerHeight - trigger.bottom - 12;
+    const above = trigger.top - 12;
+    const up = below < Math.min(natural, 300) && above > below;
+    els.menu.classList.toggle('up', up);
+    const room = Math.max(140, up ? above : below);
+    els.menu.style.maxHeight = Math.min(natural, room) + 'px';
+  }
+  function closeFontMenu(key) {
+    const state = fontState[key];
+    const els = fontEls[key];
+    if (!state.open) return;
+    state.open = false;
+    els.menu.classList.add('hidden');
+    els.trigger.setAttribute('aria-expanded', 'false');
+  }
+  function closeFontMenus() {
+    for (const key of FONT_KEYS) closeFontMenu(key);
+  }
+  function openFontMenu(key) {
+    const state = fontState[key];
+    const els = fontEls[key];
+    closeFontMenus();
+    state.open = true;
+    state.query = '';
+    els.search.value = '';
+    els.menu.classList.remove('hidden');
+    els.trigger.setAttribute('aria-expanded', 'true');
+    const list = filteredFonts(key);
+    state.active = list.length ? 0 : -1;
+    renderFontField(key);
+    placeFontMenu(key);
+    els.search.focus({ preventScroll: true });
+    revealFont(key);
+  }
+  function chooseFont(key, family) {
+    const state = fontState[key];
+    state.value = family;
+    closeFontMenu(key);
+    renderFonts();
+    fontEls[key].trigger.focus({ preventScroll: true });
+  }
+  function onFontSearchKey(key, e) {
+    const state = fontState[key];
+    const list = filteredFonts(key);
+    const k = e.key;
+    if (k === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeFontMenu(key);
+      fontEls[key].trigger.focus({ preventScroll: true });
+      return;
+    }
+    if (k === 'Tab') {
+      closeFontMenu(key);
+      return;
+    }
+    if (!list.length) return;
+    if (k === 'ArrowDown') {
+      e.preventDefault();
+      state.active = Math.min(state.active + 1, list.length - 1);
+    } else if (k === 'ArrowUp') {
+      e.preventDefault();
+      state.active = Math.max(state.active - 1, 0);
+    } else if (k === 'Home') {
+      e.preventDefault();
+      state.active = 0;
+    } else if (k === 'End') {
+      e.preventDefault();
+      state.active = list.length - 1;
+    } else if (k === 'Enter') {
+      e.preventDefault();
+      const chosen = list[state.active];
+      if (chosen) chooseFont(key, chosen.f.family);
+      return;
+    } else {
+      return;
+    }
+    renderFontList(key);
+    revealFont(key);
+    e.stopPropagation();
+  }
+
+  for (const key of FONT_KEYS) {
+    const state = fontState[key];
+    const els = fontEls[key];
+    els.trigger.addEventListener('click', () => {
+      if (state.open) closeFontMenu(key);
+      else openFontMenu(key);
+    });
+    els.defaultButton.addEventListener('click', () => chooseFont(key, null));
+    els.list.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-font-idx]');
+      if (!b) return;
+      chooseFont(key, FONT_DEMO[Number(b.dataset.fontIdx)].family);
+    });
+    els.search.addEventListener('input', (e) => {
+      state.query = e.target.value;
+      state.active = 0;
+      renderFontList(key);
+      revealFont(key);
+    });
+    els.search.addEventListener('keydown', (e) => onFontSearchKey(key, e));
+    const refresh = els.menu.querySelector('.font-refresh');
+    refresh.addEventListener('click', () => {
+      const icon = refresh.querySelector('svg');
+      if (icon) {
+        icon.classList.add('font-spin');
+        setTimeout(() => icon.classList.remove('font-spin'), 600);
+      }
+      renderFontList(key);
+    });
+  }
+  document.addEventListener('pointerdown', (e) => {
+    for (const key of FONT_KEYS) {
+      if (fontState[key].open && !fontEls[key].picker.contains(e.target)) closeFontMenu(key);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFontMenus();
+  });
+  window.addEventListener('scroll', (e) => {
+    for (const key of FONT_KEYS) {
+      if (fontState[key].open && !fontEls[key].menu.contains(e.target)) closeFontMenu(key);
+    }
+  }, true);
+  window.addEventListener('resize', closeFontMenus);
+  renderFonts();
 
   applyTheme(); applyAccent(accentHex);
 

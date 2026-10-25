@@ -40,6 +40,8 @@ tar = "0.4"
 # 的 PowerShell 启动路径（见 `src/shell.rs` 与 shell-execute-launcher design D1）。
 # 只启用所需命名空间，与 tauri 已用的版本一致。
 [target.'cfg(windows)'.dependencies]
+# Windows 侧的本机字体枚举直接调用 dwrite.dll（raw COM vtable，见 src/fonts/directwrite.rs）：
+# 与 WebView2 的字体集合同源，且不把 windows crate 的 DirectWrite 绑定编进产物。
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
@@ -61,6 +63,9 @@ windows-sys = { version = "0.61", features = [
 [target.'cfg(not(windows))'.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 open = "5"
+# 非 Windows 的本机字体枚举：纯 Rust，扫系统字体目录；Linux 的 fontconfig 也由纯 Rust 解析，
+# 不引入 C 工具链。Windows 侧改走 DirectWrite（见上方 windows crate），不再编入本依赖。
+fontdb = "0.24"
 
 # 向会话进程发 `SIGTERM`（Linux 的优雅结束，design D6 的平台实现）。
 # libc 只是符号绑定，不引入构建期 C 依赖。

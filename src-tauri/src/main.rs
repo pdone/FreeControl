@@ -17,6 +17,7 @@ mod shell;
 mod ui_message;
 mod window_icon;
 mod webview_env;
+mod fonts;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -277,6 +278,7 @@ fn main() {
             assets::set_scrcpy_dir,
             config::get_config,
             config::save_config,
+            fonts::list_system_fonts,
             device::get_devices,
             device::get_device_status,
             device::add_device,
