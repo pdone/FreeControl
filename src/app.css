@@ -2105,7 +2105,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   height: 13px;
   stroke: currentColor;
 }
-/* 别名行里的标识（如「已启用设备覆盖」）：外框必须与别名的行盒等高 ——
+/* 别名行里的标识（如「已启用设备参数」）：外框必须与别名的行盒等高 ——
    14.5px × 行高 1.5 = 21.75px；15.75 = 21.75 − 2×2 内边距 − 2×1 边框。
    否则标识一出现就把该行由 21.75 顶到 22.5，整张卡片与下方内容跟着位移 0.75px；
    标识的出现 / 消失 MUST NOT 改变任何行的几何（它只占该行右侧的横向空间）。 */
@@ -2139,6 +2139,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  white-space: nowrap;
 }
 .tag svg {
   width: 12px;
@@ -2155,9 +2156,13 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--accent-text);
   border-color: var(--accent-line);
 }
-.tag.over {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+/* 设备参数标识与「已添加」标识：存在即说明，不报警。用强调色淡底，
+   与 USB / WiFi 的描边标签同族但有填充，强调而不抢眼。
+   原先的 .tag.over（琥珀）撤销 —— 琥珀是警示语义。 */
+.tag.soft {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
 }
 /* 代理地址列表：只读的**直连**项与可删的**代理**项在样式上可区分。
    没有「内置 / 自定义」的二分 —— 代理地址一律可删，唯一的只读项是首行的 GitHub 直连。 */
@@ -2564,6 +2569,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .overlay.show {
   display: grid;
 }
+/* 点遮罩关闭的那一层：纯装饰，铺满遮罩、位于面板之下（面板已 position: relative，
+   按 DOM 顺序在其上）。添加设备 / 设备参数 / 关于三个弹窗共用。 */
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+}
 .modal {
   /* 默认宽度统一为 min(520px, 视口 − 48px)：原来的 460px（原型基线）在装长正文与
      运行环境目录这类长路径时显得局促。尺寸取自「需要 scrcpy 运行环境」那个弹窗 ——
@@ -2895,11 +2906,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-bottom: 0;
   opacity: 0;
   pointer-events: none;
-}
-/* 点遮罩关闭的那一层：纯装饰，铺满遮罩、位于面板之下（面板已 position: relative，按 DOM 顺序在其上） */
-.about-backdrop {
-  position: absolute;
-  inset: 0;
 }
 /* 右上角关闭键：裸图标，hover 才给底与色。
    `.about-views` 是相对定位且排在按钮之后；不给按钮层级的话，它会盖住按钮下半，
@@ -3269,11 +3275,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .dp-overlay {
   padding: 24px;
   box-sizing: border-box;
-}
-/* 点遮罩关闭的那一层：铺满遮罩、位于面板之下（面板已 relative，按 DOM 顺序在其上）。 */
-.dp-backdrop {
-  position: absolute;
-  inset: 0;
 }
 .dp-modal {
   position: relative;

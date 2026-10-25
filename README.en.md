@@ -25,7 +25,7 @@
 - **Device list** — one alias per device, mapped to a USB serial or `IP:port`; add, rename and remove, with live online/connected status
 - **Wireless pairing and discovery** — pair once with the on-device code, and list the devices on your network with wireless debugging on in one click
 - **Parameter panels** — the common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box
-- **Per-device overrides** — a device's own parameter set, switched on or off as a whole
+- **Device parameters** — a device's own parameter set, taking priority over global parameters, switched on or off as a whole
 - **Connection control** — connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app
 - **Runtime** — scrcpy and adb fetched on demand, channels tried in order and downloads verified against the official checksums; view the path, switch to an existing directory, check for updates
 - **In-app updates** — check for and download a new version from "About", verify it and replace in place; portable builds restart to finish, and a startup check can be enabled
@@ -64,7 +64,7 @@ If Gatekeeper blocks the first launch on macOS, clear it either way: open System
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
 2. **Add a device** — on the "Devices" page, add one: for USB, enter the serial listed by `adb devices`; for wireless, choose "Manual (IP:Port)" to enter the address, or use "Network scan" / "Pairing code" to discover and pair a device. You can set an optional alias for the device or for each scan result.
 3. **Connect and mirror** — click "Connect" on the device card. Several devices can be connected at once; the command preview at the bottom shows the exact command being run.
-4. From there you can adjust the defaults on the parameter pages, or give a single device its own override.
+4. From there you can adjust the global parameters on the parameter pages, or set device parameters for a single device (they take priority over global parameters).
 
 ### Build from source
 
@@ -161,7 +161,7 @@ All of it is under the application data root (`%APPDATA%/FreeControl2` on Window
 
 | Path | Purpose |
 |---|---|
-| `config.json` | The single configuration file (with a `schemaVersion`): device list, default parameters, per-device overrides, log retention |
+| `config.json` | The single configuration file (with a `schemaVersion`): device list, global parameters, device parameters, log retention |
 | `logs/yyyy-MM-dd.log` | Persisted session output and key actions of the app itself |
 | `scrcpy-{OS}-v{version}/` | The scrcpy and adb runtime downloaded on demand (when no custom directory is set) |
 

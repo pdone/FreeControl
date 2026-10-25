@@ -57,8 +57,22 @@ function normalizeTemplate(raw) {
   return out;
 }
 
-// 扫出一段脚本里的全部字符串字面量（跳过注释）；模板字面量里的 `${...}` 递归再扫，
-// 因为像 `${oc ? \`<span>已启用设备覆盖</span>\` : ''}` 这样的嵌套文案同样会渲染出来。
+// `/` 既可能是除号，也可能是正则字面量的开头。这里用一个保守的前一位判定：
+// 前一个有效字符属于表达式起始位置，或前一个词是 `return` 这类关键字时，按正则处理。
+// 不识别正则时，正则里的引号会被当成字符串开头，把其后大段脚本误收成「源串」。
+function isRegexStart(src, i) {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(src[j])) j--;
+  if (j < 0) return true;
+  if ('([{,;:=!&|?+-*%~^<>'.includes(src[j])) return true;
+  let k = j;
+  while (k >= 0 && /[A-Za-z_$]/.test(src[k])) k--;
+  const word = src.slice(k + 1, j + 1);
+  return ['return', 'typeof', 'case', 'in', 'of', 'new', 'delete', 'void', 'instanceof', 'yield', 'await'].includes(word);
+}
+
+// 扫出一段脚本里的全部字符串字面量（跳过注释与正则）；模板字面量里的 `${...}` 递归再扫，
+// 因为像 `${oc ? \`<span>已启用设备参数</span>\` : ''}` 这样的嵌套文案同样会渲染出来。
 function scanScript(src, sink, depth = 0) {
   if (depth > 6) return;
   let i = 0;
@@ -73,6 +87,24 @@ function scanScript(src, sink, depth = 0) {
     if (c === '/' && src[i + 1] === '*') {
       const end = src.indexOf('*/', i + 2);
       i = end < 0 ? n : end + 2;
+      continue;
+    }
+    if (c === '/' && isRegexStart(src, i)) {
+      let j = i + 1;
+      let inClass = false;
+      while (j < n) {
+        const d = src[j];
+        if (d === '\\') {
+          j += 2;
+          continue;
+        }
+        if (d === '[') inClass = true;
+        else if (d === ']') inClass = false;
+        else if (d === '/' && !inClass) break;
+        j++;
+      }
+      i = j + 1;
+      while (i < n && /[a-z]/i.test(src[i])) i++;
       continue;
     }
     if (c === '"' || c === "'" || c === '`') {

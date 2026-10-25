@@ -835,7 +835,7 @@ export const overrides = derived(
 );
 
 /**
- * 覆盖取值里的项数（组内按键计），用于参数面板标题的「覆盖已禁用（取值已保留）」判定。
+ * 设备参数取值里的项数（组内按键计），用于参数面板标题的「设备参数已停用（取值已保留）」判定。
  *
  * 该判据取「有取值」而非「有条目」：拨开开关后又关掉、一条值都没填的设备，不该在标题里
  * 报出一个空的禁用提示（用户看不到任何"已保留的取值"）。设备列表那枚标识已不再显示项数
@@ -858,7 +858,7 @@ export function isOverrideEnabled(entry: OverrideEntry | undefined): boolean {
 }
 
 /**
- * 设备参数覆盖是否**已生效** —— 即设备列表那枚「已启用设备覆盖」标识的判据：
+ * 设备参数是否**已生效** —— 即设备列表那枚「已启用设备参数」标识的判据：
  * **至少有一项覆盖取值**，且**开关为启用**，两条缺一不可。
  *
  * MUST NOT 只调 `isOverrideEnabled`：它对 `undefined` 返回 true（缺字段即启用），而
@@ -899,7 +899,7 @@ export function setOverrideValue(
 
 /**
  * 覆盖启停开关（tasks 7.5 / 7.6）：禁用**不清值** —— 取值继续留在配置里，
- * 只是不再参与命令拼装；重新启用后立即恢复参与，设备列表的「已启用设备覆盖」标识同步恢复。
+ * 只是不再参与命令拼装；重新启用后立即恢复参与，设备列表的「已启用设备参数」标识同步恢复。
  */
 export function setOverrideEnabled(deviceId: string, enabled: boolean): void {
   config.update((c) => {

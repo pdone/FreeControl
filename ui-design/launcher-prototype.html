@@ -635,13 +635,14 @@
   /* 标识是「图标 + 文字」（2026-10-10）：转成行内 flex 只为把图标与文字排在一行。
      高度仍由文字行盒决定 —— 图标取 12px，不超过 11px 字号的正常行盒，
      故标识与所在行的几何不随图标变化（与产品侧 app.css 的同名规则同一取值）。 */
-  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); display: inline-flex; align-items: center; gap: 3px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
   .tag svg { width: 12px; height: 12px; flex: none; }
   /* 两种连接方式标识**同色**（都取强调色族）：类别标识不各自占一个色相，颜色留给状态与警示。
      无线那枚此前用的是硬编码青色（#7fe3f0 / rgba(34,211,238,.4)），本次撤掉。 */
   .tag.usb { color: var(--accent-text); border-color: var(--accent-line); }
   .tag.wifi { color: var(--accent-text); border-color: var(--accent-line); }
-  .tag.over { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  /* 设备参数标识与「已添加」标识：存在即说明，不报警。用强调色淡底，与 USB / WiFi 的描边标签同族。 */
+  .tag.soft { color: var(--accent-text); border-color: var(--accent-line); background: var(--accent-soft); }
   /* 下载通道（与产品侧 app.css 的同名类一致）：只读的**直连**项与可删的**代理**项
      在样式上可区分；代理地址一律可删，唯一的只读项是首行的 GitHub 直连。
      只用既有调色板变量，不引入新颜色。 */
@@ -863,14 +864,11 @@
   .modal.dev-params-modal { position: relative; display: flex; flex-direction: column; width: min(720px, 100%); max-height: calc(100vh - 48px); padding: 0; text-align: left; overflow: hidden; transition: width .18s ease; }
   /* 扩大：占满可用区（遮罩的 24px 内边距提供四周留白）；每次打开由脚本复位。 */
   .modal.dev-params-modal.expanded { width: 100%; height: calc(100vh - 48px); max-height: none; }
-  /* 开合动画复用关于弹窗那组 keyframes（同一套时长与曲线）。 */
-  .overlay.dev-params-overlay.show { animation: about-fade-in .18s ease both; }
-  .overlay.dev-params-overlay.show .dev-params-modal { animation: about-panel-in .2s cubic-bezier(.2, .9, .3, 1.05) both; }
+  /* 纯遮罩淡入淡出（与产品侧设备参数弹窗同一实现）：面板不缩放。 */
+  .overlay.dev-params-overlay.show { animation: about-fade-in .16s ease both; }
   .overlay.dev-params-overlay.closing { animation: about-fade-out .16s ease both; }
-  .overlay.dev-params-overlay.closing .dev-params-modal { animation: about-panel-out .16s ease both; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.dev-params-overlay.show, .overlay.dev-params-overlay.show .dev-params-modal,
-    .overlay.dev-params-overlay.closing, .overlay.dev-params-overlay.closing .dev-params-modal { animation-duration: .01ms; }
+    .overlay.dev-params-overlay.show, .overlay.dev-params-overlay.closing { animation-duration: .01ms; }
     .modal.dev-params-modal { transition-duration: .01ms; }
   }
   /* 头部：标题 / 启停开关 / 扩大缩小 / 关闭，固定不随体区滚动。 */
@@ -908,15 +906,12 @@
   .add-close:disabled { opacity: .5; cursor: not-allowed; }
   @keyframes add-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes add-fade-out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes add-panel-in { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: none; } }
-  @keyframes add-panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.96) translateY(4px); } }
-  .overlay.add-overlay.show { animation: add-fade-in .18s ease both; }
-  .overlay.add-overlay.show .add-device-modal { animation: add-panel-in .2s cubic-bezier(.2, .9, .3, 1.05) both; }
+  /* 纯遮罩淡入淡出（与产品侧设备参数弹窗同一实现）：面板不缩放；关闭期间仍屏蔽面板交互。 */
+  .overlay.add-overlay.show { animation: add-fade-in .16s ease both; }
   .overlay.add-overlay.closing { animation: add-fade-out .16s ease both; }
-  .overlay.add-overlay.closing .add-device-modal { animation: add-panel-out .16s ease both; pointer-events: none; }
+  .overlay.add-overlay.closing .add-device-modal { pointer-events: none; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.add-overlay.show, .overlay.add-overlay.show .add-device-modal,
-    .overlay.add-overlay.closing, .overlay.add-overlay.closing .add-device-modal { animation-duration: .01ms; }
+    .overlay.add-overlay.show, .overlay.add-overlay.closing { animation-duration: .01ms; }
   }
   .add-device-inner { display: flow-root; min-width: 0; }
   .add-device-modal h2 { margin-bottom: 20px; }
@@ -1026,7 +1021,7 @@
     <div class="content">
       <!-- ============ 设备（管理 + 连接合并） ============ -->
       <section class="section active" id="sec-devices">
-        <div class="sec-head"><h2>设备</h2><p>统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。</p></div>
+        <div class="sec-head"><h2>设备</h2><p>统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；各参数页设置的是全局参数，点「参数」可为该设备单独设置设备参数（优先于全局参数）。</p></div>
         <div class="dev-toolbar">
           <button class="btn sm primary" id="addDeviceBtn"><i data-lucide="plus"></i>添加设备</button>
           <button class="btn sm" id="connAll" data-tip="连接所有在线且未连接的设备（离线设备不会被尝试连接）"><i data-lucide="zap"></i>全部连接</button>
@@ -1040,7 +1035,7 @@
 
       <!-- ============ 显示源 ============ -->
       <section class="section" id="sec-source">
-        <div class="sec-head"><h2>显示源</h2><p>镜像主屏、虚拟显示器、Flex Display 或摄像头画面。以下为<b>默认参数</b>，可在「设备」页中按设备覆盖。</p></div>
+        <div class="sec-head"><h2>显示源</h2><p>镜像主屏、虚拟显示器、Flex Display 或摄像头画面。</p></div>
         <div class="grid">
           <div class="card">
             <h3>视频源</h3>
@@ -1123,7 +1118,7 @@
 
       <!-- ============ 视频 ============ -->
       <section class="section" id="sec-video">
-        <div class="sec-head"><h2>视频</h2><p>编码、分辨率、码率、帧率与画面适配。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>视频</h2><p>编码、分辨率、码率、帧率与画面适配。</p></div>
         <div class="grid">
           <div class="card">
             <h3>编码与画质</h3>
@@ -1206,7 +1201,7 @@
 
       <!-- ============ 音频 ============ -->
       <section class="section" id="sec-audio">
-        <div class="sec-head"><h2>音频</h2><p>Android 11+ 可转发设备音频，支持多种音源与编码。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>音频</h2><p>Android 11+ 可转发设备音频，支持多种音源与编码。</p></div>
         <div class="grid">
           <div class="card">
             <h3>音频转发</h3>
@@ -1275,7 +1270,7 @@
 
       <!-- ============ 控制 ============ -->
       <section class="section" id="sec-control">
-        <div class="sec-head"><h2>控制</h2><p>键鼠/手柄注入方式、快捷键、屏幕与剪贴板行为。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>控制</h2><p>键鼠/手柄注入方式、快捷键、屏幕与剪贴板行为。</p></div>
         <div class="grid">
           <div class="card">
             <h3>输入注入</h3>
@@ -1373,7 +1368,7 @@
 
       <!-- ============ 录制 ============ -->
       <section class="section" id="sec-record">
-        <div class="sec-head"><h2>录制</h2><p>录制镜像到文件，或仅录制不显示窗口。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>录制</h2><p>录制镜像到文件，或仅录制不显示窗口。</p></div>
         <div class="grid">
           <div class="card">
             <h3>录制设置</h3>
@@ -1435,7 +1430,7 @@
 
       <!-- ============ 窗口 ============ -->
       <section class="section" id="sec-window">
-        <div class="sec-head"><h2>窗口</h2><p>scrcpy 窗口的标题、尺寸、位置与外观。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>窗口</h2><p>scrcpy 窗口的标题、尺寸、位置与外观。</p></div>
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
@@ -1497,7 +1492,7 @@
 
       <!-- ============ 高级 ============ -->
       <section class="section" id="sec-advanced">
-        <div class="sec-head"><h2>高级</h2><p>连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底任何未覆盖的 flag，并可调整端口与隧道主机等网络参数。<b>默认参数</b>。</p></div>
+        <div class="sec-head"><h2>高级</h2><p>连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底界面未提供的 flag，并可调整端口与隧道主机等网络参数。</p></div>
         <div class="grid">
           <div class="card">
             <h3>启动应用</h3>
@@ -1523,10 +1518,10 @@
             <h3>自定义参数（直接透传给 scrcpy）</h3>
             <div class="field"><span class="flabel">额外参数<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="额外参数的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
             </span></span>
               <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
-              <div class="hint">默认对所有设备生效，按设备覆盖后只对该设备生效</div></div>
+              <div class="hint">默认对所有设备生效；设置设备参数后只对该设备生效</div></div>
           </div>
         </div>
       </section>
@@ -1987,12 +1982,12 @@
     <header class="dp-head">
       <span class="dp-title"><i data-lucide="sliders-horizontal"></i><span class="dp-title-text" id="dpTitle"></span></span>
       <span class="dp-actions">
-        <label class="switch dp-switch" data-tip="启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）"><input type="checkbox" id="dpSwitch" /><span class="slider"></span></label>
+        <label class="switch dp-switch" data-tip="启用 / 停用设备参数（停用后改用全局参数，已填写的设备参数仍保留）"><input type="checkbox" id="dpSwitch" /><span class="slider"></span></label>
         <span class="tip-host" id="dpExpandTip" data-tip="扩大"><button class="dp-icon-btn" id="dpExpand" type="button" aria-label="扩大"><i data-lucide="maximize-2"></i></button></span>
         <button class="dp-icon-btn" id="dpClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
       </span>
     </header>
-    <div class="dp-note" id="dpNote" hidden>覆盖已禁用 · 取值已保留</div>
+    <div class="dp-note" id="dpNote" hidden>设备参数已停用 · 取值已保留</div>
     <div class="dp-body" id="dpBody"><div class="dp-grid" id="dpGrid"></div></div>
     <footer class="dp-foot">
       <span class="dp-foot-label" aria-hidden="true"><i data-lucide="terminal"></i></span>
@@ -2036,13 +2031,11 @@
   "收起": "Collapse",
   "0 台设备": "0 devices",
   "scrcpy 就绪": "scrcpy ready",
-  "统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；展开「参数」可针对该设备覆盖默认参数。": "Manage all devices in one place: give each an alias mapped to its connection ID (serial or IP:port), watch live status, and connect or disconnect one at a time or all at once. Click a device to see the command it would run; expand Parameters to override the defaults for that device.",
+  "统一管理所有设备：为每台设备设置别名并映射到连接标识（serial 或 IP:端口），查看实时状态，批量或单独连接 / 断开。点选某台设备查看其拼装命令；各参数页设置的是全局参数，点「参数」可为该设备单独设置设备参数（优先于全局参数）。": "Manage all devices: give each one an alias mapped to its connection ID (serial or IP:port), watch live status, and connect or disconnect one at a time or all at once. Select a device to see the command it would run. The parameter pages set global parameters; open Parameters to set device parameters for a device (these take priority over global parameters).",
   "添加设备": "Add device",
   "全部连接": "Connect all",
   "全部断开": "Disconnect all",
-  "镜像主屏、虚拟显示器、Flex Display 或摄像头画面。以下为": "Mirror the phone screen, a virtual display, Flex Display or the camera. The values below are",
-  "默认参数": "default parameters",
-  "，可在「设备」页中按设备覆盖。": ", and can be overridden per device on the Devices page.",
+  "镜像主屏、虚拟显示器、Flex Display 或摄像头画面。": "Mirror the main display, a virtual display, Flex Display, or the camera.",
   "视频源": "Video source",
   "镜像手机屏幕，或改为采集设备摄像头的画面。": "Mirror the phone screen, or capture the device camera instead.",
   "摄像头镜像需要 Android 12 及以上；摄像头源下画面不来自设备屏幕，--display-id、--new-display 与 --turn-screen-off 等参数不参与拼装。": "Camera mirroring requires Android 12 or later. With the camera source the picture does not come from the device screen, so --display-id, --new-display, --turn-screen-off and similar options are not applied.",
@@ -2163,7 +2156,7 @@
   "只镜像、不注入：鼠标与键盘事件都不发给设备，等于只读查看。": "Mirror only, no injection: mouse and keyboard events are not sent to the device, making it read-only.",
   "Flex Display 下该参数不参与拼装（scrcpy 判定不兼容）。": "Not applied with Flex Display (scrcpy considers it incompatible).",
   "禁用设备控制": "Disable device control",
-  "支持 ? 模糊匹配 / + 强制停止": "Supports ? fuzzy match and + force-stop",
+  "支持 ? 模糊匹配 / + 强制停止": "Supports ? fuzzy matching / + force stop",
   "键盘（--keyboard）": "Keyboard (--keyboard)",
   "选择键盘事件的注入方式。": "Choose how keyboard events are injected.",
   "disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。": "disabled sends no keyboard events; sdk injects through Android system APIs; uhid emulates the computer keyboard as a physical keyboard on the device; aoa emulates a physical keyboard over AOAv2 and works over USB only.",
@@ -2270,13 +2263,13 @@
   "scrcpy 窗口初始位置的纵坐标（屏幕像素）。": "Initial vertical position of the scrcpy window in screen pixels.",
   "填了它（或 X）的设备不再参与窗口自动排列，窗口落在指定位置。": "A device with this (or X) set no longer participates in automatic window arrangement and is placed at the given position.",
   "0 / 留空 = 由 scrcpy 自动决定": "0 or empty = scrcpy decides the position",
-  "连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底任何未覆盖的 flag，并可调整端口与隧道主机等网络参数。": "Launch a specific app after connecting (especially useful with virtual displays), fall back to custom arguments for any flag not covered by the UI, and adjust network options such as the port and tunnel host.",
+  "连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底界面未提供的 flag，并可调整端口与隧道主机等网络参数。": "Launch a specific app after connecting (especially useful with virtual displays), fall back to custom arguments for any flag not covered by the UI, and adjust network options such as the port and tunnel host.",
   "启动应用": "Launch app",
   "包名（--start-app）": "Package (--start-app)",
   "连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。": "Open the specified app on the device after connecting; especially useful with virtual displays, where the app opens on the new display.",
   "按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。": "When matching by name, scrcpy first reads the app list from the device, which may be slower the first time.",
   "列出应用": "List apps",
-  "支持 ? 模糊匹配 / + 强制停止；例如": "Supports ? fuzzy match and + force-stop, for example",
+  "支持 ? 模糊匹配 / + 强制停止；例如": "Supports ? fuzzy matching / + force stop, for example",
   "：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。": ": stop it first, then start it by fuzzy name. Works with a virtual display.",
   "网络": "Network",
   "客户端端口范围（--port）": "Client port range (--port)",
@@ -2289,9 +2282,9 @@
   "自定义参数（直接透传给 scrcpy）": "Custom arguments (passed directly to scrcpy)",
   "额外参数": "Extra arguments",
   "把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
-  "写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。": "In the default parameters it applies to all devices; once overridden in a device's parameters dialog it applies only to that device. Turning that device's override switch off makes it use the default value instead.",
+  "写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。": "In global parameters it applies to all devices; once set as a device parameter in a device's parameters dialog, that device uses the device value first. When the device's parameters are disabled, it uses the global value instead.",
   "引号必须成对，否则校验会拦下并给出提示。": "Quotes must be paired, otherwise validation will block it and show a hint.",
-  "默认对所有设备生效，按设备覆盖后只对该设备生效": "Applies to all devices by default; once overridden per device, it applies only to that device",
+  "默认对所有设备生效；设置设备参数后只对该设备生效": "Applies to all devices by default; once set as a device parameter, only to that device",
   "管理 scrcpy 运行环境的安装目录、更新与下载通道（GitHub 直连 + 代理地址）。": "Manage the scrcpy environment folder, updates and download channels (GitHub direct + proxy addresses).",
   "scrcpy 目录": "scrcpy folder",
   "未设置自定义目录时，约定目录为": "With no custom directory the conventional path is",
@@ -2404,8 +2397,8 @@
   "发现不等于授权；无法加入时，请先使用「配对码」方式完成配对。": "Discovery does not grant authorization. If adding fails, use Pairing code to pair the device first.",
   "找到 {0} 台设备": "{0} device(s) found",
   "加入": "Add",
-  "已登记": "Added",
-  "已登记：": "Added: ",
+  "已添加": "Added",
+  "已添加：": "Added: ",
   "只覆盖仍在使用 adb tcpip 5555 的设备；Android 11 及以上的无线调试端口是随机的，扫不到属正常。": "Covers only devices still using adb tcpip 5555; on Android 11 and newer the wireless debugging port is random, so finding nothing here is normal.",
   "扫描 5555 端口": "Scan port 5555",
   "配对码": "Pairing code",
@@ -2564,29 +2557,27 @@
   "(待检测)": "(pending)",
   "点「连接」会先尝试重新连上这台设备，成功后再打开投屏": "Connect first tries to reconnect this device, then opens the mirror",
   "设备离线：adb 中未检测到该设备，无法连接": "The device is offline: adb does not see it, so it cannot connect",
-  "已启用设备覆盖": "Device override enabled",
+  "已启用设备参数": "Device parameters on",
   "断开": "Disconnect",
   "连接": "Connect",
   "最后 {11}": "Last {11}",
   "参数": "Parameters",
   "删除": "Delete",
   "重命名": "Rename",
-  "为该设备单独设置参数（覆盖默认参数）": "Set parameters for this device (override the defaults)",
-  "删除该设备（连带清除其参数覆盖与覆盖开关）": "Delete this device (also clears its parameter override and switch)",
-  "为「{0}」单独设置参数{1}": "Set parameters for \"{0}\"{1}",
+  "设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）": "Set device parameters for this device (they take priority over global parameters; empty items use the global value)",
+  "删除该设备（连带清除其设备参数）": "Delete this device (also clears its device parameters)",
+  "「{0}」的设备参数": "Device parameters for \"{0}\"",
   "视频与显示": "Video & display",
   "窗口与控制": "Window & control",
   "录制与音频": "Recording & audio",
   "启动与透传": "Launch & passthrough",
   "扩大": "Expand",
   "缩小": "Shrink",
-  "覆盖已禁用 · 取值已保留": "Override disabled · values kept",
+  "设备参数已停用 · 取值已保留": "Device parameters off · values kept",
   "该设备的连接标识尚未确定（USB serial 待检测），暂无法拼装命令": "The connection ID is not known yet (USB serial pending), so the command cannot be built",
-  "镜像时熄灭手机屏；视频源为摄像头时不生效": "Turns the phone screen off while mirroring; not used with the camera source",
-  "禁用控制": "Disable control",
+  "{0}的说明": "About {0}",
   "启动应用（--start-app）": "Launch app (--start-app)",
-  "启动应用（--start-app）的说明": "About Launch app (--start-app)",
-  "启用 / 禁用该设备的参数覆盖（禁用不清除已填写的覆盖值）": "Enable or disable this device's parameter override (disabling keeps the values)",
+  "启用 / 停用设备参数（停用后改用全局参数，已填写的设备参数仍保留）": "Enable or disable device parameters (when off, global parameters apply; filled device values are kept)",
   "刚刚断开": "disconnected just now",
   "{0} 台设备 · {1} 在线 · {2} 已连接": "{0} devices · {1} online · {2} connected",
   "重新检查": "Check again",
@@ -2636,6 +2627,7 @@
   "已结束 {0} 个会话": "Ended sessions: {0}",
   "当前没有正在运行的会话": "No sessions are running",
   "地址不能为空": "Address cannot be empty",
+  "地址缺少主机名": "Address is missing a host name",
   "地址必须以 http:// 或 https:// 开头": "Address must start with http:// or https://",
   "地址中不能包含空格": "Address cannot contain spaces",
   "该地址已在列表中": "This address is already in the list",
@@ -3355,7 +3347,7 @@
             <div class="dev-alias">
               <span class="a-text">${escapeHtml(d.alias)}</span>
               <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名"><i data-lucide="pencil"></i></span>
-              ${oc&&ovOn?`<span class="tag over">已启用设备覆盖</span>`:''}
+              ${oc&&ovOn?`<span class="tag soft">已启用设备参数</span>`:''}
             </div>
             <div class="dev-meta">
               <span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>
@@ -3368,8 +3360,8 @@
             ${d.status==='connected'
               ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
               : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`}
-            <button class="btn sm ghost" data-ov="${d.id}" data-tip="为该设备单独设置参数（覆盖默认参数）"><i data-lucide="sliders-horizontal"></i>参数</button>
-            <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其参数覆盖与覆盖开关）"><i data-lucide="trash-2"></i>删除</button>
+            <button class="btn sm ghost" data-ov="${d.id}" data-tip="设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）"><i data-lucide="sliders-horizontal"></i>参数</button>
+            <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其设备参数）"><i data-lucide="trash-2"></i>删除</button>
           </div>
         </div>`;
       if (d.literalAlias) card.querySelector('.a-text').dataset.protoLiteral = '';
@@ -3459,8 +3451,8 @@
         hint:'支持 ? 模糊匹配 / + 强制停止',
         help:['连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。','按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。'] },
       { g:'advanced', k:'customArgs', label:'额外参数', kind:'textarea',
-        hint:'默认对所有设备生效，按设备覆盖后只对该设备生效',
-        help:['把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。','写在默认参数里时对所有设备生效；在某台设备的参数弹窗里覆盖后，只对那台设备生效。关闭该设备的覆盖开关时，它改用默认参数里的值。','引号必须成对，否则校验会拦下并给出提示。'] },
+        hint:'默认对所有设备生效；设置设备参数后只对该设备生效',
+        help:['把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。','写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。','引号必须成对，否则校验会拦下并给出提示。'] },
     ]},
   ];
 
@@ -3493,7 +3485,7 @@
     const d = getDev(paramsDeviceId); if (!d) return;
     const enabled = isOvEnabled(d.id);
     const m = merged(d.id);
-    dpTitle.textContent = `为「${d.alias}」单独设置参数`;
+    dpTitle.textContent = `「${d.alias}」的设备参数`;
     dpSwitch.checked = enabled;
     dpNote.hidden = !(!enabled && overrideCount(d.id) > 0);
     dpGrid.className = 'dp-grid' + (enabled ? '' : ' ov-off');
@@ -3583,8 +3575,8 @@
   });
   document.getElementById('dpClose').addEventListener('click', closeParamsDialog);
   paramsModal.addEventListener('click', e => { if (e.target === paramsModal) closeParamsDialog(); });
-  paramsShell.addEventListener('animationend', e => {
-    if (e.animationName !== 'about-panel-out' || !paramsModal.classList.contains('closing')) return;
+  paramsModal.addEventListener('animationend', e => {
+    if (e.animationName !== 'about-fade-out' || !paramsModal.classList.contains('closing')) return;
     paramsModal.classList.remove('show', 'closing');
     paramsDeviceId = null;
   });
@@ -3616,13 +3608,13 @@
   function refreshOvBadge(d){
     const card=document.querySelector(`#deviceList .dev-card[data-id="${d.id}"]`); if(!card) return;
     const alias=card.querySelector('.dev-alias'); if(!alias) return;
-    let tag=alias.querySelector('.tag.over');
+    let tag=alias.querySelector('.tag.soft');
     // 与产品侧的 isOverrideActive 同源：**有覆盖取值且开关启用**才挂标识，
     // 且只挂一枚、不含项数（拨开关即创建空条目，故「有取值」这道门槛不能省）。
     const active = overrideCount(d.id) > 0 && isOvEnabled(d.id);
     if (active){
-      if(!tag){ tag=document.createElement('span'); tag.className='tag over'; alias.appendChild(tag); }
-      tag.textContent = '已启用设备覆盖';
+      if(!tag){ tag=document.createElement('span'); tag.className='tag soft'; alias.appendChild(tag); }
+      tag.textContent = '已启用设备参数';
     }
     else if (tag){ tag.remove(); }
   }
@@ -4064,7 +4056,7 @@
       const joined = el('wlJoinStatus');
       joined.replaceChildren(); joined.hidden = !state.joined;
       if (state.joined) {
-        joined.append(node('span', '', '已登记：'), node('span', 'wl-name', state.joined.alias, true));
+        joined.append(node('span', '', '已添加：'), node('span', 'wl-name', state.joined.alias, true));
       }
       syncControls();
       measure();
@@ -4079,7 +4071,7 @@
         head.append(node('span', 'wl-cid', row.connectionId, true));
         li.append(head);
         if (registered) {
-          head.append(node('span', 'tag over', '已登记'));
+          head.append(node('span', 'tag soft', '已添加'));
           li.append(node('div', 'wl-name', registered.alias, true));
         } else {
           const line = node('div', 'wl-alias-row');
@@ -4318,8 +4310,8 @@
       overlay.classList.add('closing');
       return true;
     }
-    shell.addEventListener('animationend', e => {
-      if (e.animationName !== 'add-panel-out' || !overlay.classList.contains('closing')) return;
+    overlay.addEventListener('animationend', e => {
+      if (e.animationName !== 'add-fade-out' || !overlay.classList.contains('closing')) return;
       overlay.classList.remove('show', 'closing');
       state = fresh();
       Object.keys(fields).forEach(id => { el(id).value = id === 'mPort' ? '5555' : ''; });
@@ -4341,6 +4333,8 @@
     });
     el('addDeviceBtn').addEventListener('click', open);
     el('addClose').addEventListener('click', close);
+    // 点遮罩关闭：判据是「点到的就是遮罩本身」——点弹窗内部（含内容与按钮）不关。
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     el('mType').addEventListener('click', e => {
       const button = e.target.closest('button[data-v]');
       if (button) selectMethod(button.dataset.v);

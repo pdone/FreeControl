@@ -400,7 +400,7 @@
 <svelte:window on:keydown={onKeydown} />
 
 <div class="overlay about-overlay show" transition:fade={fadeParams}>
-  <div class="about-backdrop" role="presentation" on:click={close} />
+  <div class="overlay-backdrop" role="presentation" on:click={close} />
   <div
     class="modal about-modal"
     class:update-mode={view === 'update'}

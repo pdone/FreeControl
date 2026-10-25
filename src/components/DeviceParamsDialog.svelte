@@ -13,6 +13,7 @@
   // 都回到常态」由挂载/卸载保证，不靠额外的事件去重置（design D4）。
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
+  import { DIALOG_FADE } from '../lib/motion';
   import {
     defaults,
     devices,
@@ -43,7 +44,7 @@
   let panelUp = false;
   let previewEl: HTMLElement | null = null;
 
-  /** 覆盖表 / 默认参数 / 覆盖错误：显式取出来给模板直接用（Svelte 只跟踪模板里出现的变量）。 */
+  /** 设备参数表 / 全局参数 / 设备参数错误：显式取出来给模板直接用（Svelte 只跟踪模板里出现的变量）。 */
   $: ovById = $overrides;
   $: defaultsMap = $defaults as unknown as Record<string, Record<string, unknown>>;
   $: ovErrById = $overrideErrors;
@@ -54,10 +55,10 @@
   $: keptCount = countOverrideKeys(entry?.values as Record<string, unknown>);
 
   /**
-   * 本设备合并后的有效参数：`enabled ? merge(默认, 覆盖) : 默认`。
+   * 本设备合并后的有效参数：`enabled ? merge(全局, 设备) : 全局`。
    *
    * 与 store 的 `mergeForDevice` 同一规则 —— 那边是普通函数、不参与响应式，这里必须在
-   * `$:` 里按 `$defaults` / `$overrides` 重算，否则改默认参数后预览与字段显隐不刷新。
+   * `$:` 里按 `$defaults` / `$overrides` 重算，否则改全局参数后预览与字段显隐不刷新。
    */
   $: effective = mergeParams(
     $defaults as unknown as Record<string, unknown>,
@@ -148,8 +149,8 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="overlay dp-overlay show" transition:fade={{ duration: 160 }}>
-  <div class="dp-backdrop" role="presentation" on:click={close} />
+<div class="overlay dp-overlay show" transition:fade={DIALOG_FADE}>
+  <div class="overlay-backdrop" role="presentation" on:click={close} />
 
   <div
     class="modal dp-modal"

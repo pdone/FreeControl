@@ -1,6 +1,6 @@
 // 英文术语表（各页共用，避免同一概念多种叫法）：
 // 设备 device / 连接标识 connection ID / 运行环境 environment
-// 默认参数 defaults / 设备覆盖 device override / 命令预览 command preview
+// 全局参数 global parameters / 设备参数 device parameters / 命令预览 command preview
 // 连接 connect / 断开 disconnect / 在线 online / 已连接 connected / 离线 offline
 // 下载通道 download channel / 最佳适配版本 best-fit version
 // 会话输出 session output / 界面语言 interface language / 跟随系统 follow system
@@ -375,9 +375,9 @@ export const en: Record<MessageKey, string> = {
   "param.advanced.subtitle": "Custom arguments for any flag not covered by the UI, plus log, diagnostic and network runtime options.",
   "param.advanced.custom.title": "Custom arguments (passed directly to scrcpy)",
   "param.advanced.customArgs.label": "Extra arguments",
-  "param.advanced.customArgs.hint": "Applies to all devices by default; once overridden per device, it applies only to that device",
+  "param.advanced.customArgs.hint": "Applies to all devices by default; once set as a device parameter, only to that device",
   "param.advanced.customArgs.detail1": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
-  "param.advanced.customArgs.detail2": "In the default parameters it applies to all devices; once overridden in a device's parameters dialog it applies only to that device. Turning that device's override switch off makes it use the default value instead.",
+  "param.advanced.customArgs.detail2": "In global parameters it applies to all devices; once set as a device parameter in a device's parameters dialog, that device uses the device value first. When the device's parameters are disabled, it uses the global value instead.",
   "param.advanced.customArgs.detail3": "Quotes must be paired, otherwise validation will block it and show a hint.",
   "param.advanced.runLog.title": "Runtime log options",
   "param.advanced.verbosity.detail1": "Set the scrcpy log level, which controls how much process detail appears in the session log.",
@@ -412,7 +412,7 @@ export const en: Record<MessageKey, string> = {
   "channel.official": "GitHub direct",
   "channel.proxy": "Proxy {url}",
   "device.subtitle":
-    "Manage all devices: give each one an alias and map it to a connection ID (USB uses a serial, Wi-Fi uses IP:port). Check live status, connect or disconnect one or all devices, select a device to inspect its command, and expand Parameters to override the defaults for that device.",
+    "Manage all devices: give each one an alias and map it to a connection ID (USB uses a serial, Wi-Fi uses IP:port). Check live status, connect or disconnect one or all devices, and select a device to inspect its command. The parameter pages set global parameters; open Parameters to set device parameters for a device (these take priority over global parameters).",
   "device.add": "Add device",
   "device.connectAll": "Connect all",
   "device.connectAllTip":
@@ -423,7 +423,7 @@ export const en: Record<MessageKey, string> = {
     "No devices yet. Add your first device with a USB serial or a Wi-Fi IP:port.",
   "device.aliasAria": "Device alias",
   "device.renameAria": "Rename",
-  "device.overrideActive": "Device override enabled",
+  "device.overrideActive": "Device parameters on",
   "device.connectionPending": "(pending)",
   "device.offlineTryConnect": "Can try to connect",
   "device.offlineNotConnectable": "Cannot connect",
@@ -436,21 +436,20 @@ export const en: Record<MessageKey, string> = {
   "device.log": "Log",
   "device.logTip": "View this session's output on the Settings page (for troubleshooting)",
   "device.params": "Parameters",
-  "device.paramsTip": "Set parameters for this device (override the defaults)",
+  "device.paramsTip":
+    "Set device parameters for this device (they take priority over global parameters; empty items use the global value)",
   "device.delete": "Delete",
-  "device.deleteTip":
-    "Delete this device (also clears its parameter override and switch)",
-  "device.overrideTitle": "Parameters for \"{alias}\"",
-  "device.overrideDisabled": " · override disabled (values kept)",
+  "device.deleteTip": "Delete this device (also clears its device parameters)",
+  "device.overrideTitle": "Device parameters for \"{alias}\"",
   "device.overrideTip":
-    "Enable or disable this device's parameter override (disabling keeps the values)",
+    "Enable or disable device parameters (when off, global parameters apply; filled device values are kept)",
   "device.params.group.video": "Video & display",
   "device.params.group.window": "Window & control",
   "device.params.group.record": "Recording & audio",
   "device.params.group.apps": "Launch & passthrough",
   "device.params.expand": "Expand",
   "device.params.collapse": "Shrink",
-  "device.params.disabledNote": "Override disabled · values kept",
+  "device.params.disabledNote": "Device parameters off · values kept",
   "device.status.connected": "Connected",
   "device.status.online": "Online",
   "device.status.offline": "Offline",
@@ -506,7 +505,7 @@ export const en: Record<MessageKey, string> = {
   "device.add.saving": "Saving device…",
   "device.delete.title": "Delete device?",
   "device.delete.before": "This removes the record for \"{alias}\" ({cid}) and ",
-  "device.delete.bold": "also clears its parameter override and switch",
+  "device.delete.bold": "also clears its device parameters",
   "device.delete.after": ". This cannot be undone.",
   "device.delete.cancel": "Cancel",
   "device.delete.confirm": "Delete",

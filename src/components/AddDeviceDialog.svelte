@@ -1,8 +1,8 @@
 <script lang="ts">
   // 添加设备：四种添加方式共用一个弹窗；USB / 手动地址写入设备，扫描 / 配对沿用无线命令。
   import { createEventDispatcher } from 'svelte';
-  import { fade, scale } from 'svelte/transition';
-  import { cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
+  import { DIALOG_FADE } from '../lib/motion';
   import { t, translateNow } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { addDevice, devices, refreshDeviceStatus } from '../lib/store';
@@ -21,11 +21,6 @@
   export let open = false;
 
   const dispatch = createEventDispatcher<{ close: void }>();
-  const reduceMotion =
-    typeof window !== 'undefined' &&
-    !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const fadeParams = { duration: reduceMotion ? 1 : 180 };
-  const scaleParams = { duration: reduceMotion ? 1 : 200, start: 0.94, easing: cubicOut };
 
   type Method = 'usb' | 'address' | 'discover' | 'pair';
   let method: Method = 'usb';
@@ -448,14 +443,14 @@
   <div
     class="overlay show add-overlay"
     class:closing
-    transition:fade={fadeParams}
+    transition:fade={DIALOG_FADE}
   >
+    <div class="overlay-backdrop" role="presentation" on:click={close}></div>
     <div
       class="modal add-device-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-device-title"
-      transition:scale={scaleParams}
     >
       <div class="add-device-inner" use:measureSize>
       <button
@@ -644,7 +639,7 @@
                 <div class="wl-result-head">
                   <span class="wl-cid">{d.connectionId}</span>
                   {#if d.registered}
-                    <span class="tag over">{$t('wireless.discover.registered')}</span>
+                    <span class="tag soft">{$t('wireless.discover.registered')}</span>
                   {/if}
                 </div>
                 {#if !d.registered}
