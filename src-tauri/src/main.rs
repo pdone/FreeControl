@@ -541,4 +541,104 @@ mod tests {
              不再以 `Err` 回传（见 design D2）"
         );
     }
+
+    /// tauri 依赖必须保持精简的特性集：不启用运行期动态追加权限（`dynamic-acl`），其余能力逐项仍在。
+    ///
+    /// 本项目只在 `capabilities/default.json` 里静态声明权限、运行期从不追加（全仓无
+    /// `add_capability`）；沿用 tauri 的默认特性集会把该扩展连同那份原始 ACL 清单（权限标识与
+    /// 命令名表）编进产物。改回默认值时编译、单测、出包都不会失败，只是体积悄悄回升
+    /// （实测单变量：关掉后 7,042,048 B，带着它是 7,352,320 B，差 295 KiB）—— 故与上面几条
+    /// 同款做法：直接读构建配置断言。
+    #[test]
+    fn tauri_dependency_keeps_a_trimmed_feature_set() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+        let raw = std::fs::read_to_string(path).unwrap();
+        // 剔除注释行（注释里会提到被否决的取值），再去掉全部空白，使换行与缩进不影响判定。
+        let active = raw
+            .lines()
+            .filter(|line| !line.trim_start().starts_with('#'))
+            .flat_map(|line| line.split_whitespace())
+            .collect::<Vec<_>>()
+            .join("");
+
+        let dep = active
+            .split("tauri={")
+            .nth(1)
+            .expect("Cargo.toml 缺少 `tauri = { … }` 依赖声明")
+            .split('}')
+            .next()
+            .unwrap();
+
+        assert!(
+            !dep.contains("dynamic-acl"),
+            "tauri 依赖不得启用 `dynamic-acl`（运行期动态追加权限）：本项目从不在运行期追加权限，\
+             启用后那份原始 ACL 清单会编进产物，体积回升"
+        );
+        assert!(
+            dep.contains("default-features=false"),
+            "tauri 依赖须显式声明特性集（`default-features = false`）：否则默认集会随上游变化，\
+             未使用的扩展会重新进入产物"
+        );
+        for (feature, what) in [
+            ("wry", "WebView 运行时缺失，窗口根本起不来"),
+            ("compression", "前端资源改为原文内嵌，产物体积反而增大"),
+            ("common-controls-v6", "Windows 原生控件外观回落"),
+            ("x11", "Linux 的 X11 会话下窗口与输入失效"),
+            ("dbus", "Linux 桌面集成失效"),
+        ] {
+            assert!(
+                dep.contains(&format!("\"{feature}\"")),
+                "tauri 依赖缺少 `{feature}`：{what}"
+            );
+        }
+    }
+
+    /// 发布构建必须按能力清单裁掉未被授予的插件命令。
+    ///
+    /// 能力清单只授予 dialog 的 `open`，而插件会把 `save` / `message` 一并注册；tauri 的默认
+    /// 构建行为不裁任何命令。关掉该开关时编译、单测、出包都不会失败，只是这些未授予的命令
+    /// （连同它们的实现）悄悄回到产物（实测单变量：6,435,840 B 对 7,352,320 B，差 895 KiB）——
+    /// 故直接读配置断言。
+    #[test]
+    fn tauri_config_keeps_unused_commands_trimmed() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json");
+        let raw = std::fs::read_to_string(path).unwrap();
+        let json: Value = serde_json::from_str(&raw).unwrap();
+
+        assert_eq!(
+            json["build"]["removeUnusedCommands"],
+            Value::Bool(true),
+            "tauri.conf.json 的 `build.removeUnusedCommands` 必须为 true：关闭后未被能力清单授予的\
+             插件命令会重新注册进产物，体积回升"
+        );
+    }
+
+    /// Windows 产物不得编入 `.tar.gz` 解压路径。
+    ///
+    /// Windows 的官方资产恒为 zip（`scrcpy::PLATFORMS`），故该路径在 Windows 上运行期不可达 ——
+    /// 编进去只是白占体积。去掉这道门控时编译、单测、出包都不会失败（受影响的用例在 Windows 上
+    /// 本就不执行），只是 tar 解压重新进产物 —— 故与上面几条同款做法：直接读源码断言这道门控。
+    #[test]
+    fn windows_build_drops_the_unreachable_tar_path() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/download.rs");
+        let raw = std::fs::read_to_string(path).unwrap();
+        let source = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        for (pattern, what) in [
+            (
+                "#[cfg(not(windows))] \"tar.gz\" => extract_tar_gz(",
+                "`extract_archive` 的 tar.gz 分派分支未按平台门控",
+            ),
+            (
+                "#[cfg(not(windows))] pub fn extract_tar_gz(",
+                "`extract_tar_gz` 未按平台门控",
+            ),
+        ] {
+            assert!(
+                source.contains(pattern),
+                "download.rs 缺少平台门控（{what}）：Windows 产物会把运行期不可达的 tar 解压路径\
+                 重新编进去，体积回升"
+            );
+        }
+    }
 }

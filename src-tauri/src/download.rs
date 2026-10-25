@@ -892,6 +892,10 @@ impl Drop for StagingGuard {
 /// 解压入口：按目标平台的压缩后缀分派到具体实现（design D2）。
 ///
 /// 回调的两个参数是「已解压条目数」与「总条目数」—— 后者未知时为 `None`（见 [`extract_tar_gz`]）。
+///
+/// `tar.gz` 这一支**只在会请求该格式的平台**参与构建（本次变更 design D3）：Windows 的官方资产
+/// 恒为 zip，这一支在 Windows 上运行期不可达，编进去只是白占体积。Linux 与 macOS 照旧。
+/// Windows 上遇到该后缀会落到下面的「不支持」分支，得到一个明确的错误而不是静默按 zip 处理。
 pub fn extract_archive(
     archive: &Path,
     platform: &scrcpy::Platform,
@@ -900,6 +904,7 @@ pub fn extract_archive(
 ) -> Result<(), String> {
     match platform.ext {
         "zip" => extract_zip(archive, dest, on_entry),
+        #[cfg(not(windows))]
         "tar.gz" => extract_tar_gz(archive, dest, on_entry),
         other => Err(format!("不支持的压缩格式：{other}")),
     }
@@ -950,6 +955,9 @@ pub fn extract_zip(
 ///
 /// 与 zip 分支的 `enclosed_name` 是同一道防线。抽成纯函数是为了能直接断言它 ——
 /// 压不出「含 `..` 的归档」来测（`tar` 的 Builder 自己就拒绝写这样的条目）。
+///
+/// 它只服务 tar 分支，故与 tar 分支一同按平台门控（本次变更 design D3）。
+#[cfg(not(windows))]
 fn escapes_dest(path: &Path) -> bool {
     path.is_absolute()
         || path
@@ -965,6 +973,9 @@ fn escapes_dest(path: &Path) -> bool {
 ///    `unpack_in`，由它按条目头落权限（zip 分支之所以能手写，是因为 Windows 没有权限位这回事）。
 /// 2. **总数不可知**：gzip 流里没有条目计数，要拿到总数就得先把整个流解一遍。故回调的第二项
 ///    为 `None`，界面文案退化为「已解压 N 项」（design D2）。
+///
+/// 只在**会请求 `.tar.gz` 的平台**参与构建（本次变更 design D3）：Windows 的官方资产恒为 zip。
+#[cfg(not(windows))]
 pub fn extract_tar_gz(
     archive_path: &Path,
     dest: &Path,
@@ -2978,6 +2989,9 @@ mod tests {
     }
 
     /// 造一个 `.tar.gz`（Linux 官方资产的格式）：条目名、内容与权限位都由调用方给定。
+    ///
+    /// 与它造的格式一同按平台门控（本次变更 design D3）—— Windows 侧不编入 tar。
+    #[cfg(not(windows))]
     fn write_tar_gz(path: &Path, entries: &[(&str, &str, u32)]) {
         let file = fs::File::create(path).unwrap();
         let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::fast());
@@ -2993,6 +3007,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn extracts_tar_gz_layout_and_finds_payload() {
         // 目录名与二进制名都按当前平台取，使这条用例在两个平台上都能跑：
         // 它验的是「多一层目录 + 深层路径都能铺开、payload 定位得到」，与具体标签无关。
@@ -3073,6 +3088,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn escape_detection_covers_absolute_and_parent_entries() {
         // 「含 `..` 的条目被拒绝」这条防线直接测谓词：造不出这样的归档来端到端验
         // （`tar::Builder` 自己就拒绝写含 `..` 的条目：paths in archives must not have `..`）。
@@ -3090,9 +3106,13 @@ mod tests {
         assert!(escapes_dest(absolute));
     }
 
+    /// 分派按平台后缀：同一份归档交给不对的平台只会得到一个明确的「不支持」。
+    ///
+    /// 只在会请求 `.tar.gz` 的平台执行（本次变更 design D3）；Windows 侧对应的「该格式得到明确的
+    /// 不支持」由 `windows_build_reports_the_formats_it_never_requests` 覆盖。
     #[test]
+    #[cfg(not(windows))]
     fn extract_archive_dispatches_by_platform_suffix() {
-        // 分派按平台后缀：同一份归档交给不对的平台只会得到一个明确的「不支持」。
         let root = unique_temp_dir("dispatch");
         let tarball = root.join("asset.tar.gz");
         fs::create_dir_all(&root).unwrap();
@@ -3102,6 +3122,20 @@ mod tests {
         extract_archive(&tarball, linux(), &ok, |_, _| {}).unwrap();
         assert!(ok.join("scrcpy-linux-x86_64-v5.0.1/scrcpy").is_file());
         let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Windows 产物不含 `.tar.gz` 解压路径（本次变更 design D3）：该格式在 Windows 上应得到一个
+    /// 明确的「不支持」，而不是静默按 zip 处理 —— 被门控掉的那条分派用例由这条替代。
+    #[test]
+    #[cfg(windows)]
+    fn windows_build_reports_the_formats_it_never_requests() {
+        // 分派只看平台后缀、不碰归档本身，故这里无需造 tar.gz（Windows 侧也不编入 tar）。
+        let err = extract_archive(Path::new("asset.tar.gz"), linux(), Path::new("out"), |_, _| {})
+            .unwrap_err();
+        assert!(
+            err.contains("不支持的压缩格式"),
+            "Windows 上 tar.gz 应得到一个明确的「不支持」，实际：{err}"
+        );
     }
 
     #[test]

@@ -10,7 +10,14 @@ rust-version = "1.90"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.12", features = [] }
+# Tauri 运行时：**显式声明**特性集，不启用运行期动态追加权限（`dynamic-acl`）。
+# 本项目只在 capabilities 里静态声明权限、运行期从不追加（全仓无 `add_capability`）；该扩展
+# 会把那份原始 ACL 清单（权限标识与命令名表）编进产物，而它只为动态追加服务。其余五项与默认集
+# 等价：`wry` 是 WebView 运行时本身；`compression` 让前端资源压缩内嵌；`common-controls-v6` 管
+# Windows 原生控件外观；`x11` / `dbus` 管 Linux 会话与桌面集成（Windows 上是空操作）。
+# 另：本项目同时开着 `tauri.conf.json` 的 `build.removeUnusedCommands`，它按能力清单裁掉未授予的
+# 插件命令；该开关不识别运行期动态追加的 ACL，故两件事必须同批 —— 关掉动态追加，裁剪才成立。
+tauri = { version = "2.12", default-features = false, features = ["wry", "compression", "common-controls-v6", "x11", "dbus"] }
 # 原生文件夹选择器（「运行环境」页自定义 scrcpy 目录）。官方插件，权限走 capability。
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
