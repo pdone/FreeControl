@@ -6,7 +6,7 @@
     <!-- 显式声明图标，避免浏览器隐式请求 /favicon.ico 得到 404；
          直接复用资产包 desktop/ 分区的成品位图（与侧边栏品牌 logo 同一份），不另存 public/ 副本 -->
     <link rel="icon" type="image/png" href="./assets/icons/desktop/128x128.png" />
-    <title>FreeControl2</title>
+    <title>FreeControl</title>
     <!-- 首帧底色：窗口一开到 `app.css` 生效之间有一小段没有样式的空档，不写这行就是白底一闪。
          深色取 `src/app.css` 的 `--bg`；浅色与其 `:root[data-theme='light']` 同值，并用
          `prefers-color-scheme` 兜住「配置尚未读取」的启动早期 —— 浅色系统上不会先闪深色底。

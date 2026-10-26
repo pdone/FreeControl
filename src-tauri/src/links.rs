@@ -25,12 +25,12 @@ use crate::ui_message::{codes, UserError};
 /// `license` 落在仓库**默认分支**（`main`）上；若默认分支更名，这里要同步，
 /// 否则界面上是一个 404 的死链。
 pub const LINKS: [(&str, &str); 3] = [
-    ("repo", "https://github.com/pdone/FreeControl2"),
+    ("repo", "https://github.com/pdone/FreeControl"),
     (
         "license",
-        "https://github.com/pdone/FreeControl2/blob/main/LICENSE",
+        "https://github.com/pdone/FreeControl/blob/main/LICENSE",
     ),
-    ("website", "https://freecontrol2.pages.dev/"),
+    ("website", "https://fc.awaw.cc/"),
 ];
 
 /// 由语义键取地址（纯函数，便于单测）。
@@ -76,15 +76,15 @@ mod tests {
     fn every_key_maps_to_the_expected_url() {
         assert_eq!(
             link_url("repo").unwrap(),
-            "https://github.com/pdone/FreeControl2"
+            "https://github.com/pdone/FreeControl"
         );
         assert_eq!(
             link_url("license").unwrap(),
-            "https://github.com/pdone/FreeControl2/blob/main/LICENSE"
+            "https://github.com/pdone/FreeControl/blob/main/LICENSE"
         );
         assert_eq!(
             link_url("website").unwrap(),
-            "https://freecontrol2.pages.dev/"
+            "https://fc.awaw.cc/"
         );
     }
 

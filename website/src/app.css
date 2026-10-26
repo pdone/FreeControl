@@ -1,5 +1,5 @@
 /* ============================================================================
-   FreeControl2 官网样式。令牌见 tokens.css（与产品 src/app.css 逐值对齐）。
+   FreeControl 官网样式。令牌见 tokens.css（与产品 src/app.css 逐值对齐）。
    ========================================================================== */
 * {
   box-sizing: border-box;
@@ -388,6 +388,17 @@ code {
   color: var(--text-dim);
   background: var(--panel-2);
   white-space: nowrap;
+}
+
+/* 对比表里第一代产品的列名指向它的仓库：字色与表头一致，只用下划线示意可点。 */
+.cmp-ext {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 32%, transparent);
+  text-underline-offset: 3px;
+}
+.cmp-ext:hover {
+  text-decoration-color: currentColor;
 }
 .cmp tbody th {
   color: var(--text-dim);

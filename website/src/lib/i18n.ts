@@ -18,7 +18,7 @@ export interface Plat {
 // 文案改写自仓库 README.md / README.en.md（同一组章节、一一对应）。
 const zh = {
   htmlLang: 'zh-CN',
-  metaTitle: 'FreeControl2 — 在 PC 上控制 Android 设备',
+  metaTitle: 'FreeControl — 在 PC 上控制 Android 设备',
   nav: {
     features: '功能特性',
     compare: '对比',
@@ -54,9 +54,9 @@ const zh = {
   },
   compare: {
     title: '与同类工具对比',
-    subtitle: 'FreeControl2、它的前身 FreeControl，以及同样基于 scrcpy 的 Escrcpy。',
+    subtitle: 'FreeControl、它的第一代 FreeControl Legacy，以及同样基于 scrcpy 的 Escrcpy。',
     aspectHead: '对比项',
-    columns: ['FreeControl2', 'FreeControl', 'Escrcpy'],
+    columns: ['FreeControl', 'FreeControl Legacy', 'Escrcpy'],
     highlights: [
       { icon: 'HardDrive', stat: '约 6 MB', label: '免安装单文件', desc: 'Windows 程序仅约 6 MB；同为 scrcpy 壳的 Electron 工具约 116 MB。' },
       { icon: 'Cpu', stat: 'Rust 原生核心', label: '轻量高效', desc: '后端由 Rust 原生编译，界面走系统自带的 WebView，不内嵌浏览器内核。' },
@@ -65,7 +65,7 @@ const zh = {
     rows: [
       { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件（x64 / ARM64）；Linux 提供 AppImage 与 deb；macOS 提供 dmg（Apple 芯片与 Intel 各一份）', others: ['仅 Windows', 'Windows / macOS / Linux'] },
       { aspect: '程序体积（Windows）', fc2: '约 6 MB（免安装单文件）', others: ['约 7 MB（单文件）', '约 116 MB（安装包）'] },
-      { aspect: '维护状态', fc2: '活跃', others: ['已归档，让位于 FreeControl2', '活跃'] },
+      { aspect: '维护状态', fc2: '活跃', others: ['已归档，让位于 FreeControl', '活跃'] },
       { aspect: '设备清单', fc2: '别名映射 USB 序列号或 IP:端口，在线状态实时可见', others: ['USB 与无线 ADB', '多设备协同'] },
       { aspect: '参数控制', fc2: '六组控件逐项对应 scrcpy 长选项，另有自定义参数框；可为单台设备整套覆盖', others: ['常用开关（IME、音频转发、唤醒锁等）', '快捷键与键盘映射'] },
     ],
@@ -80,7 +80,7 @@ const zh = {
       { name: 'macOS', req: '11 及以上 · dmg（Apple 芯片 / Intel），拖入「应用程序」· Safari 16.2+' },
     ],
     device: '另需一台开启 USB 调试的 Android 设备。',
-    macNote: 'macOS 首次打开若被拦下：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 xattr -dr com.apple.quarantine /Applications/FreeControl2.app。',
+    macNote: 'macOS 首次打开若被拦下：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 xattr -dr com.apple.quarantine /Applications/FreeControl.app。',
     stepsTitle: '四步上手',
     steps: [
       { title: '备好运行环境', desc: '首次启动后到「运行环境」页获取 scrcpy 与 adb。' },
@@ -93,8 +93,8 @@ const zh = {
   },
   // hero 预览的两处可访问文案：宽屏内嵌页面的名字与窄屏截图的替代文本（随语言成对）
   preview: {
-    frameTitle: 'FreeControl2 界面预览',
-    shotAlt: 'FreeControl2 设备页',
+    frameTitle: 'FreeControl 界面预览',
+    shotAlt: 'FreeControl 设备页',
   },
   faq: {
     title: '常见问题',
@@ -117,7 +117,7 @@ const zh = {
       },
       {
         q: 'Linux 上启动后界面不再更新',
-        a: '虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2 启动即可 —— 判定是启发式的，有些环境会落空。',
+        a: '虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl 启动即可 —— 判定是启发式的，有些环境会落空。',
       },
       {
         q: '怎么恢复出厂设置',
@@ -130,10 +130,10 @@ const zh = {
     ],
   },
   download: {
-    title: '获取 FreeControl2',
+    title: '获取 FreeControl',
     lead: '免费开源，MIT 许可 · Windows 提供 x64 与 ARM64 免安装单文件，Linux 提供 AppImage 与 deb，macOS 提供 dmg。',
     metaLinks: [
-      { label: '更新日志', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.md' },
+      { label: '更新日志', href: 'https://github.com/pdone/FreeControl/blob/main/Update.md' },
     ],
     cta: '下载',
     // 主按钮那行提示按访客系统与架构取：windows / windowsArm64 是 Windows 的两份产物档，
@@ -181,7 +181,7 @@ const zh = {
   },
   footer: {
     builtLabel: '构建技术',
-    license: { label: 'MIT 开源许可', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
+    license: { label: 'MIT 开源许可', href: 'https://github.com/pdone/FreeControl/blob/main/LICENSE' },
     copyright: '© 2026 pdone',
   },
 };
@@ -190,7 +190,7 @@ export type Dict = typeof zh;
 
 const en: Dict = {
   htmlLang: 'en',
-  metaTitle: 'FreeControl2 — Control Android devices on PC',
+  metaTitle: 'FreeControl — Control Android devices on PC',
   nav: {
     features: 'Features',
     compare: 'Comparison',
@@ -226,9 +226,9 @@ const en: Dict = {
   },
   compare: {
     title: 'How it compares',
-    subtitle: 'FreeControl2, its predecessor FreeControl, and Escrcpy — another scrcpy-based GUI.',
+    subtitle: 'FreeControl, its first-generation FreeControl Legacy, and Escrcpy — another scrcpy-based GUI.',
     aspectHead: 'Aspect',
-    columns: ['FreeControl2', 'FreeControl', 'Escrcpy'],
+    columns: ['FreeControl', 'FreeControl Legacy', 'Escrcpy'],
     highlights: [
       { icon: 'HardDrive', stat: '≈ 6 MB', label: 'Single portable file', desc: 'The Windows program is only about 6 MB; an Electron-based scrcpy GUI is about 116 MB.' },
       { icon: 'Cpu', stat: 'Native Rust core', label: 'Light and fast', desc: 'The backend is compiled from Rust and the UI uses the system WebView — no browser engine bundled.' },
@@ -237,7 +237,7 @@ const en: Dict = {
     rows: [
       { aspect: 'Platforms', fc2: 'Portable single files for Windows 10 / 11 (x64 / ARM64); AppImage and deb on Linux; dmg for macOS (Apple silicon and Intel)', others: ['Windows only', 'Windows / macOS / Linux'] },
       { aspect: 'Size (Windows)', fc2: '≈ 6 MB (single portable file)', others: ['≈ 7 MB (single file)', '≈ 116 MB (installer)'] },
-      { aspect: 'Maintenance', fc2: 'Active', others: ['Archived, superseded by FreeControl2', 'Active'] },
+      { aspect: 'Maintenance', fc2: 'Active', others: ['Archived, superseded by FreeControl', 'Active'] },
       { aspect: 'Device list', fc2: 'An alias per device mapped to a USB serial or IP:port, with live online status', others: ['USB and wireless ADB', 'Multi-device control'] },
       { aspect: 'Parameters', fc2: 'Six groups of controls mapped to scrcpy long options, a custom-arguments box, and a full per-device parameter set', others: ['Common switches (IME, audio forwarding, wake lock…)', 'Shortcuts and keyboard mapping'] },
     ],
@@ -252,7 +252,7 @@ const en: Dict = {
       { name: 'macOS', req: '11 or later · dmg (Apple silicon / Intel), drag into Applications · Safari 16.2+' },
     ],
     device: 'Plus an Android device with USB debugging enabled.',
-    macNote: 'If the first launch on macOS is blocked: open System Settings → Privacy & Security and click Open Anyway, or run xattr -dr com.apple.quarantine /Applications/FreeControl2.app.',
+    macNote: 'If the first launch on macOS is blocked: open System Settings → Privacy & Security and click Open Anyway, or run xattr -dr com.apple.quarantine /Applications/FreeControl.app.',
     stepsTitle: 'Four steps',
     steps: [
       { title: 'Get the runtime', desc: 'On first launch, go to the "Runtime" page and fetch scrcpy and adb.' },
@@ -264,8 +264,8 @@ const en: Dict = {
     buildNote: 'You additionally need Node.js 24 and npm, a stable Rust toolchain, and the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS. The commands and artifact locations are in the repository README.',
   },
   preview: {
-    frameTitle: 'FreeControl2 interface preview',
-    shotAlt: 'FreeControl2 Devices page',
+    frameTitle: 'FreeControl interface preview',
+    shotAlt: 'FreeControl Devices page',
   },
   faq: {
     title: 'FAQ',
@@ -288,7 +288,7 @@ const en: Dict = {
       },
       {
         q: 'The window stops updating after launch on Linux',
-        a: 'On setups such as virtual machines, software rendering or remote sessions, the window may draw its first frame and then stop updating (clicks still take effect). The app detects this at launch and avoids that rendering path on its own, so most such setups need nothing from you; if you still hit it, start the app with WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2 — the detection is heuristic, so some setups fall through.',
+        a: 'On setups such as virtual machines, software rendering or remote sessions, the window may draw its first frame and then stop updating (clicks still take effect). The app detects this at launch and avoids that rendering path on its own, so most such setups need nothing from you; if you still hit it, start the app with WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl — the detection is heuristic, so some setups fall through.',
       },
       {
         q: 'How do I reset to the factory defaults',
@@ -301,10 +301,10 @@ const en: Dict = {
     ],
   },
   download: {
-    title: 'Get FreeControl2',
+    title: 'Get FreeControl',
     lead: 'Free and open source, MIT licensed · portable single files for Windows x64 and ARM64, AppImage and deb on Linux, dmg for macOS.',
     metaLinks: [
-      { label: 'Changelog', href: 'https://github.com/pdone/FreeControl2/blob/main/Update.en.md' },
+      { label: 'Changelog', href: 'https://github.com/pdone/FreeControl/blob/main/Update.en.md' },
     ],
     cta: 'Download',
     osHint: {
@@ -347,7 +347,7 @@ const en: Dict = {
   },
   footer: {
     builtLabel: 'Built with',
-    license: { label: 'MIT License', href: 'https://github.com/pdone/FreeControl2/blob/main/LICENSE' },
+    license: { label: 'MIT License', href: 'https://github.com/pdone/FreeControl/blob/main/LICENSE' },
     copyright: '© 2026 pdone',
   },
 };

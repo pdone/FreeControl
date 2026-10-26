@@ -1,22 +1,22 @@
 <p align="center">
-  <img src="assets/icons/desktop/128x128.png" width="128" height="128" alt="FreeControl2" />
+  <img src="assets/icons/desktop/128x128.png" width="128" height="128" alt="FreeControl" />
 </p>
 
-<h1 align="center">FreeControl2</h1>
+<h1 align="center">FreeControl</h1>
 
 <p align="center">
-  <a href="https://github.com/pdone/FreeControl2/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl2/build.yml?style=for-the-badge" alt="构建状态" /></a>
-  <a href="https://github.com/pdone/FreeControl2/releases/latest"><img src="https://img.shields.io/github/release/pdone/FreeControl2?style=for-the-badge" alt="最新发行" /></a>
-  <a href="https://github.com/pdone/FreeControl2/releases"><img src="https://img.shields.io/github/downloads/pdone/FreeControl2/total?style=for-the-badge" alt="下载量" /></a>
-  <a href="https://github.com/pdone/FreeControl2"><img src="https://img.shields.io/github/stars/pdone/FreeControl2?style=for-the-badge" alt="星标" /></a>
-  <a href="https://github.com/pdone/FreeControl2/issues"><img src="https://img.shields.io/github/issues/pdone/FreeControl2?style=for-the-badge" alt="议题" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/pdone/FreeControl2?style=for-the-badge" alt="许可证" /></a>
+  <a href="https://github.com/pdone/FreeControl/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build.yml?style=for-the-badge" alt="构建状态" /></a>
+  <a href="https://github.com/pdone/FreeControl/releases/latest"><img src="https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge" alt="最新发行" /></a>
+  <a href="https://github.com/pdone/FreeControl/releases"><img src="https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge" alt="下载量" /></a>
+  <a href="https://github.com/pdone/FreeControl"><img src="https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge" alt="星标" /></a>
+  <a href="https://github.com/pdone/FreeControl/issues"><img src="https://img.shields.io/github/issues/pdone/FreeControl?style=for-the-badge" alt="议题" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/pdone/FreeControl?style=for-the-badge" alt="许可证" /></a>
 </p>
 
 <p align="center">在PC上控制Android设备</p>
 
 <p align="center">
-  中文 | <a href="README.en.md">English</a> | <a href="https://freecontrol2.pages.dev/">官网</a>
+  中文 | <a href="README.en.md">English</a> | <a href="https://fc.awaw.cc/">官网</a>
 </p>
 
 ## 功能特性
@@ -56,9 +56,9 @@
 
 **运行要求**：Windows 10 / 11（x64 与 ARM64 各一份免安装单文件）· 系统自带的 WebView2（10 / 11 一般已预装，缺失时用微软的 Evergreen 引导程序安装）· 一台开启了 USB 调试的 Android 设备。Linux 提供 AppImage 与 deb，macOS 11 及以上提供 dmg（Safari 需为 16.2 或更新）。
 
-从 [Releases](https://github.com/pdone/FreeControl2/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选 `FreeControl2_<版本>_windows_x64.exe` 或 `FreeControl2_<版本>_windows_arm64.exe`，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
+从 [Releases](https://github.com/pdone/FreeControl/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选文件名以 `_windows_x64.exe` 或 `_windows_arm64.exe` 结尾的那份，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
 
-macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 `xattr -dr com.apple.quarantine /Applications/FreeControl2.app`。
+macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 `xattr -dr com.apple.quarantine /Applications/FreeControl.app`。
 
 1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
 2. **添加设备** —— 在「设备」页新增一台：USB 连接填 `adb devices` 列出的序列号；无线连接可选「手动 (IP:Port)」直接填地址，或选「局域网扫描」/「配对码」发现并配对设备。添加时可给设备或每条扫描结果设置可选别名。
@@ -79,7 +79,7 @@ Windows（免安装单文件）：
 npm run app:build
 ```
 
-产物在 `src-tauri/target/release/FreeControl2.exe`。
+产物在 `src-tauri/target/release/FreeControl.exe`。
 
 Linux（AppImage 与 deb）：
 
@@ -111,7 +111,7 @@ npm run app:dev
 ## 项目结构
 
 ```
-FreeControl2/
+FreeControl/
 ├─ src/                    前端（Svelte + Vite + TypeScript）
 │  ├─ components/          界面组件（设备页、各参数页、设置与日志、运行环境、关于弹窗…）
 │  └─ lib/                 前端逻辑（参数模型、命令拼装、校验、配置存取）
@@ -156,7 +156,7 @@ FreeControl2/
 
 ### Linux 上启动后界面不再更新
 
-虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 `WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl2` 启动即可 —— 判定是启发式的，有些环境会落空。
+虚拟机、软件渲染或远程会话这类环境下，界面可能只画出第一帧、之后就不再更新（点击其实生效）。程序启动时会自行判定并绕开这条渲染路径，这类环境多数无需你干预；若仍然遇到，用 `WEBKIT_DISABLE_DMABUF_RENDERER=1 FreeControl` 启动即可 —— 判定是启发式的，有些环境会落空。
 
 ### 数据都存在哪
 

@@ -10,7 +10,7 @@
 #   - Linux x86_64：`--bundles appimage,deb`；
 #   - macOS ARM64（`macos-15`）与 macOS x86_64（`macos-15-intel`）：`--bundles app,dmg`，
 #     各产出一份 dmg。`app` 不能省：只请求 `dmg` 时 bundler 把 `.app` 当中间件，打完 dmg 就地
-#     删掉（日志里的 `Cleaning .../bundle/macos/FreeControl2.app`），随后的自检便无据可查。
+#     删掉（日志里的 `Cleaning .../bundle/macos/FreeControl.app`），随后的自检便无据可查。
 #     `macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，预计 2027 年秋下线，
 #     届时需另开变更决定删掉该档还是换自托管 runner。
 #
@@ -160,16 +160,18 @@ jobs:
       - name: 构建（`beforeBuildCommand` 自带 `vite build`）
         run: npm run tauri build -- ${{ matrix.args }}
 
-      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl2`），平台段、版本段与架构段
+      # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl`），平台段、版本段与架构段
       # 都由这里补上：从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），
-      # 只改名、不改内容。三平台统一为 `{产品名}_{版本}_{平台}_{架构}`（spec `release-build`）。
+      # 只改名、不改内容。三平台统一为 `{前缀}_{版本}_{平台}_{架构}`（spec `release-build`）。
+      # 前缀即产品名 `FreeControl`：本次直接切换，不沿用旧名 —— 代价是 ≤1.2.0 的客户端
+      # 取不到这一版的资产，需要手动下载一次（客户端侧的旧前缀兜底仍保留，见 `app_update`）。
       - name: Windows 产物按应用版本、平台与架构命名
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $src = "src-tauri/target/release/FreeControl2.exe"
-          $dst = "src-tauri/target/release/FreeControl2_${version}_windows_${{ matrix.arch }}.exe"
+          $src = "src-tauri/target/release/FreeControl.exe"
+          $dst = "src-tauri/target/release/FreeControl_${version}_windows_${{ matrix.arch }}.exe"
           if (-not (Test-Path $src)) { throw "找不到构建产物 $src" }
           Move-Item $src $dst
           Write-Host "产物：$dst"
@@ -182,7 +184,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $file = "src-tauri/target/release/FreeControl2_${version}_windows_${{ matrix.arch }}.exe"
+          $file = "src-tauri/target/release/FreeControl_${version}_windows_${{ matrix.arch }}.exe"
           $expected = @{ x64 = 0x8664; arm64 = 0xAA64 }['${{ matrix.arch }}']
           $bytes = [IO.File]::ReadAllBytes($file)
           $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)          # PE 签名在文件中的偏移
@@ -203,8 +205,8 @@ jobs:
             x64) SEG=x64 ;;
             *) echo "::error::未知架构 ${{ matrix.arch }}"; exit 1 ;;
           esac
-          SRC="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_${{ matrix.arch }}.dmg"
-          DST="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_macos_${SEG}.dmg"
+          SRC="src-tauri/target/release/bundle/dmg/FreeControl_${VERSION}_${{ matrix.arch }}.dmg"
+          DST="src-tauri/target/release/bundle/dmg/FreeControl_${VERSION}_macos_${SEG}.dmg"
           [ -f "$SRC" ] || { echo "::error::找不到构建产物 $SRC"; exit 1; }
           mv "$SRC" "$DST"
           echo "产物：$DST"
@@ -221,8 +223,8 @@ jobs:
       - name: 校验产物架构与签名（Mach-O）
         if: runner.os == 'macOS'
         run: |
-          APP="src-tauri/target/release/bundle/macos/FreeControl2.app"
-          BIN="$APP/Contents/MacOS/FreeControl2"
+          APP="src-tauri/target/release/bundle/macos/FreeControl.app"
+          BIN="$APP/Contents/MacOS/FreeControl"
           [ -f "$BIN" ] || { echo "::error::找不到 $BIN"; exit 1; }
 
           case "${{ matrix.arch }}" in
@@ -245,7 +247,7 @@ jobs:
           echo "部署目标：$(vtool -show-build "$BIN" | awk '/minos/ {print $2}')"
 
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          DMG="src-tauri/target/release/bundle/dmg/FreeControl2_${VERSION}_macos_${SEG}.dmg"
+          DMG="src-tauri/target/release/bundle/dmg/FreeControl_${VERSION}_macos_${SEG}.dmg"
           [ -f "$DMG" ] || { echo "::error::找不到 $DMG"; exit 1; }
           COUNT=$(ls src-tauri/target/release/bundle/dmg/*.dmg | wc -l)
           [ "$COUNT" -eq 1 ] || { echo "::error::dmg 数量应为 1，实际 $COUNT"; exit 1; }
@@ -257,8 +259,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v7
         with:
-          name: FreeControl2-windows-${{ matrix.arch }}
-          path: src-tauri/target/release/FreeControl2_*.exe
+          name: FreeControl-windows-${{ matrix.arch }}
+          path: src-tauri/target/release/FreeControl_*.exe
           if-no-files-found: error
 
       # Linux 两份的默认名带打包架构段（`_amd64`），这里补平台段，与三平台统一为
@@ -269,19 +271,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          APPIMAGE="src-tauri/target/release/bundle/appimage/FreeControl2_${VERSION}_amd64.AppImage"
-          DEB="src-tauri/target/release/bundle/deb/FreeControl2_${VERSION}_amd64.deb"
+          APPIMAGE="src-tauri/target/release/bundle/appimage/FreeControl_${VERSION}_amd64.AppImage"
+          DEB="src-tauri/target/release/bundle/deb/FreeControl_${VERSION}_amd64.deb"
           [ -f "$APPIMAGE" ] || { echo "::error::找不到构建产物 $APPIMAGE"; exit 1; }
           [ -f "$DEB" ] || { echo "::error::找不到构建产物 $DEB"; exit 1; }
-          mv "$APPIMAGE" "src-tauri/target/release/bundle/appimage/FreeControl2_${VERSION}_linux_amd64.AppImage"
-          mv "$DEB" "src-tauri/target/release/bundle/deb/FreeControl2_${VERSION}_linux_amd64.deb"
+          mv "$APPIMAGE" "src-tauri/target/release/bundle/appimage/FreeControl_${VERSION}_linux_amd64.AppImage"
+          mv "$DEB" "src-tauri/target/release/bundle/deb/FreeControl_${VERSION}_linux_amd64.deb"
           ls -l src-tauri/target/release/bundle/appimage/*.AppImage src-tauri/target/release/bundle/deb/*.deb
 
       - name: 上传 Linux 产物
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v7
         with:
-          name: FreeControl2-linux
+          name: FreeControl-linux
           path: |
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
@@ -293,7 +295,7 @@ jobs:
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v7
         with:
-          name: FreeControl2-macos-${{ matrix.arch }}
+          name: FreeControl-macos-${{ matrix.arch }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
@@ -408,7 +410,7 @@ jobs:
 
           if [ "$STATE" = "none" ]; then
             gh release create "$TARGET" --draft \
-              --title "FreeControl2 $TARGET" \
+              --title "FreeControl $TARGET" \
               --notes-file notes.md \
               "${ASSETS[@]}"
           else

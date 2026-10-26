@@ -8,8 +8,10 @@
   // 具体产物的直链只存在于这里带进来的取值中，取不到时一律回退到发行页。
   import release from './lib/release.json';
 
-  const REPO = 'https://github.com/pdone/FreeControl2';
+  const REPO = 'https://github.com/pdone/FreeControl';
   const RELEASES = `${REPO}/releases/latest`;
+  // 第一代产品（更名前叫 FreeControl）—— 选型对比里那一栏指向它，避免与本产品混名。
+  const LEGACY_REPO = 'https://github.com/pdone/FreeControl-Legacy';
   // hero 内嵌的原型页面（构建期由 scripts/sync-assets.mjs 从 ui-design/ 镜像进站点）。
   const PREVIEW = '/preview/launcher-prototype.html';
   // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点；英文一套在 en/ 下）。
@@ -94,8 +96,8 @@
        贴右由 .head-actions 的 margin-left:auto 承载，左组因此贴左。见 spec「顶栏的构成与行为」 -->
   <div class="wrap">
     <a class="brand" href="#top">
-      <img src="/assets/icons/desktop/128x128.png" alt="FreeControl2" width="28" height="28" />
-      <span>FreeControl2</span>
+      <img src="/assets/icons/desktop/128x128.png" alt="FreeControl" width="28" height="28" />
+      <span>FreeControl</span>
     </a>
     <nav class="nav">
       <a href="#features">{$t.nav.features}</a>
@@ -120,7 +122,7 @@
 <main id="top">
   <!-- hero -->
   <section class="hero wrap">
-    <h1>FreeControl2</h1>
+    <h1>FreeControl</h1>
     <p class="tagline">{$t.hero.tagline}</p>
     <p class="lede">{$t.hero.lede}</p>
     <div class="hero-actions">
@@ -199,7 +201,13 @@
             <tr>
               <th scope="col">{$t.compare.aspectHead}</th>
               <th scope="col" class="is-self">{$t.compare.columns[0]}</th>
-              <th scope="col">{$t.compare.columns[1]}</th>
+              <th scope="col">
+                <a
+                  class="cmp-ext"
+                  href={LEGACY_REPO}
+                  target="_blank"
+                  rel="noopener noreferrer">{$t.compare.columns[1]}</a>
+              </th>
               <th scope="col">{$t.compare.columns[2]}</th>
             </tr>
           </thead>
@@ -279,7 +287,7 @@
   <section id="download" class="section download">
     <div class="wrap">
       <div class="get-hero">
-        <img class="get-logo" src="/assets/icons/desktop/128x128.png" alt="FreeControl2" width="88" height="88" />
+        <img class="get-logo" src="/assets/icons/desktop/128x128.png" alt="FreeControl" width="88" height="88" />
         <h2 class="title">{$t.download.title}</h2>
         <p class="lead">{$t.download.lead}</p>
         <!-- 主按钮按访客系统取档（见脚本里的 dlTarget/DL_HREF/DL_HINT）：Windows 取免安装单文件、

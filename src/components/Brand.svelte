@@ -40,10 +40,10 @@
   on:keydown={onKeydown}
 >
   <div class="logo">
-    <img src={logoMark} alt="FreeControl2" on:error={hideImg} />F
+    <img src={logoMark} alt="FreeControl" on:error={hideImg} />F
   </div>
   <div class="brand-text">
-    <div class="name" style="font-size: 16px;">FreeControl2</div>
+    <div class="name" style="font-size: 16px;">FreeControl</div>
 
   </div>
 </div>

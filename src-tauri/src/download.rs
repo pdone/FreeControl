@@ -485,7 +485,7 @@ pub(crate) fn http_client() -> Result<reqwest::Client, String> {
         .connect_timeout(CHANNEL_CONNECT_TIMEOUT)
         .read_timeout(CHANNEL_IDLE_TIMEOUT)
         .timeout(CHANNEL_TOTAL_TIMEOUT)
-        .user_agent("FreeControl2")
+        .user_agent("FreeControl")
         .build()
         .map_err(|e| format!("初始化网络客户端失败：{}", e))
 }

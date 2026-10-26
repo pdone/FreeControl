@@ -9,7 +9,7 @@
 import type { SystemFont } from './types';
 
 /** 首帧字体缓存的键；值形如 `{ uiFont, codeFont }`，旧的多选数组形状会被忽略。 */
-export const FONT_CACHE_KEY = 'freecontrol2-ui-fonts';
+export const FONT_CACHE_KEY = 'freecontrol-ui-fonts';
 
 export const DEFAULT_SANS_VAR = 'var(--font-sans-default)';
 export const DEFAULT_MONO_VAR = 'var(--font-mono-default)';

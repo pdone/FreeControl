@@ -11,7 +11,7 @@
 //! 否则 21:00 复现的问题会落到第二天那个文件里。
 //!
 //! ## 为什么不用 `tauri-plugin-log`
-//! 它的 `Target::LogDir` 以 bundle identifier 为目录名（本工程即 `%APPDATA%/com.freecontrol2`），
+//! 它的 `Target::LogDir` 以 bundle identifier 为目录名（本工程即 `%APPDATA%/com.freecontrol`），
 //! 与 spec 约定的数据根不是一个目录；它的轮转按文件**大小**，而本 spec 的文件名语义是「一天一个文件」。
 //! 本模块零新依赖，且命名 / 超期 / 清理都是可单测的纯函数。
 

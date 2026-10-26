@@ -17,7 +17,7 @@ export {
 export const DEFAULT_LANGUAGE: LanguagePref = 'system';
 
 /** 首帧语言快照的键：只存 `zh` / `en`，不存 `system`。 */
-export const LANG_CACHE_KEY = 'freecontrol2-ui-lang';
+export const LANG_CACHE_KEY = 'freecontrol-ui-lang';
 
 function readCachedLang(): Lang | null {
   try {

@@ -412,8 +412,8 @@
   >
     <button class="about-close" aria-label={$t('about.close')} on:click={close}><X /></button>
 
-    <div class="about-logo"><img src={logoMark} alt="FreeControl2" on:error={hideImg} />F</div>
-    <div class="about-name">FreeControl2</div>
+    <div class="about-logo"><img src={logoMark} alt="FreeControl" on:error={hideImg} />F</div>
+    <div class="about-name">FreeControl</div>
 
     <div class="about-views">
       <!-- 关于视图 -->
@@ -432,7 +432,7 @@
             on:click={() => copyVersion('app', appVer)}
             on:keydown={(e) => onRowKeydown(e, 'app', appVer)}
           >
-            <span class="about-ver-name">FreeControl2<span class="about-ver-tag">{$t('about.appTag')}</span></span>
+            <span class="about-ver-name">FreeControl<span class="about-ver-tag">{$t('about.appTag')}</span></span>
             <span class="about-ver-val">{appVer}</span>
             <span class="about-copy" class:ok={copiedKey === 'app'} aria-hidden="true">
               {#if copiedKey === 'app'}<Check />{:else}<Copy />{/if}

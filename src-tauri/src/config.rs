@@ -521,6 +521,11 @@ fn new_device_id() -> String {
 }
 
 /// 应用数据目录名。spec 约定为 `%APPDATA%/FreeControl2`（不随 bundle identifier 变化）。
+///
+/// **刻意不跟着产品名改**：第一代的用户数据目录正是 `%APPDATA%/FreeControl`（WPF 版把扁平
+/// 参数写在同一处的 `config.json`），占用那个名字会让两代互相覆盖配置 —— 两代交替打开时
+/// 谁的设置都留不住。这个目录名因此兼作两代的隔离带：产品叫 FreeControl，数据目录仍叫
+/// FreeControl2。等真有第三代或移动端产品时再统一另立新目录，不给这一轮再加一次搬迁。
 pub const APP_DIR_NAME: &str = "FreeControl2";
 
 /// 应用数据根目录：`%APPDATA%/FreeControl2`（design D7）。
@@ -529,7 +534,7 @@ pub const APP_DIR_NAME: &str = "FreeControl2";
 /// 二者不会各自算出一个目录（tasks 3.1 要求「与配置的应用数据目录一致」）。
 ///
 /// 不用 Tauri 的 `app_data_dir()`：它把 bundle identifier 当目录名用
-/// （本工程即 `%APPDATA%/com.freecontrol2`），与 spec 约定的目录名不符；
+/// （本工程即 `%APPDATA%/com.freecontrol`），与 spec 约定的目录名不符；
 /// 改 identifier 也会顺带搬走用户数据。故以 `data_dir()`（Windows 下即 `%APPDATA%`）
 /// 为基座拼固定目录名。
 pub fn app_data_root(app: &AppHandle) -> Result<PathBuf, String> {

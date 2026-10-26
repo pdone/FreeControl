@@ -2,7 +2,14 @@
 
 <a href="Update.md">中文</a> | English
 
-## v1.3.0
+## v2.3.0
+
+> [!IMPORTANT]
+> **Starting with this release the app is called FreeControl.** The executable, the window title, "About" and the docs all use FreeControl, while the first-generation product becomes FreeControl Legacy; the repository and website addresses follow. The data folder stays where it was, `%APPDATA%\FreeControl2` — your device list, parameters, theme and downloaded runtime need no moving, and it never collides with the first generation's folder. Update checks and the website now point at the new address `https://fc.awaw.cc/`.
+>
+> The version therefore jumps straight to 2.3.0: this rename changes the program file, the installers and the update address, which is a breaking change, and 2.0, 2.1 and 2.2 were never released. Your interface-font and interface-language choices go back to the defaults (follow the system); every other setting is kept.
+>
+> The installer file names now start with `FreeControl_` as well. So "Check for updates" on 1.2.0 and earlier reports that there is no update package available, and you need to download this release manually once; after that, automatic updates work again.
 
 ### New
 

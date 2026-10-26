@@ -96,7 +96,7 @@ fn setup_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     TrayIconBuilder::with_id("main")
         .icon(TRAY_ICON)
         .icon_as_template(true)   // macOS 关键：作为模板图渲染
-        .tooltip("FreeControl2")
+        .tooltip("FreeControl")
         .build(app)?;
     Ok(())
 }

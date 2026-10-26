@@ -26,10 +26,10 @@ use std::time::SystemTime;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// 本项目最新正式发行接口（与 scrcpy 的 `LATEST_RELEASE_API` 是两个不同的目标）。
-pub const RELEASE_API: &str = "https://api.github.com/repos/pdone/FreeControl2/releases/latest";
+pub const RELEASE_API: &str = "https://api.github.com/repos/pdone/FreeControl/releases/latest";
 
 /// 资产下载地址前缀（发行元数据缺下载地址时按此拼接）。
-const RELEASES_DOWNLOAD: &str = "https://github.com/pdone/FreeControl2/releases/download";
+const RELEASES_DOWNLOAD: &str = "https://github.com/pdone/FreeControl/releases/download";
 
 /// 更新进度事件名 —— 与 `scrcpy-install-progress` 分开，互不干扰（design D7）。
 pub const PROGRESS_EVENT: &str = "app-update-progress";
@@ -166,24 +166,41 @@ fn dmg_arch_segment(arch: &str) -> Option<&'static str> {
     }
 }
 
+/// 资产名前缀的候选顺序：先产品名 `FreeControl`，再更名前的旧名 `FreeControl2`。
+///
+/// 出包流程从 2.3.0 起只发新前缀；旧前缀留在这里，只为让「新代码读旧发行」仍成立
+/// （`≤1.2.0` 那批发行的资产名仍是旧名）。反方向的「旧代码读新发行」代码侧救不了，
+/// 那批用户须手动下载一次 —— 见规格 `app-update`「按平台与架构选择发行资产」。
+const ASSET_PREFIXES: [&str; 2] = ["FreeControl", "FreeControl2"];
+
 /// 当前平台 / 架构 / 运行形态可能对应的资产名（按优先级排列）。
 ///
-/// 命名规则见规格 `release-build`：`{产品名}_{版本}_{平台}_{架构}`。v1.2.0 起加平台段，
-/// macOS 的架构段由 `aarch64` 改写为 `arm64`。每个分支在新名之后各留旧名兜底 ——
+/// 命名规则见规格 `release-build`：`{前缀}_{版本}_{平台}_{架构}`。v1.2.0 起加平台段，
+/// macOS 的架构段由 `aarch64` 改写为 `arm64`。每个前缀下先给带平台段的名字，再各留旧名兜底 ——
 /// 「新代码读旧发行」仍成立（规格 `app-update`「历史命名仍可识别」）；反方向的
 /// 「旧代码读新发行」代码侧救不了，那批用户须手动下载一次。
+///
+/// 前缀是**外层**循环：`FreeControl_` 的任一变体都优先于 `FreeControl2_` 的任何变体，
+/// 两种前缀并存时不会因为旧名的「更贴近」而选旧的那份。
 fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
+    ASSET_PREFIXES
+        .iter()
+        .flat_map(|prefix| expected_names_for(prefix, version, arch, kind))
+        .collect()
+}
+
+fn expected_names_for(prefix: &str, version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
     match kind {
         PackageKind::WindowsExe => match arch {
             "x86_64" => vec![
-                format!("FreeControl2_{version}_windows_x64.exe"),
-                // 改名前的 v1.1.x 命名与 v1.0.1 的无架构段命名，都只可能是 x64。
-                format!("FreeControl2_{version}_x64.exe"),
-                format!("FreeControl2_{version}.exe"),
+                format!("{prefix}_{version}_windows_x64.exe"),
+                // 更名前的 v1.1.x 命名与 v1.0.1 的无架构段命名，都只可能是 x64。
+                format!("{prefix}_{version}_x64.exe"),
+                format!("{prefix}_{version}.exe"),
             ],
             "aarch64" => vec![
-                format!("FreeControl2_{version}_windows_arm64.exe"),
-                format!("FreeControl2_{version}_arm64.exe"),
+                format!("{prefix}_{version}_windows_arm64.exe"),
+                format!("{prefix}_{version}_arm64.exe"),
             ],
             _ => Vec::new(),
         },
@@ -191,8 +208,8 @@ fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
             .iter()
             .flat_map(|a| {
                 [
-                    format!("FreeControl2_{version}_linux_{a}.AppImage"),
-                    format!("FreeControl2_{version}_{a}.AppImage"),
+                    format!("{prefix}_{version}_linux_{a}.AppImage"),
+                    format!("{prefix}_{version}_{a}.AppImage"),
                 ]
             })
             .collect(),
@@ -200,8 +217,8 @@ fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
             .iter()
             .flat_map(|a| {
                 [
-                    format!("FreeControl2_{version}_linux_{a}.deb"),
-                    format!("FreeControl2_{version}_{a}.deb"),
+                    format!("{prefix}_{version}_linux_{a}.deb"),
+                    format!("{prefix}_{version}_{a}.deb"),
                 ]
             })
             .collect(),
@@ -209,8 +226,8 @@ fn expected_names(version: &str, arch: &str, kind: PackageKind) -> Vec<String> {
             .map(|a| {
                 let legacy = if a == "arm64" { "aarch64" } else { a };
                 vec![
-                    format!("FreeControl2_{version}_macos_{a}.dmg"),
-                    format!("FreeControl2_{version}_{legacy}.dmg"),
+                    format!("{prefix}_{version}_macos_{a}.dmg"),
+                    format!("{prefix}_{version}_{legacy}.dmg"),
                 ]
             })
             .unwrap_or_default(),
@@ -854,6 +871,44 @@ mod tests {
     }
 
     #[test]
+    fn asset_prefix_new_wins_and_legacy_still_parses() {
+        // 两种前缀并存：取产品名那份，即便旧名那份同样匹配。
+        let both = vec![
+            asset("FreeControl2_2.3.0_windows_x64.exe", Some(&digest('a'))),
+            asset("FreeControl_2.3.0_windows_x64.exe", Some(&digest('b'))),
+        ];
+        let plan =
+            parse_release_for(&body("v2.3.0", both), "x86_64", PackageKind::WindowsExe).unwrap();
+        assert_eq!(plan.asset, "FreeControl_2.3.0_windows_x64.exe");
+        assert_eq!(plan.digest, "b".repeat(64));
+
+        // 旧前缀的历史发行：仍要认出来并进入下载，而不是报「没有可用更新包」。
+        let legacy_only = vec![asset("FreeControl2_2.3.0_windows_x64.exe", Some(&digest('c')))];
+        let plan =
+            parse_release_for(&body("v2.3.0", legacy_only), "x86_64", PackageKind::WindowsExe)
+                .unwrap();
+        assert_eq!(plan.asset, "FreeControl2_2.3.0_windows_x64.exe");
+
+        // 旧前缀的 Linux 资产同理。
+        let legacy_appimage = vec![asset(
+            "FreeControl2_2.3.0_linux_amd64.AppImage",
+            Some(&digest('d')),
+        )];
+        assert!(parse_release_for(
+            &body("v2.3.0", legacy_appimage),
+            "x86_64",
+            PackageKind::AppImage
+        )
+        .is_ok());
+
+        // 两种前缀都没有：报无匹配资产，不借用别的平台或别的名字。
+        let none = vec![asset("Other_2.3.0_windows_x64.exe", Some(&digest('e')))];
+        assert!(
+            parse_release_for(&body("v2.3.0", none), "x86_64", PackageKind::WindowsExe).is_err()
+        );
+    }
+
+    #[test]
     fn windows_arm64_never_picks_x64() {
         let assets = vec![
             asset("FreeControl2_1.0.2_windows_x64.exe", Some(&digest('a'))),
@@ -961,7 +1016,7 @@ mod tests {
             parse_release_for(&body("v1.0.2", assets), "x86_64", PackageKind::WindowsExe).unwrap();
         assert_eq!(
             plan.url,
-            "https://github.com/pdone/FreeControl2/releases/download/v1.0.2/FreeControl2_1.0.2_x64.exe"
+            "https://github.com/pdone/FreeControl/releases/download/v1.0.2/FreeControl2_1.0.2_x64.exe"
         );
     }
 

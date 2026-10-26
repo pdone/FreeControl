@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FreeControl2",
-  "mainBinaryName": "FreeControl2",
-  "version": "1.3.0",
-  "identifier": "com.freecontrol2",
+  "productName": "FreeControl",
+  "mainBinaryName": "FreeControl",
+  "version": "2.3.0",
+  "identifier": "com.freecontrol",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FreeControl2",
+        "title": "FreeControl",
         "visible": false,
         "width": 1100,
         "height": 720,

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO = 'pdone/FreeControl2';
+const REPO = 'pdone/FreeControl';
 const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(siteRoot, 'src', 'lib', 'release.json');
 const PAGE = `https://github.com/${REPO}/releases/latest`;
@@ -16,7 +16,7 @@ const write = (data) => fs.writeFileSync(OUT, `${JSON.stringify(data, null, 2)}\
 // 首选：发行 API。直接拿 GITHUB 给出的 browser_download_url（与产物名解耦，改名也不受影响）。
 async function viaApi() {
   const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-    headers: { accept: 'application/vnd.github+json', 'user-agent': 'freecontrol2-website-build' },
+    headers: { accept: 'application/vnd.github+json', 'user-agent': 'freecontrol-website-build' },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const rel = await res.json();
@@ -37,7 +37,7 @@ async function viaApi() {
 }
 
 // 兜底：不占用 API 限额，从 /releases/latest 的 302 读出 tag，再按工作流的产物命名拼直链
-// （见 .github/workflows/build.yml：`FreeControl2_<v>_windows_{x64|arm64}.exe`、
+// （见 .github/workflows/build.yml：`<前缀>_<v>_windows_{x64|arm64}.exe`、
 // `_linux_amd64.{AppImage|deb}`、`_macos_{arm64|x64}.dmg`）。这条路径没有资产清单可比对，
 // 名字拼错只能靠 HEAD 发现，故六条全名与构建侧的改名步骤逐字对齐。
 // dmg 早于 macOS 档位的发行里没有，拼出的链接会 404 —— 置空让它单独回退到发行页，不拖垮整页。
@@ -50,23 +50,42 @@ async function assetExists(url) {
   }
 }
 
+// 资产名前缀的候选顺序：先产品名 `FreeControl`，再更名前的旧名 `FreeControl2` ——
+// 2.3.0 起只发新前缀；旧前缀留在表里，好让 ≤1.2.0 那批历史发行也能解析出直链。
+const PREFIXES = ['FreeControl', 'FreeControl2'];
+
+// 同一份产物在两种前缀下取先存在的那个；都没有时返回 null，由调用方决定是回退还是置空。
+async function firstExisting(base, v, suffix) {
+  for (const prefix of PREFIXES) {
+    const url = `${base}/${prefix}_${v}_${suffix}`;
+    if (await assetExists(url)) return url;
+  }
+  return null;
+}
+
 async function viaRedirect() {
   const res = await fetch(PAGE, { redirect: 'manual' });
   const tag = (res.headers.get('location') || '').match(/\/releases\/tag\/(.+)$/)?.[1];
   if (!tag) throw new Error('重定向里没有 tag');
   const v = tag.replace(/^v/, '');
   const base = `https://github.com/${REPO}/releases/download/${tag}`;
-  const macosArm64 = `${base}/FreeControl2_${v}_macos_arm64.dmg`;
-  const macosX64 = `${base}/FreeControl2_${v}_macos_x64.dmg`;
-  const [hasArm, hasIntel] = await Promise.all([assetExists(macosArm64), assetExists(macosX64)]);
+  const [windows, windowsArm64, appimage, deb, macosArm64, macosX64] = await Promise.all([
+    firstExisting(base, v, 'windows_x64.exe'),
+    firstExisting(base, v, 'windows_arm64.exe'),
+    firstExisting(base, v, 'linux_amd64.AppImage'),
+    firstExisting(base, v, 'linux_amd64.deb'),
+    firstExisting(base, v, 'macos_arm64.dmg'),
+    firstExisting(base, v, 'macos_x64.dmg'),
+  ]);
   return {
     tag,
-    windows: `${base}/FreeControl2_${v}_windows_x64.exe`,
-    windowsArm64: `${base}/FreeControl2_${v}_windows_arm64.exe`,
-    appimage: `${base}/FreeControl2_${v}_linux_amd64.AppImage`,
-    deb: `${base}/FreeControl2_${v}_linux_amd64.deb`,
-    macosArm64: hasArm ? macosArm64 : null,
-    macosX64: hasIntel ? macosX64 : null,
+    // 这三个平台自 v1.0 起每次都有；HEAD 全落空时仍给出新前缀的地址，让页面按钮不空着。
+    windows: windows ?? `${base}/${PREFIXES[0]}_${v}_windows_x64.exe`,
+    windowsArm64: windowsArm64 ?? `${base}/${PREFIXES[0]}_${v}_windows_arm64.exe`,
+    appimage: appimage ?? `${base}/${PREFIXES[0]}_${v}_linux_amd64.AppImage`,
+    deb: deb ?? `${base}/${PREFIXES[0]}_${v}_linux_amd64.deb`,
+    macosArm64,
+    macosX64,
   };
 }
 
