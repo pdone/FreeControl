@@ -143,6 +143,10 @@ Fetch them on the "Runtime" page. Neither ships with the app; both are downloade
 
 Open "About" and click "Check for updates", or turn on "Check for updates automatically" on the "Settings" page — the app downloads and verifies the new version, then restarts to finish. On Linux the package build is handed to the system installer once downloaded. On macOS the dmg is downloaded and verified, then opened by Finder so you can drag the app into Applications over the old version; the app does not quit on its own.
 
+### How are version numbers assigned?
+
+Version numbers look like `v<major>.<minor>.<patch>`. A higher minor number means the release brings new capabilities (for example, the font selection on the Settings page); a higher patch number means fixes and polish only; the major number moves only for incompatible changes. Every release is recorded in the changelog.
+
 ### The download fails or hangs on one channel
 
 A failed direct connection falls back to the next channel; you can also switch channels in place from the progress area. Channels that cannot be reached are skipped for the rest of the run instead of retried.

@@ -2,6 +2,24 @@
 
 <a href="Update.md">中文</a> | English
 
+## v1.3.0
+
+### New
+
+- Interface and code fonts: choose separate fonts for the interface and code areas on the Settings page, with missing glyphs filled in by the matching system stack.
+
+### Improved
+
+- Device parameters open in a dialog that can be enlarged: changing one device's parameters no longer pushes the other devices down the list. The set covers 13 items in four sections, and the dialog shows the command that device will run.
+- The "Add device" dialog fades in, and clicking the backdrop closes it.
+- Global parameters and device parameters are now described the same way: the parameter pages set global parameters, and "Parameters" on a device card applies to that device only and takes priority over the global ones.
+- The build is about 16% smaller: the portable Windows file drops from 7.3 MB to 6.1 MB, with no features removed.
+
+### Fixed
+
+- The detail panel for a parameter is wider, so long descriptions no longer wrap into many lines.
+- The "?" help button on a field label now lines up with the text before it, including rows with code chips.
+
 ## v1.2.0
 
 ### New

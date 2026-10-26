@@ -58,13 +58,13 @@ const zh = {
     aspectHead: '对比项',
     columns: ['FreeControl2', 'FreeControl', 'Escrcpy'],
     highlights: [
-      { icon: 'HardDrive', stat: '约 7 MB', label: '免安装单文件', desc: 'Windows 程序仅约 7 MB；同为 scrcpy 壳的 Electron 工具约 116 MB。' },
+      { icon: 'HardDrive', stat: '约 6 MB', label: '免安装单文件', desc: 'Windows 程序仅约 6 MB；同为 scrcpy 壳的 Electron 工具约 116 MB。' },
       { icon: 'Cpu', stat: 'Rust 原生核心', label: '轻量高效', desc: '后端由 Rust 原生编译，界面走系统自带的 WebView，不内嵌浏览器内核。' },
       { icon: 'PlugZap', stat: '零配置', label: '开箱即用', desc: 'scrcpy 与 adb 由应用按需获取，不需要手动安装或配置。' },
     ],
     rows: [
       { aspect: '支持平台', fc2: 'Windows 10 / 11 免安装单文件（x64 / ARM64）；Linux 提供 AppImage 与 deb；macOS 提供 dmg（Apple 芯片与 Intel 各一份）', others: ['仅 Windows', 'Windows / macOS / Linux'] },
-      { aspect: '程序体积（Windows）', fc2: '约 7 MB（免安装单文件）', others: ['约 7 MB（单文件）', '约 116 MB（安装包）'] },
+      { aspect: '程序体积（Windows）', fc2: '约 6 MB（免安装单文件）', others: ['约 7 MB（单文件）', '约 116 MB（安装包）'] },
       { aspect: '维护状态', fc2: '活跃', others: ['已归档，让位于 FreeControl2', '活跃'] },
       { aspect: '设备清单', fc2: '别名映射 USB 序列号或 IP:端口，在线状态实时可见', others: ['USB 与无线 ADB', '多设备协同'] },
       { aspect: '参数控制', fc2: '六组控件逐项对应 scrcpy 长选项，另有自定义参数框；可为单台设备整套覆盖', others: ['常用开关（IME、音频转发、唤醒锁等）', '快捷键与键盘映射'] },
@@ -230,13 +230,13 @@ const en: Dict = {
     aspectHead: 'Aspect',
     columns: ['FreeControl2', 'FreeControl', 'Escrcpy'],
     highlights: [
-      { icon: 'HardDrive', stat: '≈ 7 MB', label: 'Single portable file', desc: 'The Windows program is only about 7 MB; an Electron-based scrcpy GUI is about 116 MB.' },
+      { icon: 'HardDrive', stat: '≈ 6 MB', label: 'Single portable file', desc: 'The Windows program is only about 6 MB; an Electron-based scrcpy GUI is about 116 MB.' },
       { icon: 'Cpu', stat: 'Native Rust core', label: 'Light and fast', desc: 'The backend is compiled from Rust and the UI uses the system WebView — no browser engine bundled.' },
       { icon: 'PlugZap', stat: 'Zero setup', label: 'Works out of the box', desc: 'scrcpy and adb are fetched on demand by the app — no manual install or configuration.' },
     ],
     rows: [
       { aspect: 'Platforms', fc2: 'Portable single files for Windows 10 / 11 (x64 / ARM64); AppImage and deb on Linux; dmg for macOS (Apple silicon and Intel)', others: ['Windows only', 'Windows / macOS / Linux'] },
-      { aspect: 'Size (Windows)', fc2: '≈ 7 MB (single portable file)', others: ['≈ 7 MB (single file)', '≈ 116 MB (installer)'] },
+      { aspect: 'Size (Windows)', fc2: '≈ 6 MB (single portable file)', others: ['≈ 7 MB (single file)', '≈ 116 MB (installer)'] },
       { aspect: 'Maintenance', fc2: 'Active', others: ['Archived, superseded by FreeControl2', 'Active'] },
       { aspect: 'Device list', fc2: 'An alias per device mapped to a USB serial or IP:port, with live online status', others: ['USB and wireless ADB', 'Multi-device control'] },
       { aspect: 'Parameters', fc2: 'Six groups of controls mapped to scrcpy long options, a custom-arguments box, and a full per-device parameter set', others: ['Common switches (IME, audio forwarding, wake lock…)', 'Shortcuts and keyboard mapping'] },
