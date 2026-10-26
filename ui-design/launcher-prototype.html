@@ -2766,6 +2766,8 @@
   const DICT = JSON.parse(document.getElementById('protoI18n').textContent);
   // 承载用户可见文案的属性：提示、可访问名、占位符都按同一张表替换
   const ATTRS = ['aria-label', 'placeholder', 'data-tip', 'title', 'alt'];
+  // 同一组属性的一次性选择器（由 ATTRS 派生，避免两处各写一遍走偏）
+  const ATTR_SELECTOR = ATTRS.map((name) => '[' + name + ']').join(',');
   const root = document.documentElement;
 
   // 带占位符的条目另编成模板：`{0}` 换成命名捕获，输出时把捕获值填回英文的同名占位符
@@ -2864,7 +2866,10 @@
     s.out = next;
   }
 
+  // 每真正执行一次全量扫描加一：给验收一个可判定的读口，而不是靠肉眼
+  let scans = 0;
   function apply() {
+    scans++;
     const body = document.body;
     if (!body) return;
     const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
@@ -2879,14 +2884,18 @@
       if (tag === 'SCRIPT' || tag === 'STYLE' || parent.closest('[data-proto-literal]')) continue;
       syncText(node);
     }
-    for (const name of ATTRS) {
-      for (const el of body.querySelectorAll('[' + name + ']')) syncAttr(el, name);
+    // 一次查出承载文案的元素并集，再逐个属性判存在：与「按属性各查一遍」是同一组 (元素, 属性) 对，
+    // 只是从按属性分组变成按文档序；syncAttr 只改值不新增属性，遍历中的集合不会变
+    for (const el of body.querySelectorAll(ATTR_SELECTOR)) {
+      for (const name of ATTRS) if (el.hasAttribute(name)) syncAttr(el, name);
     }
   }
 
   // 合并到一次微任务：一次交互里可能连续改十几处 DOM，只扫一遍
   let pending = false;
   function schedule() {
+    // 非英文下 apply() 只会把原值写回，扫一遍等于空操作；守卫只放调用点，apply() 内部不加（见 setPref 的还原路径）
+    if (lang !== 'en') return;
     if (pending) return;
     pending = true;
     Promise.resolve().then(() => { pending = false; apply(); });
@@ -2900,11 +2909,14 @@
 
   function setPref(next) {
     if (next !== 'system' && next !== 'zh' && next !== 'en') return;
+    const before = lang;
     pref = next;
     lang = pref === 'system' ? systemLang() : pref;
     root.lang = lang === 'en' ? 'en' : 'zh-CN';
     syncSeg();
-    apply();
+    // 语言没变就不必扫（官网会在 iframe 加载后回显一条同语言的 fc2:lang）；
+    // 变了必须扫：切回中文要靠 apply() 的还原路径把原文写回节点
+    if (lang !== before) apply();
   }
 
   if (seg) {
@@ -2923,19 +2935,28 @@
 
   root.lang = lang === 'en' ? 'en' : 'zh-CN';
   syncSeg();
-  apply();
+  // 静态标记在业务脚本跑之前先翻好，避免英文访客先看到一屏中文再跳变；中文下这一趟是纯空操作
+  if (lang === 'en') apply();
 
-  // 复扫：页面自身重渲染后（列表、进度、提示）把新写进来的文案跟上
-  new MutationObserver(schedule).observe(document.body, {
-    subtree: true,
-    childList: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ATTRS,
-  });
+  // 复扫：页面自身重渲染后（列表、进度、提示）把新写进来的文案跟上。
+  // 观察器等到 load 再挂：业务脚本首轮渲染的每一批 DOM 写入都会触发复扫，初始化期间挂上会各扫一遍
+  const observer = new MutationObserver(schedule);
+  const startWatch = () => {
+    if (lang === 'en') apply(); // 补上首轮渲染写进来的文案
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ATTRS,
+    });
+  };
+  // 用 load 而不是 rAF：后台标签与预渲染会节流 rAF，观察器可能一直挂不上
+  if (document.readyState === 'complete') startWatch();
+  else window.addEventListener('load', startWatch, { once: true });
 
   // 探针与调试用的读口，不参与界面
-  window.__protoLang = { get: () => ({ pref: pref, lang: lang }), set: setPref };
+  window.__protoLang = { get: () => ({ pref: pref, lang: lang, scans: scans }), set: setPref };
 })();
 </script>
 
