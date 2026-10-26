@@ -1,16 +1,17 @@
 <script lang="ts">
-  // 图标取自 CDN 的 lucide（`window.lucide`，见 index.html）：按名从 `lucide.icons` 取图形节点，
-  // 序列化成 <svg> 渲染。刻意不用 `lucide.createIcons()` 那种「就地替换 DOM」的做法 ——
+  // 图标取自入库的 lucide 子集（`icon-set.ts`，由 scripts/gen-icon-subset.mjs 生成，
+  // 与产品 package.json 的 lucide-svelte 同版）：按名从 `ICONS` 取图形节点，序列化成 <svg> 渲染。
+  // 刻意不用 `lucide.createIcons()` 那种「就地替换 DOM」的做法 ——
   // 那是给静态页用的，会与 Svelte 的视图所有权打架（切换语言重建节点时对不上）。
-  // 取不到库时优雅降级为不渲染（图标为空，不影响其余内容）。
+  // 取不到图标时优雅降级为不渲染（图标为空，不影响其余内容）。
+  import { ICONS } from './icon-set';
+
   export let name: string; // lucide 的 PascalCase 名，如 "Github"、"Download"
   export let size = 16;
   export let strokeWidth = 2;
 
   // lucide 的图形节点形如 ['svg', attrs, [子节点…]]，子节点同构（如 ['path', {d}]）。
   type IconChild = [string, Record<string, string | number>, IconChild[]?];
-
-  const lib = (globalThis as { lucide?: { icons?: Record<string, unknown> } }).lucide;
 
   const esc = (v: string): string =>
     v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -32,8 +33,8 @@
   }
 
   let warned = false;
-  $: node = lib?.icons?.[name] as IconChild | undefined;
-  $: if (!node && lib && !warned) {
+  $: node = ICONS[name] as IconChild | undefined;
+  $: if (!node && !warned) {
     warned = true;
     console.warn(`[Icon] 未知的 lucide 图标：${name}`);
   }

@@ -17,10 +17,8 @@
         background-color: #0b0d11;
       }
     </style>
-    <!-- 图标库取自 CDN 的 lucide（与产品 package.json 的 lucide-svelte 同版 0.456.0）：
-         站内与内嵌原型同用一份图标定义。用同步脚本（无 defer）确保 main.ts 执行前 window.lucide 已就绪；
-         取不到时站点优雅降级（图标为空，不影响其余内容）。 -->
-    <script src="https://unpkg.com/lucide@0.456.0/dist/umd/lucide.js"></script>
+    <!-- 图标数据随包提供（`src/lib/icon-set.ts`，由 scripts/gen-icon-subset.mjs 生成），不走 CDN：
+         站内与内嵌原型同用一份入库子集，首屏无第三方脚本。 -->
   </head>
   <body>
     <div id="app"></div>

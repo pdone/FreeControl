@@ -45,7 +45,7 @@ code {
   padding: 1px 5px;
 }
 
-/* 图标：来自 CDN lucide（src/lib/Icon.svelte），统一不参与 flex 拉伸 */
+/* 图标：来自入库的 lucide 子集（src/lib/icon-set.ts，见 src/lib/Icon.svelte），统一不参与 flex 拉伸 */
 .ico {
   display: block;
   flex: none;
