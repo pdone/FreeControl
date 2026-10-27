@@ -153,7 +153,10 @@
 
   /* ---------- Sidebar ---------- */
   /* 分隔线用 inset box-shadow 画而不是 border：border 会吃掉 1px 布局宽度，使栏内内容整体偏离中线 */
-  .sidebar { background: var(--bg-elev); box-shadow: inset -1px 0 0 var(--border); display: flex; flex-direction: column; padding: 18px var(--rail-pad); overflow-y: auto; }
+  /* 纵向滚动条出现时会占走右侧那 10px 内边距的位置（见 .nav 的 min-width）；
+     横向超出只有品牌标识有意的 1px（--logo 45 对栏内容宽 44），裁掉即可，MUST NOT 出横向滚动条。
+     用 hidden 而非 clip：旧版 WKWebView 不认 clip，会回落成 auto 把滚动条放回来。 */
+  .sidebar { background: var(--bg-elev); box-shadow: inset -1px 0 0 var(--border); display: flex; flex-direction: column; padding: 18px var(--rail-pad); overflow-y: auto; overflow-x: hidden; }
   /* 品牌行：左右偏移由 --logo 派生，使 logo 的**水平中心恒为 x=32**
      （= 展开态导航图标中心 = 收起态栏中线：栏内容宽 64−2×10 = 44，
       偏移 = (44 − --logo)/2，logo 中心 = 10 + 偏移 + --logo/2 = 32，与 --logo 取值无关）。
@@ -188,7 +191,9 @@
   /* 品牌行只有图形标记与产品名（MUST NOT 再出现版本号）：版本信息统一在「关于」弹窗展示，
      产品侧的品牌行早已只渲染产品名，原型留着一行版本会演示出并不存在的东西。 */
   .brand .name { font-weight: 600; letter-spacing: .3px; }
-  .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+  /* 侧栏出纵向滚动条后，导航区会从设计宽 44 被压到 34；按设计宽兜底（滚动条改占右侧内边距）。
+     MUST NOT 改成 width：收起过渡中它会瞬时生效，高亮块在点击瞬间先跳一下。 */
+  .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; min-width: calc(var(--rail-w) - 2 * var(--rail-pad)); }
   .nav-item { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 var(--item-pad); border-radius: var(--radius-sm); color: var(--text-dim); cursor: pointer; user-select: none; transition: background .16s, color .16s, gap .18s ease; font-size: 14.5px; }
   .nav-item:hover { background: var(--panel); color: var(--text); }
   .nav-item.active { background: var(--accent-soft); color: var(--accent-text); }
@@ -199,7 +204,7 @@
   /* 导航/品牌文字：用 max-width + opacity 过渡，与侧栏宽度动画同速，避免挤压闪烁 */
   .nav-text, .brand-text { white-space: nowrap; overflow: hidden; min-width: 0; max-width: 200px; opacity: 1; transition: max-width .18s ease, opacity .15s ease; }
   /* 侧边栏收起按钮：边框同样改用 inset box-shadow，避免 1px 边框把图标挤偏 */
-  .collapse-btn { margin-top: 12px; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .16s, color .16s, gap .18s ease; }
+  .collapse-btn { margin-top: 12px; flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; min-width: calc(var(--rail-w) - 2 * var(--rail-pad)); height: 44px; padding: 0 var(--item-pad); border: none; box-shadow: inset 0 0 0 1px var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; font-family: inherit; transition: box-shadow .16s, color .16s, gap .18s ease; }
   .collapse-btn:hover { box-shadow: inset 0 0 0 1px var(--border-strong); color: var(--text); }
   .collapse-btn svg { width: var(--icon); height: var(--icon); stroke: currentColor; stroke-width: 1.7; flex: none; transition: transform .18s ease; }
   /* 收起态：collapsed 加在 .app 容器上。
@@ -534,6 +539,9 @@
   .seg { position: relative; display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
   .seg button { position: relative; z-index: 1; border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; }
   .seg button.active { color: var(--accent-ink); }
+  /* 条件不满足时整组不可用（如关闭自动检查时的检查频率）：按钮变淡、不给手形；
+     选中指示块由 initSegIndicators 按 disabled 同步写成 0.5。 */
+  .seg button:disabled { opacity: .5; cursor: not-allowed; }
   /* 选中切换的滑动指示块（spec app-shell「分段控件的选中切换动画」/ config ㉟）：
      与产品侧同一套几何、时长与降级；主题模式组由整页过渡承载，指示块直接换位。 */
   .seg-indicator { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 6px; background: var(--accent); opacity: 0; pointer-events: none; transition: transform 160ms ease, width 160ms ease, height 160ms ease, background-color 120ms ease; }
@@ -1687,7 +1695,8 @@
           </div>
 
           <!-- 自动更新：本程序自身的更新偏好，与 scrcpy 参数无关。开关与频率只存在页面内；
-               后台定时检查不在原型里模拟，自动发现新版后的「结果态直出」用 #update=available|ready 演示。 -->
+               关闭自动检查时频率仍常驻但不可用；后台定时检查不在原型里模拟，
+               自动发现新版后的「结果态直出」用 #update=available|ready 演示。 -->
           <div class="card">
             <h3>自动更新</h3>
             <div class="field">
@@ -1699,13 +1708,13 @@
                 </label>
               </div>
             </div>
-            <div class="field hidden" id="autoUpdateFrequencyField">
+            <div class="field" id="autoUpdateFrequencyField">
               <span class="flabel">检查频率</span>
               <div class="seg" id="autoUpdateFrequency">
-                <button class="active" data-v="launch">每次启动</button>
-                <button data-v="daily">每天</button>
-                <button data-v="weekly">每周</button>
-                <button data-v="monthly">每月</button>
+                <button class="active" data-v="launch" disabled>每次启动</button>
+                <button data-v="daily" disabled>每天</button>
+                <button data-v="weekly" disabled>每周</button>
+                <button data-v="monthly" disabled>每月</button>
               </div>
             </div>
             <div class="field">
@@ -5216,7 +5225,7 @@
      原型只演示设置形态与「检查更新」入口：开关 / 频率只存在页面内，不落盘。
      后台定时检查不在原型里模拟；自动发现新版后的结果态用 #update=available|ready 直出。 */
   document.getElementById('autoUpdateToggle').addEventListener('change', e=>{
-    document.getElementById('autoUpdateFrequencyField').classList.toggle('hidden', !e.target.checked);
+    document.querySelectorAll('#autoUpdateFrequency button').forEach(b=>{ b.disabled = !e.target.checked; });
   });
   document.getElementById('autoUpdateFrequency').addEventListener('click', e=>{
     const b=e.target.closest('button[data-v]'); if(!b) return;

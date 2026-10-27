@@ -263,6 +263,11 @@ textarea,
   flex-direction: column;
   padding: 18px var(--rail-pad);
   overflow-y: auto; /* 仅当自身内容超高（如极矮窗口）时独立滚动，绝不随主内容或文档滚动（D14） */
+  /* 纵向滚动条出现时会占走右侧那 10px 内边距的位置（见 .nav 的 min-width），
+     此时横向只剩品牌标识有意的 1px 超出（--logo 45 对栏内容宽 44），裁掉即可，
+     MUST NOT 让它变成横向滚动条。用 hidden 而非 clip：旧版 WKWebView 不认 clip，
+     会回落成 auto 把滚动条放回来。 */
+  overflow-x: hidden;
 }
 
 /* 品牌行：左右偏移由 --logo 派生，使 logo 的**水平中心恒为 x=32**
@@ -337,6 +342,10 @@ textarea,
      不用 .collapse-btn { margin-top: auto } 表达：flex 项的 auto margin 在没有剩余空间时
      归零，窗口矮到侧边栏自己出滚动条时按钮会贴死最后一个导航项，那 12px 间距就丢了。 */
   flex: 1 0 auto;
+  /* 侧栏出纵向滚动条后，本容器会从设计宽 44 被压到 34；按设计宽兜底，
+     导航项与分隔线才不会被滚动条挤窄（滚动条改占右侧内边距，见 .sidebar）。
+     MUST NOT 改成 width：收起过渡中它会瞬时生效，高亮块在点击瞬间先跳一下。 */
+  min-width: calc(var(--rail-w) - 2 * var(--rail-pad));
 }
 .nav-item {
   display: flex;
@@ -399,6 +408,8 @@ textarea,
   justify-content: flex-start;
   gap: 10px;
   width: 100%;
+  /* 与 .nav 同宽兜底：滚动条出现时按钮不被压窄（理由见 .nav 的 min-width）。 */
+  min-width: calc(var(--rail-w) - 2 * var(--rail-pad));
   height: 44px;
   padding: 0 var(--item-pad);
   border: none;
@@ -1802,6 +1813,12 @@ textarea[aria-invalid='true'] {
 }
 .seg button.active {
   color: var(--accent-ink);
+}
+/* 条件不满足时整组不可用（如关闭自动检查时的检查频率）：按钮变淡、不给手形；
+   选中指示块由 segSlide 按 `disabled` 同步写成 0.5。 */
+.seg button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 /* 选中切换的滑动指示块（spec `app-shell`「分段控件的选中切换动画」）：
    实底由 `segSlide` action 创建并测几何，按钮自身只负责文字色。几何过渡与弹窗淡入同档
