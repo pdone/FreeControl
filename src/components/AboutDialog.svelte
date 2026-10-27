@@ -12,8 +12,7 @@
   // 弹出 / 关闭动画仍用 Svelte 过渡（原型用 CSS keyframes）。
   import { onDestroy, onMount, tick } from 'svelte';
   import { get } from 'svelte/store';
-  import { fade, scale } from 'svelte/transition';
-  import { cubicOut } from 'svelte/easing';
+  import { fade } from 'svelte/transition';
   import { listen } from '@tauri-apps/api/event';
   import {
     aboutOpen,
@@ -35,6 +34,7 @@
   import { copyText } from '../lib/clipboard';
   import { channelLabel } from '../lib/channel';
   import { errorTextOf } from '../lib/message';
+  import { DIALOG_FADE } from '../lib/motion';
   import { t, type MessageKey } from '../lib/i18n';
   import { tip } from '../lib/tooltip';
   import logoMark from '../../assets/icons/desktop/256x256.png';
@@ -60,11 +60,9 @@
   /** 复制成功反馈时长 —— 与 `LaunchBar` 的命令复制同一档（同一套反馈，不新造第二套）。 */
   const COPIED_MS = 1400;
 
-  const reduceMotion =
-    typeof window !== 'undefined' &&
-    !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const fadeParams = { duration: reduceMotion ? 1 : 180 };
-  const scaleParams = { duration: reduceMotion ? 1 : 200, start: 0.94, easing: cubicOut };
+  // 入场与关闭只淡遮罩、面板不缩放 —— 与添加设备 / 设备参数同一份参数（`src/lib/motion.ts`）。
+  // 面板一旦带缩放，顶边就要从下往上归位一段（0.94→1 在这块 520px 高的面板上是 15.65px），
+  // 观感上像「弹出来之后内容还在动」，故 2026-10-27 起与另两个弹窗对齐。
 
   $: appVer = $appVersion ?? PLACEHOLDER;
   $: scrcpyVer = $compat?.bestFit ?? PLACEHOLDER;
@@ -399,7 +397,7 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="overlay about-overlay show" transition:fade={fadeParams}>
+<div class="overlay about-overlay show" transition:fade={DIALOG_FADE}>
   <div class="overlay-backdrop" role="presentation" on:click={close} />
   <div
     class="modal about-modal"
@@ -408,7 +406,6 @@
     aria-modal="true"
     aria-label={view === 'about' ? $t('about.dialogLabel') : $t('about.updateLabel')}
     bind:this={modalEl}
-    transition:scale={scaleParams}
   >
     <button class="about-close" aria-label={$t('about.close')} on:click={close}><X /></button>
 

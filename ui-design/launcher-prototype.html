@@ -723,20 +723,18 @@
   .modal.about-modal { position: relative; width: min(520px, calc(100vw - 48px)); height: 555px; padding: 26px 22px 22px; text-align: center; display: flex; flex-direction: column; transition: width .18s ease, height .18s ease; }
   /* 检查更新视图不再与关于同尺寸：宽度取内容所需宽度，高度由脚本按当前状态内容量出；两者都平滑过渡。 */
   .about-modal.update-mode { width: min(424px, calc(100vw - 48px)); }
-  /* 弹出与关闭动画：遮罩淡入淡出 + 面板轻微缩放上浮。关闭走 .closing（脚本加上），
-     动画播完由 animationend 收掉 .show —— 顺序是「先播动画再消失」，不是瞬隐。
-     时长与曲线只写在这里；减少动态效果偏好下压到 0.01ms（仍会触发 animationend，逻辑不必分叉）。 */
+  /* 弹出与关闭动画：只淡遮罩，面板不缩放（与添加设备同一形态）。面板一旦带缩放，顶边就要
+     从下往上归位一段（.94→1 在一块 555px 高的面板上是 16.65px，再加 translateY 的 6px），
+     观感像「弹出来之后内容还在动」，故 2026-10-27 起不再缩放。
+     关闭走 .closing（脚本加上），动画播完由 animationend 收掉 .show —— 顺序是「先播动画再消失」，
+     不是瞬隐；监听随之从面板动画改到遮罩动画（见脚本里的 about-fade-out）。
+     时长只写在这里；减少动态效果偏好下压到 0.01ms（仍会触发 animationend，逻辑不必分叉）。 */
   @keyframes about-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes about-fade-out { from { opacity: 1; } to { opacity: 0; } }
-  @keyframes about-panel-in { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: none; } }
-  @keyframes about-panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.96) translateY(4px); } }
-  .overlay.about-overlay.show { animation: about-fade-in .18s ease both; }
-  .overlay.about-overlay.show .modal { animation: about-panel-in .2s cubic-bezier(.2, .9, .3, 1.05) both; }
+  .overlay.about-overlay.show { animation: about-fade-in .16s ease both; }
   .overlay.about-overlay.closing { animation: about-fade-out .16s ease both; }
-  .overlay.about-overlay.closing .modal { animation: about-panel-out .16s ease both; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.about-overlay.show, .overlay.about-overlay.show .modal,
-    .overlay.about-overlay.closing, .overlay.about-overlay.closing .modal { animation-duration: .01ms; }
+    .overlay.about-overlay.show, .overlay.about-overlay.closing { animation-duration: .01ms; }
   }
   /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
   .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .16s; }
@@ -4049,8 +4047,9 @@
     clearUpdateTimers();
     aboutModal.classList.add('closing');
   }
-  aboutModal.querySelector('.modal').addEventListener('animationend', e=>{
-    if (e.animationName==='about-panel-out') {
+  // 收 .show 的时机挂在**遮罩**的淡出动画上（面板已不缩放，面板上不再有动画）。
+  aboutModal.addEventListener('animationend', e=>{
+    if (e.animationName==='about-fade-out') {
       aboutModal.classList.remove('show','closing');
       setAboutView('about');
     }

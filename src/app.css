@@ -2918,8 +2918,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ---------- 关于弹窗（spec `about-page`；类名与取值与 ui-design/launcher-prototype.html 同名同值） ----------
-   弹出 / 关闭动画**不在这里**：用 Svelte 的过渡（AboutDialog 的 `transition:fade` / `transition:scale`），
-   CSS 只管静态呈现 —— 故原型那组 keyframes 与 `.closing` 类在本文件里没有对应物。
+   弹出 / 关闭动画**不在这里**：用 Svelte 的过渡（AboutDialog 的 `transition:fade`，与添加设备弹出同一份参数；
+   面板不缩放），CSS 只管静态呈现 —— 故原型那组 keyframes 与 `.closing` 类在本文件里没有对应物。
    宽度也不必写：`.modal` 的默认 `min(520px, …)` 正好容下三颗技术栈药丸一行（原型那边才需要显式放宽，
    因为原型的 `.modal` 默认是 460px）。下面用两个类（`.modal.about-modal`）压过上面的 `.modal`，
    免得依赖「谁在后面」这种一改顺序就失效的胜负关系。 */
