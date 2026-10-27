@@ -32,6 +32,7 @@
 - **Logs** — per-session output persisted, kept for 7 days / 30 days / forever (the cards live on the Settings page)
 - **Command preview** — the exact command about to run, shown at the bottom and copyable
 - **Appearance** — light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail
+- **Interface scale** — enlarge the whole interface from the Settings page in four steps (100% / 115% / 130% / 150%), with text, icons and spacing growing together; the step is saved with your configuration
 - **Interface and code fonts** — choose separate fonts for the interface and code areas on the Settings page, with missing glyphs falling back to the matching system stack
 - **Interface language** — switch the UI between Chinese and English on the Settings page, or follow the system
 

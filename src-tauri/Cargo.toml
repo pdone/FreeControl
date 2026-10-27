@@ -1,6 +1,6 @@
 [package]
 name = "freecontrol"
-version = "2.3.0"
+version = "2.3.1"
 description = "FreeControl - scrcpy launcher"
 authors = ["FreeControl"]
 edition = "2021"

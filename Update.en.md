@@ -2,6 +2,17 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.3.1
+
+### Improved
+
+- Interface scale: the Settings page can enlarge the whole interface in four steps (100% / 115% / 130% / 150%), where text, icons, spacing and controls grow together rather than only the font size. The step is saved with your configuration, and the next start paints at it from the first frame.
+- Segmented options now slide: when you switch a segmented control on the Settings page or in a dialog, the highlight moves to the new choice instead of jumping.
+- With "check for updates automatically" turned off, the check-frequency row stays in place and is merely unavailable, instead of disappearing.
+- When the sidebar grows a scrollbar, the icons in the collapsed rail are no longer squeezed narrower.
+- The "About" dialog now only fades its backdrop in; the panel itself no longer scales.
+- The Linux desktop entry now carries an application category, so the installed app lands in the right menu group.
+
 ## v2.3.0
 
 > [!IMPORTANT]
