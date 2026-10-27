@@ -16,6 +16,7 @@
   } from '../lib/api';
   import type { Device, DiscoveredDevice, PairingTarget } from '../lib/types';
   import HelpTip from './HelpTip.svelte';
+  import { segSlide } from '../lib/segSlide';
   import { KeyRound, RefreshCw, Search, TabletSmartphone, X } from 'lucide-svelte';
 
   export let open = false;
@@ -467,7 +468,7 @@
 
       <div class="field">
         <span class="flabel" id="add-method-label">{$t('device.add.method')}</span>
-        <div class="seg add-methods" role="group" aria-labelledby="add-method-label">
+        <div class="seg add-methods" role="group" aria-labelledby="add-method-label" use:segSlide>
           <button
             type="button"
             class:active={method === 'usb'}

@@ -1778,6 +1778,7 @@ textarea[aria-invalid='true'] {
 }
 
 .seg {
+  position: relative;
   display: inline-flex;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -1787,6 +1788,8 @@ textarea[aria-invalid='true'] {
   flex-wrap: wrap;
 }
 .seg button {
+  position: relative;
+  z-index: 1;
   border: none;
   background: transparent;
   color: var(--text-dim);
@@ -1798,8 +1801,31 @@ textarea[aria-invalid='true'] {
   transition: 0.12s;
 }
 .seg button.active {
-  background: var(--accent);
   color: var(--accent-ink);
+}
+/* 选中切换的滑动指示块（spec `app-shell`「分段控件的选中切换动画」）：
+   实底由 `segSlide` action 创建并测几何，按钮自身只负责文字色。几何过渡与弹窗淡入同档
+   160ms；底色保留 120ms 过渡，换主题色时与其它强调色元素一起交叉淡化。
+   `no-anim` 用于「直接到位」的落位；可见性与禁用态的透明度由 action 写成行内值。 */
+.seg-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 160ms ease, width 160ms ease, height 160ms ease,
+    background-color 120ms ease;
+}
+.seg-indicator.no-anim {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg-indicator {
+    transition: background-color 120ms ease;
+  }
 }
 
 /* ---------- 主题色选择（「设置」页「外观」卡） ----------

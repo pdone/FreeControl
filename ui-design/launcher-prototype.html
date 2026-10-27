@@ -531,9 +531,14 @@
   .switch input:checked + .slider { background: var(--accent-soft); border-color: var(--accent-hover); }
   .switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent-hover); }
 
-  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
-  .seg button { border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; }
-  .seg button.active { background: var(--accent); color: var(--accent-ink); }
+  .seg { position: relative; display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
+  .seg button { position: relative; z-index: 1; border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; }
+  .seg button.active { color: var(--accent-ink); }
+  /* 选中切换的滑动指示块（spec app-shell「分段控件的选中切换动画」/ config ㉟）：
+     与产品侧同一套几何、时长与降级；主题模式组由整页过渡承载，指示块直接换位。 */
+  .seg-indicator { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 6px; background: var(--accent); opacity: 0; pointer-events: none; transition: transform 160ms ease, width 160ms ease, height 160ms ease, background-color 120ms ease; }
+  .seg-indicator.no-anim { transition: none; }
+  @media (prefers-reduced-motion: reduce) { .seg-indicator { transition: background-color 120ms ease; } }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); padding: 6px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer; user-select: none; transition: .12s; }
@@ -5449,6 +5454,145 @@
 
   renderDeviceList(); renderPreview(); updatePills(); syncNavTitles();
   renderProxyList(); syncProxyAddBtn();
+
+  /* ===================== 分段控件的选中指示块 =====================
+     与产品侧同一套（spec app-shell「分段控件的选中切换动画」/ config ㉟）：
+     用户点击或键盘激活才滑动；挂载、语言重排、程序化改选直接到位；
+     减少动态效果不播位移；主题模式组由整页过渡承载，指示块直接换位。 */
+  (function initSegIndicators() {
+    const INTENT_WINDOW = 250;
+    const SLIDE_MS = 160;
+    const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const state = new WeakMap();
+    const intentAt = new WeakMap();
+
+    function observeButtons(seg) {
+      const rec = state.get(seg);
+      const next = [...seg.querySelectorAll('button')];
+      for (const b of rec.observed) if (!next.includes(b)) rec.ro.unobserve(b);
+      for (const b of next) if (!rec.observed.includes(b)) rec.ro.observe(b);
+      rec.observed = next;
+    }
+
+    function place(seg, animate) {
+      const rec = state.get(seg);
+      if (!rec) return;
+      const btn = seg.querySelector('button.active');
+      rec.token++;
+      if (!btn) {
+        rec.indicator.style.opacity = '0';
+        rec.placedOn = null;
+        return;
+      }
+      const shouldAnimate = animate && !reduceMotion() && rec.placedOn !== null && btn !== rec.placedOn;
+      // 禁用态由行内 opacity 表达（0.5 / 1），避免被行内值盖掉。
+      rec.indicator.style.opacity = btn.disabled ? '0.5' : '1';
+      if (shouldAnimate) {
+        if (rec.indicator.classList.contains('no-anim')) {
+          rec.indicator.classList.remove('no-anim');
+          void rec.indicator.offsetWidth;
+        }
+      } else {
+        rec.indicator.classList.add('no-anim');
+      }
+      rec.indicator.style.transform = `translate(${btn.offsetLeft}px, ${btn.offsetTop}px)`;
+      rec.indicator.style.width = `${btn.offsetWidth}px`;
+      rec.indicator.style.height = `${btn.offsetHeight}px`;
+      rec.placedOn = btn;
+      if (shouldAnimate) {
+        rec.slidingUntil = performance.now() + SLIDE_MS;
+        clearTimeout(rec.settleTimer);
+        rec.settleTimer = window.setTimeout(() => {
+          rec.settleTimer = 0;
+          rec.slidingUntil = 0;
+          place(seg, false);
+        }, SLIDE_MS + 40);
+      } else {
+        const token = rec.token;
+        requestAnimationFrame(() => {
+          if (token === rec.token) rec.indicator.classList.remove('no-anim');
+        });
+      }
+    }
+
+    function sync(seg) {
+      const rec = state.get(seg);
+      if (!rec) return;
+      const btn = seg.querySelector('button.active');
+      if (btn !== rec.placedOn) {
+        const animate = performance.now() - (intentAt.get(seg) ?? -Infinity) < INTENT_WINDOW;
+        intentAt.delete(seg);
+        place(seg, animate);
+      } else {
+        // 活动项没变：滑动还在进行时留给结束后的校正，别把动画打断成瞬跳。
+        if (performance.now() < rec.slidingUntil) return;
+        place(seg, false);
+      }
+    }
+
+    function setup(seg) {
+      if (state.has(seg)) return;
+      const indicator = document.createElement('span');
+      indicator.className = 'seg-indicator';
+      indicator.setAttribute('aria-hidden', 'true');
+      seg.prepend(indicator);
+      const rec = {
+        indicator,
+        placedOn: null,
+        slidingUntil: 0,
+        settleTimer: 0,
+        token: 0,
+        observed: [],
+        ro: new ResizeObserver(() => {
+          if (performance.now() < rec.slidingUntil) return;
+          place(seg, false);
+        }),
+      };
+      state.set(seg, rec);
+      rec.ro.observe(seg);
+      observeButtons(seg);
+      place(seg, false);
+    }
+
+    const mutation = new MutationObserver((records) => {
+      const seen = new Set();
+      for (const r of records) {
+        if (r.type === 'attributes' && r.target instanceof Element && r.target.tagName === 'BUTTON') {
+          const seg = r.target.closest('.seg');
+          if (seg) seen.add(seg);
+        } else if (r.type === 'childList') {
+          const seg = r.target instanceof Element ? r.target.closest('.seg') : null;
+          if (seg) seen.add(seg);
+          for (const n of r.addedNodes) {
+            if (!(n instanceof Element)) continue;
+            if (n.matches('.seg')) setup(n);
+            n.querySelectorAll('.seg').forEach(setup);
+          }
+        }
+      }
+      for (const seg of seen) {
+        observeButtons(seg);
+        sync(seg);
+      }
+    });
+    mutation.observe(document.body, { attributes: true, attributeFilter: ['class', 'disabled'], childList: true, subtree: true });
+
+    document.addEventListener('pointerdown', (e) => {
+      const seg = e.target instanceof Element ? e.target.closest('.seg') : null;
+      if (seg) intentAt.set(seg, performance.now());
+    }, true);
+    document.addEventListener('click', (e) => {
+      const seg = e.target instanceof Element ? e.target.closest('.seg') : null;
+      if (seg) intentAt.set(seg, performance.now());
+    });
+    document.addEventListener('keydown', (e) => {
+      const seg = e.target instanceof Element ? e.target.closest('.seg') : null;
+      if (seg) intentAt.set(seg, performance.now());
+    }, true);
+
+    document.querySelectorAll('.seg').forEach(setup);
+  })();
+
   lucide.createIcons();
   </script>
 </body>

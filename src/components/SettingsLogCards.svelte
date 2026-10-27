@@ -36,6 +36,7 @@
   import type { SessionInfo } from '../lib/types';
   import { FolderOpen, ZapOff, RefreshCw, Eraser } from 'lucide-svelte';
   import { tip } from '../lib/tooltip';
+  import { segSlide } from '../lib/segSlide';
 
   type GroupValues = Record<string, unknown>;
   type GroupMap = Record<string, GroupValues>;
@@ -265,7 +266,7 @@
       </HelpTip></span
     >
     <div class="path-row log-file-row">
-      <div class="seg">
+      <div class="seg" use:segSlide>
         {#each RETENTIONS as r (r.value)}
           <button class:active={retention === r.value} on:click={() => setRetention(r.value)}
             >{$t(r.labelKey)}</button

@@ -28,6 +28,7 @@
     type ThemeMode,
   } from '../lib/theme';
   import { DEFAULT_UI_SCALE, SCALES } from '../lib/scale';
+  import { segSlide } from '../lib/segSlide';
   import HelpTip from './HelpTip.svelte';
   import FontPicker from './FontPicker.svelte';
   import SettingsLogCards from './SettingsLogCards.svelte';
@@ -114,7 +115,7 @@
           <span class="fhelp-p">{$t('settings.language.help')}</span>
         </HelpTip></span
       >
-      <div class="seg">
+      <div class="seg" use:segSlide>
         {#each LANGUAGES as l (l.value)}
           <button class:active={language === l.value} on:click={() => setUiLanguage(l.value)}
             >{$t(l.labelKey)}</button
@@ -128,7 +129,8 @@
           <span class="fhelp-p">{$t('settings.theme.help')}</span>
         </HelpTip></span
       >
-      <div class="seg">
+      <!-- 主题组与其他组一致：药丸滑动与整页交叉淡入同时发生。 -->
+      <div class="seg" use:segSlide>
         {#each THEMES as m (m.value)}
           <button class:active={theme === m.value} on:click={() => setThemeMode(m.value)}
             >{$t(m.labelKey)}</button
@@ -184,7 +186,7 @@
           <span class="fhelp-p">{$t('settings.uiScale.help')}</span>
         </HelpTip></span
       >
-      <div class="seg">
+      <div class="seg" use:segSlide>
         {#each SCALES as s (s.value)}
           <button
             class:active={uiScale === s.value}
@@ -214,7 +216,7 @@
     {#if updatePrefs.autoCheck}
       <div class="field">
         <span class="flabel">{$t('settings.update.frequency')}</span>
-        <div class="seg">
+        <div class="seg" use:segSlide>
           {#each UPDATES as f (f.value)}
             <button
               class:active={updatePrefs.frequency === f.value}

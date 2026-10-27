@@ -6,6 +6,7 @@
   import type { ValidationMessage } from '../lib/validate';
   import FieldLabel from './FieldLabel.svelte';
   import ParamSelect from './ParamSelect.svelte';
+  import { segSlide } from '../lib/segSlide';
 
   export let field: PF;
   export let value: unknown;
@@ -85,7 +86,7 @@
 {:else if field.type === 'segmented'}
   <div class="field">
     <FieldLabel {field} />
-    <div class="seg">
+    <div class="seg" use:segSlide>
       {#each field.options ?? [] as o}
         <button class:active={value === o.value} on:click={() => set(o.value)}
           >{labelText(o, $t)}</button
