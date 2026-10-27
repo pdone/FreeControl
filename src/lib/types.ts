@@ -214,21 +214,31 @@ export interface SystemFont {
 }
 
 /**
- * 外观偏好（后端 `config::Ui`）：界面语言、主题模式、主题色与两个字体字段。
+ * 界面缩放档位（后端 `config::Ui::ui_scale` 的自描述字符串）。
+ *
+ * 四档整体缩放（不是字号乘数），由 `scale.ts` 落到 WebView 的缩放因子：
+ * `100` → 1.0、`115` → 1.15、`130` → 1.3、`150` → 1.5。
+ */
+export type UiScale = '100' | '115' | '130' | '150';
+
+/**
+ * 外观偏好（后端 `config::Ui`）：界面语言、主题模式、主题色、界面缩放与两个字体字段。
  *
  * - `language`：`system`（跟随系统，出厂默认）/ `zh` / `en`；
  * - `theme`：`system`（跟随系统，出厂默认）/ `dark` / `light`；
  * - `accent`：`#rrggbb`（小写；预设值与自定义 RGB 归一化后的结果同形）；
+ * - `uiScale`：`100`（出厂默认）/ `115` / `130` / `150`，整体等比缩放；
  * - `uiFont` / `codeFont`：界面字体与代码字体的族名；`null` 表示系统默认。
  *
- * 后端把未知语言、未知主题、非法主题色与非字符串字体字段一律退化为出厂默认，
- * 因此前端不必为「读到没见过的值」准备分支。这些字段**不属于** `defaults.*`
+ * 后端把未知语言、未知主题、非法主题色、未知缩放档位与非字符串字体字段一律退化为
+ * 出厂默认，因此前端不必为「读到没见过的值」准备分支。这些字段**不属于** `defaults.*`
  * （scrcpy 参数），改动不经过参数组。
  */
 export interface UiPrefs {
   language: LanguagePref;
   theme: 'system' | 'dark' | 'light';
   accent: string;
+  uiScale: UiScale;
   uiFont: string | null;
   codeFont: string | null;
 }

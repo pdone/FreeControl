@@ -228,14 +228,26 @@ pub const LANGUAGE_EN: &str = "en";
 /// 出厂默认界面语言：跟随系统。
 pub const DEFAULT_LANGUAGE: &str = LANGUAGE_SYSTEM;
 
-/// 外观设置（`ui` 段）：界面语言、主题模式、主题色与两个字体字段。
+/// 界面缩放档位取值（自描述字符串，不用浮点档位 —— 避免 `1.1500000001` 这类
+/// 精度问题与「未知值退化」时对浮点相等的依赖）。
+pub const UI_SCALE_100: &str = "100";
+pub const UI_SCALE_115: &str = "115";
+pub const UI_SCALE_130: &str = "130";
+pub const UI_SCALE_150: &str = "150";
+
+/// 出厂默认界面缩放：100%，即不缩放（与引入该设置之前的呈现逐像素一致）。
+pub const DEFAULT_UI_SCALE: &str = UI_SCALE_100;
+
+/// 外观设置（`ui` 段）：界面语言、主题模式、主题色、界面缩放与两个字体字段。
 ///
-/// 五者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
+/// 六者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
 /// 取值模型与生效方式归前端所有（与 8 组默认参数的分工一致）。
 ///
 /// - `language`：`system` / `zh` / `en`；
 /// - `theme`：`system` / `dark` / `light`；
 /// - `accent`：`#RRGGBB`（前端把自定义 RGB 归一化成这一形状后再存，大小写不敏感）；
+/// - `ui_scale`：`100` / `115` / `130` / `150`（整体缩放百分比；生效方式是前端的 WebView
+///   缩放因子，后端不参与渲染，只存取与降级）；
 /// - `ui_font` / `code_font`：界面字体与代码字体的族名；`None` / 空值表示系统默认。
 ///
 /// 未知取值一律退化为出厂默认 —— 与保留策略同一条哲学：手工改错一个字段不该让界面
@@ -252,6 +264,9 @@ pub struct Ui {
     /// 主题色，形如 "#6366f1"
     #[serde(default = "default_accent")]
     pub accent: String,
+    /// 界面缩放百分比："100" | "115" | "130" | "150"
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: String,
     /// 界面字体族名；`None` 表示系统默认。
     ///
     /// 宽容读取：非字符串结构按 `None` 处理，避免手工改坏一个字段就让整份配置读不出来。
@@ -274,12 +289,17 @@ fn default_accent() -> String {
     DEFAULT_ACCENT.to_string()
 }
 
+fn default_ui_scale() -> String {
+    DEFAULT_UI_SCALE.to_string()
+}
+
 impl Default for Ui {
     fn default() -> Self {
         Ui {
             language: default_language(),
             theme: default_theme(),
             accent: default_accent(),
+            ui_scale: default_ui_scale(),
             ui_font: None,
             code_font: None,
         }
@@ -289,6 +309,7 @@ impl Default for Ui {
 impl Ui {
     /// 加载时归一化：未知语言退 `system`、未知主题退 `system`、非法主题色退默认；
     /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」；
+    /// 界面缩放不属于四档时退 `100`（不缩放）；
     /// 两个字体字段去首尾空白，空值与含控制字符的取值按系统默认处理。
     pub fn normalize(&mut self) {
         if !matches!(
@@ -304,6 +325,12 @@ impl Ui {
             self.theme = default_theme();
         }
         self.accent = normalize_hex(&self.accent).unwrap_or_else(default_accent);
+        if !matches!(
+            self.ui_scale.as_str(),
+            UI_SCALE_100 | UI_SCALE_115 | UI_SCALE_130 | UI_SCALE_150
+        ) {
+            self.ui_scale = default_ui_scale();
+        }
         self.ui_font = normalize_font(std::mem::take(&mut self.ui_font));
         self.code_font = normalize_font(std::mem::take(&mut self.code_font));
     }
@@ -879,6 +906,10 @@ mod tests {
         assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        assert_eq!(
+            cfg.ui.ui_scale, DEFAULT_UI_SCALE,
+            "缺界面缩放字段应按 100% 处理"
+        );
         assert!(
             cfg.ui.ui_font.is_none() && cfg.ui.code_font.is_none(),
             "缺字体字段应按系统默认处理"
@@ -893,16 +924,18 @@ mod tests {
         let path = config_path_in(&dir);
         fs::write(
             &path,
-            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"language":"fr","theme":"sepia","accent":"red"}}"##,
+            br##"{"devices":[],"defaults":null,"overrides":{},"channels":{"proxies":[]},"ui":{"language":"fr","theme":"sepia","accent":"red","uiScale":"200"}}"##,
         )
         .unwrap();
 
         let cfg = load_config_from(&path).unwrap();
 
-        // 手工改错三个字段只影响它们自己：语言回「跟随系统」、主题回「跟随系统」、主题色回 indigo。
+        // 手工改错四个字段只影响它们自己：语言回「跟随系统」、主题回「跟随系统」、
+        // 主题色回 indigo、界面缩放回 100%。
         assert_eq!(cfg.ui.language, DEFAULT_LANGUAGE);
         assert_eq!(cfg.ui.theme, THEME_SYSTEM);
         assert_eq!(cfg.ui.accent, DEFAULT_ACCENT);
+        assert_eq!(cfg.ui.ui_scale, DEFAULT_UI_SCALE);
         assert!(cfg.ui.ui_font.is_none() && cfg.ui.code_font.is_none());
         let _ = fs::remove_dir_all(&dir);
     }
@@ -915,6 +948,7 @@ mod tests {
         cfg.ui.language = LANGUAGE_EN.to_string();
         cfg.ui.theme = THEME_LIGHT.to_string();
         cfg.ui.accent = "#ABCDEF".to_string();
+        cfg.ui.ui_scale = UI_SCALE_130.to_string();
         cfg.ui.ui_font = Some("Alibaba PuHuiTi 3.0".to_string());
         cfg.ui.code_font = Some("Cascadia Mono".to_string());
         save_config_to(&path, &cfg).unwrap();
@@ -924,6 +958,7 @@ mod tests {
         assert_eq!(loaded.ui.theme, THEME_LIGHT);
         // 大小写归一：同一颜色不会因写法不同被判成「不是预设」。
         assert_eq!(loaded.ui.accent, "#abcdef");
+        assert_eq!(loaded.ui.ui_scale, UI_SCALE_130);
         assert_eq!(
             loaded.ui.ui_font.as_deref(),
             Some("Alibaba PuHuiTi 3.0")
@@ -936,6 +971,7 @@ mod tests {
         assert!(raw.contains("\"language\""));
         assert!(raw.contains("\"theme\""));
         assert!(raw.contains("\"accent\""));
+        assert!(raw.contains("\"uiScale\""));
         assert!(raw.contains("\"uiFont\""));
         assert!(raw.contains("\"codeFont\""));
         let _ = fs::remove_dir_all(&dir);
@@ -1004,6 +1040,7 @@ mod tests {
             language: LANGUAGE_SYSTEM.to_string(),
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
+            ui_scale: DEFAULT_UI_SCALE.to_string(),
             ui_font: Some("阿里\n巴巴".to_string()),
             code_font: Some("  Cascadia Mono  ".to_string()),
         };
@@ -1019,6 +1056,7 @@ mod tests {
             language: LANGUAGE_SYSTEM.to_string(),
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
+            ui_scale: DEFAULT_UI_SCALE.to_string(),
             ui_font: Some("已卸载的字体".to_string()),
             code_font: Some("Arial".to_string()),
         };
@@ -1034,6 +1072,7 @@ mod tests {
             language: LANGUAGE_ZH.to_string(),
             theme: THEME_DARK.to_string(),
             accent: "#3B82F6".to_string(),
+            ui_scale: DEFAULT_UI_SCALE.to_string(),
             ui_font: None,
             code_font: None,
         };
@@ -1047,6 +1086,7 @@ mod tests {
                 language: LANGUAGE_SYSTEM.to_string(),
                 theme: THEME_SYSTEM.to_string(),
                 accent: bad.to_string(),
+                ui_scale: DEFAULT_UI_SCALE.to_string(),
                 ui_font: None,
             code_font: None,
             };
@@ -1061,6 +1101,7 @@ mod tests {
             language: "fr".to_string(),
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
+            ui_scale: DEFAULT_UI_SCALE.to_string(),
             ui_font: None,
             code_font: None,
         };

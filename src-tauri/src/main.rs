@@ -423,6 +423,32 @@ mod tests {
         }
     }
 
+    /// 能力声明必须授予界面缩放用的 `setZoom`。
+    ///
+    /// `core:webview:allow-set-webview-zoom` **不在** `core:default` 里。缺它的失效方式是
+    /// **最静默的一类**：`setZoom` 的 promise 被拒，界面渲染、设置页选中态与配置文件全都正常，
+    /// 只有「改了档位却什么都没变」—— 与 `core:window:allow-show` 同性质，故沿用同一做法。
+    #[test]
+    fn capability_grants_webview_zoom_permission() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json");
+        let raw = std::fs::read_to_string(path).unwrap();
+        let json: Value = serde_json::from_str(&raw).unwrap();
+        let perms: Vec<String> = json["permissions"]
+            .as_array()
+            .expect("capabilities 必须有 permissions 数组")
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+
+        assert!(
+            perms
+                .iter()
+                .any(|p| p == "core:webview:allow-set-webview-zoom"),
+            "界面缩放依赖 core:webview:allow-set-webview-zoom，但 capabilities/default.json 未声明：{:?}",
+            perms
+        );
+    }
+
     /// 发布构建必须声明为 Windows 图形子系统。
     ///
     /// 缺失该属性时，发布产物的 PE 子系统回落为控制台（`Subsystem = 3`），Windows 会在主窗口之外

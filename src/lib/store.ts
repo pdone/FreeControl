@@ -12,6 +12,7 @@ import {
   DEFAULT_THEME,
 } from './theme';
 import { applyFontStacks, writeFontCache } from './fonts';
+import { applyUiScale, DEFAULT_UI_SCALE, isUiScale } from './scale';
 import {
   applyLanguage,
   DEFAULT_LANGUAGE,
@@ -70,7 +71,7 @@ import type {
 
 export const config = writable<AppConfig | null>(null);
 
-// ── 外观偏好（界面语言 / 主题模式 / 主题色）──────────────────
+// ── 外观偏好（界面语言 / 主题模式 / 主题色 / 界面缩放）──────────
 //
 // 生效方式：配置一到就应用（模块加载时先应用出厂默认 —— 与 CSS 的
 // `prefers-color-scheme` 兜底同一结果，配置读完后换成盘上的取值）。
@@ -82,6 +83,7 @@ const PENDING_UI: UiPrefs = {
   language: DEFAULT_LANGUAGE,
   theme: DEFAULT_THEME,
   accent: DEFAULT_ACCENT,
+  uiScale: DEFAULT_UI_SCALE,
   uiFont: null,
   codeFont: null,
 };
@@ -97,6 +99,8 @@ let appliedUiKey = '';
  */
 let appliedFontsKey: string | null = null;
 let appliedLanguageKey = '';
+/** 已应用的缩放档位；`applyUiScale` 自身也幂等，这里只是让订阅少一次函数调用。 */
+let appliedScaleKey = '';
 config.subscribe((c) => {
   const ui = uiOf(c);
   const key = `${ui.theme}|${ui.accent}`;
@@ -105,6 +109,12 @@ config.subscribe((c) => {
     applyAppearance(ui);
   }
   if (!c) return;
+  // 界面缩放：配置到达后覆盖首帧缓存的那一份；同档位时 `applyUiScale` 自己会直接返回。
+  const scale = isUiScale(ui.uiScale) ? ui.uiScale : DEFAULT_UI_SCALE;
+  if (scale !== appliedScaleKey) {
+    appliedScaleKey = scale;
+    void applyUiScale(scale);
+  }
   // 字体：只在配置到达后应用；配置为空时保留 `main.ts` 读过的那份首帧缓存。
   const uiFont = ui.uiFont ?? null;
   const codeFont = ui.codeFont ?? null;
@@ -135,6 +145,15 @@ export function setThemeMode(theme: UiPrefs['theme']): void {
  */
 export function setAccent(accent: string): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), accent } } : c));
+  scheduleSave();
+}
+
+/**
+ * 界面缩放（设置页）：四档整体等比缩放，取值见 `scale.ts` 的 `SCALES`。
+ * 与其它外观偏好同一条写入路径：改配置 → 订阅立即应用 → 去抖落盘。
+ */
+export function setUiScale(uiScale: UiPrefs['uiScale']): void {
+  config.update((c) => (c ? { ...c, ui: { ...uiOf(c), uiScale } } : c));
   scheduleSave();
 }
 
@@ -1058,20 +1077,37 @@ export async function revealWindow(): Promise<void> {
  * 那 3 帧里用户看到的就是纯色。这里改等**首次内容绘制（FCP）上报**：该条目一上报，
  * 含外壳的那一帧就已经提交，窗口亮出来就是界面本身。
  *
+ * 启动期还有一件必须先于显示完成的事：**界面缩放**。WebView 的缩放因子不是 DOM 样式，
+ * 不能像字体那样同步写进首帧；若等窗口亮出来之后再设，用户会看到一次「先小后大」的尺寸
+ * 跳变。故 `main.ts` 把 `applyUiScaleFromCache()` 的 promise 交进来，这里在 `show()` 之前
+ * 等它，上限 150ms。
+ *
  * 兜底：FCP 若永远不来（平台异常）也不会把窗口锁死 —— Rust 侧另有两条期限（见 `main.rs`
- * 的 `spawn_reveal_fallback`），到点会无条件把窗口显示出来。
+ * 的 `spawn_reveal_fallback`），到点会无条件把窗口显示出来。缩放同理：IPC 挂住或失败时
+ * 只等 150ms，窗口照常出现 —— 可见性优先于缩放正确性。
  */
-export function revealWindowWhenPainted(): void {
+export function revealWindowWhenPainted(beforeReveal?: Promise<unknown>): void {
   const painted = (entries: PerformanceEntryList): boolean =>
     entries.some((e) => e.name === 'first-contentful-paint');
   // `buffered: true`：FCP 若已经发生过，订阅时就会立刻收到那条历史条目，不会漏。
   const observer = new PerformanceObserver((list) => {
     if (painted(list.getEntries())) {
       observer.disconnect();
-      void revealWindow();
+      void revealAfter(beforeReveal);
     }
   });
   observer.observe({ type: 'paint', buffered: true });
+}
+
+/** 首帧已提交：等启动期就绪项（界面缩放）再放窗口；超时或失败一律放行。 */
+async function revealAfter(beforeReveal?: Promise<unknown>): Promise<void> {
+  if (beforeReveal) {
+    await Promise.race([
+      beforeReveal.catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, 150)),
+    ]);
+  }
+  await revealWindow();
 }
 
 /**
@@ -1129,6 +1165,7 @@ export async function initApp(): Promise<void> {
         language: DEFAULT_LANGUAGE,
         theme: DEFAULT_THEME,
         accent: DEFAULT_ACCENT,
+        uiScale: DEFAULT_UI_SCALE,
         uiFont: null,
         codeFont: null,
       },

@@ -16,6 +16,7 @@
     setThemeMode,
     setUiFont,
     setUiLanguage,
+    setUiScale,
     setUpdateFrequency,
   } from '../lib/store';
   import {
@@ -26,6 +27,7 @@
     normalizeHex,
     type ThemeMode,
   } from '../lib/theme';
+  import { DEFAULT_UI_SCALE, SCALES } from '../lib/scale';
   import HelpTip from './HelpTip.svelte';
   import FontPicker from './FontPicker.svelte';
   import SettingsLogCards from './SettingsLogCards.svelte';
@@ -65,6 +67,8 @@
   $: accent = ($config?.ui?.accent ?? DEFAULT_ACCENT).toLowerCase();
   // 当前主题色不与任何预设重合 ⇒ 算「自定义」，自定义色块显示选中标记。
   $: isCustom = !ACCENTS.some((a) => a.value === accent);
+  // 界面缩放：配置里的取值已由后端归一化过，缺字段时按出厂 100%。
+  $: uiScale = $config?.ui?.uiScale ?? DEFAULT_UI_SCALE;
 
   // 更新检查偏好：与外观同处「设置」，但独立落在 config.update。
   $: updatePrefs = $config?.update ?? DEFAULT_UPDATE_PREFS;
@@ -172,6 +176,22 @@
           </span>
         </label>
         <code class="accent-hex">{accent}</code>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="flabel">{$t('settings.uiScale.label')}<HelpTip title={$t('settings.uiScale.helpTitle')} label={$t('settings.uiScale.helpLabel')}>
+          <span class="fhelp-p">{$t('settings.uiScale.help')}</span>
+        </HelpTip></span
+      >
+      <div class="seg">
+        {#each SCALES as s (s.value)}
+          <button
+            class:active={uiScale === s.value}
+            on:click={() => setUiScale(s.value)}
+            >{s.label}</button
+          >
+        {/each}
       </div>
     </div>
   </div>

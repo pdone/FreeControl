@@ -80,7 +80,7 @@ export const en: Record<MessageKey, string> = {
   'window.restore': 'Restore down',
   'window.close': 'Close',
   'settings.subtitle':
-    'Manage the app’s appearance, updates and logs: theme, fonts, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.',
+    'Manage the app’s appearance, updates and logs: theme, fonts, interface scale, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.',
   'settings.appearance.title': 'Appearance',
   'settings.theme.label': 'Theme mode',
   'settings.theme.helpTitle': 'Theme mode',
@@ -98,6 +98,11 @@ export const en: Record<MessageKey, string> = {
   'settings.accent.help2':
     'Text on a solid accent background is automatically white or black; highlights and light text are derived from the current theme.',
   'settings.accent.custom': 'Custom accent color',
+  'settings.uiScale.label': 'Interface scale',
+  'settings.uiScale.helpTitle': 'Interface scale',
+  'settings.uiScale.helpLabel': 'About interface scale',
+  'settings.uiScale.help':
+    'Scales the whole interface in percent — text, icons and spacing grow together, not just the font size. Enlarging it leaves less visible content; 100% is the default size.',
   'settings.fonts.title': 'Font',
   'settings.fonts.ui.label': 'Interface font',
   'settings.fonts.ui.helpTitle': 'Interface font',
