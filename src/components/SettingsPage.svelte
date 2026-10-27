@@ -213,20 +213,19 @@
         </label>
       </div>
     </div>
-    {#if updatePrefs.autoCheck}
-      <div class="field">
-        <span class="flabel">{$t('settings.update.frequency')}</span>
-        <div class="seg" use:segSlide>
-          {#each UPDATES as f (f.value)}
-            <button
-              class:active={updatePrefs.frequency === f.value}
-              on:click={() => setUpdateFrequency(f.value)}
-              >{$t(f.labelKey)}</button
-            >
-          {/each}
-        </div>
+    <div class="field">
+      <span class="flabel">{$t('settings.update.frequency')}</span>
+      <div class="seg" use:segSlide>
+        {#each UPDATES as f (f.value)}
+          <button
+            class:active={updatePrefs.frequency === f.value}
+            disabled={!updatePrefs.autoCheck}
+            on:click={() => setUpdateFrequency(f.value)}
+            >{$t(f.labelKey)}</button
+          >
+        {/each}
       </div>
-    {/if}
+    </div>
     <div class="field">
       <div class="path-row auto-update-status">
         <button class="btn sm" on:click={() => openUpdateDialog()}>
