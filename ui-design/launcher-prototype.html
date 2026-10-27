@@ -1645,7 +1645,7 @@
 
       <!-- ============ 设置（应用自身偏好与日志） ============ -->
       <section class="section" id="sec-settings">
-        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、字体、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
@@ -1688,6 +1688,24 @@
                   </span>
                 </label>
                 <code class="accent-hex" id="accentValue">#6366f1</code>
+              </div>
+            </div>
+            <!-- 界面缩放（产品侧 ui-scale 的同步类别 ⑲；四档标签与说明见 config ④）：位置、标签与
+                 100% / 115% / 130% / 150% 四档取值与产品一致，出厂 100% 为选中态。
+                 这里只演示「在四档之间选一档」，不让页面真的缩放 —— 产品侧的缩放是 WebView 的
+                 缩放因子，单页原型没有这一层；用 CSS zoom 或 transform: scale() 伪造会把 100vh 与
+                 固定定位的浮层（侧栏提示、下拉、目录菜单）一起带偏，正是产品侧设计里被否掉的方案。
+                 故本字段不挂 data-g / data-k：它是应用自身偏好，不进命令拼装。 -->
+            <div class="field">
+              <span class="flabel">界面缩放<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="界面缩放的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">界面缩放</span><span class="fhelp-p">按百分比整体放大界面：文字、图标与间距一起变，不只是字号。放大后可见内容会变少；出厂 100% 即当前大小。</span></span>
+              </span></span>
+              <div class="seg" id="uiScale">
+                <button class="active" data-v="100">100%</button>
+                <button data-v="115">115%</button>
+                <button data-v="130">130%</button>
+                <button data-v="150">150%</button>
               </div>
             </div>
           </div>
@@ -2451,7 +2469,7 @@
   "兼容性演示": "Compatibility demo",
   "预览非最佳适配版本样式": "Preview the not-best-fit style",
   "原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。": "Prototype-only switch: when ticked, the runtime indicator at the top switches to the yellow not-best-fit state and the reason behind View reason expands in the status field (the real app derives this from the compatibility status the backend reports).",
-  "管理本程序自身的外观、更新与日志：主题、字体、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, fonts, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
+  "管理本程序自身的外观、更新与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, fonts, interface scale, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
   "界面语言": "Interface language",
   "默认跟随系统语言；切换后立即生效，重启后保留。": "Follows your system language by default. Changes apply immediately and are remembered after restart.",
   "跟随系统": "Follow system",
@@ -2463,6 +2481,9 @@
   "预设经过挑选，自定义主题色以可读性优先；点「自定义主题色」用系统或内核取色器取色。": "The presets are chosen for readability. Custom colors prioritize contrast; click Custom accent color to pick one with the system color picker.",
   "实底文字自动取白或黑，高亮与浅色文字按当前主题派生。": "Text on a solid accent background is automatically white or black; highlights and light text are derived from the current theme.",
   "自定义主题色": "Custom accent color",
+  "界面缩放": "Interface scale",
+  "界面缩放的说明": "About interface scale",
+  "按百分比整体放大界面：文字、图标与间距一起变，不只是字号。放大后可见内容会变少；出厂 100% 即当前大小。": "Scales the whole interface in percent — text, icons and spacing grow together, not just the font size. Enlarging it leaves less visible content; 100% is the default size.",
   "字体": "Font",
   "界面字体": "Interface font",
   "界面字体的说明": "About the interface font",
@@ -5208,6 +5229,20 @@
     applyTheme();
   });
   prefersLight.addEventListener('change', ()=>{ if(themeMode==='system') applyTheme(); });
+
+  /* 界面缩放（设置页「外观」卡）：只演示「在四档之间选一档」，不真缩放。
+     产品侧的缩放是 WebView 的缩放因子（setZoom）而不是 DOM 样式，单页原型没有这一层；
+     用 CSS zoom 或 transform: scale() 伪造，会把 100vh 与固定定位的浮层（侧栏提示、
+     参数下拉、目录菜单）一起带偏 —— 那正是产品侧设计里被否掉的方案，让它「看起来像」
+     反而会演示出产品并不存在的错位版本。故这里除选中态外不做任何事，
+     选中态本身就是状态（与 #themeMode 不同，它没有需要跟着重算的派生物）。 */
+  (function(){
+    const seg=document.getElementById('uiScale'); if(!seg) return;
+    seg.addEventListener('click', e=>{
+      const b=e.target.closest('button[data-v]'); if(!b) return;
+      seg.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+    });
+  })();
 
   /* 自定义取色：控件的值由系统/内核取色器给出，形状本就是 #rrggbb；
      只在 change（确认）时写入 —— 拖动中由取色器自己预览。 */
