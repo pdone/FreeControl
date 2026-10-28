@@ -71,10 +71,10 @@
   color-scheme: dark;
 }
 
-/* 普惠体就绪后：正文字体换成它，等宽（技术值）不动 —— 技术值必须保持等宽与"同一个样子"，
-   它的取值与产品界面一致，不随展示字体变化。 */
+/* 普惠体只补等宽字体缺失的字形，不改变 ASCII 的等宽呈现。 */
 :root.has-web-font {
   --font-sans: 'Alibaba PuHuiTi 3', var(--font-sans-system);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, 'Alibaba PuHuiTi 3', monospace;
 }
 
 /* ---------- 浅色主题 ----------

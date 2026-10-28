@@ -123,6 +123,12 @@
   // 做法：先只画那块空着的面（`.hero-slot` 已经撑住几何，`.hero-frame-wrap` 自带底色与描边），
   // 首屏画完后的空闲帧再把 iframe 挂上去 —— 布局零变化，预览随后照常可交互，语言同步逻辑不变。
   let previewArmed = false;
+  // 原型的语言切换在自身脚本里完成；载入前不显示，避免英文访客先看到一帧中文界面。
+  let previewShown = false;
+  function frameGate() {
+    previewShown = false;
+    return { destroy() { previewShown = false; } };
+  }
   onMount(() => {
     const arm = () => {
       // 挂载前再拼一次：空闲帧之前读者可能已经切过语言或档位
@@ -134,6 +140,11 @@
     // 换肤过渡要等预览落地才拍"新画面"（见 lib/theme.ts 的 setThemeCaptureHook）
     setThemeCaptureHook(pushPreviewTheme);
     window.addEventListener('message', onPreviewMessage);
+    // 字体可能先于 iframe 就绪（也可能晚于）；注入成功后再撤观察器。
+    const fontObserver = new MutationObserver(() => {
+      if (injectPreviewFont()) fontObserver.disconnect();
+    });
+    fontObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   });
 
   // 放大态有三条入口，按输入能力分工，页面上不出现任何按钮：
@@ -160,11 +171,14 @@
   // 预览换肤要**回执**：站点要等它落地才让 View Transitions 拍"新画面"，这样预览的换肤
   // 正好落在两张快照之间，被同一次交叉淡入带走（否则它要么先跳再淡、要么淡完才跳）。
   // 最多等 120ms —— 预览没挂载、或跑的是不回执的旧版原型时，不让过渡卡在这里。
-  let themeAck: (() => void) | null = null;
+  // 回执按 requestId 对上这一次请求，旧回执或旧计时器不能提前放行新的等待。
+  let themeAck: { id: number; finish: () => void } | null = null;
+  let requestSerial = 0;
 
   function onPreviewMessage(e: MessageEvent): void {
-    if (e.source !== frameEl?.contentWindow) return;
-    if (e.data?.type === 'fc2:theme-applied') themeAck?.();
+    if (e.origin !== location.origin || e.source !== frameEl?.contentWindow) return;
+    const data = e.data;
+    if (data?.type === 'fc2:theme-applied' && themeAck?.id === data.requestId) themeAck.finish();
   }
 
   function pushPreviewTheme(mode: ThemeMode): Promise<void> {
@@ -172,14 +186,15 @@
     if (!previewArmed || !win) return Promise.resolve();
     return new Promise<void>((resolve) => {
       let settled = false;
+      const id = ++requestSerial;
       const finish = () => {
         if (settled) return;
         settled = true;
-        themeAck = null;
+        if (themeAck?.id === id) themeAck = null;
         resolve();
       };
-      themeAck = finish;
-      win.postMessage({ type: 'fc2:theme', mode }, location.origin);
+      themeAck = { id, finish };
+      win.postMessage({ type: 'fc2:theme', mode, requestId: id }, location.origin);
       window.setTimeout(finish, 120);
     });
   }
@@ -190,12 +205,13 @@
 
   // 把站点正文用的同一份字体注入预览：原型自己不带 @font-face（它必须自足、不发请求，见 config ㊲），
   // 而原型正文栈的首位已经是这个字体族，注入 @font-face 之后预览里的文字就与页面同体。
-  // 同源同文件 ⇒ 命中同一份 HTTP 缓存，不产生第二次下载；取不到时原型沿系统栈呈现，不报错。
-  function injectPreviewFont(): void {
+  // 站点字体未就绪时不注入，避免预览抢先触发那两份字体的下载；取不到时原型沿系统栈呈现。
+  function injectPreviewFont(): boolean {
+    if (!document.documentElement.classList.contains('has-web-font')) return false;
     const doc = frameEl?.contentDocument;
-    if (!doc?.head) return;
+    if (!doc?.head) return false;
     const css = webFontFacesCss();
-    if (!css) return;
+    if (!css) return true;
     let style = doc.getElementById('fc-web-font') as HTMLStyleElement | null;
     if (!style) {
       style = doc.createElement('style');
@@ -203,12 +219,14 @@
       doc.head.appendChild(style);
     }
     if (style.textContent !== css) style.textContent = css;
+    return true;
   }
 
   function onFrameLoad(): void {
     injectPreviewFont();
     syncPreviewLang();
     syncPreviewTheme();
+    requestAnimationFrame(() => (previewShown = true));
   }
 
   /* ---------- 顶栏的外观入口 ---------- */
@@ -346,10 +364,12 @@
             {#if previewArmed}
               <iframe
                 class="hero-frame"
+                class:is-shown={previewShown}
                 src={previewSrcValue}
                 title={$t.preview.frameTitle}
                 loading="lazy"
                 bind:this={frameEl}
+                use:frameGate
                 on:load={onFrameLoad}
               ></iframe>
             {/if}
@@ -357,7 +377,13 @@
                  所以用这一层接住第一下轻点。它只在 `(hover: none)` 且未钉住时接指针
                  （CSS 决定），鼠标用户完全感觉不到它的存在，原型也照常可点。 -->
             <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-            <div class="hero-tap" aria-hidden="true" on:click={() => (pinned = true)}></div>
+            <!-- 抬起即钉住并拦掉合成 click，避免框移动后同一次轻点又落到遮罩上。 -->
+            <div
+              class="hero-tap"
+              aria-hidden="true"
+              on:touchend|nonpassive={(e) => { pinned = true; e.preventDefault(); }}
+              on:click={() => (pinned = true)}
+            ></div>
           </div>
         {:else}
           <div class="hero-shot-wrap">

@@ -358,6 +358,10 @@ code {
   box-shadow: var(--shadow-float);
   background: var(--bg-elev);
 }
+/* 载入完成后再显示一帧；此前只露外框底色，不露原型的中间语言/主题状态。 */
+.hero-frame:not(.is-shown) {
+  visibility: hidden;
+}
 .hero-frame {
   display: block;
   width: 1000px;

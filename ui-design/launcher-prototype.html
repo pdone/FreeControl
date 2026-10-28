@@ -6,6 +6,15 @@
 <title>FreeControl · UI 原型</title>
 <!-- 与侧边栏品牌标记同源，仅用于浏览器标签页预览；资产来源为 assets/icons/desktop/128x128.png（成品位图，应用图标取同包 desktop/ 的同一份） -->
 <link rel="icon" href="../assets/icons/desktop/128x128.png" />
+<script id="protoThemeBootstrap">
+(() => {
+  const mode = new URLSearchParams(location.search).get('theme');
+  if (mode !== 'light' && mode !== 'dark' && mode !== 'system') return;
+  document.documentElement.dataset.theme = mode === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+    : mode;
+})();
+</script>
 <style>
   :root {
     --bg: #0b0d11;
@@ -2960,9 +2969,14 @@
 
   // 父窗口（官网）切语言时同步过来；只认 parent 发来的这一种消息
   window.addEventListener('message', (e) => {
-    if (e.source !== window.parent) return;
+    if (e.source !== window.parent || e.origin !== location.origin) return;
     const d = e.data;
-    if (d && d.type === 'fc2:lang') setPref(d.lang);
+    if (!d || d.type !== 'fc2:lang') return;
+    if (d.lang !== 'system' && d.lang !== 'zh' && d.lang !== 'en') return;
+    setPref(d.lang);
+    if (e.origin !== 'null' && Number.isSafeInteger(d.requestId) && d.requestId > 0) {
+      try { e.source.postMessage({ type: 'fc2:lang-applied', requestId: d.requestId }, e.origin); } catch (err) {}
+    }
   });
 
   root.lang = lang === 'en' ? 'en' : 'zh-CN';
@@ -5250,7 +5264,7 @@
      消息，取值域仍是那三档（含 system —— 站点为「跟随系统」时，预览也留在跟随系统，而不是被
      钉成某个固定档）。不播过渡：站点侧是瞬时的，见 applyTheme 的参数说明。 */
   window.addEventListener('message', (e)=>{
-    if(e.source!==window.parent) return;
+    if(e.source!==window.parent || e.origin!==location.origin) return;
     const d=e.data;
     if(!d || d.type!=='fc2:theme') return;
     if(d.mode!=='system' && d.mode!=='light' && d.mode!=='dark') return;
@@ -5262,7 +5276,9 @@
     /* 回执：宿主据此决定"新画面"什么时候可以拍 —— 让这次换肤落在它那一次整页交叉淡入的
        两张快照之间（否则预览要么先跳再淡、要么淡完才跳）。同步回，不等帧：宿主的快照本来就
        发生在下一个渲染帧里，那时这次换肤已经落上；再等一帧只会把整段过渡往后推。 */
-    try{ window.parent.postMessage({ type:'fc2:theme-applied', mode:themeMode }, '*'); }catch(err){}
+    if(e.origin!=='null' && Number.isSafeInteger(d.requestId) && d.requestId>0){
+      try{ e.source.postMessage({ type:'fc2:theme-applied', mode:themeMode, requestId:d.requestId }, e.origin); }catch(err){}
+    }
   });
 
   /* 界面缩放（设置页「外观」卡）：只演示「在四档之间选一档」，不真缩放。
