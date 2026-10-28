@@ -55,8 +55,10 @@
     --scroll-track: #14171d;   /* 滚动条槽（务必保持不透明，勿改回 transparent） */
     --scroll-thumb: #333a47;
     --scroll-thumb-hover: #4b5464;
-    /* 界面主字体的默认栈：字体卡未选择任何字体时的取值，也是演示字体栈末尾的兜底。 */
-    --font-sans-default: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    /* 界面主字体的默认栈：字体卡未选择任何字体时的取值，也是演示字体栈末尾的兜底。
+       首位是展示字体（阿里巴巴普惠体 3.0）：装了这个字体的环境按它呈现，没装则沿这条栈
+       逐项回退到系统字体。原型本身不引 @font-face、不发任何请求（自足性见 config ㊲）。 */
+    --font-sans-default: "Alibaba PuHuiTi 3", system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
     --font-mono-default: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --font-mono: var(--font-mono-default);
     font-synthesis: none;

@@ -1,5 +1,7 @@
 /* ============================================================================
-   FreeControl 官网样式。令牌见 tokens.css（与产品 src/app.css 逐值对齐）。
+   FreeControl 官网样式。令牌见 tokens.css（颜色与产品逐值对齐，排版取值见 design）。
+   断点四档：1280 / 1024 / 720 / 480。间距走 tokens.css 的 clamp 阶梯，
+   代码里不再出现固定 72px 这类全站同值。
    ========================================================================== */
 * {
   box-sizing: border-box;
@@ -9,6 +11,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* 锚点跳转后给吸顶栏留出高（顶栏 60px + 12px 呼吸），否则节标题会被压在栏下 */
+  scroll-padding-top: 72px;
 }
 
 body {
@@ -45,33 +49,27 @@ code {
   padding: 1px 5px;
 }
 
+/* 技术值（命令行、flag、产物文件名、端口、版本号）统一等宽；说明文案一律正文字体。
+   这里只给一个工具类，具体用法见 App.svelte 中各处的 .mono / .fg-evidence / .pkg-name b */
+.mono {
+  font-family: var(--font-mono);
+}
+
 /* 图标：来自入库的 lucide 子集（src/lib/icon-set.ts，见 src/lib/Icon.svelte），统一不参与 flex 拉伸 */
 .ico {
   display: block;
   flex: none;
 }
 
-/* ---------- 卡片悬停反馈 ---------- */
-/* 静态页的交互反馈只用 CSS transition（见 design D6）：卡片轻微上浮、描边转强调色 */
-.feature-card,
-.cmp-hl,
-.plat {
-  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+/* ---------- 悬停反馈 ---------- */
+/* 只改描边与底色（design D7）：卡片逐个上浮 + 加阴影会让整页在鼠标扫过时一起"呼吸"，
+   读起来像模板；一处位移只留给 hero 的入场。 */
+.plat,
+.faq details,
+.qs-lead {
+  transition: border-color 140ms ease;
 }
-.feature-card:hover,
-.cmp-hl:hover,
-.plat:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-line);
-  box-shadow: var(--shadow);
-}
-.feature-card:hover .feature-ico {
-  background: color-mix(in srgb, var(--accent) 24%, transparent);
-}
-.qs-lead,
-.faq details {
-  transition: border-color 0.16s ease;
-}
+.plat:hover,
 .qs-lead:hover,
 .faq details:hover,
 .faq details[open] {
@@ -82,40 +80,36 @@ code {
 .cmp tbody tr:hover td:not(.is-self) {
   background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
-@media (prefers-reduced-motion: reduce) {
-  .feature-card,
-  .cmp-hl,
-  .plat {
-    transition: none;
-  }
-  .feature-card:hover,
-  .cmp-hl:hover,
-  .plat:hover {
-    transform: none;
-  }
-}
 
 /* ---------- 布局 ---------- */
 .wrap {
-  width: min(1080px, 100% - 48px);
+  width: min(1120px, 100% - clamp(40px, 8vw, 72px));
   margin-inline: auto;
 }
 
 .section {
-  padding-block: 72px;
+  padding-block: var(--section-pad);
+}
+/* 七节不再各带一条上边线（那会让页面读成分页文档）；只有下载一节前留一条，
+   因为它是"读完了 → 去拿"的转折 */
+.section.download {
   border-top: 1px solid var(--border);
 }
 
 .section-head {
-  margin-bottom: 36px;
+  margin-bottom: clamp(24px, 3vw, 40px);
 }
 .section-head h2 {
-  font-size: 28px;
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 .section-head p {
+  max-width: 52ch;
+  margin-top: 10px;
   color: var(--text-dim);
-  margin-top: 8px;
+  font-size: 15px;
+  text-wrap: balance;
 }
 
 /* ---------- 顶栏 ---------- */
@@ -127,7 +121,7 @@ code {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
-/* 顶栏内层：沿用正文的全局 .wrap（居中 1080px），顶栏与各节同一宽度契约，不做全宽特例。
+/* 顶栏内层：沿用正文的全局 .wrap（居中），顶栏与各节同一宽度契约，不做全宽特例。
    见 spec「顶栏的构成与行为」 */
 .site-header .wrap {
   display: flex;
@@ -215,6 +209,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   font: inherit;
   font-weight: 600;
   padding: 11px 22px;
@@ -241,121 +236,372 @@ code {
 }
 
 /* ---------- hero ---------- */
+/* 两栏：左文案（占剩余宽度）+ 右预览（宽度由缩放后的原型定）。
+   视觉重量靠"主张句很大 + 右边一块被托起的面"建立，不用满宽大图。 */
 .hero {
-  padding-block: 88px 64px;
-  text-align: center;
+  position: relative;
+  padding-block: var(--hero-pad-top) var(--hero-pad-bottom);
 }
-.hero h1 {
-  font-size: 56px;
+.hero-grid {
+  display: grid;
+  /* 第二列由占位槽给定值：预览盒是绝对定位的，放大时改自己的宽高，不牵动列宽 */
+  grid-template-columns: minmax(0, 1fr) var(--preview-slot);
+  align-items: start;
+  gap: clamp(24px, 4vw, 56px);
+}
+.hero-slot {
+  width: var(--preview-slot);
+  height: var(--preview-h-slot);
+}
+.hero-copy h1 {
+  font-size: clamp(34px, 4.4vw, 58px);
   font-weight: 800;
+  line-height: 1.08;
   letter-spacing: -0.02em;
 }
-.hero .tagline {
-  font-size: 22px;
-  color: var(--accent-text);
-  margin-top: 10px;
-}
-.hero .lede {
-  max-width: 800px;
-  margin: 16px auto 0;
+.hero-copy .lede {
+  max-width: var(--measure);
+  margin-top: 18px;
   color: var(--text-dim);
+  font-size: 16.5px;
+  line-height: 1.7;
+  /* 均衡换行：窄列里中英混排很容易把最后一两字甩到下一行（"……单文件\n里。"），
+     这一行是首屏正文，孤字最显眼。不支持的浏览器自然退回普通换行 */
+  text-wrap: balance;
 }
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
-  justify-content: center;
-  margin-top: 28px;
+  margin-top: 26px;
 }
-.hero-shot {
-  margin-top: 48px;
+/* 元信息行：产品名 · 版本 · 体积 / 形态 / 许可。整行等宽，字号最小，承担"这是一份什么产物"的交代 */
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 18px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.hero-meta .is-brand {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.hero-meta a {
+  color: var(--text-faint);
+}
+.hero-meta a:hover {
+  color: var(--accent-text);
+}
+.hero-meta b {
+  font-weight: 600;
+}
+.hero-meta .dot {
+  color: var(--border-strong);
+}
+
+/* 右栏预览：原型内部按 1000×700 排版，整块用 transform 缩进右栏，外层裁掉溢出。
+   缩放不改事件坐标，预览里的点击与语言 postMessage 逻辑不受影响。
+   盒本身绝对定位在占位槽上，宽高可在常态与放大态之间过渡（见下方放大态）。 */
+.hero-preview {
+  position: absolute;
+  right: 0;
+  top: var(--hero-pad-top);
+  z-index: 3;
+  width: var(--preview-slot);
+  height: var(--preview-h-slot);
+  /* 四条一起走同一条曲线：放大态同时改宽、高、top 与 right（水平居中），
+     哪条不在这里过渡，就会在放大/复原的瞬间单独跳一下。 */
+  transition:
+    width 320ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    height 320ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    top 320ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    right 320ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.hero-frame-wrap {
+  /* 触屏的"轻点放大"覆盖层锚在这一层上（见 .hero-tap） */
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-float);
+  background: var(--bg-elev);
 }
-/* hero 主图二分（见 src/App.svelte）：宽屏是内嵌的原型页面 iframe，窄屏是设备页截图。
-   原型是 100vh 的整应用：窗口高度即 iframe 高度，内容放不下时原型自己内滚。高度固定 700px：
-   原型内多数页自然高度 ≤697px（实测），故都不出现纵向滚动条；仅「窗口」(743) 与「运行环境」(805)
-   超出、由原型自行内滚。窄屏走截图分支（无 iframe），故高度不再随断点调整。 */
 .hero-frame {
   display: block;
-  width: 100%;
+  width: 1000px;
   height: 700px;
   border: 0;
+  transform: scale(var(--preview-scale));
+  transform-origin: 0 0;
+  transition: transform 320ms cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-/* 窄屏截图：按容器宽等比铺满，不裁切、不拉伸（原图 2200×1440，长宽比≈1.53，与版位相当）。 */
+
+/* ---------- 预览的发现性：hero 下沿一行提示（design D16 定稿） ----------
+   没有这行字时，读者只会把右栏那块当成一张截图 —— 框上没有光标线索、没有文案，
+   而"能放大、能点"只有真去试才知道。
+   位置刻意放在 hero 的下沿：框内是原型自己的界面（右上角还有它自己的窗口控件），
+   叠任何东西都会被读成第二个按钮（试过两次，都撤了）。 */
+.hero-hint {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  transition: opacity 180ms ease;
+}
+/* 提示文案按输入能力切换，不判断 UA：
+   `(hover: none)` = 主输入设备没有悬停能力（触屏专用；带鼠标的触屏笔记本仍是 `hover: hover`）。 */
+.hero-hint-touch {
+  display: none;
+}
+@media (hover: none) {
+  .hero-hint-pointer {
+    display: none;
+  }
+  .hero-hint-touch {
+    display: inline;
+  }
+}
+/* 触屏的"轻点放大"覆盖层：iframe 会吞掉指针事件，父页面在预览区域内收不到任何事件，
+   所以需要这一层来接住第一下轻点。它盖住整块预览、但默认 `pointer-events: none` ——
+   鼠标/触控板用户完全感觉不到它，原型照常可点；只有 `(hover: none)` 且尚未钉住时才接指针，
+   那正是"放大态在触屏上不可达"的补偿。 */
+.hero-tap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+@media (hover: none) {
+  .hero-preview:not(.is-pinned) .hero-tap {
+    pointer-events: auto;
+  }
+}
+/* 窄屏（< 1024px）走同一页的截图：不再整窗缩略（342px 宽时界面文字约 4px，只能当装饰），
+   改为按容器裁切——窄桌面看整窗，手机放大到设备卡与命令条那一块（见 720px 区块）。 */
+.hero-shot-wrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+  background: var(--bg-elev);
+}
 .hero-shot-img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: left top;
+}
+
+/* hero 唯一一处入场：文案与预览整体淡入 + 8px 位移（design D7） */
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 入场用 backwards 而不是 both：动画结束后要交还 opacity / transform 的所有权，
+   否则放大态那条「文案淡出」的声明会被动画的填充值压住，永远不生效 */
+.hero-copy {
+  animation: hero-in 360ms cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+.hero-preview {
+  animation: hero-in 420ms cubic-bezier(0.2, 0.7, 0.3, 1) 80ms backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .hero-preview {
+    animation: hero-fade 200ms linear backwards;
+  }
+  /* 放大态保留功能，但不再播放尺寸过渡 */
+  .hero-preview,
+  .hero-frame,
+  .hero-copy,
+  .hero-scrim {
+    transition: none;
+  }
+}
+
+/* 放大态的遮罩（与预览盒配套，一起构成"浮起的一层"）：
+   - `position: fixed` 盖住整屏；顶栏 z-index 10 在它之上，于是顶栏保持明亮、页身被压暗；
+   - 预览盒 z-index 3 在它之上，盒子自己不被压暗；
+   - `pointer-events: none` 是硬要求：遮罩若拦指针，指针一离开预览盒就再也回不来（悬停立刻塌）；
+   - 颜色由 `--bg` 混出（见 tokens 的 `--scrim`），不新增字面量。 */
+.hero-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+/* 减少动效：遮罩直接切换。
+   这条必须排在 `.hero-scrim` 那条 transition 之后 —— 文件前面那个 reduce 块里虽然也点了
+   `.hero-scrim`，但它在前，同权重被这里的 `transition: opacity 220ms` 盖掉（实测仍是 0.22s）。 */
+@media (prefers-reduced-motion: reduce) {
+  .hero-scrim {
+    transition: none;
+  }
+}
+
+/* ---------- hero 预览的放大态 ---------- */
+/* 只看不点的时候，右栏那 620px 太小（界面字约 8.7px）。指针停上去后开到接近 1:1，
+   代价是它要压住左栏文案 —— 所以是"临时浮起的一层"：
+   改的是预览盒自身的 width / height / top / right，占位槽不动，页面其余部分不留位移。
+   进入方向给 160ms 延迟（滑过不停留不触发），离开方向为 0；键盘聚焦同一套。 */
+@media (min-width: 1024px) {
+  /* 三条入口同一套结果：指针停留、键盘聚焦、右上颗按钮钉住 */
+  .hero-preview:hover,
+  .hero-preview:focus-within,
+  .hero-preview.is-pinned {
+    /* 垂直居中：在"顶栏以下"的可用高度里居中（100vh 扣掉 --header-h），上下留白相等。
+       首版是 top:0（贴顶栏），第二版是 24px 固定缝，现在是浮层口径 —— 与遮罩配套。 */
+    top: calc((100vh - var(--header-h) - 700px * var(--preview-expand)) / 2);
+    /* 宽度不超过内容区，避免窄桌面下向左溢出到版心之外 */
+    width: min(calc(1000px * var(--preview-expand)), 100%);
+    height: calc(700px * var(--preview-expand));
+    /* 水平居中：常态是 right:0（贴版心右缘、从右栏长宽），放大态把右偏量补成
+       (版心宽 − 盒宽)/2，盒子就落在版心正中。盒宽被 100% 卡住时（窄桌面）该项为负，
+       用 max(0px, …) 收住 —— 那时盒子本就占满版心，不需要再偏。
+       percentage 在 right 上按包含块（.hero = 版心）宽度解析，故与盒宽同一条 calc 即可。 */
+    right: max(0px, calc((100% - 1000px * var(--preview-expand)) / 2));
+    transition-delay: 160ms;
+  }
+  .hero-preview:hover .hero-frame,
+  .hero-preview:focus-within .hero-frame,
+  .hero-preview.is-pinned .hero-frame {
+    transform: scale(var(--preview-expand));
+    transition-delay: 160ms;
+  }
+  /* 预览铺开后会把左栏盖掉大半（只剩最左 100 多像素），留着半截文字不如整体收起来：
+     淡出到 0，移开即回。不支持 :has() 的浏览器降级为"文案被预览盖住"，不报错。 */
+  .hero-copy {
+    transition: opacity 220ms ease, visibility 0s linear 0s;
+  }
+  .hero:has(.hero-preview:hover) .hero-copy,
+  .hero:has(.hero-preview:focus-within) .hero-copy,
+  .hero:has(.hero-preview.is-pinned) .hero-copy {
+    opacity: 0;
+    /* 淡出结束后才真正隐藏：否则预览没盖住的左侧那一窄条里，看不见的按钮仍可被点到 */
+    visibility: hidden;
+    transition: opacity 220ms ease, visibility 0s linear 220ms;
+  }
+  /* 遮罩与文案淡出同一套判据：指针停留 / 键盘聚焦 / 钉住时起来，离开即落。
+     不支持 :has() 时不显示遮罩 —— 退化为"浮层没有背景压暗"，功能不受影响。 */
+  .hero:has(.hero-preview:hover) .hero-scrim,
+  .hero:has(.hero-preview:focus-within) .hero-scrim,
+  .hero:has(.hero-preview.is-pinned) .hero-scrim {
+    opacity: 1;
+  }
+  /* 提示随之退场：能放大这件事已经不需要再解释了，而且它此刻正落在浮层之下。
+     钉住态保留放大按钮本身（它是"还原"的出口之一，与点遮罩、Esc 等价）。 */
+  .hero:has(.hero-preview:hover) .hero-hint,
+  .hero:has(.hero-preview:focus-within) .hero-hint,
+  .hero:has(.hero-preview.is-pinned) .hero-hint {
+    opacity: 0;
+  }
+  /* 钉住态才让遮罩接点击（点它 = 还原）。悬停态必须保持 pointer-events: none，
+     否则指针一离开预览盒就再也回不去。 */
+  .hero:has(.hero-preview.is-pinned) .hero-scrim {
+    pointer-events: auto;
+    cursor: zoom-out;
+  }
 }
 
 /* ---------- 功能特性 ---------- */
-.feature-grid {
+/* 四组清单（design D3）：组标题 + 条目 + 组尾一条等宽证据行。
+   没有卡片底、没有图标块 —— 层级由组间细线与等宽行承担。 */
+.feature-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(26px, 3.4vw, 44px) clamp(24px, 5vw, 64px);
 }
-.feature-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+.fg {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
 }
-.feature-ico {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
+.fg-title {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--accent-text);
-  margin-bottom: 12px;
 }
-.feature-card h3 {
-  font-size: 16px;
+.fg-list {
+  list-style: none;
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+.fg-list b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text);
 }
-.feature-card p {
-  margin-top: 6px;
-  color: var(--text-dim);
+.fg-list span {
+  display: block;
+  margin-top: 3px;
   font-size: 14px;
+  color: var(--text-dim);
+}
+.fg-evidence {
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
 }
 
 /* ---------- 选型对比 ---------- */
-/* 亮点三卡：先给结论（体积 / 性能 / 免配置），再用下表逐项对照 */
+/* 亮点三卡：先给结论（体积 / 性能 / 免配置），再用下表逐项对照。
+   形态从"三张卡"改成"三条带左缘细线的块"—— 表前的小结不该比表更重。 */
 .cmp-highlights {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 3vw, 36px);
+  margin-bottom: clamp(26px, 4vw, 40px);
 }
 .cmp-hl {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent-line);
 }
 .cmp-hl-ico {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
   color: var(--accent-text);
-  margin-bottom: 12px;
+  vertical-align: -2px;
+  margin-right: 8px;
 }
 .cmp-hl b {
-  display: block;
   font-size: 20px;
   color: var(--text);
 }
 .cmp-hl-label {
   display: block;
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 13px;
   color: var(--accent-text);
 }
@@ -364,7 +610,7 @@ code {
   font-size: 14px;
   color: var(--text-dim);
 }
-/* 窄屏放不下四列时整表横向滚动，而不是把列压到读不出 */
+/* 窄屏放不下四列时整表横向滚动，而不是把列压到读不出（≤720px 另改为逐项卡片） */
 .cmp-scroll {
   overflow-x: auto;
   border: 1px solid var(--border);
@@ -491,6 +737,7 @@ code {
   background: var(--accent-soft);
   color: var(--accent-text);
   font-weight: 700;
+  font-size: 14px;
 }
 .steps b {
   display: block;
@@ -545,7 +792,7 @@ code {
 }
 
 /* ---------- 获取（下载） ---------- */
-/* 版式参考 rayburst.pages.dev：上半居中（品牌图 + 标题 + 主按钮），下半分平台卡片 */
+/* 版式：上半居中（品牌图 + 标题 + 主按钮），下半分平台卡片 */
 .download {
   text-align: center;
 }
@@ -561,7 +808,8 @@ code {
   margin-bottom: 18px;
 }
 .get-hero .title {
-  font-size: 32px;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 .get-hero .lead {
@@ -583,7 +831,7 @@ code {
   justify-content: center;
   gap: 12px;
 }
-/* 主按钮：图标 + 两行文字（动作 / 平台与形态），承 rayburst 的 .btn-stack */
+/* 主按钮：图标 + 两行文字（动作 / 平台与形态） */
 .btn-xl {
   padding: 13px 26px;
   border-radius: var(--radius);
@@ -640,6 +888,11 @@ code {
   text-align: left;
 }
 .plat {
+  /* 光晕的两道闸门都在这三条上：position 给它定位，isolation 把它的层级关在本卡内，
+     overflow 连同圆角把溢出部分裁掉 —— 光晕永远不出卡片。 */
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -647,6 +900,37 @@ code {
 }
 .plat.is-yours {
   border-color: var(--accent-line);
+}
+/* 平台卡的指针光晕（全站唯一一处"鼠标划过才出现"的装饰）：
+   - 只在卡片内：`inset: 0` + `border-radius: inherit` + 上面那条 `overflow: hidden`；
+   - 只在内容之下：`z-index: -1` 落在卡片底色之上、文字之下（`isolation` 保证它不跑到祖先后面去）；
+   - 颜色只由 `--accent` 派生，不新增字面量；半径 260px 覆盖卡片大半，收尾到 70% 处免得边缘出现一道硬边；
+   - `--mx/--my` 由 App.svelte 的 `use:glow` 写进来；没有指针数据时停在顶部居中，
+     键盘聚焦（`:focus-within`）看到的就是这一份静态光晕。 */
+.plat::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in srgb, var(--accent) 20%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+.plat:hover::before,
+.plat:focus-within::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动效时不做淡入淡出，光晕照样出现（它是状态，不是过程） */
+  .plat::before {
+    transition: none;
+  }
 }
 .plat header {
   display: flex;
@@ -728,6 +1012,7 @@ code {
   gap: 6px;
   /* 行内换行兜底：卡片窄到按钮必须折到标签下方时，仍贴右而不是与标签左对齐粘连 */
   margin-left: auto;
+  min-height: 32px;
   padding: 4px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -765,9 +1050,7 @@ code {
   color: var(--text-dim);
 }
 /* 「构建技术」一行：标签 + 各项目的官方 mark 与名称，用间隔点串起（署名用，不参与站点配色）。
-   它在页脚右侧、贴右；`margin-left: auto` 让它在折行独占一行时仍停在右边，
-   折行时续行也贴右（flex-end），读起来仍是「居右的一组」。
-   内间距收到 6px：8px 下这一组刚好差十几像素就要折行 */
+   它在页脚右侧、贴右；`margin-left: auto` 让它在折行独占一行时仍停在右边。 */
 .foot-built {
   display: flex;
   align-items: center;
@@ -794,17 +1077,175 @@ code {
   color: var(--text-faint);
 }
 
-@media (max-width: 720px) {
-  .hero h1 {
-    font-size: 40px;
+/* ============================================================================
+   断点：1280 / 1024 / 720 / 480
+   ========================================================================== */
+
+/* --- ≤1280：右栏预览收一档，给文案留出行宽 --- */
+@media (max-width: 1280px) {
+  :root {
+    --preview-scale: 0.58;
   }
+}
+
+/* --- ≤1024：这一档仍是两栏可交互预览（预览的二分点是 ≥1024 内嵌 iframe），
+       只把右栏收窄一档；单列从 1023px 起，与脚本里的 1024 二分严格对齐，
+       避免"宽度正好 1024 时既内嵌 iframe 又被排成单列"的空半屏。 --- */
+@media (max-width: 1024px) {
+  :root {
+    --preview-scale: 0.54;
+  }
+  .cmp-highlights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 36px);
+  }
+  /* 这一档走截图分支：预览回到文档流、占满整行，不提供放大（没有可放大的可交互对象） */
+  .hero-slot {
+    display: none;
+  }
+  .hero-preview {
+    position: static;
+    z-index: auto;
+    width: 100%;
+    height: auto;
+    transition: none;
+  }
+  .hero-copy .lede {
+    max-width: 58ch;
+  }
+}
+
+/* --- ≤720：手机。各节重新排布而不只是缩字号 --- */
+@media (max-width: 720px) {
   .nav {
     display: none;
   }
+  /* 顶栏两颗控件在移动端放大到可点尺寸 */
+  .lang-btn,
+  .gh-btn {
+    height: 44px;
+  }
+  .gh-btn {
+    width: 44px;
+  }
+
+  /* hero 左对齐：三行居中长文本在 342px 宽下最难读 */
+  .hero {
+    text-align: left;
+  }
+  .hero-copy .lede {
+    max-width: none;
+    font-size: 16px;
+  }
+  .hero-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  /* 手机上的预览：整体放大到设备卡与命令条那一块（整窗缩略在此宽度下只剩 4px 的字）。
+     容器 3:4、图宽 250%，横向只露出界面左侧约 440px 的一段，字号回到 10px 上下。 */
+  .hero-shot-wrap {
+    aspect-ratio: 3 / 4;
+    max-height: 520px;
+  }
+  /* 从左侧起裁：贴 0 起能完整留住侧栏与设备卡的左半（别名、连接标识），
+     右侧那排"连接 / 参数 / 删除"被裁掉是可接受的 —— 这里要的是"读得出这是哪台设备" */
+  .hero-shot-img {
+    position: absolute;
+    left: 0;
+    top: -3%;
+    width: 250%;
+    height: auto;
+    object-fit: fill;
+  }
+
+  /* 功能特性一列 */
+  .feature-groups {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  /* 对比表改为逐项卡片：同一份 <table> 用 display 重排，DOM 不复制。
+     thead 收起，列名由每个取值格的 data-col 在前给出。 */
+  .cmp-highlights {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .cmp-scroll {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+  }
+  .cmp {
+    display: block;
+    min-width: 0;
+  }
+  .cmp thead {
+    display: none;
+  }
+  .cmp tbody {
+    display: grid;
+    gap: 10px;
+  }
+  .cmp tbody tr {
+    display: block;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+  .cmp tbody th,
+  .cmp tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .cmp tbody th {
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .cmp tbody td {
+    margin-top: 8px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+  }
+  .cmp tbody td::before {
+    content: attr(data-col);
+    display: block;
+    margin-bottom: 2px;
+    font-size: 11.5px;
+    color: var(--text-faint);
+  }
+  /* 本产品那一栏在卡片里仍要一眼可辨：整格给强调底与左缘色条 */
+  .cmp .is-self {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  .cmp tbody tr:hover th,
+  .cmp tbody tr:hover td:not(.is-self) {
+    background: transparent;
+  }
+
   /* 运行要求的平台名在窄屏另起一行，避免两列把说明挤成碎行 */
   .qs-plats > div {
     grid-template-columns: 1fr;
     gap: 2px;
+  }
+  /* 下载一节：平台卡里的下载按钮放大到可点 */
+  .pkg {
+    min-height: 44px;
+    padding: 10px 14px;
   }
   /* 页脚两组在窄屏各占一行、各自居中（显式竖排，不靠内容宽度凑巧折行） */
   .foot-row {
@@ -818,5 +1259,39 @@ code {
   .foot-built {
     margin-left: 0;
     justify-content: center;
+  }
+}
+
+/* --- ≤480：小屏收口，字号与留白再降一档 --- */
+@media (max-width: 480px) {
+  .hero-copy h1 {
+    font-size: 32px;
+  }
+  .hero-meta {
+    font-size: 12px;
+    gap: 6px;
+  }
+  .qs-lead {
+    padding: 16px 18px;
+  }
+  .plat {
+    padding: 16px;
+  }
+  .get-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+  }
+}
+
+/* --- 放大态的高度按视口分档（横向特性与之独立）：保证放大后底部不出视口 --- */
+@media (max-height: 899px) {
+  :root {
+    --preview-expand: 0.9;
+  }
+}
+@media (max-height: 819px) {
+  :root {
+    --preview-expand: 0.82;
   }
 }

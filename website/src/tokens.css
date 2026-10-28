@@ -2,6 +2,10 @@
    FreeControl 官网 —— 设计令牌
    取值与产品 src/app.css 逐值对齐（产品是唯一事实来源），产品改色时此处同步。
    与产品一致：只有 --bg 与 --accent 是字面量，强调色系一律由 --accent 派生。
+
+   排版类 token（--measure / --section-pad / --hero-pad / --preview-scale /
+   --shadow-float）是官网自己的版式阶梯：颜色受产品约束，字号与间距不受，
+   但也不得引入第二套强调色或 web font（见 design D4 / D5 / D10）。
    ========================================================================== */
 :root {
   --bg: #0b0d11;
@@ -23,11 +27,50 @@
 
   --radius: 12px;
   --radius-sm: 8px;
+  /* 单层阴影：贴地感弱，只用于小面（提示、下拉这类）。大面用 --shadow-float */
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  /* 双层阴影：近处 1px 贴地 + 远处大扩散，用在 hero 预览这类"被托起的面"上 */
+  --shadow-float: 0 1px 2px rgba(0, 0, 0, 0.3), 0 20px 60px -20px rgba(0, 0, 0, 0.8);
 
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
+  /* 顶栏总高（内容 60px + 底边 1px）：预览放大态要把它从可用高度里扣掉才能上下居中。
+     与 app.css 里 `.site-header .wrap { height: 60px }` 绑定，改顶栏高度时两处一起改。 */
+  --header-h: 61px;
+  /* 放大态的遮罩色：由 --bg 混出（不新增字面量），压暗下层内容而保留底色倾向 */
+  --scrim: color-mix(in srgb, var(--bg) 68%, transparent);
+
+  /* 正文列行宽上限：约 42 个字符当量（中文约 21 字），比满宽 800px 更易读 */
+  --measure: 42ch;
+
+  /* 节间距阶梯：窄屏 40px → 桌面 96px。全站固定 72px 会让七节读起来像分页 */
+  --section-pad: clamp(40px, 6vw, 96px);
+  /* hero 上下留白：比普通节再大一档，让首屏自成一块 */
+  --hero-pad-top: clamp(40px, 7vw, 112px);
+  --hero-pad-bottom: clamp(32px, 5vw, 72px);
+
+  /* hero 右栏预览的等比缩放：原型内部按 1000×700 排版，整块缩进右栏。
+     两档断点会覆盖这个值（见 app.css 的 1280 / 1024 区块）。
+     --preview-slot / --preview-h-slot 是常态占位尺寸，由 --preview-scale 派生；
+     --preview-expand 是指针停上去后的放大比例（1 = 内部界面原尺寸，文字最清楚）。 */
+  --preview-scale: 0.62;
+  --preview-slot: calc(1000px * var(--preview-scale));
+  --preview-h-slot: calc(700px * var(--preview-scale));
+  --preview-expand: 1;
+
+  /* 正文字体分两层：系统栈兜底 + 普惠体（懒加载，见 lib/web-font.ts）。
+     `--font-sans-system` 既是首屏用的字体，也是普惠体之后那条兜底栈 —— 换字体只换前半段，
+     缺字（子集外的新文案）仍按这条栈逐字补齐，不会出现豆腐块。
+     两者的启用开关是 `<html>` 上的 `.has-web-font`：字体真正 load 完成后才挂上，
+     所以不存在"字体没到就先按字体排一遍"的空窗。 */
+  --font-sans-system: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
     "Microsoft YaHei", sans-serif;
+  --font-sans: var(--font-sans-system);
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   color-scheme: dark;
+}
+
+/* 普惠体就绪后：正文字体换成它，等宽（技术值）不动 —— 技术值必须保持等宽与"同一个样子"，
+   它的取值与产品界面一致，不随展示字体变化。 */
+:root.has-web-font {
+  --font-sans: 'Alibaba PuHuiTi 3', var(--font-sans-system);
 }

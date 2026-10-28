@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { get, readable } from 'svelte/store';
   import { lang, t, toggleLang } from './lib/i18n';
   import Icon from './lib/Icon.svelte';
   import { BUILT_WITH, GITHUB_MARK, OS_MARKS } from './lib/brand-marks';
   import { detectPlatform } from './lib/platform';
+  import { webFontFacesCss } from './lib/web-font';
   // 构建期由 scripts/fetch-release.mjs 解析最新发行生成（.gitignore 排除）。站点源码里没有版本字面量：
   // 具体产物的直链只存在于这里带进来的取值中，取不到时一律回退到发行页。
   import release from './lib/release.json';
@@ -83,12 +85,98 @@
   const PREVIEW_SRC = `${PREVIEW}?lang=${get(lang)}`;
   let frameEl: HTMLIFrameElement | null = null;
 
+  // 原型的 HTML 是本站最重的一件资源（约 456 KB，生产上 gzip 后仍在 100 KB 量级，比本页其它
+  // 资源之和还大），而它就落在首屏内 ⇒ `loading="lazy"` 不生效，会与首屏抢带宽、并在同一渲染
+  // 进程里解析排版。实测（4 倍 CPU 降速 + 10 Mbps）它的下载与解析把首次内容绘制推到 ~850 ms。
+  // 做法：先只画那块空着的面（`.hero-slot` 已经撑住几何，`.hero-frame-wrap` 自带底色与描边），
+  // 首屏画完后的空闲帧再把 iframe 挂上去 —— 布局零变化，预览随后照常可交互，语言同步逻辑不变。
+  let previewArmed = false;
+  onMount(() => {
+    const arm = () => (previewArmed = true);
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(arm, { timeout: 800 });
+    else window.setTimeout(arm, 120);
+  });
+
+  // 放大态有三条入口，按输入能力分工，页面上不出现任何按钮：
+  //   有悬停能力的输入（鼠标 / 触控板）→ 指针停留或键盘聚焦，离开即复原；
+  //   触屏专用设备（CSS `(hover: none)`，见 app.css 的 .hero-tap）→ **轻点预览任意处**进入钉住态。
+  //   为什么要给触屏单独一条路：iframe 会吞掉指针事件，父页面在预览区域内收不到任何事件，
+  //   所以触屏那条走的是盖在预览上的一层透明覆盖层（只在 `(hover: none)` 下接指针）。
+  // 退出：钉住态点遮罩（`pointer-events` 只在钉住时打开）或按 Esc。
+  let pinned = false;
+  $: if (!$isWide && pinned) pinned = false;
+
+  function onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && pinned) pinned = false;
+  }
+
   function syncPreviewLang(): void {
+    // 未挂载前没有可收消息的文档（挂在 about:blank 上发消息没有意义，也可能被拦）
+    if (!previewArmed) return;
     frameEl?.contentWindow?.postMessage({ type: 'fc2:lang', lang: get(lang) }, location.origin);
+  }
+
+  // 把站点正文用的同一份字体注入预览：原型自己不带 @font-face（它必须自足、不发请求，见 config ㊲），
+  // 而原型正文栈的首位已经是这个字体族，注入 @font-face 之后预览里的文字就与页面同体。
+  // 同源同文件 ⇒ 命中同一份 HTTP 缓存，不产生第二次下载；取不到时原型沿系统栈呈现，不报错。
+  function injectPreviewFont(): void {
+    const doc = frameEl?.contentDocument;
+    if (!doc?.head) return;
+    const css = webFontFacesCss();
+    if (!css) return;
+    let style = doc.getElementById('fc-web-font') as HTMLStyleElement | null;
+    if (!style) {
+      style = doc.createElement('style');
+      style.id = 'fc-web-font';
+      doc.head.appendChild(style);
+    }
+    if (style.textContent !== css) style.textContent = css;
+  }
+
+  function onFrameLoad(): void {
+    injectPreviewFont();
+    syncPreviewLang();
+  }
+
+  // 平台卡的光晕跟随指针（样式见 app.css 的 `.plat::before`）：只写两个自定义属性，
+  // 用 rAF 合并同一帧内的多次 pointermove。不改任何布局属性，也不碰卡片内容。
+  // 移出时**不清空**坐标、只把最后一帧落位：光晕在"指针离开的那一点"原地淡出。
+  // （若清空，`--mx/--my` 会回落到渐变里的默认位 50% 0%，看到的是光斑先跳到卡片顶部再消失。）
+  function glow(node: HTMLElement) {
+    let raf = 0;
+    let last: { x: number; y: number } | null = null;
+    const write = () => {
+      raf = 0;
+      if (!last) return;
+      node.style.setProperty('--mx', `${last.x}px`);
+      node.style.setProperty('--my', `${last.y}px`);
+    };
+    const onMove = (e: PointerEvent) => {
+      const r = node.getBoundingClientRect();
+      last = { x: Math.round(e.clientX - r.left), y: Math.round(e.clientY - r.top) };
+      if (!raf) raf = requestAnimationFrame(write);
+    };
+    const onLeave = () => {
+      if (raf) cancelAnimationFrame(raf);
+      write(); // 落位到离开前的最后一点（同一帧内可能还有一次未写的移动）
+      last = null; // 之后不再更新；已写入的坐标留在元素上，作为淡出的位置
+    };
+    node.addEventListener('pointermove', onMove, { passive: true });
+    node.addEventListener('pointerleave', onLeave);
+    return {
+      destroy() {
+        node.removeEventListener('pointermove', onMove);
+        node.removeEventListener('pointerleave', onLeave);
+        if (raf) cancelAnimationFrame(raf);
+      },
+    };
   }
 
   $: if ($lang) syncPreviewLang();
 </script>
+
+<!-- 放大态的键盘出口（Esc）；按键监听常驻，但只在钉住时做事 -->
+<svelte:window on:keydown={onKeydown} />
 
 <header class="site-header">
   <!-- 顶栏内部沿用正文的全局 .wrap，宽度契约与各节一致（不做全宽特例）。
@@ -120,42 +208,94 @@
 </header>
 
 <main id="top">
-  <!-- hero -->
+  <!-- hero 是两栏骨架（见 design D1 / D2）：左栏主张句 + 定位 + 两颗入口 + 元信息行，
+       右栏是等比缩小后的可交互预览。产品名只在顶栏品牌块与本节的元信息行出现 ——
+       首屏最大的字留给主张，不重复报名字。 -->
   <section class="hero wrap">
-    <h1>FreeControl</h1>
-    <p class="tagline">{$t.hero.tagline}</p>
-    <p class="lede">{$t.hero.lede}</p>
-    <div class="hero-actions">
-      <!-- hero 主按钮是页内锚点，落到「下载」一节：那里才按平台列出各发行产物的一键直链，
-           读者不必为了拿产物先离开本页 -->
-      <a class="btn btn-primary" href="#download"><Icon name="Download" />{$t.hero.downloadCta}</a>
-      <!-- GitHub 入口的图形取 brand-marks.ts 的官方 mark（单色、继承文字色），与顶栏那颗同源 -->
-      <a class="btn btn-ghost" href={REPO}><span class="gh-mark">{@html GITHUB_MARK}</span>{$t.hero.sourceCta}</a>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <h1>{$t.hero.statement}</h1>
+        <p class="lede">{$t.hero.lede}</p>
+        <div class="hero-actions">
+          <!-- hero 主按钮是页内锚点，落到「下载」一节：那里才按平台列出各发行产物的一键直链，
+               读者不必为了拿产物先离开本页 -->
+          <a class="btn btn-primary" href="#download"><Icon name="Download" />{$t.hero.downloadCta}</a>
+          <!-- GitHub 入口的图形取 brand-marks.ts 的官方 mark（单色、继承文字色），与顶栏那颗同源 -->
+          <a class="btn btn-ghost" href={REPO}><span class="gh-mark">{@html GITHUB_MARK}</span>{$t.hero.sourceCta}</a>
+        </div>
+        <!-- 元信息行：产品名 · 版本 · 体积 / 形态 / 许可。版本取构建期解析结果，
+             解析不到时整颗不渲染（源码里没有版本字面量）。 -->
+        <p class="hero-meta">
+          <span class="is-brand">{$t.hero.meta[0]}</span>
+          {#if rel.ok && rel.tag}
+            <span class="dot" aria-hidden="true">·</span>
+            <a href={RELEASES}><b class="mono">{rel.tag}</b></a>
+          {/if}
+          {#each $t.hero.meta.slice(1) as item}
+            <span class="dot" aria-hidden="true">·</span>
+            <span>{item}</span>
+          {/each}
+        </p>
+      </div>
+      <!-- 占位槽：只负责撑住第二列的宽与高。预览盒绝对定位在它上面，指针停上去时改的是
+           预览盒自己的宽高（而非布局），所以放大/复原都不会让文案与下一节挪位。 -->
+      <div class="hero-slot" aria-hidden="true"></div>
+      <!-- 右栏预览按视口宽度二分（spec「品牌与视觉与产品同源」的 hero 预览场景）：
+           够宽时内嵌原型页面 —— 原型本身即完整可操作的应用界面，读者在 hero 里就能真点；
+           窄屏（手机 / 窄桌面窗口）下桌面版式压成一条反而不堪读，故改为同一页（设备页）的截图。
+           窄屏不渲染 iframe，也就不加载原型。
+           两种呈现都随页面语言换：原型自己有中英两套文案（由 `?lang=` 与父窗口消息定档），
+           窄屏截图也按语言取对应语言的那一张；`iframe` 的名字与截图 alt 一并走字典。 -->
+      <div class="hero-preview" class:is-pinned={pinned}>
+        {#if $isWide}
+          <div class="hero-frame-wrap">
+            <!-- 空闲帧之后才挂 iframe（见脚本里的 previewArmed）：在那之前这块面是空的，
+                 但几何由 .hero-slot 撑住，预览出现时页面不位移。 -->
+            {#if previewArmed}
+              <iframe
+                class="hero-frame"
+                src={PREVIEW_SRC}
+                title={$t.preview.frameTitle}
+                loading="lazy"
+                bind:this={frameEl}
+                on:load={onFrameLoad}
+              ></iframe>
+            {/if}
+            <!-- 触屏的"轻点放大"覆盖层：iframe 会吞事件，父页在预览区域内收不到指针，
+                 所以用这一层接住第一下轻点。它只在 `(hover: none)` 且未钉住时接指针
+                 （CSS 决定），鼠标用户完全感觉不到它的存在，原型也照常可点。 -->
+            <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+            <div class="hero-tap" aria-hidden="true" on:click={() => (pinned = true)}></div>
+          </div>
+        {:else}
+          <div class="hero-shot-wrap">
+            <!-- 窄屏下这张截图在文案之下（首屏之外），231 KB 的 PNG 没必要与首屏抢带宽：
+                 交给浏览器按视口延迟取，进视口时再加载。 -->
+            <img
+              class="hero-shot-img"
+              src={$lang === 'en' ? DEVICE_SHOT_EN : DEVICE_SHOT}
+              alt={$t.preview.shotAlt}
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        {/if}
+      </div>
     </div>
-    <!-- hero 主图按视口宽度二分（spec「品牌与视觉与产品同源」的 hero 预览场景）：
-         视口够宽时内嵌原型页面 —— 原型本身即完整可操作的应用界面，读者在 hero 里就能真点；
-         窄屏（手机 / 窄桌面窗口）下把桌面版式压成一条反而不堪读，故改为同一页（设备页）的截图。
-         窄屏不渲染 iframe，也就不加载原型。层级由 .hero-shot 提供边框/圆角/阴影。
-         两种呈现都随页面语言换：原型自己有中英两套文案（由 `?lang=` 与父窗口消息定档），
-         窄屏截图也按语言取对应语言的那一张；`iframe` 的名字与截图 alt 一并走字典。 -->
-    <div class="hero-shot">
-      {#if $isWide}
-        <iframe
-          class="hero-frame"
-          src={PREVIEW_SRC}
-          title={$t.preview.frameTitle}
-          loading="lazy"
-          bind:this={frameEl}
-          on:load={syncPreviewLang}
-        ></iframe>
-      {:else}
-        <img
-          class="hero-shot-img"
-          src={$lang === 'en' ? DEVICE_SHOT_EN : DEVICE_SHOT}
-          alt={$t.preview.shotAlt}
-        />
-      {/if}
-    </div>
+    <!-- 发现性：预览下方一行提示，放在 hero 的下沿而不是压进预览框 ——
+         框内那圈是原型自己的界面（右上角还有它自己的窗口控件），叠任何东西都会被读成第二个按钮。
+         文案按输入能力切换（悬停 / 轻点），只靠 CSS 切，不需要判断 UA。窄屏不出现：那里是截图。 -->
+    {#if $isWide}
+      <p class="hero-hint">
+        <span class="hero-hint-pointer">{$t.preview.hint}</span>
+        <span class="hero-hint-touch">{$t.preview.hintTouch}</span>
+      </p>
+    {/if}
+    <!-- 放大态的遮罩（样式见 app.css 的 .hero-scrim）。放在 .hero 里是为了用 :has() 跟着
+         悬停/聚焦/钉住起落。常态 `pointer-events: none`（拦截指针会让悬停立刻塌），
+         只有钉住态才接点击 —— 那时点它等于"还原"。 -->
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+    <div class="hero-scrim" aria-hidden="true" on:click={() => (pinned = false)}></div>
   </section>
 
   <!-- 功能特性 -->
@@ -165,13 +305,20 @@
         <h2>{$t.features.title}</h2>
         <p>{$t.features.subtitle}</p>
       </div>
-      <div class="feature-grid">
-        {#each $t.features.items as item}
-          <article class="feature-card">
-            <span class="feature-ico"><Icon name={item.icon} size={18} /></span>
-            <h3>{item.name}</h3>
-            <p>{item.desc}</p>
-          </article>
+      <!-- 13 条能力按四组排布（design D3）：组标题 + 条目清单 + 组尾一条等宽证据行。
+           不再用同款圆角卡片 —— 每项一张卡会让这一节占去整页三分之一的高度，
+           且卡片之间没有层级差；清单靠分组与细线承担结构。 -->
+      <div class="feature-groups">
+        {#each $t.features.groups as group}
+          <section class="fg">
+            <h3 class="fg-title">{group.title}</h3>
+            <ul class="fg-list">
+              {#each group.items as item}
+                <li><b>{item.name}</b><span>{item.desc}</span></li>
+              {/each}
+            </ul>
+            <p class="fg-evidence">{group.evidence}</p>
+          </section>
         {/each}
       </div>
     </div>
@@ -215,9 +362,11 @@
             {#each $t.compare.rows as row}
               <tr>
                 <th scope="row">{row.aspect}</th>
-                <td class="is-self">{row.fc2}</td>
-                <td>{row.others[0]}</td>
-                <td>{row.others[1]}</td>
+                <!-- data-col 供窄屏把每个取值格排成卡片后的列名（td::before 取 attr(data-col)）：
+                     值取列表头的同序文案，不另立一份列名，两种语言下自动对齐 -->
+                <td class="is-self" data-col={$t.compare.columns[0]}>{row.fc2}</td>
+                <td data-col={$t.compare.columns[1]}>{row.others[0]}</td>
+                <td data-col={$t.compare.columns[2]}>{row.others[1]}</td>
               </tr>
             {/each}
           </tbody>
@@ -331,7 +480,8 @@
       </div>
       <div class="plats">
         {#each $t.download.plats as plat}
-          <article class="plat" class:is-yours={plat.os === detectedOs}>
+          <!-- use:glow 只把指针在卡内的坐标写进 --mx/--my，样式全在 `.plat::before` 里 -->
+          <article class="plat" class:is-yours={plat.os === detectedOs} use:glow>
             <header>
               <span class="plat-mark" aria-hidden="true">{@html OS_MARKS[plat.os]}</span>
               <h4>{plat.name}</h4>

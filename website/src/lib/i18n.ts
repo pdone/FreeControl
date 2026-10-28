@@ -29,28 +29,61 @@ const zh = {
     switchTitle: 'Switch to English',
   },
   hero: {
-    tagline: '在 PC 上控制 Android 设备',
-    lede: 'scrcpy 的图形外壳：设备清单、参数面板、连接控制与运行环境，都在一个免安装的桌面程序里。',
+    // hero 第一行是主张句（不是产品名）：产品名由顶栏品牌块与下面的 meta 行承载。
+    // 定位（在 PC 上控制 Android 设备）并入 lede 首句，避免同一层意思用两种字号说两遍。
+    statement: '把 scrcpy 变成点得动的界面。',
+    lede: '在 PC 上控制 Android 设备：设备清单、参数面板、连接控制与运行环境，都在一个 6 MB 的免安装单文件里。',
     downloadCta: '下载最新版本',
     sourceCta: 'GitHub',
+    // 元信息行：产品名 + 体积 + 形态 + 许可。应用版本号由构建期解析结果插在这一行最前，
+    // 源码里不写版本字面量（见 lib/release.json）。
+    meta: ['FreeControl', '6 MB', '免安装单文件', 'MIT'],
   },
   features: {
     title: '功能特性',
     subtitle: '把 scrcpy 的能力做成可视化的壳。界面上能改的，最终都落到配置里。',
-    items: [
-      { icon: 'TabletSmartphone', name: '设备清单', desc: '每台设备一个别名，映射到 USB 序列号或 IP:端口，可增删改，在线状态实时可见' },
-      { icon: 'Wifi', name: '无线配对与发现', desc: '用配对码完成一次配对，点一下即列出局域网里已开启无线调试的设备' },
-      { icon: 'SlidersHorizontal', name: '参数面板', desc: '六组常用选项做成控件，逐项对应 scrcpy 长选项名；每个参数项都能点开「?」看详情，另有自定义参数框' },
-      { icon: 'Layers', name: '设备参数', desc: '单台设备一套参数，优先于全局参数，可整体启用或停用' },
-      { icon: 'Plug', name: '连接控制', desc: '单台或全部连接 / 断开，多台设备可同时投屏，进程与输出由程序托管' },
-      { icon: 'Settings', name: '运行环境', desc: 'scrcpy 与 adb 按需下载，多条通道按序回退并按官方校验值核对；可查看路径、换成已有的目录、检查更新' },
-      { icon: 'RefreshCw', name: '应用内更新', desc: '在「关于」里检查并下载新版本，核对后原地替换；便携版自行重启完成，也可设为启动时自动检查' },
-      { icon: 'ScrollText', name: '日志', desc: '逐会话输出持久化，保留 7 天 / 30 天 / 永久（卡片在「设置」页）' },
-      { icon: 'Terminal', name: '命令预览', desc: '底部显示将执行的完整命令，可一键复制' },
-      { icon: 'Palette', name: '外观', desc: '深浅色主题与主题色可切换（默认跟随系统），侧栏可收成图标栏' },
-      { icon: 'Scale', name: '界面缩放', desc: '设置页可整体放大界面，分 100% / 115% / 130% / 150% 四档，文字、图标与间距一起变；档位随配置保存' },
-      { icon: 'Type', name: '界面字体与代码字体', desc: '设置页可分别选择界面与代码区域的字体，缺字由对应系统默认栈补齐' },
-      { icon: 'Languages', name: '界面语言', desc: '设置页可在简体中文与英文之间切换，也可跟随系统' },
+    // 13 条能力按「设备 / 参数 / 运行与维护 / 外观与语言」四组排布。条目与 README 一一对应，
+    // 说明压到一句话：事实不减，只去掉修饰语与重复交代（如"设置页"这类位置提示，看界面即知）。
+    // 每组末尾的 evidence 是一条真实技术值（命令、产物名或配置键），以等宽呈现 —— 它承担结构，
+    // 不是装饰：卡片去掉之后，靠它把一组条目收束起来。
+    groups: [
+      {
+        title: '设备',
+        evidence: 'adb connect 192.168.1.42:5555',
+        items: [
+          { name: '设备清单', desc: '别名映射序列号或 IP:端口，可增删改，状态实时' },
+          { name: '无线配对与发现', desc: '配对码配对一次，随即列出局域网内可无线调试的设备' },
+          { name: '连接控制', desc: '单台或全部连接、断开，多台同时投屏' },
+        ],
+      },
+      {
+        title: '参数',
+        evidence: 'scrcpy --video-codec=h265 --max-fps=60 --no-audio',
+        items: [
+          { name: '参数面板', desc: '六组常用选项对应长选项，每项可看详情，另有自定义参数框' },
+          { name: '设备参数', desc: '单台一套参数，优先于全局，可整体启停' },
+          { name: '命令预览', desc: '底部显示将执行的完整命令，一键复制' },
+        ],
+      },
+      {
+        title: '运行与维护',
+        evidence: 'FreeControl_windows_x64.exe',
+        items: [
+          { name: '运行环境', desc: 'scrcpy 与 adb 按需下载、多通道回退并校验；可换目录、查更新' },
+          { name: '应用内更新', desc: '在「关于」里检查并原地替换，可设启动时自动检查' },
+          { name: '日志', desc: '逐会话输出持久化，保留 7 / 30 天或永久' },
+        ],
+      },
+      {
+        title: '外观与语言',
+        evidence: 'ui.theme · ui.accent · ui.language',
+        items: [
+          { name: '外观', desc: '深浅主题与主题色，默认跟随系统；侧栏可收成图标栏' },
+          { name: '界面缩放', desc: '四档整体缩放（100 / 115 / 130 / 150%），随配置保存' },
+          { name: '界面字体与代码字体', desc: '界面与代码区可分别选字体，缺字回退系统栈' },
+          { name: '界面语言', desc: '简体中文、English，或跟随系统' },
+        ],
+      },
     ],
   },
   compare: {
@@ -92,10 +125,14 @@ const zh = {
     buildTitle: '从源码构建',
     buildNote: '另需 Node.js 24 与 npm、Rust 稳定工具链，以及 Windows 的 MSVC 构建工具、Linux 的 webkit2gtk 等系统库或 macOS 的 Xcode 命令行工具。命令与产物位置见仓库 README。',
   },
-  // hero 预览的两处可访问文案：宽屏内嵌页面的名字与窄屏截图的替代文本（随语言成对）
+  // hero 预览的文案：宽屏内嵌页面的名字与窄屏截图的替代文本（可访问名），
+  // 以及预览下方那行"可放大 / 可交互"的提示。hint 给有悬停能力的输入（鼠标 / 触控板），
+  // hintTouch 给触屏专用设备（由 CSS 的 `(hover: none)` 切换，见 app.css 的 .hero-hint）
   preview: {
     frameTitle: 'FreeControl 界面预览',
     shotAlt: 'FreeControl 设备页',
+    hint: '悬停放大 · 可交互',
+    hintTouch: '轻点放大 · 可交互',
   },
   faq: {
     title: '常见问题',
@@ -202,28 +239,53 @@ const en: Dict = {
     switchTitle: '切换到中文',
   },
   hero: {
-    tagline: 'Control Android devices on PC',
-    lede: 'A graphical shell around scrcpy: device list, parameter panels, connection control and runtime — all in one portable desktop app.',
+    statement: 'Turn scrcpy into something you can click.',
+    lede: 'Control Android devices on PC: device list, parameter panels, connection control and runtime — all in one 6 MB portable file.',
     downloadCta: 'Download the latest release',
     sourceCta: 'GitHub',
+    meta: ['FreeControl', '6 MB', 'Portable', 'MIT'],
   },
   features: {
     title: 'Features',
     subtitle: 'A visual shell around what scrcpy can do. Everything you change in the UI lands in the config.',
-    items: [
-      { icon: 'TabletSmartphone', name: 'Device list', desc: 'One alias per device, mapped to a USB serial or IP:port; add, rename and remove, with live online/connected status' },
-      { icon: 'Wifi', name: 'Wireless pairing and discovery', desc: 'Pair once with the on-device code, then list the devices with wireless debugging on in one click' },
-      { icon: 'SlidersHorizontal', name: 'Parameter panels', desc: 'The common options of six groups as controls, each mapped to its scrcpy long option name; every field has a "?" detail, plus a custom-arguments box' },
-      { icon: 'Layers', name: 'Device parameters', desc: "A device's own parameter set, taking priority over global parameters" },
-      { icon: 'Plug', name: 'Connection control', desc: 'Connect or disconnect one device or all of them; several devices can mirror at once, with processes and output managed by the app' },
-      { icon: 'Settings', name: 'Runtime', desc: 'scrcpy and adb fetched on demand, channels tried in order and downloads verified against the official checksums; view the path, switch to an existing directory, check for updates' },
-      { icon: 'RefreshCw', name: 'In-app updates', desc: 'Check for and download a new version from "About", verify it and replace in place; portable builds restart to finish, and a startup check can be enabled' },
-      { icon: 'ScrollText', name: 'Logs', desc: 'Per-session output persisted, kept for 7 days / 30 days / forever (the cards live on the Settings page)' },
-      { icon: 'Terminal', name: 'Command preview', desc: 'The exact command about to run, shown at the bottom and copyable' },
-      { icon: 'Palette', name: 'Appearance', desc: 'Light/dark themes and accent color, following the system by default, with a sidebar that collapses to an icon rail' },
-      { icon: 'Scale', name: 'Interface scale', desc: 'Enlarge the whole interface from the Settings page in four steps (100% / 115% / 130% / 150%), with text, icons and spacing growing together; the step is saved with your configuration' },
-      { icon: 'Type', name: 'Interface and code fonts', desc: 'Choose separate fonts for the interface and code areas on the Settings page, with missing glyphs falling back to the matching system stack' },
-      { icon: 'Languages', name: 'Interface language', desc: 'Switch the UI between Chinese and English on the Settings page, or follow the system' },
+    groups: [
+      {
+        title: 'Devices',
+        evidence: 'adb connect 192.168.1.42:5555',
+        items: [
+          { name: 'Device list', desc: 'An alias per device mapped to a serial or IP:port, editable, with live status' },
+          { name: 'Wireless pairing and discovery', desc: 'Pair once with the on-device code, then list the devices with wireless debugging on' },
+          { name: 'Connection control', desc: 'Connect or disconnect one device or all; several can mirror at once' },
+        ],
+      },
+      {
+        title: 'Parameters',
+        evidence: 'scrcpy --video-codec=h265 --max-fps=60 --no-audio',
+        items: [
+          { name: 'Parameter panels', desc: 'Six groups of controls mapped to scrcpy long options, each with a detail view, plus a custom-arguments box' },
+          { name: 'Device parameters', desc: "A device's own parameter set, taking priority over the global one" },
+          { name: 'Command preview', desc: 'The exact command about to run, shown at the bottom and copyable' },
+        ],
+      },
+      {
+        title: 'Runtime and maintenance',
+        evidence: 'FreeControl_windows_x64.exe',
+        items: [
+          { name: 'Runtime', desc: 'scrcpy and adb fetched on demand, channels tried in order and checksum-verified; switch directories, check for updates' },
+          { name: 'In-app updates', desc: 'Check and replace in place from "About", with an optional startup check' },
+          { name: 'Logs', desc: 'Per-session output persisted for 7 days / 30 days / forever' },
+        ],
+      },
+      {
+        title: 'Appearance and language',
+        evidence: 'ui.theme · ui.accent · ui.language',
+        items: [
+          { name: 'Appearance', desc: 'Light/dark themes and accent color, system-following by default; the sidebar collapses to a rail' },
+          { name: 'Interface scale', desc: 'Four overall zoom steps (100 / 115 / 130 / 150%), saved with your configuration' },
+          { name: 'Interface and code fonts', desc: 'Separate fonts for the interface and code areas, missing glyphs falling back per system stack' },
+          { name: 'Interface language', desc: 'Simplified Chinese, English, or follow the system' },
+        ],
+      },
     ],
   },
   compare: {
@@ -268,6 +330,8 @@ const en: Dict = {
   preview: {
     frameTitle: 'FreeControl interface preview',
     shotAlt: 'FreeControl Devices page',
+    hint: 'Hover to enlarge · interactive',
+    hintTouch: 'Tap to enlarge · interactive',
   },
   faq: {
     title: 'FAQ',
