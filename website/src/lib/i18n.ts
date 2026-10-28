@@ -27,6 +27,12 @@ const zh = {
     download: '下载',
     switchLabel: 'EN',
     switchTitle: 'Switch to English',
+    // 外观入口（顶栏第三颗控件，仅图标）：两项分别是"点它会切到哪一档"。
+    // 与语言那颗同一套语义 —— 控件表达会发生什么，所以按目标档取文案。
+    appearance: {
+      toDark: '切换到深色',
+      toLight: '切换到浅色',
+    },
   },
   hero: {
     // hero 第一行是主张句（不是产品名）：产品名由顶栏品牌块与下面的 meta 行承载。
@@ -237,6 +243,10 @@ const en: Dict = {
     download: 'Download',
     switchLabel: '中文',
     switchTitle: '切换到中文',
+    appearance: {
+      toDark: 'Switch to dark',
+      toLight: 'Switch to light',
+    },
   },
   hero: {
     statement: 'Turn scrcpy into something you can click.',

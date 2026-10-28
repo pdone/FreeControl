@@ -40,6 +40,8 @@ const SUPPLEMENT = [
   'circle-alert', // cfg.icon
   'zap', // 连接按钮：connected ? 'zap-off' : 'zap'
   'zap-off',
+  'sun', // 官网顶栏外观入口：NEXT_ICON = { light:'Moon', dark:'Sun' }
+  'moon',
 ];
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;

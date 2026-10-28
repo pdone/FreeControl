@@ -27,6 +27,16 @@ body {
   cursor: default;
 }
 
+/* ---------- 主题切换的整页过渡 ----------
+   档位变化时由 src/lib/theme.ts 用 View Transitions 包一次应用，这里只定那一段交叉淡入的
+   时长与缓动（与产品 src/app.css 同值）。内核不支持该 API 时这段规则不生效，主题仍即时切换；
+   「减少动态效果」由 theme.ts 那侧直接跳过，不进过渡。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: ease;
+}
+
 a {
   color: var(--accent-text);
   text-decoration: none;
@@ -153,7 +163,7 @@ code {
 .nav a:hover {
   color: var(--text);
 }
-/* 右侧控件组：语言 / GitHub 两颗，整组贴右 */
+/* 右侧控件组：外观 / 语言 / GitHub 三颗，整组贴右（外观入口在最左，GitHub 仍在最右） */
 .head-actions {
   display: flex;
   align-items: center;
@@ -179,19 +189,33 @@ code {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 10%, transparent);
 }
-/* GitHub 入口：仅含图标（可访问名由 aria-label 给），透明底、与语言按钮同一悬停反馈 */
-.gh-btn {
+/* 仅图标的方钮（GitHub 入口、外观入口共用）：可访问名由 aria-label 给，透明底、
+   与语言按钮同一悬停反馈。两颗尺寸相同，故并列在同一条规则里，避免日后只改一处。 */
+.gh-btn,
+.appear-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
 }
-.gh-btn:hover {
+.gh-btn:hover,
+.appear-btn:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+/* 焦点环：站点此前没有自绘焦点（一律用浏览器默认），这里是第一处 —— 只给外观入口一个
+   强调色描边，避免默认那道黑 outline 在浅色底上显得像多了一圈边框。 */
+.appear-btn:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
 }
 /* 内联品牌标识（数据来源见 brand-marks.ts）：尺寸统一在此给，颜色由 color 继承 —— 顶栏与 hero 两处共用 */
 .gh-mark {

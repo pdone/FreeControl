@@ -1,6 +1,7 @@
 // 把仓库唯一来源里的品牌资产与原型页面镜像到站点根，供 Vite 直接伺服。
 // 与 scripts/sync-icons.mjs 同范式：按清单镜像、先清空再拷贝（换设计后不残留旧文件）。
 // 镜像目标（public/assets/、public/preview/）已在 .gitignore 中排除 —— 仓库内不留副本。
+import { existsSync } from 'node:fs';
 import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +22,22 @@ const MANIFEST = [
   ['ui-design/launcher-prototype.html', 'preview/launcher-prototype.html'],
   ['assets/screenshots/devices.png', 'screenshots/devices.png'],
   ['assets/screenshots/en/devices.png', 'screenshots/en/devices.png'],
+  ['assets/screenshots/light/devices.png', 'screenshots/light/devices.png'],
+  ['assets/screenshots/light/en/devices.png', 'screenshots/light/en/devices.png'],
 ];
+
+// 窄屏预览的取图口径是「语言 × 生效深浅」四种组合，四张必须成对存在。
+// 缺一张就在构建期失败：静默退化会让浅色页面上露出一张深色截图，而这正是浅色主题要消除的
+// 那处不一致 —— 宁可构建失败，也不要一张错图上线。
+const SHOT_PAIRS = MANIFEST.map(([src]) => src).filter((src) => src.endsWith('devices.png'));
+const missing = SHOT_PAIRS.filter((src) => !existsSync(resolve(repoRoot, src)));
+if (SHOT_PAIRS.length !== 4 || missing.length > 0) {
+  console.error(
+    `[sync-assets] 设备页截图须四张成对存在（中/英 × 深/浅），当前找到 ${SHOT_PAIRS.length - missing.length} 张`
+  );
+  for (const src of missing) console.error(`  缺：${src}`);
+  process.exit(1);
+}
 
 // 先清空再拷贝
 await rm(outRoot, { recursive: true, force: true });

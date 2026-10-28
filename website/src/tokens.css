@@ -35,7 +35,9 @@
   /* 顶栏总高（内容 60px + 底边 1px）：预览放大态要把它从可用高度里扣掉才能上下居中。
      与 app.css 里 `.site-header .wrap { height: 60px }` 绑定，改顶栏高度时两处一起改。 */
   --header-h: 61px;
-  /* 放大态的遮罩色：由 --bg 混出（不新增字面量），压暗下层内容而保留底色倾向 */
+  /* 放大态的遮罩色：压暗下层内容。深色档由 --bg 混出（保留底色倾向）；
+     浅色档不能用同一手法 —— 浅底混出来的是一层白光雾化，与「压暗页面其余内容」相反，
+     故浅色档显式取深色薄纱（见下方浅色块，与产品的 overlay 同值）。 */
   --scrim: color-mix(in srgb, var(--bg) 68%, transparent);
 
   /* 正文列行宽上限：约 42 个字符当量（中文约 21 字），比满宽 800px 更易读 */
@@ -73,4 +75,63 @@
    它的取值与产品界面一致，不随展示字体变化。 */
 :root.has-web-font {
   --font-sans: 'Alibaba PuHuiTi 3', var(--font-sans-system);
+}
+
+/* ---------- 浅色主题 ----------
+   与深色**对等的一套 token**，不是把 --bg / --text 对调：文字层级、强调派生方向、阴影与
+   遮罩都要重新取值，否则会得到一块灰白刺眼、链接发虚的页面。
+   与产品共有的 token 一律与产品 src/app.css 的 :root[data-theme='light'] 逐值对齐（产品是
+   唯一事实来源，产品改色时此处同步）；--shadow-float 与 --scrim 是官网自有 token，产品没有
+   对应值，在此另给一套浅色取值。
+   切换只改 <html data-theme="light">（由 src/lib/theme.ts 与 index.html 的首帧脚本写入）；
+   --accent 与 --accent-ink 不随主题变 —— 站点只有产品默认那一套强调色。 */
+:root[data-theme='light'] {
+  --bg: #f2f4f7;
+  --bg-elev: #f8f9fb;
+  --panel: #fff;
+  --panel-2: #f1f3f6;
+  --border: #dfe3ea;
+  --border-strong: #c8cfda;
+  /* 主文字色避开纯黑：与深色侧「不用 #e7eaf0」同一条理由（刺眼）。 */
+  --text: #1f2430;
+  --text-dim: #5a6377;
+  --text-faint: #8b93a5;
+
+  /* 浅色底上的「高亮 / 浅色文字」要更沉，方向与深色相反。 */
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+  --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+
+  /* 阴影在浅色下要更轻、色相偏冷，否则「被托起的面」会显脏。--shadow 取产品的浅色取值。 */
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.14);
+  --shadow-float: 0 1px 2px rgba(16, 24, 40, 0.06), 0 20px 40px -20px rgba(16, 24, 40, 0.2);
+  /* 遮罩仍是「压暗」：取产品的 overlay 色，不用 --bg 混（浅底混出来会是白光）。 */
+  --scrim: rgba(15, 23, 42, 0.35);
+
+  color-scheme: light;
+}
+/* 与上一块的浅色取值**逐项同值**（CSS 没有可复用的写法）：改一处必须同步另一处，
+   否则「首帧脚本还没跑」与「脚本跑过之后」会差一个色。
+   这一段只服务启动早期与脚本被拦的情形：data-theme 一旦挂上，就由上面那块接管。 */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f2f4f7;
+    --bg-elev: #f8f9fb;
+    --panel: #fff;
+    --panel-2: #f1f3f6;
+    --border: #dfe3ea;
+    --border-strong: #c8cfda;
+    --text: #1f2430;
+    --text-dim: #5a6377;
+    --text-faint: #8b93a5;
+    --accent-hover: color-mix(in srgb, var(--accent) 82%, #000);
+    --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+    --shadow: 0 10px 30px rgba(16, 24, 40, 0.14);
+    --shadow-float: 0 1px 2px rgba(16, 24, 40, 0.06), 0 20px 40px -20px rgba(16, 24, 40, 0.2);
+    --scrim: rgba(15, 23, 42, 0.35);
+    color-scheme: light;
+  }
 }

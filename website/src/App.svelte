@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import { get, readable } from 'svelte/store';
   import { lang, t, toggleLang } from './lib/i18n';
+  import type { Lang } from './lib/i18n';
+  import { otherTheme, setThemeCaptureHook, setThemeMode, themeMode } from './lib/theme';
+  import type { ThemeMode } from './lib/theme';
   import Icon from './lib/Icon.svelte';
   import { BUILT_WITH, GITHUB_MARK, OS_MARKS } from './lib/brand-marks';
   import { detectPlatform } from './lib/platform';
@@ -16,9 +19,26 @@
   const LEGACY_REPO = 'https://github.com/pdone/FreeControl-Legacy';
   // hero 内嵌的原型页面（构建期由 scripts/sync-assets.mjs 从 ui-design/ 镜像进站点）。
   const PREVIEW = '/preview/launcher-prototype.html';
-  // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点；英文一套在 en/ 下）。
+  // hero 窄屏分支的设备页截图（同一脚本从 assets/screenshots/ 镜像进站点；英文一套在 en/ 下，
+  // 浅色一套在 light/ 下）。四张成对存在由 scripts/sync-assets.mjs 在构建前断言。
   const DEVICE_SHOT = '/screenshots/devices.png';
   const DEVICE_SHOT_EN = '/screenshots/en/devices.png';
+  const DEVICE_SHOT_LIGHT = '/screenshots/light/devices.png';
+  const DEVICE_SHOT_LIGHT_EN = '/screenshots/light/en/devices.png';
+
+  // 窄屏截图的取图口径：语言 × 档位，四种组合各一张。收敛成函数，避免模板里散落三元。
+  const shotPath = (l: Lang, theme: ThemeMode): string =>
+    theme === 'light'
+      ? l === 'en'
+        ? DEVICE_SHOT_LIGHT_EN
+        : DEVICE_SHOT_LIGHT
+      : l === 'en'
+        ? DEVICE_SHOT_EN
+        : DEVICE_SHOT;
+
+  // 外观入口的图标指向**点击后会切到的那一档**（当前浅色显示月亮＝点它变深）。
+  // 与语言那颗同一套语义：控件表达"会发生什么"，而不是"现在是什么"。
+  const NEXT_ICON: Record<ThemeMode, string> = { light: 'Moon', dark: 'Sun' };
   // hero 的分界：视口够宽才内嵌可交互原型；手机与窄桌面窗口改为静态截图。
   // 该阈值只在 JS 出现一次 —— CSS 不为它写媒体查询（截图取流式尺寸），避免两处数字漂移。
   const WIDE_QUERY = '(min-width: 1024px)';
@@ -82,7 +102,19 @@
   // 预览与站点同语言：首帧由 URL 的 `?lang=` 带入（避免英文页面先闪一帧中文界面），
   // 之后页内切换只发一条消息、不重写 src —— 重写会让整份预览重新加载，把读者在预览里
   // 翻到的页面弹回设备页。iframe 后到（跨断点重建或首帧还没加载完）时由 on:load 兜一次。
-  const PREVIEW_SRC = `${PREVIEW}?lang=${get(lang)}`;
+  // 预览与站点同语言、同深浅，首帧都由 URL 的 `?lang=` / `?theme=` 带入（避免英文页面先闪一帧
+  // 中文界面、深色站点先闪一帧浅色预览）；之后页内变更只发消息、不重写 src —— 重写会让整份
+  // 预览重新加载，把读者在预览里翻到的页面弹回设备页。iframe 后到（跨断点重建或首帧还没加载
+  // 完）时由 on:load 兜一次。
+  // 推的是**模式**（system / light / dark）而不是生效色：站点处于「跟随系统」时，预览内部也
+  // 保持"跟随系统"，它的设置页里那三档分段控件才不会显示成一个产品里不存在的固定档。
+  //
+  // src 只在**创建 iframe 之前**求值：跨断点重建（<1024 ↔ ≥1024）时按当时的语言与档位重拼，
+  // 否则新 iframe 会先按模块初始化那一刻的语言画出首帧再被消息纠正（那正是"首帧即当前语言"
+  // 要避免的闪烁）。页内切换不碰它，因此不会触发重载。
+  const previewSrc = (): string => `${PREVIEW}?lang=${get(lang)}&theme=${get(themeMode)}`;
+  let previewSrcValue = previewSrc();
+  $: if ($isWide) previewSrcValue = previewSrc();
   let frameEl: HTMLIFrameElement | null = null;
 
   // 原型的 HTML 是本站最重的一件资源（约 456 KB，生产上 gzip 后仍在 100 KB 量级，比本页其它
@@ -92,9 +124,16 @@
   // 首屏画完后的空闲帧再把 iframe 挂上去 —— 布局零变化，预览随后照常可交互，语言同步逻辑不变。
   let previewArmed = false;
   onMount(() => {
-    const arm = () => (previewArmed = true);
+    const arm = () => {
+      // 挂载前再拼一次：空闲帧之前读者可能已经切过语言或档位
+      previewSrcValue = previewSrc();
+      previewArmed = true;
+    };
     if (typeof requestIdleCallback === 'function') requestIdleCallback(arm, { timeout: 800 });
     else window.setTimeout(arm, 120);
+    // 换肤过渡要等预览落地才拍"新画面"（见 lib/theme.ts 的 setThemeCaptureHook）
+    setThemeCaptureHook(pushPreviewTheme);
+    window.addEventListener('message', onPreviewMessage);
   });
 
   // 放大态有三条入口，按输入能力分工，页面上不出现任何按钮：
@@ -114,6 +153,39 @@
     // 未挂载前没有可收消息的文档（挂在 about:blank 上发消息没有意义，也可能被拦）
     if (!previewArmed) return;
     frameEl?.contentWindow?.postMessage({ type: 'fc2:lang', lang: get(lang) }, location.origin);
+  }
+
+  // 与语言分开一条消息：切语言时不重推主题，免得把读者在预览设置页里自己选的那一档覆盖掉。
+  //
+  // 预览换肤要**回执**：站点要等它落地才让 View Transitions 拍"新画面"，这样预览的换肤
+  // 正好落在两张快照之间，被同一次交叉淡入带走（否则它要么先跳再淡、要么淡完才跳）。
+  // 最多等 120ms —— 预览没挂载、或跑的是不回执的旧版原型时，不让过渡卡在这里。
+  let themeAck: (() => void) | null = null;
+
+  function onPreviewMessage(e: MessageEvent): void {
+    if (e.source !== frameEl?.contentWindow) return;
+    if (e.data?.type === 'fc2:theme-applied') themeAck?.();
+  }
+
+  function pushPreviewTheme(mode: ThemeMode): Promise<void> {
+    const win = frameEl?.contentWindow;
+    if (!previewArmed || !win) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        themeAck = null;
+        resolve();
+      };
+      themeAck = finish;
+      win.postMessage({ type: 'fc2:theme', mode }, location.origin);
+      window.setTimeout(finish, 120);
+    });
+  }
+
+  function syncPreviewTheme(): void {
+    void pushPreviewTheme(get(themeMode));
   }
 
   // 把站点正文用的同一份字体注入预览：原型自己不带 @font-face（它必须自足、不发请求，见 config ㊲），
@@ -136,6 +208,14 @@
   function onFrameLoad(): void {
     injectPreviewFont();
     syncPreviewLang();
+    syncPreviewTheme();
+  }
+
+  /* ---------- 顶栏的外观入口 ---------- */
+  // 一颗仅图标按钮，点击即在两档之间切换：没有菜单、没有面板、没有第二个交互面。
+  // 档位的应用与整页交叉淡入都在 lib/theme.ts 里；这里只负责翻到另一档。
+  function toggleAppearance(): void {
+    setThemeMode(otherTheme($themeMode));
   }
 
   // 平台卡的光晕跟随指针（样式见 app.css 的 `.plat::before`）：只写两个自定义属性，
@@ -194,6 +274,18 @@
       <a href="#faq">{$t.nav.faq}</a>
     </nav>
     <div class="head-actions">
+      <!-- 外观入口：仅图标按钮，点一下就在深/浅之间切换（没有菜单、没有第二个交互面）。
+           图标与可访问名都指向"点击后会切到的那一档"，与语言那颗同一套语义：
+           控件表达会发生什么，而不是现在是什么。见 spec「外观入口的形态与操作」 -->
+      <button
+        class="appear-btn"
+        type="button"
+        aria-label={$themeMode === 'light' ? $t.nav.appearance.toDark : $t.nav.appearance.toLight}
+        title={$themeMode === 'light' ? $t.nav.appearance.toDark : $t.nav.appearance.toLight}
+        on:click={toggleAppearance}
+      >
+        <Icon name={NEXT_ICON[$themeMode]} size={16} />
+      </button>
       <!-- 语言按钮：图标 + 短标签 —— 短标签承载「会切成哪种语言」这一状态，图标只作语义提示 -->
       <button class="lang-btn" type="button" on:click={toggleLang} title={$t.nav.switchTitle}>
         <Icon name="Languages" size={15} />
@@ -254,7 +346,7 @@
             {#if previewArmed}
               <iframe
                 class="hero-frame"
-                src={PREVIEW_SRC}
+                src={previewSrcValue}
                 title={$t.preview.frameTitle}
                 loading="lazy"
                 bind:this={frameEl}
@@ -270,10 +362,11 @@
         {:else}
           <div class="hero-shot-wrap">
             <!-- 窄屏下这张截图在文案之下（首屏之外），231 KB 的 PNG 没必要与首屏抢带宽：
-                 交给浏览器按视口延迟取，进视口时再加载。 -->
+                 交给浏览器按视口延迟取，进视口时再加载。
+                 取图口径＝语言 × 生效深浅（见脚本里的 shotPath），四张由构建前断言成对存在。 -->
             <img
               class="hero-shot-img"
-              src={$lang === 'en' ? DEVICE_SHOT_EN : DEVICE_SHOT}
+              src={shotPath($lang, $themeMode)}
               alt={$t.preview.shotAlt}
               loading="lazy"
               decoding="async"
