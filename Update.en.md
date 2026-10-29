@@ -2,6 +2,13 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.3.2
+
+### Improved
+
+- The three switches that mirror negative options now say what they do — "Disable two-way sync", "Disable aspect ratio lock" and "Disable cleanup on exit" — instead of phrasing it as "when off"; all three start unticked, so doing nothing keeps the previous behavior.
+- If you had turned any of these off yourself, your setting carries over after the upgrade and needs no re-entry.
+
 ## v2.3.1
 
 ### Improved
