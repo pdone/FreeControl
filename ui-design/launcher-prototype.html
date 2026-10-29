@@ -65,12 +65,19 @@
     --scroll-thumb: #333a47;
     --scroll-thumb-hover: #4b5464;
     /* 界面主字体的默认栈：字体卡未选择任何字体时的取值，也是演示字体栈末尾的兜底。
-       首位是展示字体（阿里巴巴普惠体 3.0）：装了这个字体的环境按它呈现，没装则沿这条栈
-       逐项回退到系统字体。原型本身不引 @font-face、不发任何请求（自足性见 config ㊲）。 */
-    --font-sans-default: "Alibaba PuHuiTi 3", system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-    --font-mono-default: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+       前两位是展示字体（阿里巴巴普惠体 3.0）：先本机安装族名（三种写法并列，装出来的名字
+       不完全一样），再站点自托管子集的族名 —— 两者必须不同名，同族名的 @font-face 会盖住
+       本机字体。装了的环境按本地字体呈现、不产生任何请求；没装则沿这条栈逐项回退到系统字体。
+       原型本身不引 @font-face、不发任何请求（自足性见 config ㊲），第二条只在站点注入后生效。 */
+    --font-brand-local: "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi 3.0 55 Regular", "阿里巴巴普惠体 3.0";
+    --font-brand-web: "Alibaba PuHuiTi 3";
+    --font-sans-default: var(--font-brand-local), var(--font-brand-web), system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    /* 等宽栈：普惠体只补前序等宽族缺失的中文，ASCII 仍由等宽族绘制（与站点的顺序一致）。 */
+    --font-mono-default: ui-monospace, "SF Mono", Menlo, Consolas, var(--font-brand-local), var(--font-brand-web), monospace;
     --font-mono: var(--font-mono-default);
-    font-synthesis: none;
+    /* 这里**不**关闭合成加粗（原先写过 `font-synthesis: none`，已移除）：展示字体只有 400 一档，
+       而界面里 600/700 的标题遍布各处；一旦禁掉合成，预览里的粗体全部退化成正文粗细。
+       站点页面同样不禁用（`website/src/app.css` 没有该声明），两处必须同口径。 */
     /* 让 WebView2 / Chromium 把原生控件按暗色绘制：滚动条、select 下拉列表、
        textarea 右下角缩放手柄等一律走暗色，避免深色界面里蹦出浅色系统部件。
        注：这一行只影响"系统绘制"的部件；下面自绘的滚动条与滑块不受它约束。 */
@@ -413,7 +420,7 @@
   /* ---------- scrcpy 运行环境（「更多」页） ---------- */
   .path-row { display: flex; align-items: center; gap: 10px; }
   .path-row > svg { width: 16px; height: 16px; stroke: var(--text-faint); flex: none; }
-  .path-row > input { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--text-dim); }
+  .path-row > input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-dim); }
   .path-row > .btn { flex: none; }
   /* 紧跟在文本框后面的按钮与它**等高**（「目录」行的「打开目录」）。文本框实测 36px
      （9px 上下内边距 ×2 + 13px 行高 + 2px 边框），按钮取同一取值才与它齐平。

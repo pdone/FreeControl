@@ -1,32 +1,29 @@
 /**
- * 官网正文字体：阿里巴巴普惠体 3.0（55 Regular + 75 SemiBold）子集，**懒加载**。
+ * 官网正文字体：阿里巴巴普惠体 3.0，只带 55 Regular 一份子集。
  *
- * 为什么是懒加载而不是 `@font-face` + `preload`：字体是这个站锦上添花的一层（首屏用系统栈
- * 本来就完整可读），而任何让字体挤进首屏关键路径的做法都会拖慢 h1 与 hero 预览的绘制。
- * 这里的顺序是：系统栈先把字画出来 → `load` 之后的空闲帧再取两个 woff2 → 两份都到位后
- * 才把 `--font-sans` 切过去。于是没有 FOUT（文字不会先隐形/闪系统体），只有一次"字体到位"
- * 的整体替换；取不到就一直是系统栈，功能与可读性都不受影响。
+ * 声明时机：在首帧之前（见 `main.ts` 的 `installWebFont()`）。站点是纯客户端渲染，正文第一个
+ * 字符必然出现在 JS 执行之后，所以这里同步插进 `document.head` 的 `@font-face` 一定先于任何
+ * 文字绘制生效 —— 字体已在浏览器缓存里时，首帧直接就是普惠体，不再有"先系统字体、再整体换
+ * 一次"的过程（那正是以前挂在 `load` 之后懒加载的代价）。
  *
- * 为什么字体只做了子集：普惠体全量 TTF 8 MB 一个字重。子集由 `scripts/gen-font-subset.mjs`
- * 按页面实际用字生成（721 字 → 每个字重 76.5 KB），是入库的生成物；改文案后若出现子集外的字，
- * 浏览器按字回退到系统栈，不会出现豆腐块。
+ * 本地优先：这条 `@font-face` 用 `'Alibaba PuHuiTi 3'` 这个族名，而 `tokens.css` 的字体栈把
+ * 本机安装族名（`"Alibaba PuHuiTi 3.0"` 等）排在它前面。两者必须不同名：同族名的 `@font-face`
+ * 会覆盖本机字体，本地那份就永远用不到。本机装了普惠体时首个族名即命中，浏览器不会来取这份
+ * woff2（整页零字体请求）；没装才由它接管。
  *
- * 字重映射：SemiBold 一份以 `weight: '600 900'` 注册。站内标题要 600–800，把它们全部落到
- * 这一份轮廓上 —— 否则浏览器会给 Regular 描粗（合成粗体），h1 的笔画会"糊"且比真粗体轻。
- * 代价是 700/800 与 600 同形（视觉上等于"标题统一用 SemiBold"），这正是本站要的：
- * 层级靠字号与间距，不靠 800 与 700 的差别。
- * 若日后要更重的标题，补一份 85 Bold 的子集、在这里加第三个 FontFace 即可，CSS 不用改。
+ * 为什么字体只做了子集：普惠体全量 TTF 一份字重 8 MB。子集由 `scripts/gen-font-subset.mjs`
+ * 按页面实际用字生成（721 字 → 76.5 KB），是入库的生成物；改文案后若出现子集外的字，浏览器
+ * 按字回退到系统栈，不会出现豆腐块。
  *
- * 两档一起成功才切换（`Promise.all`）：只有一档到位时，"正文普惠体 + 标题雅黑"比全用系统栈更难看。
+ * 为什么只有 400 这一档：见 spec「正文字体只提供单一字重档」。标题要 600–900，浏览器会在这
+ * 一份轮廓上合成加粗 —— 不再另带 75 SemiBold，冷缓存时要下的字节也只有一半。
+ *
+ * 省流模式：不声明 `@font-face`，也就不发请求（栈里那个族名没有对应字体，浏览器直接跳到系统栈）。
  */
 const FAMILY = 'Alibaba PuHuiTi 3';
-const CLASS = 'has-web-font';
-
 /** 与生成器 `scripts/gen-font-subset.mjs` 的产物名一一对应，改一处要改两处。 */
-const FACES: Array<{ file: string; weight: string }> = [
-  { file: 'puhuiti3-55-subset.woff2', weight: '400' },
-  { file: 'puhuiti3-75-subset.woff2', weight: '600 900' },
-];
+const FILE = 'puhuiti3-55-subset.woff2';
+const STYLE_ID = 'fc-web-font';
 
 /** 省流模式：多一份字体不值得，直接用系统栈（注入预览时同样跳过）。 */
 function saveData(): boolean {
@@ -38,36 +35,27 @@ function faceUrl(file: string): string {
 }
 
 /**
- * 两档 `@font-face` 的 CSS 文本，供宿主注入到 hero 的预览文档里（见 App.svelte 的 injectPreviewFont）。
- * 为什么用注入而不是让原型自己带字体：原型必须自足（config ㊲ / spec「hero 内嵌原型自足」），
- * 不能引 @font-face 或任何外部请求；而站点已经为正文取过这两份 woff2，注入只是复述它们的 URL，
- * 同源同文件 ⇒ 命中同一份 HTTP 缓存，不产生第二次下载。
+ * 那条 `@font-face` 的 CSS 文本，也供宿主注入到 hero 的预览文档里（见 App.svelte 的
+ * injectPreviewFont）。为什么用注入而不是让原型自己带字体：原型必须自足（config ㊲ / spec
+ * 「hero 内嵌原型自足、不请求外部资源」），不能引 @font-face 或任何外部请求；而站点已经为
+ * 正文声明过这份 woff2，注入只是复述它的 URL，同源同文件 ⇒ 命中同一份 HTTP 缓存，不产生第
+ * 二次下载。省流时返回空串，调用方据此跳过注入。
  */
 export function webFontFacesCss(): string {
-  if (typeof FontFace === 'undefined' || saveData()) return '';
-  return FACES.map(
-    (spec) =>
-      `@font-face{font-family:'${FAMILY}';src:url('${faceUrl(spec.file)}') format('woff2');` +
-      `font-weight:${spec.weight};font-style:normal;font-display:swap}`,
-  ).join('\n');
+  if (saveData()) return '';
+  return (
+    `@font-face{font-family:'${FAMILY}';src:url('${faceUrl(FILE)}') format('woff2');` +
+    `font-weight:400;font-style:normal;font-display:swap}`
+  );
 }
 
-export function loadWebFont(): void {
-  if (typeof FontFace === 'undefined' || document.documentElement.classList.contains(CLASS)) return;
-  if (saveData()) return;
-
-  const faces: FontFace[] = [];
-  try {
-    for (const spec of FACES) {
-      faces.push(new FontFace(FAMILY, `url(${faceUrl(spec.file)}) format('woff2')`, { weight: spec.weight, style: 'normal' }));
-    }
-  } catch {
-    return; // 老引擎不认 FontFace：保持系统栈
-  }
-  for (const f of faces) document.fonts.add(f);
-  Promise.all(faces.map((f) => f.load()))
-    .then(() => document.documentElement.classList.add(CLASS))
-    .catch(() => {
-      /* 任一档取不到（离线、被拦截、子集损坏）就整体不切换：不抛错、不提示 */
-    });
+/** 在首帧之前声明正文字体；重复调用无副作用（省流或已声明时直接返回）。 */
+export function installWebFont(): void {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
+  const css = webFontFacesCss();
+  if (!css) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = css;
+  document.head.appendChild(style);
 }

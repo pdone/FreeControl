@@ -1,19 +1,11 @@
 import App from './App.svelte';
 import './tokens.css';
 import './app.css';
-import { loadWebFont } from './lib/web-font';
+import { installWebFont } from './lib/web-font';
+
+// 正文字体在第一帧之前声明（见 lib/web-font.ts）：站点是纯客户端渲染，正文的第一个字符必然
+// 出现在这之后，所以这是能抓到的最早时机。以前把它挂在 `load` 之后的空闲帧上，于是每次刷新
+// 都能看到"先系统字体、再整体换一次"；现在缓存命中时首帧直接就是普惠体。
+installWebFont();
 
 const app = new App({ target: document.getElementById('app')! });
-
-// 正文字体懒加载（见 lib/web-font.ts）：不占首屏带宽，等页面与交互都就绪后的空闲帧再取。
-// requestIdleCallback 在部分引擎不存在，且空闲帧可能长期不来 —— 故都带兜底时限。
-const scheduleFont = () => {
-  const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void })
-    .requestIdleCallback;
-  if (idle) idle(loadWebFont, { timeout: 1500 });
-  else window.setTimeout(loadWebFont, 300);
-};
-if (document.readyState === 'complete') scheduleFont();
-else window.addEventListener('load', scheduleFont, { once: true });
-
-export default app;

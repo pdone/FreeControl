@@ -38,12 +38,48 @@ for (const light of [false, true]) {
   }
 }
 
-test('font fallback is gated and preserves the monospace prefix', () => {
-  const stacks = [...tokens.matchAll(/--font-mono:\s*([^;]+);/g)].map((match) => match[1]);
-  assert.equal(stacks.length, 2);
-  assert(!stacks[0].includes('Alibaba'));
-  assert.equal(stacks[1].replace("'Alibaba PuHuiTi 3', ", ''), stacks[0]);
-  assert(tokens.slice(tokens.indexOf(':root.has-web-font')).includes(stacks[1]));
+test('brand font is local-first and the self-hosted family uses another name', () => {
+  const str = (pattern) => tokens.match(pattern)[1].replace(/\s+/g, ' ').trim();
+  const sans = str(/--font-sans:\s*([^;]+);/);
+  const local = str(/--font-brand-local:\s*([^;]+);/);
+  const web = str(/--font-brand-web:\s*([^;]+);/);
+  assert(sans.startsWith('var(--font-brand-local), var(--font-brand-web)'));
+  assert(sans.endsWith('var(--font-sans-system)'));
+  for (const name of ['"Alibaba PuHuiTi 3.0"', '"Alibaba PuHuiTi 3.0 55 Regular"', '"阿里巴巴普惠体 3.0"']) {
+    assert(local.includes(name), `本机族名应包含 ${name}`);
+  }
+  assert.equal(web, "'Alibaba PuHuiTi 3'");
+  assert(!tokens.includes('has-web-font'), '字体切换不再依赖 html 上的类');
+});
+
+test('monospace keeps its prefix and only lets the brand font fill missing CJK', () => {
+  const prefix = 'ui-monospace, "SF Mono", Menlo, Consolas,';
+  const site = tokens.match(/--font-mono:\s*([^;]+);/)[1].replace(/\s+/g, ' ');
+  const proto = prototype.match(/--font-mono-default:\s*([^;]+);/)[1].replace(/\s+/g, ' ');
+  for (const [label, stack] of [['站点', site], ['原型', proto]]) {
+    assert(stack.startsWith(prefix), `${label}等宽栈前缀不应改变`);
+    assert(stack.indexOf('var(--font-brand-local)') > stack.indexOf('Consolas'), `${label}普惠体必须排在等宽族之后`);
+    assert(stack.endsWith('monospace'), `${label}等宽栈仍以 monospace 收尾`);
+  }
+  assert.equal((prototype.match(/ui-monospace/g) || []).length, 1, '原型不应有绕过 token 的等宽字面量');
+});
+
+test('prototype does not disable synthetic weight on its own', () => {
+  // 只有一份 400 轮廓，600/700 全靠浏览器合成；原型若单独关掉合成，预览里的粗体会集体变细。
+  // 先剥掉注释：这个开关的名字会出现在解释它为什么被移除的注释里。
+  const strip = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '');
+  const synthesis = (source) => /font-synthesis\s*:\s*([^;]+);/.exec(strip(source))?.[1].trim() ?? null;
+  assert.equal(synthesis(prototype), synthesis(css), '页面与原型必须同口径地对待合成加粗');
+});
+
+test('only one self-hosted weight is shipped', () => {
+  const fontModule = read('website/src/lib/web-font.ts');
+  assert.equal((fontModule.match(/puhuiti3-/g) || []).length, 1);
+  assert(fontModule.includes('puhuiti3-55-subset.woff2'));
+  assert.equal((fontModule.match(/@font-face\{/g) || []).length, 1);
+  assert.equal((fontModule.match(/font-weight:/g) || []).length, 1);
+  assert(!fs.existsSync(new URL('website/src/assets/fonts/puhuiti3-75-subset.woff2', root)));
+  assert.deepEqual(fs.readdirSync(new URL('website/src/assets/fonts/', root)), ['puhuiti3-55-subset.woff2']);
 });
 
 test('hero preview stays at 1000x700 without a screenshot placeholder', () => {
@@ -104,7 +140,6 @@ function setup() {
   let serial = 0;
   const timers = new Map();
   const messages = [];
-  const font = { ready: false };
   const head = { children: [], appendChild(node) { this.children.push(node); } };
   const styles = new Map();
   const contentDocument = {
@@ -123,12 +158,11 @@ function setup() {
     themeMode: { value: 'light' },
     get: (store) => store.value,
     location: { origin },
-    document: { documentElement: { classList: { contains: () => font.ready } } },
     webFontFacesCss: () => 'font-face',
     window: { setTimeout: (fn) => { const id = ++serial; timers.set(id, fn); return id; } },
   };
   vm.runInNewContext(code, context);
-  return { api: context.api, frame, messages, timers, font, head, styles };
+  return { api: context.api, frame, messages, timers, head, styles };
 }
 
 test('theme acknowledgement must match the current request', () => {
@@ -159,11 +193,8 @@ test('transition timeout releases only its own wait', () => {
   assert.equal(s.api.ackState(), null);
 });
 
-test('font injection waits for the site font class and runs once', () => {
+test('font injection needs no ready state and runs once', () => {
   const s = setup();
-  assert.equal(s.api.injectPreviewFont(), false);
-  assert.equal(s.head.children.length, 0);
-  s.font.ready = true;
   assert.equal(s.api.injectPreviewFont(), true);
   assert.equal(s.head.children.length, 1);
   assert.equal(s.head.children[0].textContent, 'font-face');

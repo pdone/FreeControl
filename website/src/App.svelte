@@ -140,11 +140,6 @@
     // 换肤过渡要等预览落地才拍"新画面"（见 lib/theme.ts 的 setThemeCaptureHook）
     setThemeCaptureHook(pushPreviewTheme);
     window.addEventListener('message', onPreviewMessage);
-    // 字体可能先于 iframe 就绪（也可能晚于）；注入成功后再撤观察器。
-    const fontObserver = new MutationObserver(() => {
-      if (injectPreviewFont()) fontObserver.disconnect();
-    });
-    fontObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   });
 
   // 放大态有三条入口，按输入能力分工，页面上不出现任何按钮：
@@ -204,10 +199,10 @@
   }
 
   // 把站点正文用的同一份字体注入预览：原型自己不带 @font-face（它必须自足、不发请求，见 config ㊲），
-  // 而原型正文栈的首位已经是这个字体族，注入 @font-face 之后预览里的文字就与页面同体。
-  // 站点字体未就绪时不注入，避免预览抢先触发那两份字体的下载；取不到时原型沿系统栈呈现。
+  // 而原型的字体栈前两位就是这组族名，注入 @font-face 之后预览里的文字就与页面同体。
+  // 注入不等待任何"字体已就绪"的状态：本机装了普惠体时原型在本地族名就命中，这条规则不会被用到，
+  // 也就不会产生请求；省流时 webFontFacesCss() 返回空串，这里无事可做。
   function injectPreviewFont(): boolean {
-    if (!document.documentElement.classList.contains('has-web-font')) return false;
     const doc = frameEl?.contentDocument;
     if (!doc?.head) return false;
     const css = webFontFacesCss();

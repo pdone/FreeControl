@@ -5,7 +5,7 @@
 
    排版类 token（--measure / --section-pad / --hero-pad / --preview-scale /
    --shadow-float）是官网自己的版式阶梯：颜色受产品约束，字号与间距不受，
-   但也不得引入第二套强调色或 web font（见 design D4 / D5 / D10）。
+   但也不得引入第二套强调色（见 design D4 / D5 / D10）。
    ========================================================================== */
 :root {
   --bg: #0b0d11;
@@ -58,23 +58,25 @@
   --preview-h-slot: calc(700px * var(--preview-scale));
   --preview-expand: 1;
 
-  /* 正文字体分两层：系统栈兜底 + 普惠体（懒加载，见 lib/web-font.ts）。
-     `--font-sans-system` 既是首屏用的字体，也是普惠体之后那条兜底栈 —— 换字体只换前半段，
-     缺字（子集外的新文案）仍按这条栈逐字补齐，不会出现豆腐块。
-     两者的启用开关是 `<html>` 上的 `.has-web-font`：字体真正 load 完成后才挂上，
-     所以不存在"字体没到就先按字体排一遍"的空窗。 */
+  /* 正文字体三段，顺序就是优先级：
+     ① `--font-brand-local` 是本机安装普惠体时的族名（三种写法并列，装出来的名字不完全一样：
+        DirectWrite 报排版族名，GDI 报带字重后缀的全名，中文界面还有中文别名）；
+     ② `--font-brand-web` 是站点自托管子集用的族名（`lib/web-font.ts`）—— 必须与①不同名，
+        同族名的 `@font-face` 会覆盖本机字体；
+     ③ `--font-sans-system` 是最后的兜底栈，子集外的字与取不到字体时都落到这里。
+     装了普惠体的访客在①就命中，浏览器不会去取②那份 woff2（零字体请求）；没装的由②接管
+     （缓存命中时首帧即生效）；②也取不到才落到③。 */
+  --font-brand-local: "Alibaba PuHuiTi 3.0", "Alibaba PuHuiTi 3.0 55 Regular",
+    "阿里巴巴普惠体 3.0";
+  --font-brand-web: 'Alibaba PuHuiTi 3';
   --font-sans-system: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
     "Microsoft YaHei", sans-serif;
-  --font-sans: var(--font-sans-system);
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: var(--font-brand-local), var(--font-brand-web), var(--font-sans-system);
+  /* 普惠体只补等宽字体缺失的字形（中文），不改变 ASCII 的等宽呈现：它排在前序等宽族之后。 */
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, var(--font-brand-local),
+    var(--font-brand-web), monospace;
 
   color-scheme: dark;
-}
-
-/* 普惠体只补等宽字体缺失的字形，不改变 ASCII 的等宽呈现。 */
-:root.has-web-font {
-  --font-sans: 'Alibaba PuHuiTi 3', var(--font-sans-system);
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, 'Alibaba PuHuiTi 3', monospace;
 }
 
 /* ---------- 浅色主题 ----------
