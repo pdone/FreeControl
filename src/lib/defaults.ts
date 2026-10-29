@@ -87,7 +87,9 @@ export const BUILTIN_DEFAULTS: Defaults = {
     stayAwake: false,
     keepActive: false,
     powerOffOnClose: false,
-    clipboard: true,
+    // 开关语义是「禁用双向同步」：开 ⇒ 下发 `--no-clipboard-autosync`；
+    // 出厂不选中 ⇒ 不下发该 flag，双向同步按 scrcpy 自身默认启用。
+    clipboardOff: false,
   },
   record: {
     recordOn: false,
@@ -104,7 +106,9 @@ export const BUILTIN_DEFAULTS: Defaults = {
     borderless: false,
     fullscreen: false,
     alwaysOnTop: false,
-    aspectLock: true,
+    // 开关语义是「禁用宽高比锁定」：开 ⇒ 下发 `--no-window-aspect-ratio-lock`；
+    // 出厂不选中 ⇒ 不下发该 flag，窗口按 scrcpy 自身默认锁定比例。
+    aspectLockOff: false,
     bgColor: '#222222',
     windowWidth: 0,
     windowHeight: 0,
@@ -119,8 +123,41 @@ export const BUILTIN_DEFAULTS: Defaults = {
     customArgs: '',
     verbosity: 'info',
     printFps: false,
-    cleanup: true,
+    // 开关语义是「禁用退出清理」：开 ⇒ 下发 `--no-cleanup`；
+    // 出厂不选中 ⇒ 不下发该 flag，退出时按 scrcpy 自身默认清理设备状态。
+    cleanupOff: false,
     port: '27183:27199',
     tunnelHost: 'localhost',
   },
 };
+
+/**
+ * 三个否定式 flag 的开关曾以「正向」键落盘（`clipboard` / `aspectLock` / `cleanup`），
+ * 本变更把它们的语义翻成负向键（`…Off`：真 = 禁用 = 下发对应 flag）。读盘时按本表换算：
+ * `新键 = 旧值 === false`（旧「关」= 用户曾显式禁用 → 新「开」），并删除旧键，
+ * 避免盘上长期留两份语义相反的取值。只在「新键不存在且旧键存在」时动手，因此幂等。
+ *
+ * 就地修改传入对象：`defaults` 与 `overrides[*].values` 共用同一张表 —— 拼装读的是
+ * 合并后的参数，手改过的设备级旧键同样会改变该设备的命令。返回是否发生改动，
+ * 调用方据此决定是否回写一次（迁移失败下次启动会重跑）。
+ */
+const NEGATED_TOGGLE_KEYS: readonly { group: string; from: string; to: string }[] = [
+  { group: 'control', from: 'clipboard', to: 'clipboardOff' },
+  { group: 'window', from: 'aspectLock', to: 'aspectLockOff' },
+  { group: 'advanced', from: 'cleanup', to: 'cleanupOff' },
+];
+
+export function migrateToggleKeys(values: Record<string, unknown> | null | undefined): boolean {
+  if (!values || typeof values !== 'object') return false;
+  let changed = false;
+  for (const { group, from, to } of NEGATED_TOGGLE_KEYS) {
+    const fields = values[group];
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) continue;
+    const bag = fields as Record<string, unknown>;
+    if (to in bag || !(from in bag)) continue;
+    bag[to] = bag[from] === false;
+    delete bag[from];
+    changed = true;
+  }
+  return changed;
+}

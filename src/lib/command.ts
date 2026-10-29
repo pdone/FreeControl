@@ -229,7 +229,8 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   if (bool(c.stayAwake)) a.push('--stay-awake');
   if (bool(c.keepActive)) a.push('--keep-active');
   if (bool(c.powerOffOnClose)) a.push('--power-off-on-close');
-  if (c.clipboard === false) a.push('--no-clipboard-autosync');
+  // 开关语义是「禁用双向同步」：开 ⇒ 下发该 flag（出厂不选中）。
+  if (bool(c.clipboardOff)) a.push('--no-clipboard-autosync');
 
   // ── 录制（--record / --record-format / --record-orientation / --no-window /
   //    --time-limit / --pause-on-exit）──
@@ -258,7 +259,8 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   if (bool(w.borderless)) a.push('--window-borderless');
   if (bool(w.fullscreen)) a.push('--fullscreen');
   if (bool(w.alwaysOnTop)) a.push('--always-on-top');
-  if (w.aspectLock === false) a.push('--no-window-aspect-ratio-lock');
+  // 开关语义是「禁用宽高比锁定」：开 ⇒ 下发该 flag（出厂不选中）。
+  if (bool(w.aspectLockOff)) a.push('--no-window-aspect-ratio-lock');
   if (str(w.bgColor) && str(w.bgColor) !== str(builtin.window?.bgColor)) {
     a.push(`--background-color=${str(w.bgColor)}`);
   }
@@ -286,7 +288,8 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
     a.push(`--verbosity=${str(adv.verbosity)}`);
   }
   if (bool(adv.printFps)) a.push('--print-fps');
-  if (adv.cleanup === false) a.push('--no-cleanup');
+  // 开关语义是「禁用退出清理」：开 ⇒ 下发该 flag（出厂不选中）。
+  if (bool(adv.cleanupOff)) a.push('--no-cleanup');
   if (
     !isBlank(adv.port) &&
     str(adv.port) !== str(builtin.advanced?.port) &&

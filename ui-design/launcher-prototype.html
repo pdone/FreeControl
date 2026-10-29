@@ -1383,9 +1383,9 @@
               <div class="toggle"><span class="t-label">退出即熄屏</span><label class="switch"><input type="checkbox" data-g="control" data-k="powerOffOnClose" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">剪贴板自动同步（--no-clipboard-autosync）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="剪贴板自动同步（--no-clipboard-autosync）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">剪贴板自动同步（--no-clipboard-autosync）</span><span class="fhelp-p">开启时剪贴板双向自动同步：向设备注入 Ctrl+V 之前先把电脑剪贴板推过去，设备剪贴板变化时同步回电脑。</span><span class="fhelp-p">关闭后不再自动同步，两侧剪贴板互不影响。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">剪贴板自动同步（--no-clipboard-autosync）</span><span class="fhelp-p">开关打开时不再自动同步剪贴板：向设备注入 Ctrl+V 前不推送电脑剪贴板，设备剪贴板的变化也不同步回电脑。</span><span class="fhelp-p">关掉开关才启用双向同步 —— 这是 scrcpy 的默认行为，也是出厂状态。</span></span>
             </span></span>
-              <div class="toggle"><span class="t-label">双向同步（关闭时）</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboard" data-t="bool" checked /><span class="slider"></span></label></div></div>
+              <div class="toggle"><span class="t-label">禁用双向同步</span><label class="switch"><input type="checkbox" data-g="control" data-k="clipboardOff" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">息屏超时（--screen-off-timeout）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="息屏超时（--screen-off-timeout）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">息屏超时（--screen-off-timeout）</span><span class="fhelp-p">scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。</span></span>
@@ -1484,9 +1484,9 @@
               <div class="toggle"><span class="t-label">最前显示</span><label class="switch"><input type="checkbox" data-g="window" data-k="alwaysOnTop" data-t="bool" id="wTop" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">锁定宽高比（--no-window-aspect-ratio-lock）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="锁定宽高比（--no-window-aspect-ratio-lock）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">锁定宽高比（--no-window-aspect-ratio-lock）</span><span class="fhelp-p">scrcpy 默认锁定窗口宽高比；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。</span><span class="fhelp-p">只在使用 scrcpy 自带窗口时生效。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">锁定宽高比（--no-window-aspect-ratio-lock）</span><span class="fhelp-p">scrcpy 默认锁定窗口宽高比，窗口只能等比缩放；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。</span><span class="fhelp-p">只在使用 scrcpy 自带窗口时生效。</span></span>
             </span></span>
-              <div class="toggle"><span class="t-label">保持比例（关闭时）</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLock" data-t="bool" checked /><span class="slider"></span></label></div></div>
+              <div class="toggle"><span class="t-label">禁用宽高比锁定</span><label class="switch"><input type="checkbox" data-g="window" data-k="aspectLockOff" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">背景色（--background-color）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="背景色（--background-color）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">背景色（--background-color）</span><span class="fhelp-p">窗口留边区域（letterbox 黑边）的颜色，取值形如 #RGB 或 #RRGGBB。</span><span class="fhelp-p">scrcpy 默认为 #222（深灰）。</span></span>
@@ -1819,9 +1819,9 @@
               <div class="toggle"><span class="t-label">控制台打印帧率</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="printFps" data-t="bool" /><span class="slider"></span></label></div></div>
             <div class="field"><span class="flabel">关闭时清理（--no-cleanup）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="关闭时清理（--no-cleanup）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">关闭时清理（--no-cleanup）</span><span class="fhelp-p">scrcpy 退出时会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。</span><span class="fhelp-p">打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">关闭时清理（--no-cleanup）</span><span class="fhelp-p">scrcpy 退出时默认会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。</span><span class="fhelp-p">打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。</span></span>
             </span></span>
-              <div class="toggle"><span class="t-label">退出时还原设备状态（关闭时）</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanup" data-t="bool" checked /><span class="slider"></span></label></div></div>
+              <div class="toggle"><span class="t-label">禁用退出清理</span><label class="switch"><input type="checkbox" data-g="advanced" data-k="cleanupOff" data-t="bool" /><span class="slider"></span></label></div></div>
           </div>
           <!-- 日志文件：本程序自身落盘日志的目录与保留期。保留策略不是 scrcpy 的默认参数
                （没有 data-g / data-k，不写入 defaults），只在本页内切换选中项，同 #mType 的做法。
@@ -2356,9 +2356,9 @@
   "退出镜像时关闭设备屏幕，等价于按一次电源键。": "Turn the device screen off when exiting the mirror, equivalent to pressing the power button once.",
   "退出即熄屏": "Turn the screen off on exit",
   "剪贴板自动同步（--no-clipboard-autosync）": "Clipboard autosync (--no-clipboard-autosync)",
-  "开启时剪贴板双向自动同步：向设备注入 Ctrl+V 之前先把电脑剪贴板推过去，设备剪贴板变化时同步回电脑。": "When on, the clipboard syncs both ways automatically: before injecting Ctrl+V on the device, the computer clipboard is pushed over; changes on the device are synced back.",
-  "关闭后不再自动同步，两侧剪贴板互不影响。": "When off, no automatic sync happens and the two clipboards are independent.",
-  "双向同步（关闭时）": "Two-way sync (when off)",
+  "开关打开时不再自动同步剪贴板：向设备注入 Ctrl+V 前不推送电脑剪贴板，设备剪贴板的变化也不同步回电脑。": "When on, the clipboard no longer syncs automatically: the computer clipboard is not pushed before Ctrl+V is injected on the device, and device clipboard changes are not synced back.",
+  "关掉开关才启用双向同步 —— 这是 scrcpy 的默认行为，也是出厂状态。": "Turn it off to enable two-way sync — that is scrcpy's default and the factory state.",
+  "禁用双向同步": "Disable two-way sync",
   "息屏超时（--screen-off-timeout）": "Screen-off timeout (--screen-off-timeout)",
   "scrcpy 运行期间把设备的息屏超时改为该秒数，退出时恢复原值。": "While scrcpy runs, set the device screen-off timeout to this many seconds and restore the previous value on exit.",
   "单位：秒；0 / 留空 = 不修改设备设置": "Unit: seconds; 0 or empty = leave the device setting unchanged",
@@ -2405,9 +2405,9 @@
   "窗口始终压在其他窗口之上，适合边看手机边操作电脑。": "Keep the window above other windows; useful when watching the phone while working on the computer.",
   "最前显示": "Keep on top",
   "锁定宽高比（--no-window-aspect-ratio-lock）": "Lock aspect ratio (--no-window-aspect-ratio-lock)",
-  "scrcpy 默认锁定窗口宽高比；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。": "scrcpy locks the window aspect ratio by default; turn this on to resize the window freely, stretching the picture.",
+  "scrcpy 默认锁定窗口宽高比，窗口只能等比缩放；打开这个开关后可以自由拖动窗口大小，画面随之拉伸。": "scrcpy locks the window aspect ratio by default, so the window only scales proportionally; turn this on to resize the window freely and stretch the picture.",
   "只在使用 scrcpy 自带窗口时生效。": "Only effective with the scrcpy window.",
-  "保持比例（关闭时）": "Keep aspect ratio (when off)",
+  "禁用宽高比锁定": "Disable aspect ratio lock",
   "背景色（--background-color）": "Background color (--background-color)",
   "窗口留边区域（letterbox 黑边）的颜色，取值形如 #RGB 或 #RRGGBB。": "Color of the letterbox area; use #RGB or #RRGGBB.",
   "scrcpy 默认为 #222（深灰）。": "scrcpy defaults to #222 (dark gray).",
@@ -2531,9 +2531,9 @@
   "在日志里持续打印实际帧率，用来判断画面是否掉帧。": "Continuously print the actual frame rate in the log to check for dropped frames.",
   "控制台打印帧率": "Print frame rate to the log",
   "关闭时清理（--no-cleanup）": "Clean up on close (--no-cleanup)",
-  "scrcpy 退出时会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。": "On exit, scrcpy removes the server from the device and restores the state it changed (show touches, stay awake and power mode).",
+  "scrcpy 退出时默认会删除设备上的服务端程序，并还原它改动过的状态（显示触摸点、保持唤醒与电源模式）。": "By default, scrcpy removes the server from the device on exit and restores the state it changed (show touches, stay awake and power mode).",
   "打开这个开关即跳过清理：设备会保留这些改动，仅在排查问题时使用。": "Turning this on skips cleanup: the device keeps those changes; use it only when troubleshooting.",
-  "退出时还原设备状态（关闭时）": "Restore device state on exit (when off)",
+  "禁用退出清理": "Disable cleanup on exit",
   "日志文件": "Log files",
   "保留策略": "Retention",
   "日志按日期命名（": "Logs are named by date (",
@@ -3022,11 +3022,11 @@
     // 注意 `--new-display` 取空时**仍会下发该 flag、只是不带取值**，其余四个取空则不产生 flag（见 buildArgs）。
     source:   { videoSource:'display', displayMode:'main', displayId:0, newDisplayRes:'', newDisplayDpi:'', noVdDestroy:true, cameraFacing:'', cameraSize:'', cameraFps:'', cameraZoom:1, cameraTorch:false },
     audio:    { audioOff:true, audioSource:'output', audioCodec:'opus', audioEncoder:'', audioDup:false, audioBitrate:0, audioBuffer:50, audioOutBuffer:10 },
-    control:  { noControl:false, keyboard:'uhid', noKeyRepeat:false, mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, screenOffTimeout:0, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboard:true },
+    control:  { noControl:false, keyboard:'uhid', noKeyRepeat:false, mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, screenOffTimeout:0, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboardOff:false },
     record:   { recordOn:false, recordPath:'D:/Recordings/session.mp4', recordFormat:'mp4', recordOrientation:'0', noWindow:false, timeLimit:0, pauseOnExit:'false' },
-    window:   { windowTitle:'', borderless:false, fullscreen:false, alwaysOnTop:false, aspectLock:true, bgColor:'#222222', windowWidth:0, windowHeight:0, windowX:0, windowY:0 },
+    window:   { windowTitle:'', borderless:false, fullscreen:false, alwaysOnTop:false, aspectLockOff:false, bgColor:'#222222', windowWidth:0, windowHeight:0, windowX:0, windowY:0 },
     apps:     { startApp:'' },
-    advanced: { customArgs:'', verbosity:'info', printFps:false, cleanup:true, port:'27183:27199', tunnelHost:'localhost' }
+    advanced: { customArgs:'', verbosity:'info', printFps:false, cleanupOff:false, port:'27183:27199', tunnelHost:'localhost' }
   };
   /* ============================================================
      scrcpy 版本 —— 单一来源，禁止散落硬编码
@@ -3426,7 +3426,7 @@
     if (p.control.stayAwake) a.push('--stay-awake');
     if (p.control.keepActive) a.push('--keep-active');
     if (p.control.powerOffOnClose) a.push('--power-off-on-close');
-    if (!p.control.clipboard) a.push('--no-clipboard-autosync');
+    if (p.control.clipboardOff) a.push('--no-clipboard-autosync');
     // record
     if (p.record.recordOn){ a.push(`--record=${p.record.recordPath}`); a.push(`--record-format=${p.record.recordFormat}`); }
     if (p.record.recordOrientation!=='0') a.push(`--record-orientation=${p.record.recordOrientation}`);
@@ -3438,7 +3438,7 @@
     if (p.window.borderless) a.push('--window-borderless');
     if (p.window.fullscreen) a.push('--fullscreen');
     if (p.window.alwaysOnTop) a.push('--always-on-top');
-    if (!p.window.aspectLock) a.push('--no-window-aspect-ratio-lock');
+    if (p.window.aspectLockOff) a.push('--no-window-aspect-ratio-lock');
     if (p.window.bgColor!=='#222222') a.push(`--background-color=${p.window.bgColor}`);
     if (p.window.windowWidth>0 && !isFlex) a.push(`--window-width=${p.window.windowWidth}`);
     if (p.window.windowHeight>0 && !isFlex) a.push(`--window-height=${p.window.windowHeight}`);
@@ -3449,7 +3449,7 @@
     // advanced
     if (p.advanced.verbosity!=='info') a.push(`--verbosity=${p.advanced.verbosity}`);
     if (p.advanced.printFps) a.push('--print-fps');
-    if (!p.advanced.cleanup) a.push('--no-cleanup');
+    if (p.advanced.cleanupOff) a.push('--no-cleanup');
     if (p.advanced.port!=='27183:27199') a.push(`--port=${p.advanced.port}`);
     if (p.advanced.tunnelHost!=='localhost') a.push(`--tunnel-host=${p.advanced.tunnelHost}`);
     if (p.advanced.customArgs.trim()) a.push(p.advanced.customArgs.trim());

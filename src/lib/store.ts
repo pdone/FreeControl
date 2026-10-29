@@ -2,7 +2,7 @@ import { writable, derived, get } from 'svelte/store';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
-import { BUILTIN_DEFAULTS } from './defaults';
+import { BUILTIN_DEFAULTS, migrateToggleKeys } from './defaults';
 import { buildArgs, mergeParams } from './command';
 import { validateParams, validateOverrideValues, type ParamErrors } from './validate';
 import {
@@ -1141,11 +1141,21 @@ export async function initApp(): Promise<void> {
   void initWindowChrome();
   try {
     const c = await getConfig();
+    // 三个否定式 flag 的开关曾以正向键落盘（change `clarify-clipboard-sync-toggle`）：
+    // 读入时换算成负向键，避免用户显式关掉过的项被静默改回默认。设备覆盖里手改过的
+    // 旧键一并换算 —— 拼装读的是合并后的参数。换算幂等，只有真发生改动才回写一次。
+    let migrated = migrateToggleKeys(c.defaults as unknown as Record<string, unknown>);
+    for (const entry of Object.values(c.overrides ?? {})) {
+      if (migrateToggleKeys(entry.values)) migrated = true;
+    }
     // 默认参数缺失（Null）时回落内置并回写（tasks 5.1 / 5.4：
     // 首次启动结束时盘上就是完整的默认参数，而不是一个空值）。
     if (!c.defaults || Object.keys(c.defaults).length === 0) {
       c.defaults = BUILTIN_DEFAULTS;
       await saveConfig(c);
+    } else if (migrated) {
+      // 回写失败只记录：迁移是纯读时归一化，下次启动会重跑，不影响本次使用。
+      await saveConfig(c).catch((e) => console.error('迁移旧开关取值后回写配置失败', e));
     }
     config.set(c);
   } catch (e) {

@@ -675,13 +675,14 @@ export const PARAM_GROUPS: ParamGroup[] = [
             detailKeys: ['param.control.powerOffOnClose.detail1'],
           },
           {
-            key: 'clipboard',
+            // 开关语义是「禁用双向同步」：开 ⇒ 下发 `--no-clipboard-autosync`；出厂不选中。
+            key: 'clipboardOff',
             label: '--no-clipboard-autosync',
             type: 'toggle',
-            hintKey: 'param.control.clipboard.hint',
+            hintKey: 'param.control.clipboardOff.hint',
             detailKeys: [
-              'param.control.clipboard.detail1',
-              'param.control.clipboard.detail2',
+              'param.control.clipboardOff.detail1',
+              'param.control.clipboardOff.detail2',
             ],
           },
           // 后置：新增参数排在既有字段之后。
@@ -837,13 +838,14 @@ export const PARAM_GROUPS: ParamGroup[] = [
             detailKeys: ['param.window.alwaysOnTop.detail1'],
           },
           {
-            key: 'aspectLock',
+            // 开关语义是「禁用宽高比锁定」：开 ⇒ 下发 `--no-window-aspect-ratio-lock`；出厂不选中。
+            key: 'aspectLockOff',
             label: '--no-window-aspect-ratio-lock',
             type: 'toggle',
-            hintKey: 'param.window.aspectLock.hint',
+            hintKey: 'param.window.aspectLockOff.hint',
             detailKeys: [
-              'param.window.aspectLock.detail1',
-              'param.window.aspectLock.detail2',
+              'param.window.aspectLockOff.detail1',
+              'param.window.aspectLockOff.detail2',
             ],
           },
           {
@@ -1000,13 +1002,14 @@ export const RUN_LOG_CARD: ParamCard = {
       detailKeys: ['param.advanced.printFps.detail1'],
     },
     {
-      key: 'cleanup',
+      // 开关语义是「禁用退出清理」：开 ⇒ 下发 `--no-cleanup`；出厂不选中。
+      key: 'cleanupOff',
       label: '--no-cleanup',
       type: 'toggle',
-      hintKey: 'param.advanced.cleanup.hint',
+      hintKey: 'param.advanced.cleanupOff.hint',
       detailKeys: [
-        'param.advanced.cleanup.detail1',
-        'param.advanced.cleanup.detail2',
+        'param.advanced.cleanupOff.detail1',
+        'param.advanced.cleanupOff.detail2',
       ],
     },
   ],
