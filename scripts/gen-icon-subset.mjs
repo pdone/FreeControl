@@ -1,31 +1,28 @@
 #!/usr/bin/env node
 /**
- * 生成站点与原型共用的 lucide 图标子集。
+ * 生成原型内联的 lucide 图标子集。
  *
  * 输入（每次运行现扫，不手写清单）：
- *   - website/src/**\/*.svelte 的 `<Icon name="PascalName">`
- *   - website/src/lib/i18n.ts 的 `icon: 'PascalName'`
  *   - ui-design/launcher-prototype.html 的 `data-lucide="kebab-name"` / `icon:'kebab-name'` / `primaryIcon:'kebab-name'`
  *   - 脚本内补录清单（模板拼接出来的取值，扫不到）
  *
- * 输出（两处，均由本脚本整段重写）：
- *   - website/src/lib/icon-set.ts（PascalCase 键 + LUCIDE_VERSION）
+ * 输出（整段重写）：
  *   - ui-design/launcher-prototype.html 里的 `<script id="protoIcons">` 块（kebab 键 + createIcons 垫片）
  *
  * 图形数据取自仓库根 `node_modules/lucide-svelte/dist/icons/<kebab>.svelte` 的 `iconNode` 字面量。
  * 版本单一来源：产品 package.json 的 `lucide-svelte` 取值（实装版本写进生成物头部）。
+ * 官网仓另有一套只扫描其 src 的生成器，两边各自维护，不共享扫描集合。
  *
  * 用法：
- *   node scripts/gen-icon-subset.mjs           重新生成两处产物
+ *   node scripts/gen-icon-subset.mjs           重新生成原型内联子集
  *   node scripts/gen-icon-subset.mjs --check   只比对，不一致则非零退出（不改盘）
  */
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROTOTYPE_PATH = join(ROOT, 'ui-design/launcher-prototype.html');
-const ICON_SET_PATH = join(ROOT, 'website/src/lib/icon-set.ts');
 const ICONS_DIR = join(ROOT, 'node_modules/lucide-svelte/dist/icons');
 
 const CHECK = process.argv.includes('--check');
@@ -40,12 +37,9 @@ const SUPPLEMENT = [
   'circle-alert', // cfg.icon
   'zap', // 连接按钮：connected ? 'zap-off' : 'zap'
   'zap-off',
-  'sun', // 官网顶栏外观入口：NEXT_ICON = { light:'Moon', dark:'Sun' }
-  'moon',
 ];
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
-const PASCAL = /^[A-Z][A-Za-z0-9]*$/;
 
 function fail(message) {
   console.error(`✗ ${message}`);
@@ -69,49 +63,12 @@ function collectMatches(text, re, onName) {
   for (const m of text.matchAll(re)) onName(m[1]);
 }
 
-/** PascalCase → kebab-case（PlugZap → plug-zap、Gamepad2 → gamepad-2）。 */
-function toKebab(name) {
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-    .toLowerCase();
-}
-
-/** kebab-case → PascalCase（plug-zap → PlugZap、gamepad-2 → Gamepad2）。 */
-function toPascal(name) {
-  return name
-    .split('-')
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join('');
-}
-
-function walkSvelteFiles(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walkSvelteFiles(path));
-    else if (entry.isFile() && entry.name.endsWith('.svelte')) out.push(path);
-  }
-  return out;
-}
-
 /** 扫描出所有被引用的图标名，统一成 kebab。 */
 function collectIconNames() {
   const kebab = new Set();
   const pushKebab = (name) => {
     if (KEBAB.test(name)) kebab.add(name);
   };
-  const pushPascal = (name) => {
-    if (PASCAL.test(name)) kebab.add(toKebab(name));
-  };
-
-  // 站点：组件标记 + i18n 数据
-  for (const file of walkSvelteFiles(join(ROOT, 'website/src'))) {
-    collectMatches(read(file), /<Icon\s+name="([^"]+)"/g, pushPascal);
-  }
-  const i18nPath = join(ROOT, 'website/src/lib/i18n.ts');
-  if (!existsSync(i18nPath)) fail(`找不到 ${relative(ROOT, i18nPath)}`);
-  collectMatches(read(i18nPath), /\bicon:\s*'([^']+)'/g, pushPascal);
 
   // 原型：标记 + 脚本里写死的取值
   if (!existsSync(PROTOTYPE_PATH)) fail(`找不到 ${relative(ROOT, PROTOTYPE_PATH)}`);
@@ -156,22 +113,6 @@ function readIconNode(name) {
     fail(`lucide-svelte 的 ${name}.svelte 里 iconNode 不是合法 JSON，需要更新本脚本的解析方式`);
   }
   return { node: ['svg', {}, children] };
-}
-
-function buildIconSet(names, nodes, version, eol) {
-  const lines = names.map((name) => `  ${toPascal(name)}: ${JSON.stringify(nodes[name])},`);
-  return [
-    '// 由 scripts/gen-icon-subset.mjs 生成，勿手改。重新生成：npm run icons:ui',
-    `// 数据源：lucide-svelte@${version}（ISC）。只收录站点与 hero 内嵌原型实际用到的图标。`,
-    'export type IconNode = [string, Record<string, string | number>, IconNode[]?];',
-    '',
-    `export const LUCIDE_VERSION = '${version}';`,
-    '',
-    'export const ICONS: Record<string, IconNode> = {',
-    ...lines,
-    '};',
-    '',
-  ].join(eol);
 }
 
 const PROTO_BLOCK_RE =
@@ -277,8 +218,6 @@ function main() {
   }
 
   const protoEol = eolOf(proto);
-  const iconSetEol = existsSync(ICON_SET_PATH) ? eolOf(read(ICON_SET_PATH)) : protoEol;
-  const iconSet = buildIconSet(names, nodes, installed, iconSetEol);
   const protoBlock = buildProtoBlock(names, nodes, installed, protoEol);
 
   const nextProto = hasBlock
@@ -287,9 +226,6 @@ function main() {
 
   if (CHECK) {
     const problems = [];
-    if (!existsSync(ICON_SET_PATH)) problems.push(`${relative(ROOT, ICON_SET_PATH)} 不存在`);
-    else if (stripEol(read(ICON_SET_PATH)) !== stripEol(iconSet))
-      problems.push(`${relative(ROOT, ICON_SET_PATH)} 与扫描结果不一致`);
     if (!hasBlock) problems.push(`${relative(ROOT, PROTOTYPE_PATH)} 里没有 protoIcons 块`);
     else if (stripEol(nextProto) !== stripEol(proto))
       problems.push(`${relative(ROOT, PROTOTYPE_PATH)} 的 protoIcons 块与扫描结果不一致`);
@@ -303,16 +239,12 @@ function main() {
     return;
   }
 
-  writeFileSync(ICON_SET_PATH, iconSet, 'utf8');
   if (nextProto !== proto) writeFileSync(PROTOTYPE_PATH, nextProto, 'utf8');
 
-  const changed = [];
-  if (existsSync(ICON_SET_PATH)) changed.push('website/src/lib/icon-set.ts');
-  if (nextProto !== proto) changed.push('ui-design/launcher-prototype.html');
   console.log(
     `✓ 图标子集已生成：${names.length} 个图标（lucide-svelte@${installed}，package.json 写 ${spec}）`,
   );
-  for (const file of changed) console.log(`  - ${file}`);
+  if (nextProto !== proto) console.log('  - ui-design/launcher-prototype.html');
 }
 
 main();
