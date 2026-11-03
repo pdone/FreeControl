@@ -2,6 +2,14 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.3.3
+
+### Improved
+
+- Only one copy of the app runs per user account: launching it again while it is already open just brings the existing window back to the front, instead of two copies overwriting each other's settings or losing a download in progress. To compare two versions side by side, use another user account or another machine.
+- When an update download is slow, the progress area offers "Switch channel"; clicking it restarts the download from the next channel straight away. A channel you skipped is not tried again during the current run.
+- On Windows portable builds, the file name follows the new version after an update (for example, `FreeControl_2.3.2_windows_x64.exe` becomes `FreeControl_2.3.3_windows_x64.exe`), so shortcuts that point at the old file name need to be pointed at the new one. A fixed name or a custom name keeps its own path.
+
 ## v2.3.2
 
 ### Improved
