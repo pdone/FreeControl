@@ -59,6 +59,8 @@
 
 从 [Releases](https://github.com/pdone/FreeControl/releases/latest) 获取最新版本：Windows 为免安装单文件，按系统架构选文件名以 `_windows_x64.exe` 或 `_windows_arm64.exe` 结尾的那份，放到任意可写目录双击即用 —— 无需安装，也不产出安装器；Linux 提供 AppImage 与 deb 两种发行产物；macOS 提供 dmg（Apple 芯片与 Intel 各一份），打开后把应用拖进「应用程序」。
 
+同一用户账户下只允许运行一个实例：应用已在运行时再次双击，只会把已有窗口带回前台。免安装副本与更新后按发行名改名的新版共用同一实例身份；需要同时对比两个版本时，请换一个用户账户或另一台机器。
+
 macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设置 → 隐私与安全性」点「仍要打开」，或执行 `xattr -dr com.apple.quarantine /Applications/FreeControl.app`。
 
 1. **备好运行环境** —— 首次启动后到「运行环境」页获取 scrcpy 与 adb。
@@ -107,7 +109,7 @@ npm install
 npm run app:dev
 ```
 
-一条命令起完整应用，前端开发服务器由构建配置自动拉起（`src-tauri/tauri.conf.json` 的 `beforeDevCommand`，界面跑在 `http://localhost:1420`）。常用命令都登记在 `.vscode/tasks.json` 的编辑器任务里，从任务列表按名字直接跑即可。
+一条命令起完整应用，前端开发服务器由构建配置自动拉起（`src-tauri/tauri.conf.json` 的 `beforeDevCommand`，界面跑在 `http://localhost:1420`）。常用命令都登记在 `.vscode/tasks.json` 的编辑器任务里，从任务列表按名字直接跑即可。开发版与正式版使用同一实例身份：运行 `npm run app:dev` 前请先退出正在运行的正式版，否则开发进程会直接退出。
 
 ## 项目结构
 

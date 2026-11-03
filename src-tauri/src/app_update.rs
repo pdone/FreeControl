@@ -857,12 +857,18 @@ fn replace_and_restart(app: &AppHandle, pending: &PendingAppUpdate) -> Result<()
     }
     session::shutdown_all(app);
 
-    match std::process::Command::new(&start).spawn() {
+    // 单实例开启后，新版本必须等旧进程退出、释放实例身份后再进入 Builder；否则会把自己
+    // 当作第二个实例并立即退出，表现为「更新完成，但屏幕上没有任何窗口」。
+    let mut command = std::process::Command::new(&start);
+    command
+        .arg("--relaunch-after")
+        .arg(std::process::id().to_string());
+    match command.spawn() {
         Ok(_) => {
             logger::info(
                 "app-update",
                 format!(
-                    "已替换为 v{} 并启动新进程（{}）",
+                    "已替换为 v{} 并启动新进程（{}，等待旧实例退出）",
                     pending.version,
                     start.display()
                 ),

@@ -378,6 +378,14 @@ fn open_day_file(dir: &Path, date: Date) -> std::io::Result<BufWriter<File>> {
 /// 设备状态订阅线程、下载任务），单例让它们退化成一行函数调用，而不必把 sink 穿进每个签名。
 static SINK: OnceLock<LogSink> = OnceLock::new();
 
+/// 日志是否已经初始化。
+///
+/// 启动早期（窗口已创建、`setup` 尚未跑到 `init`）写入会被静默丢弃；需要留痕的调用方
+/// 可据此短暂等待，而不是先写一行再指望它一定出现。
+pub fn is_initialized() -> bool {
+    SINK.get().is_some()
+}
+
 /// 初始化日志（幂等）：解析目录、按保留策略清理一次、写启动行。
 ///
 /// 保留策略来自配置（`logging.retention`），故必须在 `load_config` 之后调用。

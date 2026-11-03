@@ -60,6 +60,8 @@
 
 Get the latest version from [Releases](https://github.com/pdone/FreeControl/releases/latest): on Windows it is a single portable file — pick the one whose name ends with `_windows_x64.exe` or `_windows_arm64.exe` for your architecture and put it in any writable directory, with no installer; on Linux it ships as AppImage and deb release artifacts; on macOS it ships as dmg (one each for Apple silicon and Intel), which you open and drag the app into Applications.
 
+Only one instance runs per user account: launching the app again while it is already running just brings the existing window back to the front. Portable copies and the renamed build from an update share the same instance; to compare two versions side by side, use another user account or another machine.
+
 If Gatekeeper blocks the first launch on macOS, clear it either way: open System Settings → Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/FreeControl.app`.
 
 1. **Get the runtime** — on first launch, go to the "Runtime" page and fetch scrcpy and adb.
@@ -108,7 +110,7 @@ npm install
 npm run app:dev
 ```
 
-That one command starts the whole app, with the frontend dev server brought up by the build config (`beforeDevCommand` in `src-tauri/tauri.conf.json`; the UI runs at `http://localhost:1420`). The common commands are registered as editor tasks in `.vscode/tasks.json`, so you can also just pick them by name from the task list.
+That one command starts the whole app, with the frontend dev server brought up by the build config (`beforeDevCommand` in `src-tauri/tauri.conf.json`; the UI runs at `http://localhost:1420`). The common commands are registered as editor tasks in `.vscode/tasks.json`, so you can also just pick them by name from the task list. The dev build shares the instance identity with the installed app: quit the running app before `npm run app:dev`, otherwise the dev process exits immediately.
 
 ## Project Structure
 

@@ -18,6 +18,7 @@ mod ui_message;
 mod window_icon;
 mod webview_env;
 mod fonts;
+mod instance;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -122,10 +123,21 @@ fn spawn_reveal_fallback(app: tauri::AppHandle, delay: Duration, reason: &'stati
 ///    置顶是 z 序操作、不受前台锁约束，窗口必定画在普通窗口之上；复原走的是 `HWND_NOTOPMOST`，
 ///    平台语义是「放到所有非置顶窗口之上」，因此复原后窗口仍停在最前，而不是掉回原处。
 ///
-/// 取得焦点只作**尽力而为**：前台锁是系统「不打断用户当前操作」的设计，本命令保证的是**看得见**。
+/// 取得焦点只作**尽力而为**：前台锁是系统「不打断用户当前操作」的设计，本函数保证的是**看得见**。
 /// 结果写日志（取得焦点 INFO / 只做到可见 WARN），复核时一眼看出走了哪条分支。
+///
+/// 同一实现也供「再次启动」的单例回调复用（`instance::on_second_launch`）—— 两条路径共用
+/// 一套「显示 / 恢复 / 前置 / 焦点尽力」口径，不另写一份。
 #[tauri::command]
 fn bring_main_window_to_front(app: tauri::AppHandle) -> Result<(), String> {
+    present_main_window(&app, "最后一个设备已断开")
+}
+
+/// 把主窗口呈现到前台；`reason` 只影响日志里的触发来源。
+pub(crate) fn present_main_window<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    reason: &str,
+) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "未找到主窗口".to_string())?;
@@ -159,7 +171,7 @@ fn bring_main_window_to_front(app: tauri::AppHandle) -> Result<(), String> {
             logger::LEVEL_WARN
         },
         "app",
-        &format!("主窗口前台化（最后一个设备已断开）：focused={focused_now}，置顶兜底={raised}"),
+        &format!("主窗口前台化（{reason}）：focused={focused_now}，置顶兜底={raised}"),
     );
     Ok(())
 }
@@ -167,7 +179,7 @@ fn bring_main_window_to_front(app: tauri::AppHandle) -> Result<(), String> {
 /// 请求前台焦点并回报是否**真的**拿到。
 ///
 /// 被前台锁拒绝时 `set_focus()` 不报错（系统只闪任务栏按钮），所以只能以 `is_focused()` 为准。
-fn focus_if_possible(window: &tauri::WebviewWindow) -> bool {
+fn focus_if_possible<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) -> bool {
     window.set_focus().is_ok() && window.is_focused().unwrap_or(false)
 }
 
@@ -195,12 +207,34 @@ fn disable_system_decorations(window: &tauri::WebviewWindow) {
 }
 
 fn main() {
+    // 更新重启的实例交接：新版本进程由旧实例带着 `--relaunch-after <旧 pid>` 启动，必须等旧实例
+    // 退出、释放实例身份后再进入 Builder；否则它会被单例判定当作第二个实例并立即退出，表现为
+    // 「更新完成，但屏幕上没有任何窗口」。其余启动路径没有这个参数，直接照常启动。
+    if let Some(pid) = instance::relaunch_after(std::env::args().skip(1)) {
+        if !instance::wait_for_process_exit(pid, instance::RELAUNCH_WAIT) {
+            // 旧实例未在期限内退出：不进入 Builder。若继续启动，后半段只会被单例判定后再退出，
+            // 连「为什么没起来」都无从判断；这里以非 0 结束，旧实例日志里留有本次启动动作。
+            std::process::exit(1);
+        }
+    }
     // Linux：按需关掉 WebKit 的 DMA-BUF 渲染器（本变更 design D12）。必须早于 `tauri::Builder`
     // —— 窗口在 `setup` 之前创建、web 进程更晚，而 WebKit 是在自身初始化时读这个变量，之后再设
     // 就没用了。判定所需的读操作失败一律退化为「该信号未命中」，不影响启动（见 `webview_env`）。
     webview_env::prepare();
     tauri::Builder::default()
+        // 必须是**第一个**插件：判定发生在插件初始化阶段，早于窗口创建与 `setup`。
+        // 第二个进程因此不会创建 WebView，也不会执行 `setup` 里的启动清理。
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            instance::on_second_launch(app, args, cwd);
+        }))
         .plugin(tauri_plugin_dialog::init())
+        // 关窗后前端还要先落盘再销毁窗口，这段期间窗口仍然存在；若此时再次启动，
+        // 单例回调不能把即将退出的窗口拉回前台。
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                instance::mark_exiting();
+            }
+        })
         // 兜底之一：页面加载完成后仍未显示窗口（锚点选择见 `spawn_reveal_fallback`）。
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished {
@@ -318,6 +352,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|handle, event| {
+            // 退出请求（macOS 的 Cmd+Q 等）不经过 `CloseRequested`；同样标记为退出中，
+            // 避免这段时间的再次启动把即将退出的窗口重新拉回前台。
+            if let tauri::RunEvent::ExitRequested { .. } = &event {
+                instance::mark_exiting();
+            }
             // 会话由本应用持有：退出前结束它们，否则会留下无人管理、也无人能断开的投屏窗口。
             if let tauri::RunEvent::Exit = event {
                 session::shutdown_all(handle);

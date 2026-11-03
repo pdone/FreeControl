@@ -20,6 +20,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2.12", default-features = false, features = ["wry", "compression", "common-controls-v6", "x11", "dbus"] }
 # 原生文件夹选择器（「运行环境」页自定义 scrcpy 目录）。官方插件，权限走 capability。
 tauri-plugin-dialog = "2"
+# 单实例：同一用户数据目录只允许一个实例，再次启动把已有主窗口呈现到前台。
+# 必须注册为 `Builder` 上的第一个插件 —— 插件在初始化阶段判定（早于窗口创建与 app `setup`），
+# 第二个进程因此不会创建 WebView、也不会执行 `setup` 里的启动清理。
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # HTTP 客户端：下载通道走 https，Windows 上用系统 schannel（native-tls），无需额外 C 工具链。
@@ -56,6 +60,8 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Com",
     "Win32_System_SystemInformation",
     "Win32_System_LibraryLoader",
+    # 更新重启时等旧进程结束：`OpenProcess` / `WaitForSingleObject` / `CloseHandle`。
+    "Win32_System_Threading",
 ] }
 
 # 非 Windows 平台的两件小事，故按目标平台门控 —— 与上面 `windows-sys`、下面 `libc` 的写法一致：
