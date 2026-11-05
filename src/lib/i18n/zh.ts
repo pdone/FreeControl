@@ -362,7 +362,7 @@ export const zh = {
   "param.advanced.custom.title": "自定义参数（直接透传给 scrcpy）",
   "param.advanced.customArgs.label": "额外参数",
   "param.advanced.customArgs.hint": "默认对所有设备生效；设置设备参数后只对该设备生效",
-  "param.advanced.customArgs.detail1": "把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。",
+  "param.advanced.customArgs.detail1": "把填写的内容按空格拆成多个参数；值里有空格时用引号括起来，引号本身不会下发。界面没有提供的新 flag 也能这样用。",
   "param.advanced.customArgs.detail2": "写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。",
   "param.advanced.customArgs.detail3": "引号必须成对，否则校验会拦下并给出提示。",
   "param.advanced.runLog.title": "运行日志参数",

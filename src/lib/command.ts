@@ -49,6 +49,95 @@ function bool(v: unknown): boolean {
   return v === true;
 }
 
+/** 一条待下发的参数，连同产生它的字段地址（`group.key`）。 */
+interface ArgEntry {
+  ref: string;
+  text: string;
+}
+
+/** 应用会以短名输出的两项：与长名算同一个 scrcpy 选项。 */
+const SHORT_FLAGS: Record<string, string> = {
+  '-b': '--video-bit-rate',
+  '-m': '--max-size',
+};
+
+/** 参数文本的选项名：`--name=value` → `--name`；短名归一为长名；不是选项时返回 `null`。 */
+function flagOf(text: string): string | null {
+  const head = text.trim().split(/\s+/, 1)[0] ?? '';
+  if (!/^--?[A-Za-z]/.test(head)) return null;
+  const name = head.split('=')[0];
+  return SHORT_FLAGS[name] ?? name;
+}
+
+/**
+ * 自定义参数切分：空白（含换行）分隔；引号内的空白保留在同一个参数内，
+ * 引号本身不进 argv；反斜杠按普通字符处理（Windows 路径直接可用）。
+ * 引号不成对时整段已被校验拦下，不会走到这里。
+ */
+export function splitCustomArgs(raw: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quoted = false;
+  let quote: '"' | "'" | null = null;
+  for (const ch of raw) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      quoted = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (cur || quoted) {
+        out.push(cur);
+        cur = '';
+        quoted = false;
+      }
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur || quoted) out.push(cur);
+  return out;
+}
+
+/**
+ * 跨来源去重：设备参数启用时，设备侧（字段或额外参数）已下发的同名 flag，
+ * 全局侧的同一项不再保留。同一侧内部的重复保持原样（按后写生效）。
+ * `deviceKeys` 是设备覆盖里真正有取值的 `group.key`；空集合表示不去重。
+ */
+function dedupeArgs(entries: ArgEntry[], deviceKeys?: ReadonlySet<string>): string[] {
+  if (!deviceKeys || deviceKeys.size === 0) return entries.map((e) => e.text);
+  const deviceFlags = new Set<string>();
+  for (const e of entries) {
+    if (!deviceKeys.has(e.ref)) continue;
+    const flag = flagOf(e.text);
+    if (flag) deviceFlags.add(flag);
+  }
+  const kept: ArgEntry[] = [];
+  for (let i = 0; i < entries.length; i += 1) {
+    const e = entries[i];
+    if (deviceKeys.has(e.ref)) {
+      kept.push(e);
+      continue;
+    }
+    const flag = flagOf(e.text);
+    if (!flag || !deviceFlags.has(flag)) {
+      kept.push(e);
+      continue;
+    }
+    // 空格形式（`--name value`）的重复项：值 token 跟随剔除。
+    if (e.ref === 'advanced.customArgs') {
+      const next = entries[i + 1];
+      if (next && next.ref === e.ref && flagOf(next.text) === null) i += 1;
+    }
+  }
+  return kept.map((e) => e.text);
+}
+
 /** 命令的三段：可执行文件、`-s` 的连接标识、其余参数（供预览分段着色）。 */
 export interface CommandParts {
   bin: string;
@@ -61,8 +150,15 @@ export interface CommandParts {
  *
  * `errors` 里出现过的字段（`group.key`，见 `validate.ts`）会被整体跳过 ——
  * 非法值不进命令，界面另给出提示（tasks 7.3）。
+ *
+ * `deviceKeys` 是该设备覆盖里真正有取值的 `group.key`；传入时做跨来源去重
+ * （设备侧的 flag 一经下发，全局侧的同一项就不再出现）。
  */
-export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): string[] {
+export function buildArgs(
+  p: Defaults,
+  errors?: ParamErrors | Set<string>,
+  deviceKeys?: ReadonlySet<string>,
+): string[] {
   const invalid = errors instanceof Set ? errors : errors ? invalidKeys(errors) : null;
   const bad = (group: string, key: string) => !!invalid && invalid.has(`${group}.${key}`);
   const groups = p as unknown as ParamValues;
@@ -77,7 +173,8 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   const w = g('window');
   const ap = g('apps');
   const adv = g('advanced');
-  const a: string[] = [];
+  const entries: ArgEntry[] = [];
+  const add = (ref: string, text: string) => entries.push({ ref, text });
 
   // Flex Display 是否真的生效：它只在「视频源为显示器」且「显示模式为 flex」时下发（见下方显示源
   // 一节）。判据必须含「视频源不是摄像头」这一半 —— 摄像头源下 flex 分支根本不会走到，若只看
@@ -93,10 +190,10 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   // ── 视频（--video-codec / --video-encoder / --hwdec / --video-bit-rate / --max-size /
   //    --max-fps / --crop / --angle / --render-fit / --video-buffer，见 doc/scrcpy/app/src/cli.c）──
   if (str(v.videoCodec) && !bad('video', 'videoCodec')) {
-    a.push(`--video-codec=${str(v.videoCodec)}`);
+    add('video.videoCodec', `--video-codec=${str(v.videoCodec)}`);
   }
   if (str(v.videoEncoder) && !bad('video', 'videoEncoder')) {
-    a.push(`--video-encoder=${str(v.videoEncoder)}`);
+    add('video.videoEncoder', `--video-encoder=${str(v.videoEncoder)}`);
   }
   // `--hwdec` 与「后台录制」互斥：`--no-window` 隐含 `--no-video-playback`
   // （doc/scrcpy 的 app/src/cli.c 帮助文本原文），而硬件解码要求 video playback ——
@@ -104,31 +201,31 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   // 故后台录制下只放行 `disabled`（合法），显式硬件模式剔除但取值保留。
   if (str(v.hwdec) && !bad('video', 'hwdec')) {
     if (str(v.hwdec) === 'disabled' || !bool(r.noWindow)) {
-      a.push(`--hwdec=${str(v.hwdec)}`);
+      add('video.hwdec', `--hwdec=${str(v.hwdec)}`);
     }
   }
   if (num(v.bitrate) > 0 && !bad('video', 'bitrate')) {
-    a.push(`-b ${num(v.bitrate)}M`);
+    add('video.bitrate', `-b ${num(v.bitrate)}M`);
   }
   if (num(v.maxSize) > 0 && !bad('video', 'maxSize')) {
-    a.push(`-m ${num(v.maxSize)}`);
+    add('video.maxSize', `-m ${num(v.maxSize)}`);
   }
   if (num(v.maxFps) > 0 && !bad('video', 'maxFps')) {
-    a.push(`--max-fps=${num(v.maxFps)}`);
+    add('video.maxFps', `--max-fps=${num(v.maxFps)}`);
   }
   // `--crop` 与 Flex Display 不兼容（doc/scrcpy 的 app/src/cli.c:3277）：flex 档不下发它，
   // 但用户在配置里的取值原样保留（换回别的显示模式后照常生效）。
   if (str(v.crop) && !bad('video', 'crop') && !isFlex) {
-    a.push(`--crop=${str(v.crop)}`);
+    add('video.crop', `--crop=${str(v.crop)}`);
   }
   if (str(v.angle) !== '0' && !bad('video', 'angle')) {
-    a.push(`--angle=${str(v.angle)}`);
+    add('video.angle', `--angle=${str(v.angle)}`);
   }
   if (str(v.renderFit) && str(v.renderFit) !== 'letterbox' && !bad('video', 'renderFit')) {
-    a.push(`--render-fit=${str(v.renderFit)}`);
+    add('video.renderFit', `--render-fit=${str(v.renderFit)}`);
   }
   if (num(v.videoBuffer) > 0 && !bad('video', 'videoBuffer')) {
-    a.push(`--video-buffer=${num(v.videoBuffer)}`);
+    add('video.videoBuffer', `--video-buffer=${num(v.videoBuffer)}`);
   }
 
   // ── 显示源（--video-source / --camera-* / --new-display / --no-vd-destroy-content /
@@ -140,18 +237,20 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   // 信息），故两档只差一个 `--flex-display`。旧写法在这里推 `--display-id=0 --flex-display`，
   // 缺了必需的 `--new-display`，scrcpy 会直接报错退出（`--display-id=0` 本身也无作用：0 就是默认值）。
   if (str(s.videoSource) === 'camera') {
-    a.push('--video-source=camera');
-    if (str(s.cameraFacing)) a.push(`--camera-facing=${str(s.cameraFacing)}`);
+    add('source.videoSource', '--video-source=camera');
+    if (str(s.cameraFacing)) {
+      add('source.cameraFacing', `--camera-facing=${str(s.cameraFacing)}`);
+    }
     if (str(s.cameraSize) && !bad('source', 'cameraSize')) {
-      a.push(`--camera-size=${str(s.cameraSize)}`);
+      add('source.cameraSize', `--camera-size=${str(s.cameraSize)}`);
     }
     if (num(s.cameraFps) > 0 && !bad('source', 'cameraFps')) {
-      a.push(`--camera-fps=${num(s.cameraFps)}`);
+      add('source.cameraFps', `--camera-fps=${num(s.cameraFps)}`);
     }
     if (num(s.cameraZoom) !== 1 && num(s.cameraZoom) > 0 && !bad('source', 'cameraZoom')) {
-      a.push(`--camera-zoom=${num(s.cameraZoom)}`);
+      add('source.cameraZoom', `--camera-zoom=${num(s.cameraZoom)}`);
     }
-    if (bool(s.cameraTorch)) a.push('--camera-torch');
+    if (bool(s.cameraTorch)) add('source.cameraTorch', '--camera-torch');
   } else if (str(s.displayMode) === 'new' || isFlex) {
     // `--new-display[=WxH][/DPI]`：尺寸与密度两个子项都可缺省。**「本为空」与「格式非法」都按
     // 空处理**（该子项不参与），但 flag 本身照发 —— 「是不是虚拟显示器 / Flex」由 displayMode 决定，
@@ -160,16 +259,16 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
     const res = bad('source', 'newDisplayRes') ? '' : str(s.newDisplayRes);
     const dpi = bad('source', 'newDisplayDpi') ? '' : str(s.newDisplayDpi);
     const spec = res || dpi ? `${res}${dpi ? `/${dpi}` : ''}` : '';
-    a.push(spec ? `--new-display=${spec}` : '--new-display');
-    if (bool(s.noVdDestroy)) a.push('--no-vd-destroy-content');
-    if (isFlex) a.push('--flex-display');
+    add('source.displayMode', spec ? `--new-display=${spec}` : '--new-display');
+    if (bool(s.noVdDestroy)) add('source.noVdDestroy', '--no-vd-destroy-content');
+    if (isFlex) add('source.displayMode', '--flex-display');
   } else {
     // 主屏镜像：`--display-id` 只在此时有效 —— 非 0 与 `--new-display` 互斥
     // （scrcpy 报 "Cannot specify both --display-id and --new-display"），摄像头源下
     // 该 flag 也不可用（"only available with --video-source=display"）。另外两个分支
     // 都不下发它，取值原样保留在配置里（同 flex / 摄像头那几项的剔除模式）。
     if (num(s.displayId) > 0 && !bad('source', 'displayId')) {
-      a.push(`--display-id=${num(s.displayId)}`);
+      add('source.displayId', `--display-id=${num(s.displayId)}`);
     }
   }
 
@@ -177,20 +276,20 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   //    --audio-bit-rate / --audio-buffer / --audio-output-buffer）──
   // 开关语义是「禁用音频转发」（出厂即开），因此开 ⇒ 下发 `--no-audio`。
   if (bool(au.audioOff)) {
-    a.push('--no-audio');
+    add('audio.audioOff', '--no-audio');
   } else {
     if (str(au.audioSource) && str(au.audioSource) !== 'output') {
-      a.push(`--audio-source=${str(au.audioSource)}`);
+      add('audio.audioSource', `--audio-source=${str(au.audioSource)}`);
     }
     if (str(au.audioCodec) && str(au.audioCodec) !== 'opus') {
-      a.push(`--audio-codec=${str(au.audioCodec)}`);
+      add('audio.audioCodec', `--audio-codec=${str(au.audioCodec)}`);
     }
     if (str(au.audioEncoder) && !bad('audio', 'audioEncoder')) {
-      a.push(`--audio-encoder=${str(au.audioEncoder)}`);
+      add('audio.audioEncoder', `--audio-encoder=${str(au.audioEncoder)}`);
     }
-    if (bool(au.audioDup)) a.push('--audio-dup');
+    if (bool(au.audioDup)) add('audio.audioDup', '--audio-dup');
     if (num(au.audioBitrate) > 0 && !bad('audio', 'audioBitrate')) {
-      a.push(`--audio-bit-rate=${num(au.audioBitrate)}K`);
+      add('audio.audioBitrate', `--audio-bit-rate=${num(au.audioBitrate)}K`);
     }
     // 与内置默认值相同则不出现在命令里（scrcpy 自身默认值与这里一致）。
     if (
@@ -198,14 +297,14 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
       num(au.audioBuffer) !== num(builtin.audio?.audioBuffer) &&
       !bad('audio', 'audioBuffer')
     ) {
-      a.push(`--audio-buffer=${num(au.audioBuffer)}`);
+      add('audio.audioBuffer', `--audio-buffer=${num(au.audioBuffer)}`);
     }
     if (
       num(au.audioOutBuffer) > 0 &&
       num(au.audioOutBuffer) !== num(builtin.audio?.audioOutBuffer) &&
       !bad('audio', 'audioOutBuffer')
     ) {
-      a.push(`--audio-output-buffer=${num(au.audioOutBuffer)}`);
+      add('audio.audioOutBuffer', `--audio-output-buffer=${num(au.audioOutBuffer)}`);
     }
   }
 
@@ -213,40 +312,48 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   //    --shortcut-mod / --show-touches / --turn-screen-off / --screen-off-timeout /
   //    --stay-awake / --keep-active / --power-off-on-close / --no-clipboard-autosync）──
   // `-n/--no-control` 与 Flex Display 不兼容（doc/scrcpy 的 app/src/cli.c:3272）：flex 档不下发。
-  if (bool(c.noControl) && !isFlex) a.push('--no-control');
-  if (str(c.keyboard) && str(c.keyboard) !== 'uhid') a.push(`--keyboard=${str(c.keyboard)}`);
-  if (bool(c.noKeyRepeat)) a.push('--no-key-repeat');
-  if (str(c.mouse) && str(c.mouse) !== 'uhid') a.push(`--mouse=${str(c.mouse)}`);
-  if (str(c.gamepad) && str(c.gamepad) !== 'uhid') a.push(`--gamepad=${str(c.gamepad)}`);
-  const mods = Array.isArray(c.shortMod) ? (c.shortMod as unknown[]).map(str).filter(Boolean) : [];
-  if (mods.length) a.push(`--shortcut-mod=${mods.join(',')}`);
-  if (bool(c.showTouches)) a.push('--show-touches');
-  // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
-  if (bool(c.turnScreenOff) && !isCamera) a.push('--turn-screen-off');
-  if (num(c.screenOffTimeout) > 0 && !bad('control', 'screenOffTimeout')) {
-    a.push(`--screen-off-timeout=${num(c.screenOffTimeout)}`);
+  if (bool(c.noControl) && !isFlex) add('control.noControl', '--no-control');
+  if (str(c.keyboard) && str(c.keyboard) !== 'uhid') {
+    add('control.keyboard', `--keyboard=${str(c.keyboard)}`);
   }
-  if (bool(c.stayAwake)) a.push('--stay-awake');
-  if (bool(c.keepActive)) a.push('--keep-active');
-  if (bool(c.powerOffOnClose)) a.push('--power-off-on-close');
+  if (bool(c.noKeyRepeat)) add('control.noKeyRepeat', '--no-key-repeat');
+  if (str(c.mouse) && str(c.mouse) !== 'uhid') {
+    add('control.mouse', `--mouse=${str(c.mouse)}`);
+  }
+  if (str(c.gamepad) && str(c.gamepad) !== 'uhid') {
+    add('control.gamepad', `--gamepad=${str(c.gamepad)}`);
+  }
+  const mods = Array.isArray(c.shortMod) ? (c.shortMod as unknown[]).map(str).filter(Boolean) : [];
+  if (mods.length) add('control.shortMod', `--shortcut-mod=${mods.join(',')}`);
+  if (bool(c.showTouches)) add('control.showTouches', '--show-touches');
+  // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
+  if (bool(c.turnScreenOff) && !isCamera) {
+    add('control.turnScreenOff', '--turn-screen-off');
+  }
+  if (num(c.screenOffTimeout) > 0 && !bad('control', 'screenOffTimeout')) {
+    add('control.screenOffTimeout', `--screen-off-timeout=${num(c.screenOffTimeout)}`);
+  }
+  if (bool(c.stayAwake)) add('control.stayAwake', '--stay-awake');
+  if (bool(c.keepActive)) add('control.keepActive', '--keep-active');
+  if (bool(c.powerOffOnClose)) add('control.powerOffOnClose', '--power-off-on-close');
   // 开关语义是「禁用双向同步」：开 ⇒ 下发该 flag（出厂不选中）。
-  if (bool(c.clipboardOff)) a.push('--no-clipboard-autosync');
+  if (bool(c.clipboardOff)) add('control.clipboardOff', '--no-clipboard-autosync');
 
   // ── 录制（--record / --record-format / --record-orientation / --no-window /
   //    --time-limit / --pause-on-exit）──
   if (bool(r.recordOn)) {
-    if (str(r.recordPath)) a.push(`--record=${str(r.recordPath)}`);
-    if (str(r.recordFormat)) a.push(`--record-format=${str(r.recordFormat)}`);
+    if (str(r.recordPath)) add('record.recordPath', `--record=${str(r.recordPath)}`);
+    if (str(r.recordFormat)) add('record.recordFormat', `--record-format=${str(r.recordFormat)}`);
   }
   if (str(r.recordOrientation) !== '0' && str(r.recordOrientation)) {
-    a.push(`--record-orientation=${str(r.recordOrientation)}`);
+    add('record.recordOrientation', `--record-orientation=${str(r.recordOrientation)}`);
   }
-  if (bool(r.noWindow)) a.push('--no-window');
+  if (bool(r.noWindow)) add('record.noWindow', '--no-window');
   if (num(r.timeLimit) > 0 && !bad('record', 'timeLimit')) {
-    a.push(`--time-limit=${num(r.timeLimit)}`);
+    add('record.timeLimit', `--time-limit=${num(r.timeLimit)}`);
   }
   if (str(r.pauseOnExit) && str(r.pauseOnExit) !== 'false') {
-    a.push(`--pause-on-exit=${str(r.pauseOnExit)}`);
+    add('record.pauseOnExit', `--pause-on-exit=${str(r.pauseOnExit)}`);
   }
 
   // ── 窗口（--window-title / --window-borderless / --fullscreen / --always-on-top /
@@ -254,63 +361,65 @@ export function buildArgs(p: Defaults, errors?: ParamErrors | Set<string>): stri
   // `--window-title` 的判据是「非空即传」（出厂值为空 ⇒ 标题交给 scrcpy 用设备名）。
   // 不与出厂值比对：出厂值本就是空串时两者等价，而保留比对会把用户手动填回的旧出厂文本静默漏发。
   if (str(w.windowTitle)) {
-    a.push(`--window-title=${str(w.windowTitle)}`);
+    add('window.windowTitle', `--window-title=${str(w.windowTitle)}`);
   }
-  if (bool(w.borderless)) a.push('--window-borderless');
-  if (bool(w.fullscreen)) a.push('--fullscreen');
-  if (bool(w.alwaysOnTop)) a.push('--always-on-top');
+  if (bool(w.borderless)) add('window.borderless', '--window-borderless');
+  if (bool(w.fullscreen)) add('window.fullscreen', '--fullscreen');
+  if (bool(w.alwaysOnTop)) add('window.alwaysOnTop', '--always-on-top');
   // 开关语义是「禁用宽高比锁定」：开 ⇒ 下发该 flag（出厂不选中）。
-  if (bool(w.aspectLockOff)) a.push('--no-window-aspect-ratio-lock');
+  if (bool(w.aspectLockOff)) add('window.aspectLockOff', '--no-window-aspect-ratio-lock');
   if (str(w.bgColor) && str(w.bgColor) !== str(builtin.window?.bgColor)) {
-    a.push(`--background-color=${str(w.bgColor)}`);
+    add('window.bgColor', `--background-color=${str(w.bgColor)}`);
   }
   // `--window-width` / `--window-height` 与 Flex Display 不兼容（doc/scrcpy 的
   // app/src/cli.c:3282，报错信息指向「要指定尺寸请用 `--new-display=WxH`」）：flex 档不下发，
   // 取值原样保留在配置里。`--window-x` / `--window-y` 不在互斥之列，照常下发。
   if (num(w.windowWidth) > 0 && !bad('window', 'windowWidth') && !isFlex) {
-    a.push(`--window-width=${num(w.windowWidth)}`);
+    add('window.windowWidth', `--window-width=${num(w.windowWidth)}`);
   }
   if (num(w.windowHeight) > 0 && !bad('window', 'windowHeight') && !isFlex) {
-    a.push(`--window-height=${num(w.windowHeight)}`);
+    add('window.windowHeight', `--window-height=${num(w.windowHeight)}`);
   }
   if (num(w.windowX) > 0 && !bad('window', 'windowX')) {
-    a.push(`--window-x=${num(w.windowX)}`);
+    add('window.windowX', `--window-x=${num(w.windowX)}`);
   }
   if (num(w.windowY) > 0 && !bad('window', 'windowY')) {
-    a.push(`--window-y=${num(w.windowY)}`);
+    add('window.windowY', `--window-y=${num(w.windowY)}`);
   }
 
   // ── 应用（--start-app）──
-  if (str(ap.startApp)) a.push(`--start-app=${str(ap.startApp)}`);
+  if (str(ap.startApp)) add('apps.startApp', `--start-app=${str(ap.startApp)}`);
 
   // ── 更多（--verbosity / --print-fps / --no-cleanup / --port / --tunnel-host）──
   if (str(adv.verbosity) && str(adv.verbosity) !== str(builtin.advanced?.verbosity)) {
-    a.push(`--verbosity=${str(adv.verbosity)}`);
+    add('advanced.verbosity', `--verbosity=${str(adv.verbosity)}`);
   }
-  if (bool(adv.printFps)) a.push('--print-fps');
+  if (bool(adv.printFps)) add('advanced.printFps', '--print-fps');
   // 开关语义是「禁用退出清理」：开 ⇒ 下发该 flag（出厂不选中）。
-  if (bool(adv.cleanupOff)) a.push('--no-cleanup');
+  if (bool(adv.cleanupOff)) add('advanced.cleanupOff', '--no-cleanup');
   if (
     !isBlank(adv.port) &&
     str(adv.port) !== str(builtin.advanced?.port) &&
     !bad('advanced', 'port')
   ) {
-    a.push(`--port=${str(adv.port)}`);
+    add('advanced.port', `--port=${str(adv.port)}`);
   }
   if (
     !isBlank(adv.tunnelHost) &&
     str(adv.tunnelHost) !== str(builtin.advanced?.tunnelHost) &&
     !bad('advanced', 'tunnelHost')
   ) {
-    a.push(`--tunnel-host=${str(adv.tunnelHost)}`);
+    add('advanced.tunnelHost', `--tunnel-host=${str(adv.tunnelHost)}`);
   }
 
-  // 自定义参数：**原样**追加，不做拆分与改写（tasks 7.2）——
+  // 自定义参数：按空白切成多个参数（引号内空白保留），逐个追加 ——
   // 界面上没有提供的新 flag 因此也能用，UI 不绑定 scrcpy 版本。
   const custom = str(adv.customArgs);
-  if (custom && !bad('advanced', 'customArgs')) a.push(custom);
+  if (custom && !bad('advanced', 'customArgs')) {
+    for (const token of splitCustomArgs(custom)) add('advanced.customArgs', token);
+  }
 
-  return a;
+  return dedupeArgs(entries, deviceKeys);
 }
 
 /** 拼装完整命令的三段（预览据此着色，复制时拼接为纯文本）。 */
@@ -318,8 +427,9 @@ export function buildCommandParts(
   connectionId: string,
   p: Defaults,
   errors?: ParamErrors | Set<string>,
+  deviceKeys?: ReadonlySet<string>,
 ): CommandParts {
-  return { bin: 'scrcpy', serial: connectionId, args: buildArgs(p, errors) };
+  return { bin: 'scrcpy', serial: connectionId, args: buildArgs(p, errors, deviceKeys) };
 }
 
 /** 纯文本形式的命令（复制用；不含任何界面标记）。 */

@@ -23,6 +23,7 @@
     setOverrideEnabled,
     countOverrideKeys,
     isOverrideEnabled,
+    overrideFieldKeys,
   } from '../lib/store';
   import { mergeParams, buildCommandParts } from '../lib/command';
   import { validateParams } from '../lib/validate';
@@ -68,8 +69,12 @@
 
   // 预览的剔除口径与页面底部命令条同源：非法字段不进命令。
   $: previewErrors = validateParams(effectiveMap);
+  // 跨来源去重用的覆盖键集合：只在本设备的覆盖启用时参与。
+  $: deviceKeys = new Set(
+    enabled ? overrideFieldKeys(entry?.values as Record<string, unknown>) : [],
+  );
   $: parts = device?.connectionId
-    ? buildCommandParts(device.connectionId, effective, previewErrors)
+    ? buildCommandParts(device.connectionId, effective, previewErrors, deviceKeys)
     : null;
   $: errorTexts = Object.values(previewErrors).map((e) => validationText(e, $t));
 

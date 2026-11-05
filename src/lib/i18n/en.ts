@@ -381,7 +381,7 @@ export const en: Record<MessageKey, string> = {
   "param.advanced.custom.title": "Custom arguments (passed directly to scrcpy)",
   "param.advanced.customArgs.label": "Extra arguments",
   "param.advanced.customArgs.hint": "Applies to all devices by default; once set as a device parameter, only to that device",
-  "param.advanced.customArgs.detail1": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
+  "param.advanced.customArgs.detail1": "Split the text into multiple arguments on whitespace; wrap values that contain spaces in quotes (the quotes are not passed on). This is also how to use new flags the UI does not provide.",
   "param.advanced.customArgs.detail2": "In global parameters it applies to all devices; once set as a device parameter in a device's parameters dialog, that device uses the device value first. When the device's parameters are disabled, it uses the global value instead.",
   "param.advanced.customArgs.detail3": "Quotes must be paired, otherwise validation will block it and show a hint.",
   "param.advanced.runLog.title": "Runtime log options",

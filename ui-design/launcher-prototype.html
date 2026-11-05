@@ -1550,7 +1550,7 @@
             <h3>自定义参数（直接透传给 scrcpy）</h3>
             <div class="field"><span class="flabel">额外参数<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="额外参数的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
+              <span class="fhelp-panel"><span class="fhelp-title">额外参数</span><span class="fhelp-p">把填写的内容按空格拆成多个参数；值里有空格时用引号括起来，引号本身不会下发。界面没有提供的新 flag 也能这样用。</span><span class="fhelp-p">写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。</span><span class="fhelp-p">引号必须成对，否则校验会拦下并给出提示。</span></span>
             </span></span>
               <textarea id="customArgs" rows="3" data-g="advanced" data-k="customArgs" data-t="text"></textarea>
               <div class="hint">默认对所有设备生效；设置设备参数后只对该设备生效</div></div>
@@ -2441,7 +2441,7 @@
   "只有当设备端能访问另一台主机时才需要改。": "Only change it when the device can reach another host.",
   "自定义参数（直接透传给 scrcpy）": "Custom arguments (passed directly to scrcpy)",
   "额外参数": "Extra arguments",
-  "把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。": "Append the text verbatim to the end of the command without splitting or rewriting it; this is also how to use new flags the UI does not provide.",
+  "把填写的内容按空格拆成多个参数；值里有空格时用引号括起来，引号本身不会下发。界面没有提供的新 flag 也能这样用。": "Split the text into multiple arguments on whitespace; wrap values that contain spaces in quotes (the quotes are not passed on). This is also how to use new flags the UI does not provide.",
   "写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。": "In global parameters it applies to all devices; once set as a device parameter in a device's parameters dialog, that device uses the device value first. When the device's parameters are disabled, it uses the global value instead.",
   "引号必须成对，否则校验会拦下并给出提示。": "Quotes must be paired, otherwise validation will block it and show a hint.",
   "默认对所有设备生效；设置设备参数后只对该设备生效": "Applies to all devices by default; once set as a device parameter, only to that device",
@@ -3360,8 +3360,37 @@
   paintRanges();   // 静态滑块（显示源 / 视频 / 音频页）初值
 
   /* ===================== 命令拼装 ===================== */
-  function buildArgs(p){
-    const a=[];
+  /** 参数文本的选项名：`--name=value` → `--name`；`-b` / `-m` 归一为长名；不是选项时为 null。 */
+  const SHORT_FLAGS = { '-b':'--video-bit-rate', '-m':'--max-size' };
+  function flagOf(text){
+    const head = (text.trim().split(/\s+/)[0] || '');
+    if (!/^--?[A-Za-z]/.test(head)) return null;
+    const name = head.split('=')[0];
+    return SHORT_FLAGS[name] || name;
+  }
+  /** 自定义参数切分：空白（含换行）分隔；引号内空白保留且引号剥离（同产品侧 command.ts）。 */
+  function splitCustomArgs(raw){
+    const out=[]; let cur='', quoted=false, quote=null;
+    for (const ch of raw){
+      if (quote){ if (ch===quote) quote=null; else cur+=ch; continue; }
+      if (ch==='"' || ch==="'"){ quote=ch; quoted=true; continue; }
+      if (/\s/.test(ch)){ if (cur || quoted){ out.push(cur); cur=''; quoted=false; } continue; }
+      cur+=ch;
+    }
+    if (cur || quoted) out.push(cur);
+    return out;
+  }
+  /** 覆盖里真正写过的字段地址（group.key）；覆盖停用或没有取值时为空集。 */
+  function overrideKeys(id){
+    const o = overrides[id];
+    const out = new Set();
+    if (!o || !isOvEnabled(id)) return out;
+    for (const g in o) for (const k in o[g]) out.add(`${g}.${k}`);
+    return out;
+  }
+  function buildArgs(p, deviceId){
+    const entries=[];
+    const add=(ref, text)=>entries.push({ ref, text });
     // Flex 是否真的生效（同产品侧判据：视频源不是摄像头 + 显示模式为 flex）。必须在这里算 ——
     // 下面视频 / 控制 / 窗口三处的互斥剔除都要用它。
     const isFlex = p.source.videoSource!=='camera' && p.source.displayMode==='flex';
@@ -3371,89 +3400,109 @@
     // 取值原样保留在配置里，视频源切回主屏幕后照常下发。
     const isCamera = p.source.videoSource==='camera';
     // video
-    if (p.video.videoCodec) a.push(`--video-codec=${p.video.videoCodec}`);
-    if (p.video.videoEncoder) a.push(`--video-encoder=${p.video.videoEncoder}`);
+    if (p.video.videoCodec) add('video.videoCodec', `--video-codec=${p.video.videoCodec}`);
+    if (p.video.videoEncoder) add('video.videoEncoder', `--video-encoder=${p.video.videoEncoder}`);
     // hwdec 与「后台录制」互斥：--no-window 隐含 --no-video-playback，而硬件解码要求 video playback
     // （doc/scrcpy 的 app/src/cli.c 会直接拒绝该组合）。后台录制下只放行 disabled，显式硬件模式
     // 剔除但取值保留 —— 判定与产品侧 command.ts 同形。
-    if (p.video.hwdec && (p.video.hwdec==='disabled' || !p.record.noWindow)) a.push(`--hwdec=${p.video.hwdec}`);
-    if (p.video.bitrate>0) a.push(`-b ${p.video.bitrate}M`);
-    if (p.video.maxSize>0) a.push(`-m ${p.video.maxSize}`);
-    if (p.video.maxFps>0) a.push(`--max-fps=${p.video.maxFps}`);
-    if (p.video.crop && !isFlex) a.push(`--crop=${p.video.crop}`);
-    if (p.video.angle!=='0') a.push(`--angle=${p.video.angle}`);
-    if (p.video.renderFit!=='letterbox') a.push(`--render-fit=${p.video.renderFit}`);
-    if (p.video.videoBuffer>0) a.push(`--video-buffer=${p.video.videoBuffer}`);
+    if (p.video.hwdec && (p.video.hwdec==='disabled' || !p.record.noWindow)) add('video.hwdec', `--hwdec=${p.video.hwdec}`);
+    if (p.video.bitrate>0) add('video.bitrate', `-b ${p.video.bitrate}M`);
+    if (p.video.maxSize>0) add('video.maxSize', `-m ${p.video.maxSize}`);
+    if (p.video.maxFps>0) add('video.maxFps', `--max-fps=${p.video.maxFps}`);
+    if (p.video.crop && !isFlex) add('video.crop', `--crop=${p.video.crop}`);
+    if (p.video.angle!=='0') add('video.angle', `--angle=${p.video.angle}`);
+    if (p.video.renderFit!=='letterbox') add('video.renderFit', `--render-fit=${p.video.renderFit}`);
+    if (p.video.videoBuffer>0) add('video.videoBuffer', `--video-buffer=${p.video.videoBuffer}`);
     // source：虚拟显示器与 Flex 共用一段（Flex 是虚拟显示器的修饰开关，必须配 --new-display）
     if (p.source.videoSource==='camera'){
-      a.push('--video-source=camera');
-      if (p.source.cameraFacing) a.push(`--camera-facing=${p.source.cameraFacing}`);
-      if (p.source.cameraSize) a.push(`--camera-size=${p.source.cameraSize}`);
-      if (p.source.cameraFps>0) a.push(`--camera-fps=${p.source.cameraFps}`);
-      if (p.source.cameraZoom!=1) a.push(`--camera-zoom=${p.source.cameraZoom}`);
-      if (p.source.cameraTorch) a.push('--camera-torch');
+      add('source.videoSource', '--video-source=camera');
+      if (p.source.cameraFacing) add('source.cameraFacing', `--camera-facing=${p.source.cameraFacing}`);
+      if (p.source.cameraSize) add('source.cameraSize', `--camera-size=${p.source.cameraSize}`);
+      if (p.source.cameraFps>0) add('source.cameraFps', `--camera-fps=${p.source.cameraFps}`);
+      if (p.source.cameraZoom!=1) add('source.cameraZoom', `--camera-zoom=${p.source.cameraZoom}`);
+      if (p.source.cameraTorch) add('source.cameraTorch', '--camera-torch');
     } else if (p.source.displayMode==='new' || isFlex){
       const res=p.source.newDisplayRes||'', dpi=p.source.newDisplayDpi||'';
       const spec=(res||dpi) ? `${res}${dpi?`/${dpi}`:''}` : '';
-      a.push(spec ? `--new-display=${spec}` : '--new-display');
-      if (p.source.noVdDestroy) a.push('--no-vd-destroy-content');
-      if (isFlex) a.push('--flex-display');
+      add('source.displayMode', spec ? `--new-display=${spec}` : '--new-display');
+      if (p.source.noVdDestroy) add('source.noVdDestroy', '--no-vd-destroy-content');
+      if (isFlex) add('source.displayMode', '--flex-display');
     } else if (p.source.displayId>0){
       // 主屏镜像：display-id 只在此时有效（非 0 与 --new-display 互斥、摄像头源下不可用），
       // 另两个分支都不下发它，取值原样保留（同产品侧）。
-      a.push(`--display-id=${p.source.displayId}`);
+      add('source.displayId', `--display-id=${p.source.displayId}`);
     }
     // audio
-    if (p.audio.audioOff) a.push('--no-audio');
+    if (p.audio.audioOff) add('audio.audioOff', '--no-audio');
     else {
-      if (p.audio.audioSource!=='output') a.push(`--audio-source=${p.audio.audioSource}`);
-      if (p.audio.audioCodec!=='opus') a.push(`--audio-codec=${p.audio.audioCodec}`);
-      if (p.audio.audioEncoder) a.push(`--audio-encoder=${p.audio.audioEncoder}`);
-      if (p.audio.audioDup) a.push('--audio-dup');
-      if (p.audio.audioBitrate>0) a.push(`--audio-bit-rate=${p.audio.audioBitrate}K`);
+      if (p.audio.audioSource!=='output') add('audio.audioSource', `--audio-source=${p.audio.audioSource}`);
+      if (p.audio.audioCodec!=='opus') add('audio.audioCodec', `--audio-codec=${p.audio.audioCodec}`);
+      if (p.audio.audioEncoder) add('audio.audioEncoder', `--audio-encoder=${p.audio.audioEncoder}`);
+      if (p.audio.audioDup) add('audio.audioDup', '--audio-dup');
+      if (p.audio.audioBitrate>0) add('audio.audioBitrate', `--audio-bit-rate=${p.audio.audioBitrate}K`);
     }
     // control
-    if (p.control.noControl && !isFlex) a.push('--no-control');
-    if (p.control.keyboard!=='uhid') a.push(`--keyboard=${p.control.keyboard}`);
-    if (p.control.noKeyRepeat) a.push('--no-key-repeat');
-    if (p.control.mouse!=='uhid') a.push(`--mouse=${p.control.mouse}`);
-    if (p.control.gamepad!=='uhid') a.push(`--gamepad=${p.control.gamepad}`);
-    const mods=p.control.shortMod; if (mods.length) a.push(`--shortcut-mod=${mods.join(',')}`);
-    if (p.control.showTouches) a.push('--show-touches');
+    if (p.control.noControl && !isFlex) add('control.noControl', '--no-control');
+    if (p.control.keyboard!=='uhid') add('control.keyboard', `--keyboard=${p.control.keyboard}`);
+    if (p.control.noKeyRepeat) add('control.noKeyRepeat', '--no-key-repeat');
+    if (p.control.mouse!=='uhid') add('control.mouse', `--mouse=${p.control.mouse}`);
+    if (p.control.gamepad!=='uhid') add('control.gamepad', `--gamepad=${p.control.gamepad}`);
+    const mods=p.control.shortMod; if (mods.length) add('control.shortMod', `--shortcut-mod=${mods.join(',')}`);
+    if (p.control.showTouches) add('control.showTouches', '--show-touches');
     // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。
-    if (p.control.turnScreenOff && !isCamera) a.push('--turn-screen-off');
-    if (p.control.screenOffTimeout>0) a.push(`--screen-off-timeout=${p.control.screenOffTimeout}`);
-    if (p.control.stayAwake) a.push('--stay-awake');
-    if (p.control.keepActive) a.push('--keep-active');
-    if (p.control.powerOffOnClose) a.push('--power-off-on-close');
-    if (p.control.clipboardOff) a.push('--no-clipboard-autosync');
+    if (p.control.turnScreenOff && !isCamera) add('control.turnScreenOff', '--turn-screen-off');
+    if (p.control.screenOffTimeout>0) add('control.screenOffTimeout', `--screen-off-timeout=${p.control.screenOffTimeout}`);
+    if (p.control.stayAwake) add('control.stayAwake', '--stay-awake');
+    if (p.control.keepActive) add('control.keepActive', '--keep-active');
+    if (p.control.powerOffOnClose) add('control.powerOffOnClose', '--power-off-on-close');
+    if (p.control.clipboardOff) add('control.clipboardOff', '--no-clipboard-autosync');
     // record
-    if (p.record.recordOn){ a.push(`--record=${p.record.recordPath}`); a.push(`--record-format=${p.record.recordFormat}`); }
-    if (p.record.recordOrientation!=='0') a.push(`--record-orientation=${p.record.recordOrientation}`);
-    if (p.record.noWindow) a.push('--no-window');
-    if (p.record.timeLimit>0) a.push(`--time-limit=${p.record.timeLimit}`);
-    if (p.record.pauseOnExit!=='false') a.push(`--pause-on-exit=${p.record.pauseOnExit}`);
+    if (p.record.recordOn){ add('record.recordPath', `--record=${p.record.recordPath}`); add('record.recordFormat', `--record-format=${p.record.recordFormat}`); }
+    if (p.record.recordOrientation!=='0') add('record.recordOrientation', `--record-orientation=${p.record.recordOrientation}`);
+    if (p.record.noWindow) add('record.noWindow', '--no-window');
+    if (p.record.timeLimit>0) add('record.timeLimit', `--time-limit=${p.record.timeLimit}`);
+    if (p.record.pauseOnExit!=='false') add('record.pauseOnExit', `--pause-on-exit=${p.record.pauseOnExit}`);
     // window
-    if (p.window.windowTitle) a.push(`--window-title=${p.window.windowTitle}`);
-    if (p.window.borderless) a.push('--window-borderless');
-    if (p.window.fullscreen) a.push('--fullscreen');
-    if (p.window.alwaysOnTop) a.push('--always-on-top');
-    if (p.window.aspectLockOff) a.push('--no-window-aspect-ratio-lock');
-    if (p.window.bgColor!=='#222222') a.push(`--background-color=${p.window.bgColor}`);
-    if (p.window.windowWidth>0 && !isFlex) a.push(`--window-width=${p.window.windowWidth}`);
-    if (p.window.windowHeight>0 && !isFlex) a.push(`--window-height=${p.window.windowHeight}`);
-    if (p.window.windowX>0) a.push(`--window-x=${p.window.windowX}`);
-    if (p.window.windowY>0) a.push(`--window-y=${p.window.windowY}`);
+    if (p.window.windowTitle) add('window.windowTitle', `--window-title=${p.window.windowTitle}`);
+    if (p.window.borderless) add('window.borderless', '--window-borderless');
+    if (p.window.fullscreen) add('window.fullscreen', '--fullscreen');
+    if (p.window.alwaysOnTop) add('window.alwaysOnTop', '--always-on-top');
+    if (p.window.aspectLockOff) add('window.aspectLockOff', '--no-window-aspect-ratio-lock');
+    if (p.window.bgColor!=='#222222') add('window.bgColor', `--background-color=${p.window.bgColor}`);
+    if (p.window.windowWidth>0 && !isFlex) add('window.windowWidth', `--window-width=${p.window.windowWidth}`);
+    if (p.window.windowHeight>0 && !isFlex) add('window.windowHeight', `--window-height=${p.window.windowHeight}`);
+    if (p.window.windowX>0) add('window.windowX', `--window-x=${p.window.windowX}`);
+    if (p.window.windowY>0) add('window.windowY', `--window-y=${p.window.windowY}`);
     // apps
-    if (p.apps.startApp) a.push(`--start-app=${p.apps.startApp}`);
+    if (p.apps.startApp) add('apps.startApp', `--start-app=${p.apps.startApp}`);
     // advanced
-    if (p.advanced.verbosity!=='info') a.push(`--verbosity=${p.advanced.verbosity}`);
-    if (p.advanced.printFps) a.push('--print-fps');
-    if (p.advanced.cleanupOff) a.push('--no-cleanup');
-    if (p.advanced.port!=='27183:27199') a.push(`--port=${p.advanced.port}`);
-    if (p.advanced.tunnelHost!=='localhost') a.push(`--tunnel-host=${p.advanced.tunnelHost}`);
-    if (p.advanced.customArgs.trim()) a.push(p.advanced.customArgs.trim());
-    return a;
+    if (p.advanced.verbosity!=='info') add('advanced.verbosity', `--verbosity=${p.advanced.verbosity}`);
+    if (p.advanced.printFps) add('advanced.printFps', '--print-fps');
+    if (p.advanced.cleanupOff) add('advanced.cleanupOff', '--no-cleanup');
+    if (p.advanced.port!=='27183:27199') add('advanced.port', `--port=${p.advanced.port}`);
+    if (p.advanced.tunnelHost!=='localhost') add('advanced.tunnelHost', `--tunnel-host=${p.advanced.tunnelHost}`);
+    // 自定义参数：按空白切成多个参数（引号内空白保留），逐个追加。
+    const custom = p.advanced.customArgs.trim();
+    if (custom) for (const token of splitCustomArgs(custom)) add('advanced.customArgs', token);
+    // 跨来源去重：设备参数启用时，设备侧（字段或额外参数）已下发的同名 flag，
+    // 全局侧那一项不再保留；同一侧内部的重复保持原样（按后写生效）。
+    const keys = deviceId ? overrideKeys(deviceId) : new Set();
+    if (!keys.size) return entries.map(e=>e.text);
+    const deviceFlags = new Set();
+    for (const e of entries) if (keys.has(e.ref)){ const f=flagOf(e.text); if (f) deviceFlags.add(f); }
+    const kept = [];
+    for (let i=0;i<entries.length;i++){
+      const e = entries[i];
+      if (keys.has(e.ref)){ kept.push(e); continue; }
+      const f = flagOf(e.text);
+      if (!f || !deviceFlags.has(f)){ kept.push(e); continue; }
+      // 空格形式（`--name value`）的重复项：值 token 跟随剔除。
+      if (e.ref==='advanced.customArgs'){
+        const next = entries[i+1];
+        if (next && next.ref===e.ref && flagOf(next.text)===null) i++;
+      }
+    }
+    return kept.map(e=>e.text);
   }
   // 同时转义引号：注入的取值会落进 value="…" 属性（如窗口标题 / 透传参数可能带引号）。
   function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3462,7 +3511,7 @@
     const d = getDev(selectedId);
     if(!d){ el.textContent='选择一台设备查看命令'; syncConnectBtn(); return; }
     const p = merged(selectedId);
-    const args = buildArgs(p);
+    const args = buildArgs(p, selectedId);
     const cmd = `scrcpy -s <span class="dev">${escapeHtml(devIdentifier(d))}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
     el.innerHTML = cmd;
     syncConnectBtn();
@@ -3641,7 +3690,7 @@
         help:['连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。','按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。'] },
       { g:'advanced', k:'customArgs', label:'额外参数', kind:'textarea',
         hint:'默认对所有设备生效；设置设备参数后只对该设备生效',
-        help:['把填写的内容原样追加到命令末尾，不做拆分与改写；界面没有提供的新 flag 也能这样用。','写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。','引号必须成对，否则校验会拦下并给出提示。'] },
+        help:['把填写的内容按空格拆成多个参数；值里有空格时用引号括起来，引号本身不会下发。界面没有提供的新 flag 也能这样用。','写在全局参数里时对所有设备生效；在某台设备的参数弹窗里设置设备参数后，该设备优先使用设备参数。停用该设备的设备参数时，它改用全局参数里的值。','引号必须成对，否则校验会拦下并给出提示。'] },
     ]},
   ];
 
@@ -3718,7 +3767,7 @@
       return;
     }
     dpPreview.classList.remove('empty');
-    const args = buildArgs(merged(d.id));
+    const args = buildArgs(merged(d.id), d.id);
     dpPreview.innerHTML = `scrcpy -s <span class="dev">${escapeHtml(cid)}</span> ` + args.map(x=>`<b>${escapeHtml(x)}</b>`).join(' ');
   }
 

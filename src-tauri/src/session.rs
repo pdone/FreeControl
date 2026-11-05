@@ -341,8 +341,8 @@ pub fn allocate_slot(occupied: &BTreeSet<usize>, capacity: usize) -> (usize, boo
 
 // ── 参数解析（判断用户是否已指定位置 / 窗口尺寸） ──────────────
 
-/// 把参数摊平成 token：自定义参数是一整条字符串（如 `--window-x=100 --window-y=50`），
-/// 按空白拆开才能与其它 flag 一视同仁地识别。
+/// 把参数摊平成 token：自定义参数在前端已按空白切成多个元素，这里再拆一次只为兼容
+/// 单个元素内部仍带空格的取值（如引号保留的空格），不影响按 flag 名的识别。
 fn flat_tokens(args: &[String]) -> Vec<String> {
     args.iter()
         .flat_map(|a| a.split_whitespace().map(|t| t.to_string()))

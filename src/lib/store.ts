@@ -554,6 +554,21 @@ export function paramsForDevice(deviceId: string): Defaults {
   return mergeForDevice(get(config), get(defaults), deviceId);
 }
 
+/** 覆盖取值里的字段地址（`group.key`）：只有用户真正改过的键才在 `values` 里。 */
+export function overrideFieldKeys(values: Record<string, unknown> | null | undefined): string[] {
+  const out: string[] = [];
+  for (const [group, fields] of Object.entries(values ?? {})) {
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) continue;
+    for (const key of Object.keys(fields as Record<string, unknown>)) out.push(`${group}.${key}`);
+  }
+  return out;
+}
+
+/** 某台设备的覆盖键集合；覆盖停用或没有取值时为空集。 */
+function overrideKeysOf(entry: OverrideEntry | undefined): ReadonlySet<string> {
+  return new Set(isOverrideEnabled(entry) ? overrideFieldKeys(entry?.values) : []);
+}
+
 /** 任意设备生效参数上的字段错误（拼装时据此剔除非法值，tasks 7.3）。 */
 export function errorsForDevice(deviceId: string): ParamErrors {
   return validateParams(paramsForDevice(deviceId) as unknown as Record<string, Record<string, unknown>>);
@@ -561,7 +576,12 @@ export function errorsForDevice(deviceId: string): ParamErrors {
 
 /** 该设备本次要下发的参数（与命令预览同一条拼装路径）。 */
 function argsForDevice(deviceId: string): string[] {
-  return buildArgs(paramsForDevice(deviceId), errorsForDevice(deviceId));
+  const entry = get(config)?.overrides?.[deviceId];
+  return buildArgs(
+    paramsForDevice(deviceId),
+    errorsForDevice(deviceId),
+    overrideKeysOf(entry),
+  );
 }
 
 /** 连接一台设备（tasks 9.1）；失败原因由调用方展示（不吞错）。 */
@@ -956,6 +976,15 @@ export const effectiveParams = derived(
 /** 生效参数上的字段错误：命令拼装据此剔除非法值（tasks 7.3）。 */
 export const effectiveErrors = derived(effectiveParams, ($p): ParamErrors =>
   validateParams($p as unknown as Record<string, Record<string, unknown>>),
+);
+
+/**
+ * 选中设备的覆盖键集合：与 `effectiveParams` 同一台设备、同一套启停口径。
+ * 预览用它做跨来源去重；覆盖停用或没有取值时为空集（不去重）。
+ */
+export const effectiveOverrideKeys = derived(
+  [config, selectedDeviceId],
+  ([$c, $id]): ReadonlySet<string> => overrideKeysOf($id ? $c?.overrides?.[$id] : undefined),
 );
 
 /**

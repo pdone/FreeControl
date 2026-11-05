@@ -13,6 +13,7 @@
     selectedDeviceId,
     effectiveParams,
     effectiveErrors,
+    effectiveOverrideKeys,
     deviceStatus,
     connectDevice,
     disconnectDevice,
@@ -40,7 +41,12 @@
   $: dev = $devices.find((d) => d.id === $selectedDeviceId) ?? null;
   $: parts =
     dev && dev.connectionId
-      ? buildCommandParts(dev.connectionId, $effectiveParams, $effectiveErrors)
+      ? buildCommandParts(
+          dev.connectionId,
+          $effectiveParams,
+          $effectiveErrors,
+          $effectiveOverrideKeys,
+        )
       : null;
   $: errors = Object.values($effectiveErrors);
   $: errorTexts = errors.map((e) => validationText(e, $t));
