@@ -1,8 +1,23 @@
-# 构建与校验（spec `release-build` / design D9）。
+# 出包工作流（spec `release-build`「校验与出包分级触发」）。
 #
-# 触发分级：
-#   - 推送到 main：只跑 `check`（编译 + 单测），不打包、不上传任何产物；
-#   - 手动触发：`check` → `build` → `release`，出包并汇集成一次**草稿**发行（不自动发布）。
+# 只负责「发这份代码」：手动触发出包，产物汇集为一次**草稿**发行（不自动发布）。
+#
+# 打包前必须存在一次针对**同一提交**的完整成功校验，但这一次校验不必在本工作流里重跑：
+# 推送校验（`.github/workflows/ci.yml`）跑的就是同一组三平台单测与同一次前端检查，
+# 命中它即跳过本工作流的校验。判定条件（全部满足才跳过）：
+#
+#   [1] 属于 `ci.yml` 这个工作流       —— 同一份校验定义
+#   [2] 事件是 push                    —— 不拿别的 dispatch 给自己背书
+#   [3] head_sha 与本次提交全等
+#   [4] 已完成、结论为成功、未被取消    —— 全部腿（Windows / Linux / macOS）都通过
+#   [5] 完成时间在 REUSE_WINDOW_DAYS 天以内
+#
+# 任一条不满足（含 `gh` 查询失败）都退回「现场跑一遍完整校验」，失败方向安全。
+# 有效期存在的理由：「同一 SHA」不等于「同一构建环境」—— 托管镜像按月轮换、
+# `rust-toolchain@stable` 每 6 周上新，旧结论不宜无限复用。
+#
+# 被跳过的是 `npm run test:rs` 与 `npm run check`（打包本身只编译、不跑测试），
+# 想强制确认时勾选 `force_check`。
 #
 # 每个产物的构建主机与它自身的操作系统**与架构**一致（MUST NOT 依赖交叉编译）：
 #   - Windows x64（`windows-latest`）与 Windows ARM64（`windows-11-arm`）：`--no-bundle`，
@@ -10,40 +25,33 @@
 #   - Linux x86_64：`--bundles appimage,deb`；
 #   - macOS ARM64（`macos-15`）与 macOS x86_64（`macos-15-intel`）：`--bundles app,dmg`，
 #     各产出一份 dmg。`app` 不能省：只请求 `dmg` 时 bundler 把 `.app` 当中间件，打完 dmg 就地
-#     删掉（日志里的 `Cleaning .../bundle/macos/FreeControl.app`），随后的自检便无据可查。
-#     `macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，预计 2027 年秋下线，
-#     届时需另开变更决定删掉该档还是换自托管 runner。
+#     删掉，随后的自检便无据可查。`macos-15-intel` 是 GitHub 最后一个 x86_64 镜像，
+#     预计 2027 年秋下线，届时需另开变更决定删掉该档还是换自托管 runner。
 #
-# 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与
-# `scripts/**` 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/`
-# 这个仅被 README 引用的截图目录，不扩到整个 `assets/**`。
-#
-# 各 `uses:` 一律取**声明 node24** 的那一档大版本：只声明 `node20` 的 action 会被
-# GitHub 强制改在 node24 上运行，并每次报一条弃用警告（Node20 已于 2026-09-23 从
-# runner 移除）。runner 标签同样显式写死，不用会自行迁移的 `ubuntu-latest`
-# （自 2026-10-19 起灰度指向 26.04）：`ubuntu-22.04` 是 AppImage 的 glibc 基线，
-# `release` 不编译、钉 `ubuntu-24.04`。
+# 各 `uses:` 一律取**声明 node24** 的那一档大版本；runner 标签显式写死，不用会自行迁移的
+# `ubuntu-latest`：`ubuntu-22.04` 是 AppImage 的 glibc 基线，`release` 不编译、钉 `ubuntu-24.04`。
 
-name: build
+name: release
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "doc/**"
-      - "openspec/**"
-      - "ui-design/**"
-      - "assets/screenshots/**"
-      - "**/*.md"
   workflow_dispatch:
+    inputs:
+      force_check:
+        description: "强制重跑完整校验（忽略同一提交已有的成功校验）"
+        type: boolean
+        default: false
 
-# 同一分支上接连推送时，取消还在跑的旧一次，只保留最后一次（design D9）。
+# 与 `ci.yml` 分属不同的组（组名取自工作流名），故推送校验与手动出包互不取消。
+# 出包内部不取消：跑到一半被下一次误点击取消，浪费的是最贵的那段机器时间；
+# 同一版本的重复出包由 `gh release upload --clobber` 的覆盖语义兜底。
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
+  # 判定要读本仓的运行记录；顶层显式列举会把未列出的权限置空。
+  actions: read
 
 jobs:
   check:
@@ -58,27 +66,104 @@ jobs:
           # 架构无关，Intel 那条出包腿也会完整编译一遍。
           - os: macos-15
     runs-on: ${{ matrix.os }}
+    env:
+      # 复用窗口：同一 SHA 不等于同一构建环境，旧结论不宜无限复用。
+      # 改动此值需同步改 spec `release-build`「校验与出包分级触发」。
+      REUSE_WINDOW_DAYS: 7
     steps:
+      # 判定放在 `actions/checkout` 之前：它只需要事件上下文，不需要工作区。
+      # 代价是此时 cwd 还不是 git 仓库，`gh` 无法从 remote 推断仓库，必须显式 `--repo`。
+      - name: 判定可复用的推送校验
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_CHECK: ${{ inputs.force_check }}
+          # 三条腿各判定一次，摘要只在 Linux 腿上写一次，避免同一段文字重复三份。
+          WRITE_SUMMARY: ${{ runner.os == 'Linux' }}
+        run: |
+          set -uo pipefail
+
+          emit() {   # $1=skip（true/false）  $2=markdown 说明
+            echo "skip=$1" >> "$GITHUB_OUTPUT"
+            echo "$2"
+            if [ "${WRITE_SUMMARY:-false}" = "true" ]; then
+              printf '%s\n' "$2" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          if [ "${FORCE_CHECK:-false}" = "true" ]; then
+            emit false '**复用判定**：强制重跑（`force_check` 已勾选）→ 本次执行完整校验。'
+            exit 0
+          fi
+
+          if ! RUNS_JSON=$(gh run list \
+                --workflow ci.yml \
+                --event push \
+                --commit "$GITHUB_SHA" \
+                --repo "$GITHUB_REPOSITORY" \
+                --limit 20 \
+                --json databaseId,status,conclusion,createdAt,url 2>&1); then
+            DETAIL=$(printf '%s' "$RUNS_JSON" | head -n 3 | tr '\n' ' ')
+            emit false "**复用判定**：查询运行记录失败，本次执行完整校验。原因：\`${DETAIL}\`"
+            exit 0
+          fi
+
+          if ! RESULT=$(printf '%s' "$RUNS_JSON" | jq -c --argjson days "${REUSE_WINDOW_DAYS}" '
+                (now - ($days * 86400)) as $cutoff
+                | [ .[] | select(.status == "completed" and .conclusion == "success") ] as $ok
+                | [ .[] | select(.status != "completed") ] as $running
+                | [ .[] | select(.conclusion == "cancelled") ] as $cancelled
+                | ($ok | map(select((.createdAt | fromdateiso8601) > $cutoff)) | sort_by(.createdAt) | last) as $fresh
+                | {
+                    hit: $fresh,
+                    reason:
+                      (if length == 0 then "该提交没有推送触发的校验运行"
+                       elif $fresh != null then "命中"
+                       elif ($running | length) > 0 then "该提交的校验仍在进行中"
+                       elif ($ok | length) > 0 then "该提交的成功校验已超出 " + ($days | tostring) + " 天有效期"
+                       elif ($cancelled | length) > 0 then "该提交的校验被取消"
+                       else "该提交的校验结论非成功"
+                       end)
+                  }'); then
+            emit false '**复用判定**：解析运行记录失败 → 本次执行完整校验。'
+            exit 0
+          fi
+
+          HIT=$(printf '%s' "$RESULT" | jq -r 'if .hit == null then "" else "\(.hit.databaseId)|\(.hit.createdAt)|\(.hit.url)" end')
+          REASON=$(printf '%s' "$RESULT" | jq -r '.reason')
+
+          if [ -n "$HIT" ]; then
+            IFS='|' read -r RUN_ID CREATED RUN_URL <<< "$HIT"
+            AGE_HOURS=$(jq -n --arg t "$CREATED" '((now - ($t | fromdateiso8601)) / 3600) | floor')
+            emit true "**复用判定**：跳过本次校验 —— 复用运行 #${RUN_ID}（${RUN_URL}，完成于 ${CREATED}，约 ${AGE_HOURS} 小时前，窗口 ${REUSE_WINDOW_DAYS} 天）。同一提交（\`${GITHUB_SHA:0:8}\`）的三平台校验已完成且成功，本次只打包，不再跑单测与前端检查。"
+          else
+            emit false "**复用判定**：执行完整校验 —— ${REASON}。"
+          fi
+
       - uses: actions/checkout@v7
+        if: steps.gate.outputs.skip != 'true'
 
       - uses: actions/setup-node@v7
+        if: steps.gate.outputs.skip != 'true'
         with:
           node-version: 24
           cache: npm
 
       - name: 安装 Rust（稳定版，宿主目标）
+        if: steps.gate.outputs.skip != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: 缓存 cargo
+        if: steps.gate.outputs.skip != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
       # tauri 在 Linux 上要链接 webkit2gtk / gtk 等，`cargo test` 同样需要 ——
-      # 省不掉「准备环境」，省掉的是打包那一段（design D9）。
-      # 缺依赖时以 apt 的报错呈现是哪一项缺失，而不是一段编译期链接错误（spec `release-build`）。
+      # 省不掉「准备环境」，省掉的是打包那一段。
       - name: 安装 Linux 系统依赖
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.gate.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -87,24 +172,25 @@ jobs:
             patchelf
 
       - name: 安装前端依赖（锁文件驱动）
+        if: steps.gate.outputs.skip != 'true'
         run: npm ci
 
       - name: Rust 单测
+        if: steps.gate.outputs.skip != 'true'
         run: npm run test:rs
 
-      # 前端检查与 Vite 构建与平台无关，只跑一次（design D9）。
+      # 前端检查与 Vite 构建与平台无关，只跑一次。
       - name: 前端检查
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.gate.outputs.skip != 'true'
         run: npm run check
 
       - name: 前端构建
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && steps.gate.outputs.skip != 'true'
         run: npm run build
 
   build:
     name: 出包
     needs: check
-    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -163,8 +249,6 @@ jobs:
       # Windows 的裸 exe 基础名来自 `mainBinaryName`（`FreeControl`），平台段、版本段与架构段
       # 都由这里补上：从 `tauri.conf.json` 读版本号（单一来源，工作流里不另写版本字面量），
       # 只改名、不改内容。三平台统一为 `{前缀}_{版本}_{平台}_{架构}`（spec `release-build`）。
-      # 前缀即产品名 `FreeControl`：本次直接切换，不沿用旧名 —— 代价是 ≤1.2.0 的客户端
-      # 取不到这一版的资产，需要手动下载一次（客户端侧的旧前缀兜底仍保留，见 `app_update`）。
       - name: Windows 产物按应用版本、平台与架构命名
         if: runner.os == 'Windows'
         shell: pwsh
@@ -218,8 +302,6 @@ jobs:
       # 4) dmg 恰好一份，文件名是改名后的 `_macos_{arm64|x64}.dmg`，且不残留 `aarch64`。
       # 检查 `.app` 而不是挂载 dmg：dmg 是 Tauri 从同一个 `.app` 打出来的，多一次
       # `hdiutil attach` 只会在 runner 上多一个偶发失败点。
-      # 这份 `.app` 靠出包参数里的 `app` 保住 —— 只请求 `dmg` 时 bundler 会删掉它
-      # （2026-10-24 首次手动出包即因此两腿同时失败，run 40073851524）。
       - name: 校验产物架构与签名（Mach-O）
         if: runner.os == 'macOS'
         run: |
@@ -299,7 +381,7 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
-  # 只创建**草稿**：发布动作由人在确认产物后点一次（design D9）。
+  # 只创建**草稿**：发布动作由人在确认产物后点一次。
   # 用 gh 而非第三方 action：少一个需要信任的第三方步骤；同 tag 已有草稿时只追加文件。
   #
   # 发布完成之后再走一步（spec `project-website` 的「发行发布后官网仓更新 version 并重建」）：
@@ -310,7 +392,6 @@ jobs:
   release:
     name: 汇集成草稿发行
     needs: build
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -322,7 +403,7 @@ jobs:
         run: echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
       # 正文取自两份更新日志中该版本的中英两节（spec `release-build`「草稿发行的正文取自更新日志」）。
-      # 取不到时退回通用说明并留痕 —— 产物优先：正文缺失不该让这次产物取不回来（design D4）。
+      # 取不到时退回通用说明并留痕 —— 产物优先：正文缺失不该让这次产物取不回来。
       - name: 生成草稿正文（取自更新日志）
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -358,8 +439,8 @@ jobs:
           TAG="v$VERSION"
           # 逐个点名六份产物，**不写 `dist/*`**：下载步骤保留了上传时的相对路径 —— Linux
           # 那两份来自 `bundle/appimage/` 与 `bundle/deb/`，于是 `dist/` 里还多出 `appimage/`、
-          # `deb/` 两个目录，一并交给 gh 会报 `read dist/deb: is a directory`
-          # （2026-10-10 首次手动触发实测）。macOS 的 dmg 走单一通配路径上传，落在 `dist/` 根目录。
+          # `deb/` 两个目录，一并交给 gh 会报 `read dist/deb: is a directory`。
+          # macOS 的 dmg 走单一通配路径上传，落在 `dist/` 根目录。
           # 少一份时通配符保持字面量，gh 会报「文件不存在」而失败 —— 与上传步骤的
           # `if-no-files-found: error` 同一口径，不静默少传。
           # 六个名字与三平台改名步骤（`{产品名}_{版本}_{平台}_{架构}`）逐字对齐。
@@ -416,6 +497,6 @@ jobs:
               "${ASSETS[@]}"
           else
             gh release upload "$TARGET" --clobber "${ASSETS[@]}"
-            # 同版本重出时正文也要跟着刷新，否则停在上一次出包的内容（design D5）。
+            # 同版本重出时正文也要跟着刷新，否则停在上一次出包的内容。
             gh release edit "$TARGET" --notes-file notes.md
           fi

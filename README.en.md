@@ -5,7 +5,7 @@
 <h1 align="center">FreeControl</h1>
 
 <p align="center">
-  <a href="https://github.com/pdone/FreeControl/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build.yml?style=for-the-badge" alt="Build status" /></a>
+  <a href="https://github.com/pdone/FreeControl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/ci.yml?style=for-the-badge" alt="Build status" /></a>
   <a href="https://github.com/pdone/FreeControl/releases/latest"><img src="https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge" alt="Latest release" /></a>
   <a href="https://github.com/pdone/FreeControl/releases"><img src="https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge" alt="Downloads" /></a>
   <a href="https://github.com/pdone/FreeControl"><img src="https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge" alt="Stars" /></a>
@@ -71,7 +71,7 @@ If Gatekeeper blocks the first launch on macOS, clear it either way: open System
 
 ### Build from source
 
-You additionally need Node.js 24 and npm · a stable Rust toolchain · the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS (see `.github/workflows/build.yml` for the list).
+You additionally need Node.js 24 and npm · a stable Rust toolchain · the MSVC build tools on Windows, system libraries such as webkit2gtk on Linux, or the Xcode command-line tools on macOS (see `.github/workflows/ci.yml` for the list).
 
 ```sh
 npm install
@@ -101,7 +101,7 @@ npm run tauri build -- --bundles dmg
 
 The artifact is written to `src-tauri/target/release/bundle/dmg/`. The macOS artifacts are ad-hoc signed and not notarized, so the first launch needs the clearance described above.
 
-When you trigger `.github/workflows/build.yml` manually, the artifacts are collected into a **draft release** (never published automatically). The draft body is the version's Chinese and English sections from `Update.md` and `Update.en.md`, and it is refreshed when you rebuild the same version. If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**, and its body stays the pickup note.
+When you trigger `.github/workflows/release.yml` manually, a successful push check for the same commit (`.github/workflows/ci.yml`, within 7 days) lets the build skip the repeated check and package straight away; otherwise a full check runs first. The artifacts are then collected into a **draft release** (never published automatically). The draft body is the version's Chinese and English sections from `Update.md` and `Update.en.md`, and it is refreshed when you rebuild the same version. If the same version has already been published, re-running a build will not overwrite it: the artifacts land in a `v<version>-draft` pickup draft instead — that draft only exists to retrieve artifacts and is **never published**, and its body stays the pickup note.
 
 ### Local development
 

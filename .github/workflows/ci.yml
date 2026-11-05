@@ -1,0 +1,92 @@
+# 校验工作流（spec `release-build`「校验与出包分级触发」）。
+#
+# 只负责「验这份代码」：推送主分支后，在三个受支持的操作系统上各跑一次编译与单测。
+# 本工作流 MUST NOT 打包、MUST NOT 产出或上传任何产物 —— 使每次推送的成本不随打包的耗时增长。
+#
+# 出包在 `.github/workflows/release.yml`。两个文件的 `concurrency` 组名取自各自的工作流名，
+# 于是推送校验与手动出包落在不同的组里、互不取消 —— 出包要复用的正是这里跑出来的结论，
+# 它不该被出包自己踢掉（这两个触发共用一个工作流时正好会互踢）。
+#
+# 纯文档类改动（`paths-ignore`）不触发校验；品牌资产包（`assets/icons/**`）与 `scripts/**`
+# 参与构建，刻意不在豁免清单里 —— 豁免只到 `assets/screenshots/` 这个仅被 README 引用的
+# 截图目录，不扩到整个 `assets/**`。
+#
+# 各 `uses:` 一律取**声明 node24** 的那一档大版本：只声明 `node20` 的 action 会被 GitHub
+# 强制改在 node24 上运行，并每次报一条弃用警告。runner 标签同样显式写死，不用会自行迁移的
+# `ubuntu-latest`：`ubuntu-22.04` 是 AppImage 的 glibc 基线。
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "doc/**"
+      - "openspec/**"
+      - "ui-design/**"
+      - "assets/screenshots/**"
+      - "**/*.md"
+
+# 同一分支上接连推送时，取消还在跑的旧一次，只保留最后一次。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 校验（编译 + 单测）
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-22.04
+          # macOS 的 `cfg` 分支在开发机上编不到，单测按 OS 覆盖只能靠这条腿；
+          # 架构无关，Intel 那条出包腿也会完整编译一遍。
+          - os: macos-15
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: 安装 Rust（稳定版，宿主目标）
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # tauri 在 Linux 上要链接 webkit2gtk / gtk 等，`cargo test` 同样需要 ——
+      # 省不掉「准备环境」，省掉的是打包那一段。缺依赖时以 apt 的报错呈现是哪一项缺失，
+      # 而不是一段编译期链接错误。
+      - name: 安装 Linux 系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf
+
+      - name: 安装前端依赖（锁文件驱动）
+        run: npm ci
+
+      - name: Rust 单测
+        run: npm run test:rs
+
+      # 前端检查与 Vite 构建与平台无关，只跑一次。
+      - name: 前端检查
+        if: runner.os == 'Linux'
+        run: npm run check
+
+      - name: 前端构建
+        if: runner.os == 'Linux'
+        run: npm run build

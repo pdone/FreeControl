@@ -5,7 +5,7 @@
 <h1 align="center">FreeControl</h1>
 
 <p align="center">
-  <a href="https://github.com/pdone/FreeControl/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/build.yml?style=for-the-badge" alt="构建状态" /></a>
+  <a href="https://github.com/pdone/FreeControl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pdone/FreeControl/ci.yml?style=for-the-badge" alt="构建状态" /></a>
   <a href="https://github.com/pdone/FreeControl/releases/latest"><img src="https://img.shields.io/github/release/pdone/FreeControl?style=for-the-badge" alt="最新发行" /></a>
   <a href="https://github.com/pdone/FreeControl/releases"><img src="https://img.shields.io/github/downloads/pdone/FreeControl/total?style=for-the-badge" alt="下载量" /></a>
   <a href="https://github.com/pdone/FreeControl"><img src="https://img.shields.io/github/stars/pdone/FreeControl?style=for-the-badge" alt="星标" /></a>
@@ -70,7 +70,7 @@ macOS 首次打开若被 Gatekeeper 拦下，二选一放行：到「系统设�
 
 ### 从源码构建
 
-另需 Node.js 24 与 npm · Rust 稳定工具链 · Windows 的 MSVC 构建工具 / Linux 的 webkit2gtk 等系统库 / macOS 的 Xcode 命令行工具（清单见 `.github/workflows/build.yml`）。
+另需 Node.js 24 与 npm · Rust 稳定工具链 · Windows 的 MSVC 构建工具 / Linux 的 webkit2gtk 等系统库 / macOS 的 Xcode 命令行工具（清单见 `.github/workflows/ci.yml`）。
 
 ```sh
 npm install
@@ -100,7 +100,7 @@ npm run tauri build -- --bundles dmg
 
 产物在 `src-tauri/target/release/bundle/dmg/`。本仓库的 macOS 产物为 ad-hoc 签名、未经公证，首次打开需按上文放行。
 
-手动触发 `.github/workflows/build.yml` 出包时，产物先汇集成**草稿发行**（不自动发布）。草稿的正文取自 `Update.md` 与 `Update.en.md` 中该版本的中英两节，同版本重出时随之刷新。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**，正文仍是取件说明。
+手动触发 `.github/workflows/release.yml` 出包时，若同一提交已有一次成功的推送校验（`.github/workflows/ci.yml`，7 天内），本次会跳过重复的校验直接打包，否则先跑一遍完整校验；产物先汇集成**草稿发行**（不自动发布）。草稿的正文取自 `Update.md` 与 `Update.en.md` 中该版本的中英两节，同版本重出时随之刷新。若同一版本已经发布，重出不会覆盖它，而是落到 `v<版本>-draft` 取件草稿 —— 该草稿只用于取回产物，**永不发布**，正文仍是取件说明。
 
 ### 本地开发
 
