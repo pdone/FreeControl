@@ -2,6 +2,13 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.3.4
+
+### Improved
+
+- Several options written on one line in "Extra arguments" are now split on spaces and each takes effect; before, the whole line was passed as a single option, so writing two made scrcpy refuse to start. Wrap a value that contains spaces in quotes (for example a window title): values that used to be accepted without quotes now need them.
+- With a device's parameters enabled, an option written in both the device parameters and the global parameters now appears only once in the command, using the device value, as the documented device-first rule says; with those parameters disabled the global value is still used.
+
 ## v2.3.3
 
 ### Improved
