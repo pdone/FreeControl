@@ -2,6 +2,14 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.4.0
+
+### New
+
+- The device list can now be sorted by online status, device name or last connected time. Choosing the current mode again flips between ascending and descending, and the choice is remembered across restarts.
+- Manual order: drag a device by its handle to move it, or pick it up with the keyboard and move it with the arrow keys. A completed move switches to manual order; cancelling keeps the previous order.
+- Sorting by last connected time uses the most recent time a session was started for each device, and that time is saved across restarts. Devices with no record are placed last.
+
 ## v2.3.4
 
 ### Improved

@@ -31,6 +31,8 @@ const CHECK = process.argv.includes('--check');
 const SUPPLEMENT = [
   'usb', // ${d.type==='usb'?'usb':'wifi'}
   'wifi',
+  'arrow-up', // ${trigDir==='asc'?'arrow-up':'arrow-down'} / ${dir==='asc'?'arrow-up':'arrow-down'}
+  'arrow-down',
   'minimize-2', // ${paramsExpanded ? 'minimize-2' : 'maximize-2'}
   'maximize-2',
   'rotate-cw', // cfg.primaryIcon
