@@ -54,7 +54,7 @@
       "problemMatcher": []
     },
     {
-      "label": "校验：一把过（前端检查 + 单测 + 前端构建）",
+      "label": "校验：一把过（版本、图标、前端、单测、构建）",
       "detail": "本地过一遍推送时持续集成执行的那组校验，任一步失败即停",
       "type": "shell",
       "command": "npm run verify",
@@ -67,6 +67,43 @@
         "clear": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "校验：版本与更新日志",
+      "detail": "六处版本字段、原型演示版本与两份更新日志是否一致",
+      "type": "shell",
+      "command": "npm run check:version",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "发行：升版本号（六处 + 原型）",
+      "detail": "输入新的三段式版本号；更新日志需随后补写",
+      "type": "shell",
+      "command": "npm run version:bump -- ${input:appVersion}",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "appVersion",
+      "type": "promptString",
+      "description": "新版本号（三段式，如 2.4.1）"
     }
   ]
 }

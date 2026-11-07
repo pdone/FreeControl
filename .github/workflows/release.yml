@@ -175,6 +175,11 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: npm ci
 
+      # 版本与发行文档与平台无关，只跑一次；与前端检查同样受复用判定控制。
+      - name: 版本与更新日志校验
+        if: runner.os == 'Linux' && steps.gate.outputs.skip != 'true'
+        run: npm run check:version
+
       - name: Rust 单测
         if: steps.gate.outputs.skip != 'true'
         run: npm run test:rs

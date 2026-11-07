@@ -79,6 +79,11 @@ jobs:
       - name: 安装前端依赖（锁文件驱动）
         run: npm ci
 
+      # 版本与发行文档与平台无关，只跑一次；放在单测前，取值漂移先于耗时步骤暴露。
+      - name: 版本与更新日志校验
+        if: runner.os == 'Linux'
+        run: npm run check:version
+
       - name: Rust 单测
         run: npm run test:rs
 

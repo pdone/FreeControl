@@ -2,6 +2,16 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.4.1
+
+### Improved
+
+- The device list can switch between "Detailed" and "Compact"; Compact keeps only the key details so more devices fit on screen, and the choice is remembered across restarts.
+- The window remembers its size and position from when you last closed it and reopens that way; a maximized window is not restored as maximized.
+- A wireless device's port can be edited directly next to its connection label; if the original port cannot be reached when you click Connect, the app re-resolves it from the IP and tries once more before reporting an error.
+- Connection, disconnect and delete failures now appear as short labels on the device card, with the full reason shown on hover or keyboard focus, so long error text no longer makes rows taller.
+- "Last connected" now shows a relative time such as "3 hours ago".
+
 ## v2.4.0
 
 ### New
