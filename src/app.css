@@ -2100,6 +2100,80 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .dev-card.offline {
   opacity: 0.72;
 }
+/* 列表密度分段控件（设备页工具栏）：两枚方形图标按钮，占工具栏统一高度。 */
+.dev-density {
+  flex: none;
+  /* 与排序下拉共用工具栏控件高度；按钮随内容盒收缩，不再各写一档高度。 */
+  height: var(--dev-toolbar-control-h);
+  align-items: stretch;
+  padding: 2px;
+  gap: 2px;
+}
+.dev-density button {
+  width: 26px;
+  height: 100%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dev-density button svg {
+  width: 15px;
+  height: 15px;
+}
+/* 简洁卡片：单行只留手柄、状态点、名称（含连接方式标识与问题图标）与连接 / 参数入口。 */
+.dev-card.compact {
+  padding: 9px 14px;
+}
+.dev-card.compact .dev-main {
+  gap: 10px;
+}
+.dev-card.compact .dev-alias {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+/* 简洁模式必须保持单行：长别名截断，不把标识或问题图标挤到第二行。 */
+.dev-card.compact .dev-alias .a-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 行内问题指示（DeviceIssueBadge）：详细模式「图标 + 短标签」，简洁模式只有图标。
+   完整原因走提示层、不参与行布局，因此行高不随失败原文长度增长。 */
+.dev-issue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--danger);
+  white-space: nowrap;
+  cursor: default;
+  border-radius: 4px;
+}
+.dev-issue.warn {
+  color: var(--warn);
+}
+.dev-issue svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  stroke: currentColor;
+}
+.dev-issue.icon-only {
+  gap: 0;
+}
+.dev-issue:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
 /* 排序方式选择器：占固定宽度，窄窗口下随工具栏折行（不引入横向滚动）。 */
 .dev-sort {
   flex: none;
@@ -2545,8 +2619,8 @@ input.dev-cid-input {
   color: var(--text-faint);
 }
 
-/* ---------- 会话（Group 9）：窗口位置提示 + 设置页的会话输出 ---------- */
-/* 设备卡上的会话说明：PID 与实际窗口位置（自动排列 / 让位 / 空间不足降级） */
+/* ---------- 会话（Group 9）：最后连接时间 + 设置页的会话输出 ---------- */
+/* 设备卡上的最后连接时间（相对显示，不参与行布局）。 */
 .sess-hint {
   font-size: 12px;
   color: var(--text-faint);

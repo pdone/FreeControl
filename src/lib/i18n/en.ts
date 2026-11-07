@@ -441,6 +441,15 @@ export const en: Record<MessageKey, string> = {
   "device.sort.moved": "\"{alias}\" moved to position {index} of {total}",
   "device.sort.dropped": "\"{alias}\" is now at position {index} of {total}",
   "device.sort.cancelled": "Reorder cancelled",
+  "device.density.label": "Device display",
+  "device.density.detailed": "Detailed",
+  "device.density.compact": "Compact",
+  "device.density.detailedTip": "Show full device details",
+  "device.density.compactTip": "Show key details only",
+  "device.issue.connectFailed": "Connection failed",
+  "device.issue.disconnectFailed": "Disconnect failed",
+  "device.issue.deleteFailed": "Delete failed",
+  "device.issue.notice": "Device notice",
   "session.timeSaveFailed":
     "The session started, but the last-started time was not saved (the connection is unaffected)",
   "device.empty":
@@ -452,7 +461,16 @@ export const en: Record<MessageKey, string> = {
   "device.offlineTryConnect": "Can try to connect",
   "device.offlineNotConnectable": "Cannot connect",
   "device.offlineSerialPending": "Serial pending",
-  "device.sessionEnded": "Last session ended (exit code {code})",
+  "device.lastConnectedAt": "Last connected {time}",
+  "device.relative.justNow": "just now",
+  "device.relative.minute": "{n} minute ago",
+  "device.relative.minutes": "{n} minutes ago",
+  "device.relative.hour": "{n} hour ago",
+  "device.relative.hours": "{n} hours ago",
+  "device.relative.day": "{n} day ago",
+  "device.relative.days": "{n} days ago",
+  "device.relative.month": "{n} month ago",
+  "device.relative.months": "{n} months ago",
   "device.disconnecting": "Disconnecting…",
   "device.disconnect": "Disconnect",
   "device.connecting": "Connecting…",
@@ -491,13 +509,6 @@ export const en: Record<MessageKey, string> = {
     "The connection ID is still pending (serial unknown); cannot connect yet",
   "device.connectBlocked.offline":
     "The device is offline: adb does not see it, so it cannot connect",
-  "device.window.noArrangePlatform":
-    "Not auto-arranged (the system decides the window position in this session; windows may overlap)",
-  "device.window.noArrangeUser":
-    "Not auto-arranged (--window-x / --window-y was set for this device)",
-  "device.window.position": "Window ({x}, {y})",
-  "device.window.reused":
-    "Window ({x}, {y}) · position reused due to limited space; may overlap other windows",
   "device.connectSummary.success": "Connected: {count}",
   "device.connectSummary.failed": "Failed: {count} · {details}",
   "device.connectSummary.item": "{alias} ({reason})",

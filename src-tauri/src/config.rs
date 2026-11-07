@@ -362,9 +362,16 @@ pub const UI_SCALE_150: &str = "150";
 /// 出厂默认界面缩放：100%，即不缩放（与引入该设置之前的呈现逐像素一致）。
 pub const DEFAULT_UI_SCALE: &str = UI_SCALE_100;
 
-/// 外观设置（`ui` 段）：界面语言、主题模式、主题色、界面缩放与两个字体字段。
+/// 设备列表显示密度取值（自描述字符串）。
+pub const DEVICE_DENSITY_DETAILED: &str = "detailed";
+pub const DEVICE_DENSITY_COMPACT: &str = "compact";
+
+/// 出厂默认设备列表密度：详细（与引入该设置之前的呈现一致）。
+pub const DEFAULT_DEVICE_DENSITY: &str = DEVICE_DENSITY_DETAILED;
+
+/// 外观设置（`ui` 段）：界面语言、主题模式、主题色、界面缩放、设备列表密度与两个字体字段。
 ///
-/// 六者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
+/// 七者都是**用户偏好**，与 scrcpy 参数无关，故不落在 `defaults.*`；后端只做透明存取与降级，
 /// 取值模型与生效方式归前端所有（与 8 组默认参数的分工一致）。
 ///
 /// - `language`：`system` / `zh` / `en`；
@@ -391,6 +398,9 @@ pub struct Ui {
     /// 界面缩放百分比："100" | "115" | "130" | "150"
     #[serde(default = "default_ui_scale")]
     pub ui_scale: String,
+    /// 设备列表显示密度："detailed" | "compact"
+    #[serde(default = "default_device_list_density")]
+    pub device_list_density: String,
     /// 界面字体族名；`None` 表示系统默认。
     ///
     /// 宽容读取：非字符串结构按 `None` 处理，避免手工改坏一个字段就让整份配置读不出来。
@@ -417,6 +427,10 @@ fn default_ui_scale() -> String {
     DEFAULT_UI_SCALE.to_string()
 }
 
+fn default_device_list_density() -> String {
+    DEFAULT_DEVICE_DENSITY.to_string()
+}
+
 impl Default for Ui {
     fn default() -> Self {
         Ui {
@@ -424,6 +438,7 @@ impl Default for Ui {
             theme: default_theme(),
             accent: default_accent(),
             ui_scale: default_ui_scale(),
+            device_list_density: default_device_list_density(),
             ui_font: None,
             code_font: None,
         }
@@ -434,6 +449,7 @@ impl Ui {
     /// 加载时归一化：未知语言退 `system`、未知主题退 `system`、非法主题色退默认；
     /// 合法主题色统一成小写，避免同一颜色因大小写不同被判成「不是预设」；
     /// 界面缩放不属于四档时退 `100`（不缩放）；
+    /// 设备列表密度不属于两档时退 `detailed`；
     /// 两个字体字段去首尾空白，空值与含控制字符的取值按系统默认处理。
     pub fn normalize(&mut self) {
         if !matches!(
@@ -454,6 +470,12 @@ impl Ui {
             UI_SCALE_100 | UI_SCALE_115 | UI_SCALE_130 | UI_SCALE_150
         ) {
             self.ui_scale = default_ui_scale();
+        }
+        if !matches!(
+            self.device_list_density.as_str(),
+            DEVICE_DENSITY_DETAILED | DEVICE_DENSITY_COMPACT
+        ) {
+            self.device_list_density = default_device_list_density();
         }
         self.ui_font = normalize_font(std::mem::take(&mut self.ui_font));
         self.code_font = normalize_font(std::mem::take(&mut self.code_font));
@@ -1321,6 +1343,7 @@ mod tests {
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
             ui_scale: DEFAULT_UI_SCALE.to_string(),
+            device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
             ui_font: Some("阿里\n巴巴".to_string()),
             code_font: Some("  Cascadia Mono  ".to_string()),
         };
@@ -1337,6 +1360,7 @@ mod tests {
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
             ui_scale: DEFAULT_UI_SCALE.to_string(),
+            device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
             ui_font: Some("已卸载的字体".to_string()),
             code_font: Some("Arial".to_string()),
         };
@@ -1353,6 +1377,7 @@ mod tests {
             theme: THEME_DARK.to_string(),
             accent: "#3B82F6".to_string(),
             ui_scale: DEFAULT_UI_SCALE.to_string(),
+            device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
             ui_font: None,
             code_font: None,
         };
@@ -1367,6 +1392,7 @@ mod tests {
                 theme: THEME_SYSTEM.to_string(),
                 accent: bad.to_string(),
                 ui_scale: DEFAULT_UI_SCALE.to_string(),
+                device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
                 ui_font: None,
             code_font: None,
             };
@@ -1382,6 +1408,7 @@ mod tests {
             theme: THEME_SYSTEM.to_string(),
             accent: DEFAULT_ACCENT.to_string(),
             ui_scale: DEFAULT_UI_SCALE.to_string(),
+            device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
             ui_font: None,
             code_font: None,
         };
@@ -1393,6 +1420,24 @@ mod tests {
         ui.language = LANGUAGE_EN.to_string();
         ui.normalize();
         assert_eq!(ui.language, LANGUAGE_EN);
+    }
+
+    #[test]
+    fn ui_device_density_defaults_to_detailed_and_rejects_unknown() {
+        // 缺字段：serde 默认取 detailed。
+        let ui: Ui = serde_json::from_str("{}").unwrap();
+        assert_eq!(ui.device_list_density, DEVICE_DENSITY_DETAILED);
+
+        // 非法取值：归一化退回 detailed。
+        let mut ui = Ui::default();
+        ui.device_list_density = "spacious".to_string();
+        ui.normalize();
+        assert_eq!(ui.device_list_density, DEVICE_DENSITY_DETAILED);
+
+        // 合法取值：原样保留。
+        ui.device_list_density = DEVICE_DENSITY_COMPACT.to_string();
+        ui.normalize();
+        assert_eq!(ui.device_list_density, DEVICE_DENSITY_COMPACT);
     }
 
     // ── 更新检查偏好（add-app-self-update tasks 8.5）────────────

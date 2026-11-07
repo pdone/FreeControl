@@ -217,7 +217,7 @@
 
   /**
    * 会话的一行说明：启动时间 + 窗口位置。
-   * 位置说明与设备页同源（自动排列 / 让位 / 空间不足降级，tasks 9.6 / 9.8 / 9.9）。
+   * 设备页只显示最后连接时间，会话现场（PID、窗口位置）集中在这一页与运行日志。
    */
   function sessionMeta(s: SessionInfo, tr: Translate): string {
     const time = new Date(s.startedAt).toLocaleTimeString();

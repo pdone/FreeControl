@@ -139,7 +139,7 @@
   body { user-select: none; cursor: default; }
   input, textarea, [contenteditable] { user-select: text; cursor: auto; }
   /* 技术值白名单：作为值**独立承载**、会被用户带出应用的技术文本一律保持可选中。
-     说明文字里的【裸】技术值（如提示语中的 %APPDATA%/… 目录约定、设备卡上的 PID 与窗口坐标）
+     说明文字里的【裸】技术值（如提示语中的 %APPDATA%/… 目录约定、设备卡上的最后连接时间）
      不在其列 —— 本规则只认有独立承载的技术值，不为一句提示去改文案结构（见 spec 的做法约定）。
      下列选择器在本原型里**没有对应元素**，故不在此列出（产品侧有）：.log-view / .sess-cmd /
      .sess-cmd code 的宿主、.env-path、.env-reason-cmp、.flabel code —— 原型没有会话输出那一块
@@ -646,6 +646,23 @@
   .dev-card.sel { border-color: var(--accent-line); }
   /* 既已连接又被选中：不再需要合并声明 —— 色条走 box-shadow、选中走边框色，两者各占一个属性。 */
   .dev-card.offline { opacity: .72; }
+  /* 列表密度控件（与产品侧 .dev-density 同形）：两枚方形图标按钮，占工具栏统一高度。 */
+  .dev-density { flex: none; height: var(--dev-toolbar-control-h); align-items: stretch; padding: 2px; gap: 2px; }
+  .dev-density button { width: 26px; height: 100%; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .dev-density button svg { width: 15px; height: 15px; }
+  /* 简洁卡片：单行只留手柄、状态点、名称（含连接方式标识与问题图标）与连接 / 参数入口。 */
+  .dev-card.compact { padding: 9px 14px; }
+  .dev-card.compact .dev-main { gap: 10px; }
+  .dev-card.compact .dev-alias { gap: 8px; flex-wrap: nowrap; }
+  /* 简洁模式必须保持单行：长别名截断，不把标识或问题图标挤到第二行。 */
+  .dev-card.compact .dev-alias .a-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 行内问题指示：详细模式是「图标 + 短标签」，简洁模式只有图标；完整原因走提示层。
+     详情不参与行布局，行高因此不随失败原文长度增长。 */
+  .dev-issue { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 1.5; color: var(--danger); flex: none; white-space: nowrap; cursor: default; border-radius: 4px; }
+  .dev-issue.warn { color: var(--warn); }
+  .dev-issue svg { width: 13px; height: 13px; flex: none; stroke: currentColor; }
+  .dev-issue.icon-only { gap: 0; }
+  .dev-issue:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
   /* 排序方式选择器（与产品侧 DeviceSortSelect 同形）：固定宽度，窄窗口随工具栏折行。 */
   .dev-sort { position: relative; flex: none; width: 156px; }
   .dev-sort .sel-trigger { display: inline-flex; align-items: center; height: var(--dev-toolbar-control-h); padding: 0 26px 0 10px; font-size: 12px; }
@@ -1098,6 +1115,10 @@
               <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="name"><span class="dev-sort-opt-label">按设备名称</span><span class="dev-sort-arrow" aria-hidden="true"></span></button>
               <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="lastConnected"><span class="dev-sort-opt-label">按最后连接时间</span><span class="dev-sort-arrow" aria-hidden="true"></span></button>
             </div>
+          </div>
+          <div class="seg dev-density" id="devDensity" role="group" aria-label="设备显示方式">
+            <button type="button" class="active" data-density="detailed" aria-pressed="true" aria-label="详细" data-tip="显示完整设备信息"><i data-lucide="layout-list"></i></button>
+            <button type="button" data-density="compact" aria-pressed="false" aria-label="简洁" data-tip="仅显示关键信息"><i data-lucide="stretch-horizontal"></i></button>
           </div>
           <div class="spacer"></div>
           <!-- 批量操作的结果就地呈现在本行内（与产品侧 DevicePage 工具栏的反馈位同槽，不另起一行） -->
@@ -2122,6 +2143,7 @@
     "info": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 16v-4"}],["path",{"d":"M12 8h.01"}]]],
     "key-round": ["svg",{},[["path",{"d":"M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"}],["circle",{"cx":"16.5","cy":"7.5","r":".5","fill":"currentColor"}]]],
     "layout-grid": ["svg",{},[["rect",{"width":"7","height":"7","x":"3","y":"3","rx":"1"}],["rect",{"width":"7","height":"7","x":"14","y":"3","rx":"1"}],["rect",{"width":"7","height":"7","x":"14","y":"14","rx":"1"}],["rect",{"width":"7","height":"7","x":"3","y":"14","rx":"1"}]]],
+    "layout-list": ["svg",{},[["rect",{"width":"7","height":"7","x":"3","y":"3","rx":"1"}],["rect",{"width":"7","height":"7","x":"3","y":"14","rx":"1"}],["path",{"d":"M14 4h7"}],["path",{"d":"M14 9h7"}],["path",{"d":"M14 15h7"}],["path",{"d":"M14 20h7"}]]],
     "maximize-2": ["svg",{},[["polyline",{"points":"15 3 21 3 21 9"}],["polyline",{"points":"9 21 3 21 3 15"}],["line",{"x1":"21","x2":"14","y1":"3","y2":"10"}],["line",{"x1":"3","x2":"10","y1":"21","y2":"14"}]]],
     "minimize-2": ["svg",{},[["polyline",{"points":"4 14 10 14 10 20"}],["polyline",{"points":"20 10 14 10 14 4"}],["line",{"x1":"14","x2":"21","y1":"10","y2":"3"}],["line",{"x1":"3","x2":"10","y1":"21","y2":"14"}]]],
     "minus": ["svg",{},[["path",{"d":"M5 12h14"}]]],
@@ -2138,6 +2160,7 @@
     "shuffle": ["svg",{},[["path",{"d":"M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"}],["path",{"d":"m18 2 4 4-4 4"}],["path",{"d":"M2 6h1.9c1.5 0 2.9.9 3.6 2.2"}],["path",{"d":"M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"}],["path",{"d":"m18 14 4 4-4 4"}]]],
     "sliders-horizontal": ["svg",{},[["line",{"x1":"21","x2":"14","y1":"4","y2":"4"}],["line",{"x1":"10","x2":"3","y1":"4","y2":"4"}],["line",{"x1":"21","x2":"12","y1":"12","y2":"12"}],["line",{"x1":"8","x2":"3","y1":"12","y2":"12"}],["line",{"x1":"21","x2":"16","y1":"20","y2":"20"}],["line",{"x1":"12","x2":"3","y1":"20","y2":"20"}],["line",{"x1":"14","x2":"14","y1":"2","y2":"6"}],["line",{"x1":"8","x2":"8","y1":"10","y2":"14"}],["line",{"x1":"16","x2":"16","y1":"18","y2":"22"}]]],
     "square": ["svg",{},[["rect",{"width":"18","height":"18","x":"3","y":"3","rx":"2"}]]],
+    "stretch-horizontal": ["svg",{},[["rect",{"width":"20","height":"6","x":"2","y":"4","rx":"2"}],["rect",{"width":"20","height":"6","x":"2","y":"14","rx":"2"}]]],
     "tablet-smartphone": ["svg",{},[["rect",{"width":"10","height":"14","x":"3","y":"8","rx":"2"}],["path",{"d":"M5 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-2.4"}],["path",{"d":"M8 18h.01"}]]],
     "terminal": ["svg",{},[["polyline",{"points":"4 17 10 11 4 5"}],["line",{"x1":"12","x2":"20","y1":"19","y2":"19"}]]],
     "trash-2": ["svg",{},[["path",{"d":"M3 6h18"}],["path",{"d":"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"}],["path",{"d":"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"}],["line",{"x1":"10","x2":"10","y1":"11","y2":"17"}],["line",{"x1":"14","x2":"14","y1":"11","y2":"17"}]]],
@@ -2597,8 +2620,7 @@
   "IP 地址 : 端口": "IP address : port",
   "端口": "Port",
   "修改端口": "Edit port",
-  "保存": "Save",
-  "Android 11 及以上需先在设备上完成配对，可选择「配对码」方式；无线调试的连接端口是随机的，一般不是 5555。已知连接地址时可直接保存。": "On Android 11 and newer, pair the device first using Pairing code. The wireless debugging connection port is random and usually not 5555. If you know the connection address, you can save it directly.",
+    "Android 11 及以上需先在设备上完成配对，可选择「配对码」方式；无线调试的连接端口是随机的，一般不是 5555。已知连接地址时可直接保存。": "On Android 11 and newer, pair the device first using Pairing code. The wireless debugging connection port is random and usually not 5555. If you know the connection address, you can save it directly.",
   "局域网设备": "Devices on the network",
   "扫描局域网设备": "Scan network",
   "尚未扫描。": "Not scanned yet.",
@@ -2755,7 +2777,7 @@
   "2 分钟前": "2 minutes ago",
   "14 分钟前": "14 minutes ago",
   "旧机 S23": "Old S23",
-  "昨天 23:14": "yesterday 23:14",
+  "1 天前": "1 day ago",
   "请先选择一台设备": "Select a device first",
   "断开该设备的会话": "Disconnect this device",
   "当前无法连接该设备": "This device cannot be connected right now",
@@ -2764,12 +2786,15 @@
   "离线": "Offline",
   "暂无设备，请点击左上角「添加设备」。": "No devices yet. Use Add device in the top left.",
   "(待检测)": "(pending)",
-  "点「连接」会先尝试重新连上这台设备，成功后再打开投屏": "Connect first tries to reconnect this device, then opens the mirror",
+  "点「连接」会先尝试重连；端口变了会自动重新解析并再试一次": "Connect first retries the link; if the port changed, it re-resolves and retries once",
+  "手动填写该设备当前的连接端口；保存后连接标识随之更新，不会自动连接": "Enter the device's current connection port; the connection ID updates after saving and no connection is attempted",
+  "请输入 1–65535 的整数端口": "Enter an integer port from 1 to 65535",
+  "连接标识 {0} 已被其他设备使用": "Connection ID {0} is already used by another device",
   "设备离线：adb 中未检测到该设备，无法连接": "The device is offline: adb does not see it, so it cannot connect",
   "已启用设备参数": "Device parameters on",
   "断开": "Disconnect",
   "连接": "Connect",
-  "最后 {12}": "Last {12}",
+  "最后 {0}": "Last {0}",
   "参数": "Parameters",
   "删除": "Delete",
   "重命名": "Rename",
@@ -2779,6 +2804,12 @@
   "按设备名称": "Device name",
   "按最后连接时间": "Last connected",
   "拖动调整设备顺序": "Drag to reorder devices",
+  "设备显示方式": "Device display",
+  "详细": "Detailed",
+  "简洁": "Compact",
+  "显示完整设备信息": "Show full device details",
+  "仅显示关键信息": "Show key details only",
+  "连接失败": "Connection failed",
   "已切换为手动排序": "Switched to manual order",
   "设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）": "Set device parameters for this device (they take priority over global parameters; empty items use the global value)",
   "删除该设备（连带清除其设备参数）": "Delete this device (also clears its device parameters)",
@@ -3123,13 +3154,20 @@
     { id:'d1', alias:'Pixel 8',     type:'usb',  serial:'08081FDD4006LYE',           status:'connected', last:'当前连接', lastAt:demoNow },
     { id:'d2', alias:'客厅投屏',     type:'wifi', ip:'192.168.1.50',  port:5555,      status:'idle',      last:'2 分钟前', lastAt:demoNow - 2*60*1000 },
     { id:'d3', alias:'Redmi K60',    type:'wifi', ip:'192.168.31.22', port:5555,      status:'idle',      last:'14 分钟前', lastAt:demoNow - 14*60*1000 },
-    { id:'d4', alias:'旧机 S23',     type:'wifi', ip:'192.168.0.88',  port:5555,      status:'offline',   last:'昨天 23:14', lastAt:demoNow - 24*60*60*1000 }
+    { id:'d4', alias:'旧机 S23',     type:'wifi', ip:'192.168.0.88',  port:5555,      status:'offline',   last:'1 天前', lastAt:demoNow - 24*60*60*1000 }
   ];
   // 排序偏好（与产品侧 deviceList 同义）：手动顺序独立于 devices 的注册顺序。
   let manualOrder = devices.map(d => d.id);
   let sortMode = 'manual';
   const sortDirs = { status:'asc', name:'asc', lastConnected:'desc' };
   let selectedId = 'd1';
+  /* 列表密度（与产品侧 ui.deviceListDensity 同义）：原型只演示两档呈现，不落盘。 */
+  let density = 'detailed';
+  /* 问题指示的演示状态（产品侧来自真实的连接失败 / 后端警告）。技术原文保持英文，
+     与产品提示层里的 adb 原文同口径；只影响这一台设备，不改动其它演示数据。 */
+  const DEMO_ISSUES = {
+    d4: { tone:'danger', label:'连接失败', detail:'failed to connect to 192.168.0.88:5555: Connection refused' }
+  };
   let uid = 100;
 
   /* ===================== 工具 ===================== */
@@ -3410,6 +3448,16 @@
     renderDeviceList();
     devSortTrigger.focus();
   }
+
+  /* ---------- 列表密度：两档呈现（config ㊴） ---------- */
+  document.querySelectorAll('#devDensity [data-density]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if (density === b.dataset.density) return;
+      density = b.dataset.density;
+      syncDensityUI();
+      renderDeviceList();
+    });
+  });
 
   devSortTrigger.addEventListener('click', ()=>{
     selOpenEl === devSortEl ? selClose(devSortEl) : selOpen(devSortEl, 1);
@@ -3731,6 +3779,20 @@
     lucide.createIcons();
   }
 
+  function syncDensityUI(){
+    const el=document.getElementById('devDensity'); if(!el) return;
+    el.querySelectorAll('[data-density]').forEach(b=>{
+      const on = b.dataset.density===density;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  function issueHTML(d, iconOnly){
+    const it=DEMO_ISSUES[d.id]; if(!it) return '';
+    const label=escapeHtml(it.label), detail=escapeHtml(it.detail);
+    return `<span class="dev-issue ${it.tone}${iconOnly?' icon-only':''}" tabindex="0" role="img" aria-label="${label}" data-tip="${detail}"><i data-lucide="triangle-alert"></i>${iconOnly?'':label}</span>`;
+  }
+
   function renderDeviceList(){
     const box=document.getElementById('deviceList'); box.innerHTML='';
     if (!devices.length){ box.innerHTML='<div class="ov-empty">暂无设备，请点击左上角「添加设备」。</div>'; }
@@ -3739,8 +3801,9 @@
       const idEl = d.type==='usb' ? `serial: ${d.serial||'(待检测)'}` : `IP: ${d.ip}:${d.port}`;
       const oc = overrideCount(d.id);
       const ovOn = isOvEnabled(d.id);
+      const compact = density === 'compact';
       const card=document.createElement('div');
-      card.className='dev-card'+(d.id===selectedId?' sel':'')+(d.status==='connected'?' connected':'')+(d.status==='offline'?' offline':'');
+      card.className='dev-card'+(compact?' compact':'')+(d.id===selectedId?' sel':'')+(d.status==='connected'?' connected':'')+(d.status==='offline'?' offline':'');
       card.dataset.id=d.id;
       const canConnect = canConnectDevice(d);
       /* 连接 / 断开入口的提示逐字取产品侧 DevicePage 的 `connectHint`：可用时说这一步会做什么，
@@ -3748,7 +3811,28 @@
       const connTip = d.status==='connected' ? '断开该设备的会话'
         : canConnect ? (d.status==='offline' ? '点「连接」会先尝试重连；端口变了会自动重新解析并再试一次' : '连接该设备')
         : '设备离线：adb 中未检测到该设备，无法连接';
-      card.innerHTML=`
+      const kindTag = `<span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>`;
+      const issue = issueHTML(d, compact);
+      const connectBtn = d.status==='connected'
+        ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
+        : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`;
+      const paramsBtn = `<button class="btn sm ghost" data-ov="${d.id}" data-tip="设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）"><i data-lucide="sliders-horizontal"></i>参数</button>`;
+      card.innerHTML = compact ? `
+        <div class="dev-main" data-pick="${d.id}">
+          <button class="dev-handle" type="button" data-handle="${d.id}" aria-label="拖动调整设备顺序" aria-disabled="false"><i data-lucide="grip-vertical"></i></button>
+          <span class="status-dot ${scls}"></span>
+          <div class="dev-id">
+            <div class="dev-alias">
+              <span class="a-text">${escapeHtml(d.alias)}</span>
+              ${kindTag}
+              ${issue}
+            </div>
+          </div>
+          <div class="dev-actions">
+            ${connectBtn}
+            ${paramsBtn}
+          </div>
+        </div>` : `
         <div class="dev-main" data-pick="${d.id}">
           <button class="dev-handle" type="button" data-handle="${d.id}" aria-label="拖动调整设备顺序" aria-disabled="false"><i data-lucide="grip-vertical"></i></button>
           <span class="status-dot ${scls}"></span>
@@ -3759,7 +3843,7 @@
               ${oc&&ovOn?`<span class="tag soft">已启用设备参数</span>`:''}
             </div>
             <div class="dev-meta">
-              <span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>
+              ${kindTag}
               ${portEditId===d.id
                 ? `<span class="dev-cid">${escapeHtml(d.ip)}:</span><input class="dev-cid-input" type="number" min="1" max="65535" step="1" value="${d.port}" aria-label="修改端口">`
                 : `<span class="dev-cid">${escapeHtml(idEl)}</span>${d.type==='wifi' && d.status==='offline'
@@ -3767,15 +3851,14 @@
                     : ''}`}
               <span>·</span>
               <span class="status-text ${scls}">${stxt}</span>
-              <span>·</span><span>最后 ${d.last}</span>
+              ${d.status==='connected' ? '' : `<span>·</span><span>最后 ${d.last}</span>`}
               ${portErrors[d.id]?`<span class="status-text offline">${escapeHtml(portErrors[d.id])}</span>`:''}
+              ${issue}
             </div>
           </div>
           <div class="dev-actions">
-            ${d.status==='connected'
-              ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
-              : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`}
-            <button class="btn sm ghost" data-ov="${d.id}" data-tip="设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）"><i data-lucide="sliders-horizontal"></i>参数</button>
+            ${connectBtn}
+            ${paramsBtn}
             <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其设备参数）"><i data-lucide="trash-2"></i>删除</button>
           </div>
         </div>`;
@@ -4181,6 +4264,8 @@
   function refreshOvBadge(d){
     const card=document.querySelector(`#deviceList .dev-card[data-id="${d.id}"]`); if(!card) return;
     const alias=card.querySelector('.dev-alias'); if(!alias) return;
+    // 简洁模式不呈现覆盖标识；切换密度后由 renderDeviceList 整体重绘，这里只防旧标识残留。
+    if (density === 'compact') { const stale=alias.querySelector('.tag.soft'); if (stale) stale.remove(); return; }
     let tag=alias.querySelector('.tag.soft');
     // 与产品侧的 isOverrideActive 同源：**有覆盖取值且开关启用**才挂标识，
     // 且只挂一枚、不含项数（拨开关即创建空条目，故「有取值」这道门槛不能省）。
@@ -5962,6 +6047,7 @@
   syncThemeSeg(); applyTheme(); applyAccent(accentHex);
 
   syncSortUI();
+  syncDensityUI();
   renderDeviceList(); renderPreview(); updatePills(); syncNavTitles();
   renderProxyList(); syncProxyAddBtn();
 

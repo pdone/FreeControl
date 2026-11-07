@@ -60,6 +60,7 @@ import type {
   ConnectResult,
   Defaults,
   Device,
+  DeviceListDensity,
   DeviceListPrefs,
   DeviceListSnapshot,
   DeviceStatus,
@@ -81,7 +82,7 @@ import type {
 
 export const config = writable<AppConfig | null>(null);
 
-// ── 外观偏好（界面语言 / 主题模式 / 主题色 / 界面缩放）──────────
+// ── 外观偏好（界面语言 / 主题模式 / 主题色 / 界面缩放 / 设备列表密度）──────────
 //
 // 生效方式：配置一到就应用（模块加载时先应用出厂默认 —— 与 CSS 的
 // `prefers-color-scheme` 兜底同一结果，配置读完后换成盘上的取值）。
@@ -94,6 +95,7 @@ const PENDING_UI: UiPrefs = {
   theme: DEFAULT_THEME,
   accent: DEFAULT_ACCENT,
   uiScale: DEFAULT_UI_SCALE,
+  deviceListDensity: 'detailed',
   uiFont: null,
   codeFont: null,
 };
@@ -164,6 +166,19 @@ export function setAccent(accent: string): void {
  */
 export function setUiScale(uiScale: UiPrefs['uiScale']): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), uiScale } } : c));
+  scheduleSave();
+}
+
+/**
+ * 设备列表显示密度（设备页工具栏）：改配置 → 订阅立即应用 → 去抖落盘。
+ *
+ * 与其它外观偏好同一条写入路径；不进入 `deviceList` 快照，避免纯视图状态参与
+ * 设备域的修订号合并。
+ */
+export function setDeviceListDensity(deviceListDensity: DeviceListDensity): void {
+  config.update((c) =>
+    c ? { ...c, ui: { ...uiOf(c), deviceListDensity } } : c,
+  );
   scheduleSave();
 }
 
@@ -1306,6 +1321,7 @@ export async function initApp(): Promise<void> {
         theme: DEFAULT_THEME,
         accent: DEFAULT_ACCENT,
         uiScale: DEFAULT_UI_SCALE,
+        deviceListDensity: 'detailed',
         uiFont: null,
         codeFont: null,
       },

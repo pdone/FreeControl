@@ -10,6 +10,7 @@
   // （后端先建立链路，见 specs「无线设备的链路建立」），离线的 USB 设备不行。
   // 状态尚未探测出来时不放行，不留「点了才报错」的路径。
   import {
+    config,
     devices,
     sortedDevices,
     sortMode,
@@ -37,6 +38,7 @@
     canConnect,
     connectBlockedReason,
     page,
+    setDeviceListDensity,
     type SessionNotice,
   } from '../lib/store';
   import { t } from '../lib/i18n';
@@ -45,16 +47,18 @@
   import AddDeviceDialog from './AddDeviceDialog.svelte';
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
+  import DeviceIssueBadge from './DeviceIssueBadge.svelte';
   import { moveToIndex, sameOrder, flippedDirection } from '../lib/deviceSort';
+  import { segSlide } from '../lib/segSlide';
   import type {
     ConnectResult,
     Device,
+    DeviceListDensity,
     DeviceStatusView,
-    SessionInfo,
     SortDirection,
     SortMode,
   } from '../lib/types';
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import {
     Plus,
     Zap,
@@ -67,7 +71,69 @@
     Usb,
     Wifi,
     GripVertical,
+    LayoutList,
+    StretchHorizontal,
   } from 'lucide-svelte';
+
+  // ── 列表密度（spec「设备列表显示密度」）──
+  // 密度属于外观偏好，不进入设备域快照；工具栏与卡片都只读它。
+  $: density = ($config?.ui.deviceListDensity ?? 'detailed') as DeviceListDensity;
+  $: compactView = density === 'compact';
+
+  function setDensity(next: DeviceListDensity): void {
+    if (next === density || densityLocked) return;
+    setDeviceListDensity(next);
+  }
+
+  // ── 最后连接时间（相对显示）──
+  // 每 30 秒心跳只为让「x 分钟前」跟着走；`now` 必须直接出现在模板表达式里，
+  // Svelte 4 才会在心跳时重算（把依赖藏进函数体就会静默失更新）。
+  let now = Date.now();
+  let agoTimer: ReturnType<typeof setInterval> | null = null;
+  onMount(() => {
+    agoTimer = setInterval(() => (now = Date.now()), 30_000);
+  });
+  onDestroy(() => {
+    if (agoTimer) clearInterval(agoTimer);
+  });
+
+  // ── 行内问题指示（spec「行内问题指示与行高稳定」）──
+  // 动作失败与输入校验分开：前者只留短标签 / 图标，详情进提示层；后者继续内联可见。
+  type RowActionFailure = {
+    kind: 'connect' | 'disconnect' | 'delete';
+    error: unknown;
+  };
+  let rowActionErr: Record<string, RowActionFailure | null> = {};
+
+  type DeviceIssue = { label: string; detail: string; tone: 'danger' | 'warn' };
+  $: issuesByDevice = Object.fromEntries(
+    $devices.map((d): [string, DeviceIssue[]] => {
+      const list: DeviceIssue[] = [];
+      const fail = rowActionErr[d.id];
+      if (fail) {
+        list.push({
+          label: $t(
+            fail.kind === 'connect'
+              ? 'device.issue.connectFailed'
+              : fail.kind === 'disconnect'
+                ? 'device.issue.disconnectFailed'
+                : 'device.issue.deleteFailed',
+          ),
+          detail: errorTextOf(fail.error, $t),
+          tone: 'danger',
+        });
+      }
+      const notice = $deviceNotices[d.id];
+      if (notice) {
+        list.push({
+          label: $t('device.issue.notice'),
+          detail: errorTextOf(notice, $t),
+          tone: 'warn',
+        });
+      }
+      return [d.id, list];
+    }),
+  ) as Record<string, DeviceIssue[]>;
 
   // ── 新增设备 ──
   let addOpen = false;
@@ -76,7 +142,7 @@
   let editingId: string | null = null;
   let editValue = '';
   let editCancelled = false;
-  /** 每台设备各自的错误 / 提示：提示要贴在出错的那一行，不放全局。存原始错误以便重译。 */
+  /** 每台设备各自的输入校验错误（别名 / 端口）：短文本直接贴在出错的那一行。存原始错误以便重译。 */
   let rowErr: Record<string, unknown> = {};
 
   // ── 手动修改无线端口（spec `device-management`「手动修改无线连接端口」）──
@@ -198,6 +264,8 @@
     .filter((d): d is Device => !!d);
   $: memberSig = $devices.map((d) => d.id).join('|');
   $: sortLocked = !!drag || !!keyDrag || sortBusy;
+  /** 重排或内联编辑期间不切换密度：拖拽中改卡高会让落点计算跳动，编辑中输入框可能被移走。 */
+  $: densityLocked = sortLocked || editingId !== null || portEditId !== null;
 
   // 拖动 / 键盘拿起期间设备成员变化：取消本次调整并提示（不提交旧集合）。
   //
@@ -622,20 +690,25 @@
     }
   }
 
-  /** 会话窗口位置的说明：自动排列的坐标 / 让位 / 平台不支持定位 / 空间不足降级（tasks 9.6 / 9.8 / 9.9 / design D5）。 */
-  function windowText(s: SessionInfo, tr: Translate): string {
-    if (!s.arranged) {
-      // 两种「未参与」的原因文案不同：用户指定位置是自己的选择，平台不支持则要明确说明后果。
-      return tr(
-        s.arrangeSkip === 'platform'
-          ? 'device.window.noArrangePlatform'
-          : 'device.window.noArrangeUser',
-      );
+  /** 最后连接时间按相对时间显示：刚刚 / N 分钟前 / N 小时前 / N 天前 / N 个月前。 */
+  function relativeTimeText(at: number, current: number, tr: Translate): string {
+    const minutes = Math.floor((current - at) / 60_000);
+    if (minutes < 1) return tr('device.relative.justNow');
+    if (minutes < 60) {
+      return tr(minutes === 1 ? 'device.relative.minute' : 'device.relative.minutes', {
+        n: minutes,
+      });
     }
-    const pos = tr('device.window.position', { x: s.windowX ?? '', y: s.windowY ?? '' });
-    return s.slotReused
-      ? tr('device.window.reused', { x: s.windowX ?? '', y: s.windowY ?? '' })
-      : pos;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return tr(hours === 1 ? 'device.relative.hour' : 'device.relative.hours', { n: hours });
+    }
+    const days = Math.floor(hours / 24);
+    if (days < 30) {
+      return tr(days === 1 ? 'device.relative.day' : 'device.relative.days', { n: days });
+    }
+    const months = Math.floor(days / 30);
+    return tr(months === 1 ? 'device.relative.month' : 'device.relative.months', { n: months });
   }
 
   /** 批量连接的结果汇总：成功的台数 + 逐台失败原因 + 排列降级提示（tasks 9.2 / 9.8）。 */
@@ -661,13 +734,13 @@
 
   /** 连接单台（tasks 9.1）；失败原因贴在对应设备那一行，不放全局。 */
   async function onConnect(d: Device): Promise<void> {
-    rowErr = { ...rowErr, [d.id]: null };
+    rowActionErr = { ...rowActionErr, [d.id]: null };
     busy = { ...busy, [d.id]: true };
     sessionNotice.set(null);
     try {
       await connectDevice(d.id);
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: e };
+      rowActionErr = { ...rowActionErr, [d.id]: { kind: 'connect', error: e } };
     } finally {
       busy = { ...busy, [d.id]: false };
     }
@@ -675,12 +748,12 @@
 
   /** 断开单台（tasks 9.1）：会话结束、槽位释放，状态回到在线（未连接）。 */
   async function onDisconnect(d: Device): Promise<void> {
-    rowErr = { ...rowErr, [d.id]: null };
+    rowActionErr = { ...rowActionErr, [d.id]: null };
     busy = { ...busy, [d.id]: true };
     try {
       await disconnectDevice(d.id);
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: e };
+      rowActionErr = { ...rowActionErr, [d.id]: { kind: 'disconnect', error: e } };
     } finally {
       busy = { ...busy, [d.id]: false };
     }
@@ -690,6 +763,7 @@
   async function onConnectAll(): Promise<void> {
     toolBusy = true;
     rowErr = {};
+    rowActionErr = {};
     sessionNotice.set(null);
     try {
       const result = await connectAll();
@@ -705,6 +779,7 @@
   async function onDisconnectAll(): Promise<void> {
     toolBusy = true;
     rowErr = {};
+    rowActionErr = {};
     sessionNotice.set(null);
     const before = runningCount;
     try {
@@ -824,12 +899,13 @@
     const d = pendingDelete;
     if (!d) return;
     delBusy = true;
+    rowActionErr = { ...rowActionErr, [d.id]: null };
     try {
       // 别名映射、参数覆盖与覆盖开关由后端一并清除（tasks 6.5）。
       await deleteDevice(d.id);
       pendingDelete = null;
     } catch (e) {
-      rowErr = { ...rowErr, [d.id]: e };
+      rowActionErr = { ...rowActionErr, [d.id]: { kind: 'delete', error: e } };
       pendingDelete = null;
     } finally {
       delBusy = false;
@@ -868,6 +944,30 @@
     on:change={onSortModeChange}
     on:toggle={onSortDirectionToggle}
   />
+  <div class="seg dev-density" role="group" aria-label={$t('device.density.label')} use:segSlide>
+    <button
+      type="button"
+      class:active={density === 'detailed'}
+      aria-pressed={density === 'detailed'}
+      aria-label={$t('device.density.detailed')}
+      disabled={densityLocked}
+      use:tip={$t('device.density.detailedTip')}
+      on:click={() => setDensity('detailed')}
+    >
+      <LayoutList />
+    </button>
+    <button
+      type="button"
+      class:active={density === 'compact'}
+      aria-pressed={density === 'compact'}
+      aria-label={$t('device.density.compact')}
+      disabled={densityLocked}
+      use:tip={$t('device.density.compactTip')}
+      on:click={() => setDensity('compact')}
+    >
+      <StretchHorizontal />
+    </button>
+  </div>
   <div class="spacer"></div>
   {#if summary}
     <span class="status-text" use:tip={statusError || null}>{summary}</span>
@@ -896,9 +996,9 @@
     {#each visibleDevices as d (d.id)}
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
-      {@const win = sess ? windowText(sess, $t) : ''}
       <div
         class="dev-card"
+        class:compact={compactView}
         class:sel={$selectedDeviceId === d.id}
         class:connected={s === 'connected'}
         class:offline={s === 'offline'}
@@ -944,26 +1044,43 @@
                 />
               {:else}
                 <span class="a-text">{d.alias}</span>
-                <span
-                  class="edit"
-                  role="button"
-                  tabindex="0"
-                  aria-label={$t('device.renameAria')}
-                  on:click|stopPropagation={() => startEdit(d)}
-                  on:keydown={(e) => e.key === 'Enter' && startEdit(d)}
-                >
-                  <Pencil />
-                </span>
+                {#if !compactView}
+                  <span
+                    class="edit"
+                    role="button"
+                    tabindex="0"
+                    aria-label={$t('device.renameAria')}
+                    on:click|stopPropagation={() => startEdit(d)}
+                    on:keydown={(e) => e.key === 'Enter' && startEdit(d)}
+                  >
+                    <Pencil />
+                  </span>
+                {/if}
               {/if}
-              <!-- 两态标识：只在"有覆盖取值且开关启用"时出现，MUST NOT 带项数
-                   （判据在 store 的 `isOverrideActive`）。禁用态与"一项取值都没填"
-                   都不在此表达 —— 前者只在展开面板的标题里说。 -->
-              {#if isOverrideActive(ovById[d.id])}
+              {#if compactView}
+                <!-- 简洁模式把连接方式标识与问题图标留在名称行：详情行整行不渲染。 -->
+                <span class="tag {d.kind}">
+                  {#if d.kind === 'usb'}<Usb />{:else}<Wifi />{/if}
+                  {d.kind === 'usb' ? 'USB' : 'WiFi'}
+                </span>
+                {#each issuesByDevice[d.id] ?? [] as issue (issue.label)}
+                  <DeviceIssueBadge
+                    label={issue.label}
+                    detail={issue.detail}
+                    tone={issue.tone}
+                    iconOnly
+                  />
+                {/each}
+              {:else if isOverrideActive(ovById[d.id])}
+                <!-- 两态标识：只在"有覆盖取值且开关启用"时出现，MUST NOT 带项数
+                     （判据在 store 的 `isOverrideActive`）。禁用态与"一项取值都没填"
+                     都不在此表达 —— 前者只在展开面板的标题里说。 -->
                 <span class="tag soft">
                   {$t('device.overrideActive')}
                 </span>
               {/if}
             </div>
+            {#if !compactView}
             <div class="dev-meta">
               <!-- 连接方式的标识带图标（与原型同稿）：两种连接方式不读文字也能区分。
                    两枚标识同取强调色族（见 app.css 的 .tag.usb / .tag.wifi）——
@@ -1020,24 +1137,25 @@
                   {/if}
                 </span>
               {/if}
-              {#if sess && s === 'connected'}
-                <!-- 会话的真实位置：自动排列给出的坐标、让位说明，或空间不足的降级提示 -->
-                <span>·</span>
-                <span class="sess-hint">PID {sess.pid} · {win}</span>
-              {:else if sess}
+              {#if s !== 'connected' && d.lastSessionStartedAt}
+                <!-- 已连接时不在卡上重复会话现场：PID 与窗口坐标在会话启动日志（含实际下发的
+                     --window-x / --window-y）与「日志」页的运行会话里可查。 -->
                 <span>·</span>
                 <span class="sess-hint">
-                  {$t('device.sessionEnded', { code: sess.exitCode ?? '-' })}
+                  {$t('device.lastConnectedAt', {
+                    time: relativeTimeText(d.lastSessionStartedAt, now, $t),
+                  })}
                 </span>
               {/if}
               {#if rowErr[d.id]}
                 <span class="status-text offline">{errorTextOf(rowErr[d.id], $t)}</span>
               {/if}
-              {#if $deviceNotices[d.id]}
-                <span>·</span>
-                <span class="status-text warn">{errorTextOf($deviceNotices[d.id], $t)}</span>
-              {/if}
+              <!-- 动作失败与连接警告只留短标签；完整原因进提示层，不参与行布局。 -->
+              {#each issuesByDevice[d.id] ?? [] as issue (issue.label)}
+                <DeviceIssueBadge label={issue.label} detail={issue.detail} tone={issue.tone} />
+              {/each}
             </div>
+          {/if}
           </div>
           <div class="dev-actions">
             {#if s === 'connected'}
@@ -1061,7 +1179,7 @@
                 </button>
               </span>
             {/if}
-            {#if sess}
+            {#if !compactView && sess}
               <button
                 class="btn sm ghost"
                 on:click|stopPropagation={() => openLog(d.id)}
@@ -1077,13 +1195,15 @@
             >
               <SlidersHorizontal /> {$t('device.params')}
             </button>
-            <button
-              class="btn sm danger"
-              on:click|stopPropagation={() => askDelete(d)}
-              use:tip={$t('device.deleteTip')}
-            >
-              <Trash2 /> {$t('device.delete')}
-            </button>
+            {#if !compactView}
+              <button
+                class="btn sm danger"
+                on:click|stopPropagation={() => askDelete(d)}
+                use:tip={$t('device.deleteTip')}
+              >
+                <Trash2 /> {$t('device.delete')}
+              </button>
+            {/if}
           </div>
         </div>
       </div>

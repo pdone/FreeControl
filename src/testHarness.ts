@@ -3,12 +3,14 @@
 import './app.css';
 import { get } from 'svelte/store';
 import DevicePage from './components/DevicePage.svelte';
+import TooltipLayer from './components/TooltipLayer.svelte';
 import { BUILTIN_DEFAULTS } from './lib/defaults';
 import { applyAppearance } from './lib/theme';
 import { applyLanguage } from './lib/i18n';
 import {
   applyDeviceStatus,
   applyDeviceListSnapshot,
+  config as configStore,
   devices,
   sortedDevices,
   page,
@@ -23,13 +25,19 @@ import type {
   SessionInfo,
 } from './lib/types';
 
+// 相对时间用距当前时刻的偏移，覆盖分钟 / 小时 / 天三档；排序仍按这些值的先后。
+const NOW = Date.now();
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
 const baseDevices: Device[] = [
-  { id: 'dev-1', alias: '客厅平板', kind: 'wifi', serial: '', ip: '192.168.1.5', port: 5555, connectionId: '192.168.1.5:5555', lastSessionStartedAt: 1000 },
-  { id: 'dev-2', alias: '主力机', kind: 'usb', serial: 'SERIAL-2', ip: '', port: 0, connectionId: 'SERIAL-2', lastSessionStartedAt: 3000 },
+  { id: 'dev-1', alias: '客厅平板', kind: 'wifi', serial: '', ip: '192.168.1.5', port: 5555, connectionId: '192.168.1.5:5555', lastSessionStartedAt: NOW - 2 * MINUTE },
+  { id: 'dev-2', alias: '主力机', kind: 'usb', serial: 'SERIAL-2', ip: '', port: 0, connectionId: 'SERIAL-2', lastSessionStartedAt: NOW - 30_000 },
   { id: 'dev-3', alias: '备用机', kind: 'usb', serial: 'SERIAL-3', ip: '', port: 0, connectionId: 'SERIAL-3', lastSessionStartedAt: null },
-  { id: 'dev-4', alias: '设备 10', kind: 'usb', serial: 'SERIAL-4', ip: '', port: 0, connectionId: 'SERIAL-4', lastSessionStartedAt: 2000 },
+  { id: 'dev-4', alias: '设备 10', kind: 'usb', serial: 'SERIAL-4', ip: '', port: 0, connectionId: 'SERIAL-4', lastSessionStartedAt: NOW - 3 * HOUR },
   { id: 'dev-5', alias: '设备 2', kind: 'wifi', serial: '', ip: '192.168.1.8', port: 5555, connectionId: '192.168.1.8:5555', lastSessionStartedAt: null },
-  { id: 'dev-6', alias: 'Studio', kind: 'usb', serial: 'SERIAL-6', ip: '', port: 0, connectionId: 'SERIAL-6', lastSessionStartedAt: 500 },
+  { id: 'dev-6', alias: 'Studio', kind: 'usb', serial: 'SERIAL-6', ip: '', port: 0, connectionId: 'SERIAL-6', lastSessionStartedAt: NOW - 3 * DAY },
 ];
 
 let statuses: Record<string, DeviceStatus> = {
@@ -78,6 +86,7 @@ let config: AppConfig = {
     theme: 'dark',
     accent: '#6366f1',
     uiScale: '100',
+    deviceListDensity: 'detailed',
     uiFont: null,
     codeFont: null,
   },
@@ -87,6 +96,8 @@ let config: AppConfig = {
 let statusSequence = 1;
 let failReorder = false;
 let failMode = false;
+/** 下一次连接抛出的错误；用于验证行内问题指示的长原文与提示层。 */
+let failConnect: unknown = null;
 let failDirection = false;
 
 const snapshot = () => structuredClone({
@@ -199,6 +210,11 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
       return structuredClone(config);
     }
     case 'connect_device': {
+      if (failConnect) {
+        const err = failConnect;
+        failConnect = null;
+        throw err;
+      }
       const id = String(args?.request && (args.request as { deviceId: string }).deviceId);
       const d = config.devices.find((x) => x.id === id)!;
       d.lastSessionStartedAt = Date.now();
@@ -259,6 +275,8 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
       return [];
     case 'get_proxy_list':
       return { direct: 'https://github.com', proxies: [] };
+    case 'plugin:webview|set_webview_zoom':
+      return null;
     default:
       throw new Error(`harness: unhandled command ${cmd}`);
   }
@@ -269,6 +287,7 @@ interface HarnessApi {
   failNextReorder: () => void;
   failNextMode: () => void;
   failNextDirection: () => void;
+  failNextConnect: () => void;
   state: () => unknown;
   setEditing: (id: string | null) => void;
   deviceIds: () => string[];
@@ -322,6 +341,13 @@ window.__harness = {
   failNextDirection: () => {
     failDirection = true;
   },
+  failNextConnect: () => {
+    failConnect = {
+      code: 'session.linkFailed',
+      detail:
+        'failed to connect to 192.168.1.5:5555: Connection refused (this is a deliberately long adb-style reason used to verify the row height stays fixed)',
+    };
+  },
   state: () => ({
     devices: config.devices,
     deviceList: config.deviceList,
@@ -345,7 +371,7 @@ window.__harness = {
       ip: '',
       port: 0,
       connectionId: `BULK-${i}`,
-      lastSessionStartedAt: i * 10,
+      lastSessionStartedAt: NOW - (i + 1) * MINUTE,
     }));
     config.devices = next;
     config.deviceList.manualOrder = next.map((d) => d.id);
@@ -370,6 +396,8 @@ window.__harness = {
 };
 
 page.set('devices');
+// 让 DevicePage 读到真实的外观偏好（密度开关依赖 config store；否则 setter 无处可写）。
+configStore.set(structuredClone(config));
 sessions.set([sessionFor(baseDevices[1])]);
 applyDeviceStatus({
   statuses: { ...statuses },
@@ -384,3 +412,4 @@ applyDeviceListSnapshot(snapshot());
 selectedDeviceId.set(null);
 
 new DevicePage({ target: document.getElementById('app')! });
+new TooltipLayer({ target: document.getElementById('app')! });

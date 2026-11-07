@@ -263,6 +263,14 @@ export interface SystemFont {
 export type UiScale = '100' | '115' | '130' | '150';
 
 /**
+ * 设备列表显示密度。
+ *
+ * - `detailed`：完整卡片（连接标识、状态文字、会话信息与全部操作入口），出厂默认；
+ * - `compact`：单行卡片，只保留手柄、状态点、名称、连接方式标识与连接 / 参数入口。
+ */
+export type DeviceListDensity = 'detailed' | 'compact';
+
+/**
  * 外观偏好（后端 `config::Ui`）：界面语言、主题模式、主题色、界面缩放与两个字体字段。
  *
  * - `language`：`system`（跟随系统，出厂默认）/ `zh` / `en`；
@@ -280,6 +288,8 @@ export interface UiPrefs {
   theme: 'system' | 'dark' | 'light';
   accent: string;
   uiScale: UiScale;
+  /** 设备列表显示密度（`ui.deviceListDensity`）：出厂 `detailed`。 */
+  deviceListDensity: DeviceListDensity;
   uiFont: string | null;
   codeFont: string | null;
 }
