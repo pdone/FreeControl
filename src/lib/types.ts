@@ -311,6 +311,19 @@ export interface AppConfig {
   logging: Logging;
   ui: UiPrefs;
   update: UpdatePrefs;
+  /**
+   * 主窗口上次退出时的普通几何（物理像素）；后端拥有并维护，前端只读回显，
+   * 保存配置时不参与合并。缺省表示尚无保存几何。
+   */
+  window?: WindowGeometry | null;
+}
+
+/** 主窗口的普通几何（物理像素）：不含最大化 / 最小化状态。 */
+export interface WindowGeometry {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
 }
 
 /** 8 组默认参数（前端拥有字段模型；后端透明存储为 JSON）。 */

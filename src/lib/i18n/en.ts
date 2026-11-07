@@ -483,7 +483,7 @@ export const en: Record<MessageKey, string> = {
   "device.statusStale": "Status uncertain (probe failed; showing the last result)",
   "device.connectHint.connected": "Disconnect this device",
   "device.connectHint.offlineWifi":
-    "Connect first tries to reconnect this device, then opens the mirror",
+    "Connect first retries the link; if the port changed, it re-resolves and retries once",
   "device.connectHint.connect": "Connect this device",
   "device.connectBlocked.connected": "This device is already connected",
   "device.connectBlocked.checking": "Checking device status; please wait",
@@ -570,10 +570,10 @@ export const en: Record<MessageKey, string> = {
   "wireless.pair.pairing": "Pairing and adding…",
   "wireless.close": "Close",
   "wireless.probeWaiting": "Waiting for the previous discovery request to finish…",
-  "wireless.resolve": "Resolve port again",
-  "wireless.resolveBusy": "Resolving…",
-  "wireless.resolveTip":
-    "The port changes after the device restarts or wireless debugging is toggled; resolve it again and write it back",
+  "wireless.editPort": "Edit port",
+  "wireless.editPortTip":
+    "Enter the device's current connection port; the connection ID updates after saving and no connection is attempted",
+  "wireless.editPort.invalid": "Enter an integer port from 1 to 65535",
   "wireless.addressInvalid":
     "Invalid pairing address; expected something like 192.168.1.20:37123",
   "wireless.codeRequired": "Enter the pairing code",

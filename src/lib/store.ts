@@ -30,6 +30,7 @@ import {
   listSystemFonts,
   addDevice as addDeviceCmd,
   renameDevice as renameDeviceCmd,
+  setWifiPort as setWifiPortCmd,
   deleteDevice as deleteDeviceCmd,
   setDeviceSortMode,
   setDeviceSortDirection,
@@ -564,6 +565,11 @@ export async function addDevice(device: Device): Promise<Device | null> {
 /** 重命名（tasks 6.2）：只改别名，不重发整份设备对象（避免覆盖并发更新的连接标识）。 */
 export async function renameDevice(id: string, alias: string): Promise<void> {
   applyConfig(await renameDeviceCmd(id, alias));
+}
+
+/** 手动修改无线设备的连接端口（写回连接标识，不自动建链）。 */
+export async function setWifiPort(id: string, port: number): Promise<void> {
+  applyConfig(await setWifiPortCmd(id, port));
 }
 
 /** 切换排序方式（不触碰手动顺序）。 */

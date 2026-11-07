@@ -22,6 +22,7 @@
     deviceNotices,
     selectedDeviceId,
     renameDevice,
+    setWifiPort,
     deleteDevice,
     overrides,
     isOverrideActive,
@@ -45,7 +46,6 @@
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
   import { moveToIndex, sameOrder, flippedDirection } from '../lib/deviceSort';
-  import { resolveWifiPort } from '../lib/api';
   import type {
     ConnectResult,
     Device,
@@ -66,7 +66,6 @@
     ScrollText,
     Usb,
     Wifi,
-    RefreshCw,
     GripVertical,
   } from 'lucide-svelte';
 
@@ -79,6 +78,18 @@
   let editCancelled = false;
   /** 每台设备各自的错误 / 提示：提示要贴在出错的那一行，不放全局。存原始错误以便重译。 */
   let rowErr: Record<string, unknown> = {};
+
+  // ── 手动修改无线端口（spec `device-management`「手动修改无线连接端口」）──
+  // 与别名同一套内联编辑：只有一台设备在编辑，错误复用 `rowErr` 贴回该行。
+  let portEditId: string | null = null;
+  let portValue = 0;
+  let portCancelled = false;
+
+  /** 输入框挂载即聚焦并全选：失焦提交/关闭因此有可靠前提（见 design D4）。 */
+  function focusAndSelect(node: HTMLInputElement): void {
+    node.focus();
+    node.select();
+  }
 
   // ── 删除确认（tasks 6.5）──
   let pendingDelete: Device | null = null;
@@ -604,19 +615,6 @@
     selectedDeviceId.set(id);
   }
 
-  /**
-   * 记录里的 IP 是否是可解析的 IPv4。
-   *
-   * 「重新解析端口」靠多播**按 IP** 找服务，而 IP 这一栏也允许填主机名
-   * （`adb connect mi10:5555` 是合法的旧法记录）—— 那种记录永远解析不出来，
-   * 按钮露出来只会给一句注定失败的报错，故直接不露。
-   */
-  function isIpv4(raw: string): boolean {
-    const parts = raw.trim().split('.');
-    if (parts.length !== 4) return false;
-    return parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
-  }
-
   function onCardKeydown(e: KeyboardEvent, id: string): void {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -779,6 +777,43 @@
     }
   }
 
+  // ── 手动修改无线端口 ───────────────────────────────────────
+
+  function startPortEdit(d: Device): void {
+    rowErr = { ...rowErr, [d.id]: null };
+    portEditId = d.id;
+    portValue = d.port;
+    portCancelled = false;
+  }
+
+  function onPortKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      // 与别名一致：先立取消标记再失焦，避免 blur 把半截输入提交上去。
+      portCancelled = true;
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  async function commitPortEdit(d: Device): Promise<void> {
+    const value = Number(portValue);
+    const cancelled = portCancelled;
+    portEditId = null;
+    portCancelled = false;
+    if (cancelled || value === d.port) return;
+    if (!Number.isInteger(value) || value < 1 || value > 65535) {
+      rowErr = { ...rowErr, [d.id]: { code: 'wireless.editPort.invalid' } };
+      return;
+    }
+    try {
+      // 只写回记录，不自动建链；成功后用返回的配置刷新列表（连接标识随之更新）。
+      await setWifiPort(d.id, value);
+    } catch (e) {
+      rowErr = { ...rowErr, [d.id]: e };
+    }
+  }
+
   // ── 删除 ───────────────────────────────────────────────────
 
   function askDelete(d: Device): void {
@@ -801,24 +836,7 @@
     }
   }
 
-  // ── 无线连接（spec `device-management`：配对 / 局域网发现 / 端口重解析）──
-
-  /**
-   * 重新解析某台无线设备的连接端口。
-   *
-   * 只在卡片处于离线时才露出入口 —— 那正是「端口随设备侧重启 / 重开无线调试而变」的表现。
-   */
-  async function onResolvePort(d: Device): Promise<void> {
-    rowErr = { ...rowErr, [d.id]: null };
-    busy = { ...busy, [d.id]: true };
-    try {
-      await resolveWifiPort(d.id);
-    } catch (e) {
-      rowErr = { ...rowErr, [d.id]: e };
-    } finally {
-      busy = { ...busy, [d.id]: false };
-    }
-  }
+  // ── 无线连接（spec `device-management`：配对 / 局域网发现 / 端口解析）──
 </script>
 
 <div class="sec-head">
@@ -919,6 +937,7 @@
                 <input
                   type="text"
                   bind:value={editValue}
+                  use:focusAndSelect
                   on:blur={() => commitEdit(d)}
                   on:keydown={onEditKeydown}
                   aria-label={$t('device.aliasAria')}
@@ -956,9 +975,38 @@
               <!-- 连接标识是技术值，要保持可复制（scrcpy 的 -s 取值）：
                    用语义类名进白名单，而不是靠 `:nth-child` 这类结构选择器指它 ——
                    后者在 .dev-meta 增删任一 span 时会静默指错元素。 -->
-              <span class="dev-cid">
-                {d.connectionId || $t('device.connectionPending')}
-              </span>
+              {#if portEditId === d.id}
+                <span class="dev-cid">{d.ip}:</span>
+                <input
+                  class="dev-cid-input"
+                  type="number"
+                  min="1"
+                  max="65535"
+                  step="1"
+                  bind:value={portValue}
+                  use:focusAndSelect
+                  on:blur={() => commitPortEdit(d)}
+                  on:keydown={onPortKeydown}
+                  on:click|stopPropagation
+                  aria-label={$t('wireless.editPort')}
+                />
+              {:else}
+                <span class="dev-cid">
+                  {d.connectionId || $t('device.connectionPending')}
+                </span>
+                {#if s === 'offline' && d.kind === 'wifi'}
+                  <span class="tip-host" use:tip={$t('wireless.editPortTip')}>
+                    <button
+                      type="button"
+                      class="cid-edit"
+                      aria-label={$t('wireless.editPort')}
+                      on:click|stopPropagation={() => startPortEdit(d)}
+                    >
+                      <Pencil />
+                    </button>
+                  </span>
+                {/if}
+              {/if}
               <span>·</span>
               <span class="status-text {s}">{statusLabel(s, $t)}</span>
               {#if s === 'offline'}
@@ -1021,21 +1069,6 @@
               >
                 <ScrollText /> {$t('device.log')}
               </button>
-            {/if}
-            <!-- 无线设备的端口会随设备侧重启 / 重开无线调试而变，表现为「离线」。
-                 入口只在离线、且记录里填的是 IPv4 时露出（见 `isIpv4`）——
-                 避免给正常在线的设备多加一颗按钮，也避免对主机名记录承诺做不到的事。 -->
-            {#if s === 'offline' && d.kind === 'wifi' && isIpv4(d.ip)}
-              <span class="tip-host" use:tip={$t('wireless.resolveTip')}>
-                <button
-                  class="btn sm ghost"
-                  disabled={busy[d.id]}
-                  on:click|stopPropagation={() => onResolvePort(d)}
-                >
-                  <RefreshCw />
-                  {busy[d.id] ? $t('wireless.resolveBusy') : $t('wireless.resolve')}
-                </button>
-              </span>
             {/if}
             <button
               class="btn sm ghost"

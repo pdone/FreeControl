@@ -2055,6 +2055,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 10px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  /* 工具栏内紧凑控件（小按钮与排序选择器）共用的外框高度。
+     显式取值避免排序选择器的高度由 12px 字号的行盒偶然决定，与 12.5px 按钮差 1px。 */
+  --dev-toolbar-control-h: 32px;
+}
+.dev-toolbar .btn {
+  height: var(--dev-toolbar-control-h);
 }
 .dev-toolbar .spacer {
   flex: 1;
@@ -2100,12 +2106,17 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   width: 156px;
 }
 .dev-sort .dev-sort-trigger {
-  padding: 7px 26px 7px 10px;
+  display: inline-flex;
+  align-items: center;
+  height: var(--dev-toolbar-control-h);
+  padding: 0 26px 0 10px;
   font-size: 12px;
 }
 /* 当前方式 + 方向箭头：箭头只占文字行内的位置，不参与右侧下拉指示的绝对定位。 */
 .dev-sort .dev-sort-value {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 4px;
 }
@@ -2287,6 +2298,33 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 14.5px;
   padding: 3px 7px;
   width: 200px;
+}
+/* 连接标识旁的内联端口编辑：与别名编辑同交互，但只占连接标识那一格。
+   高度取 18px（12px 字号的行盒），避免输入框出现时把设备卡撑高。 */
+input.dev-cid-input {
+  width: 74px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.dev-meta .cid-edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 0.16s;
+}
+.dev-meta .cid-edit:hover {
+  color: var(--accent-hover);
+}
+.dev-meta .cid-edit svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
 }
 .dev-meta {
   font-size: 12px;

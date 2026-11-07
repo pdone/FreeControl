@@ -31,6 +31,7 @@ use crate::download::run_blocking;
 use crate::logger;
 use crate::scrcpy;
 use crate::ui_message::{codes, UserError, UserMessage};
+use crate::wireless;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -1203,47 +1204,144 @@ fn needs_link_before_start(kind: &str, present_in_live_list: bool) -> bool {
 /// 以 0 退出（原因写在输出里），反过来输出写着 connected 也不代表设备可用（可能仍 offline /
 /// unauthorized）。判定与界面同源 —— 成不成等于用户看到的那个状态。
 ///
-/// 失败原因取 adb 的原始输出原文（不做加工、不截断）：用户要能区分端口未开、IP 变更与
-/// 设备端异常，「连接失败」四个字分辨不了。
+/// 失败原因只返回 adb 的原始输出原文（不做加工、不截断）：用户要能区分端口未开、IP 变更与
+/// 设备端异常，「连接失败」四个字分辨不了。标题「无法建立无线链路」由调用方的
+/// `session.linkFailed` 消息码提供，这里不重复拼接 —— 否则界面会显示两次同一句话。
 fn link_outcome(status_after: Option<&str>, output: &str) -> Result<(), String> {
     if status_after == Some(device::STATUS_IDLE) {
         return Ok(());
     }
     let reason = output.trim();
-    Err(format!(
-        "无法建立无线链路：{}",
-        if reason.is_empty() {
-            "设备仍不可达"
-        } else {
-            reason
-        }
-    ))
+    if reason.is_empty() {
+        Err("设备仍不可达".to_string())
+    } else {
+        Err(reason.to_string())
+    }
 }
 
-/// 为离线的无线设备建立链路，并按重探测结果判定成败（design D1 / D2）。
-fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> Result<(), String> {
-    let dir = scrcpy::scrcpy_dir(app)?;
-    let connection_id = device.connection_id();
+/// 一次链路建立尝试的结果。
+enum LinkAttempt {
+    /// 重探测为在线，链路可用。
+    Established,
+    /// adb 命令跑完了，但链路未建立；原因来自 adb 原文。
+    Failed(String),
+    /// adb 命令本身没能执行（缺 adb、超时、非零退出）。
+    Errored(String),
+}
+
+/// 用给定连接标识尝试建立链路，并按重探测结果判定成败（design D1 / D2）。
+fn attempt_link(
+    app: &AppHandle,
+    state: &AppState,
+    dir: &Path,
+    device: &Device,
+    connection_id: &str,
+) -> LinkAttempt {
     // 执行层面的失败（缺 adb / 超时 / 非零退出）本身就是这次建立失败的原因。
-    let output = device::connect_link(&dir, &connection_id).map_err(|e| {
-        logger::warn("device", format!("无线链路建立失败（{}）：{e}", device.alias));
-        format!("无法建立无线链路：{e}")
-    })?;
+    // 前缀由 `SESSION_LINK_FAILED` 统一提供，这里只透传原因（design D2）。
+    let output = match device::connect_link(dir, connection_id) {
+        Ok(output) => output,
+        Err(e) => {
+            logger::warn("device", format!("无线链路建立失败（{}）：{e}", device.alias));
+            return LinkAttempt::Errored(e);
+        }
+    };
     // 不等订阅的下一帧：界面与顶部计数在本次操作内就该反映出来。
     device::refresh_probe(app);
     device::publish_status(app);
-    let after = device::status_of_device(state, &device.id);
+    // 成败按**本次尝试的连接标识**判定，而不是配置里尚未更新的旧标识：
+    // 自动换端口重试时，新端口还没写回，按设备记录查状态会永远得到「离线」。
+    let after = device::probe_snapshot(state)
+        .devices
+        .as_ref()
+        .map(|live| {
+            if live.contains(connection_id) {
+                device::STATUS_IDLE
+            } else {
+                device::STATUS_OFFLINE
+            }
+        });
     match link_outcome(after.as_deref(), &output) {
         Ok(()) => {
             logger::info(
                 "device",
                 format!("无线链路已建立（{}）：{}", device.alias, output.trim()),
             );
-            Ok(())
+            LinkAttempt::Established
         }
         Err(e) => {
             logger::warn("device", format!("无线链路建立失败（{}）：{e}", device.alias));
-            Err(e)
+            LinkAttempt::Failed(e)
+        }
+    }
+}
+
+/// 连接失败后是否值得换端口重试（纯函数）。
+///
+/// 只有记录本身是 IPv4 字面量（多播发现按 IP 匹配）且解析出了**不同**端口时才重试；
+/// 解析失败、端口相同、非 IPv4 都保持原记录并返回第一次的原因。
+fn retry_port(ip: &str, current: u16, resolved: Result<u16, String>) -> Option<u16> {
+    if ip.parse::<std::net::Ipv4Addr>().is_err() {
+        return None;
+    }
+    match resolved {
+        Ok(port) if port != current => Some(port),
+        _ => None,
+    }
+}
+
+/// 把自动解析出的端口写回记录；失败只记警告，不否定已经建立的链路。
+fn persist_resolved_port(app: &AppHandle, device_id: &str, port: u16) {
+    let state = app.state::<AppState>();
+    match device::mutate_and_persist(app, &state, |cfg| {
+        device::apply_wifi_port(cfg, device_id, u32::from(port))
+    }) {
+        Ok(_) => device::publish_status(app),
+        Err(e) => logger::warn(
+            "device",
+            format!("自动解析的新端口写回失败（{device_id}）：{}", e.detail.unwrap_or(e.code)),
+        ),
+    }
+}
+
+/// 为离线的无线设备建立链路；失败时按 IP 自动解析端口并重试一次。
+///
+/// 返回实际使用的连接标识：自动换端口后，后续显示尺寸查询、scrcpy 参数与会话记录
+/// 都必须使用新标识，不能继续用修改前的副本。
+fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> Result<String, String> {
+    let dir = scrcpy::scrcpy_dir(app)?;
+    let current = device.connection_id();
+    match attempt_link(app, state, &dir, device, &current) {
+        LinkAttempt::Established => Ok(current),
+        LinkAttempt::Errored(e) => Err(e),
+        LinkAttempt::Failed(reason) => {
+            let ip = device.ip.trim();
+            // 主机名记录不做多播匹配：先判 IPv4，避免为一个注定失败的解析多等 4 秒。
+            if ip.parse::<std::net::Ipv4Addr>().is_err() {
+                return Err(reason);
+            }
+            let Some(port) = retry_port(
+                ip,
+                device.port,
+                wireless::resolve_for_connect(app, ip, device.port),
+            ) else {
+                return Err(reason);
+            };
+            let retry_id = format!("{ip}:{port}");
+            logger::info(
+                "device",
+                format!(
+                    "连接失败后自动解析端口（{}）：{} → {port}",
+                    device.alias, device.port
+                ),
+            );
+            match attempt_link(app, state, &dir, device, &retry_id) {
+                LinkAttempt::Established => {
+                    persist_resolved_port(app, &device.id, port);
+                    Ok(retry_id)
+                }
+                LinkAttempt::Failed(e) | LinkAttempt::Errored(e) => Err(e),
+            }
         }
     }
 }
@@ -1271,7 +1369,7 @@ fn start_session(
             UserError::new(codes::SESSION_ENVIRONMENT_NOT_READY).with_detail(missing.join("、"))
         );
     }
-    let connection_id = device.connection_id();
+    let mut connection_id = device.connection_id();
     if connection_id.is_empty() {
         return Err(UserError::new(codes::SESSION_CONNECTION_UNKNOWN));
     }
@@ -1294,7 +1392,7 @@ fn start_session(
                 }
             };
             if needs_link_before_start(&device.kind, present) {
-                ensure_wireless_link(app, &state, device)
+                connection_id = ensure_wireless_link(app, &state, device)
                     .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?;
             }
         }
@@ -1302,8 +1400,10 @@ fn start_session(
         // 无线设备可能已被应用之外的操作断开（如用户在自己的终端里 `adb disconnect`）：
         // 先把链路建起来，再按重探测结果决定是否继续（design D1 / D2）。
         Some(device::STATUS_OFFLINE) => match link_action(&device.kind) {
-            LinkAction::Establish => ensure_wireless_link(app, &state, device)
-                .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?,
+            LinkAction::Establish => {
+                connection_id = ensure_wireless_link(app, &state, device)
+                    .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?;
+            }
             LinkAction::Refuse => return Err(UserError::new(codes::SESSION_DEVICE_OFFLINE)),
         },
         Some(_) => return Err(UserError::new(codes::SESSION_DEVICE_OFFLINE)),
@@ -2263,16 +2363,37 @@ mod tests {
         // adb 报「已连接」但重探测仍非在线（设备 off / unauthorized）→ 仍算失败。
         let err = link_outcome(Some(device::STATUS_OFFLINE), "connected to 192.168.1.5:5555")
             .unwrap_err();
-        assert!(err.contains("无法建立无线链路"));
+        assert_eq!(err, "connected to 192.168.1.5:5555");
+        assert!(
+            !err.contains("无法建立无线链路"),
+            "标题由消息码提供，detail 不得自带前缀：{err}"
+        );
 
         // 失败原因保留 adb 原文：用户要能区分端口未开、IP 变更与设备端异常。
         let raw = "failed to connect to 192.168.1.5:5555: Connection refused";
         let err = link_outcome(None, raw).unwrap_err();
         assert!(err.contains(raw), "必须保留原始失败原因：{err}");
+        assert!(!err.contains("无法建立无线链路"), "原因里不得重复标题：{err}");
 
         // 没有输出时给一句可读的兜底，而不是空原因。
         let err = link_outcome(None, "  ").unwrap_err();
         assert!(err.contains("设备仍不可达"));
+    }
+
+    #[test]
+    fn retries_only_with_a_different_port_on_an_ipv4_record() {
+        // 端口变了：换端口重试一次。
+        assert_eq!(retry_port("192.168.1.5", 5555, Ok(37001)), Some(37001));
+
+        // 解析到同一个端口：重试没有意义，保留第一次的失败原因。
+        assert_eq!(retry_port("192.168.1.5", 5555, Ok(5555)), None);
+
+        // 解析失败：不改记录，也不重试。
+        let err = Err("未能解析出 192.168.1.5 的连接端口".to_string());
+        assert_eq!(retry_port("192.168.1.5", 5555, err), None);
+
+        // 主机名记录不做多播匹配，只走手动修改端口。
+        assert_eq!(retry_port("pixel-9.local", 5555, Ok(37001)), None);
     }
 
     // ── 最近会话启动时间（add-device-list-sorting）──────────────

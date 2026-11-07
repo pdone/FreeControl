@@ -144,6 +144,58 @@ pub fn rename_device(
     })
 }
 
+/// 手动修改无线设备的连接端口（spec「手动修改无线连接端口」）。
+///
+/// 只改 `port` 一个字段（连接标识是派生值）；校验先于修改，失败时不落盘也不改内存。
+pub(crate) fn apply_wifi_port(cfg: &mut AppConfig, id: &str, port: u32) -> Result<(), UserError> {
+    if !(1..=65535).contains(&port) {
+        return Err(UserError::new(codes::DEVICE_INVALID).with_detail("无线设备的端口不合法"));
+    }
+    let idx = cfg
+        .devices
+        .iter()
+        .position(|d| d.id == id)
+        .ok_or_else(|| UserError::new(codes::DEVICE_NOT_FOUND))?;
+    let device = &cfg.devices[idx];
+    if device.kind != config::KIND_WIFI {
+        return Err(UserError::new(codes::WIRELESS_NOT_WIRELESS));
+    }
+    let port = port as u16;
+    let connection_id = format!("{}:{}", device.ip.trim(), port);
+    if cfg
+        .devices
+        .iter()
+        .any(|d| d.id != id && d.connection_id() == connection_id)
+    {
+        return Err(UserError::new(codes::DEVICE_INVALID)
+            .with_detail(format!("连接标识 {connection_id} 已被其他设备使用")));
+    }
+    cfg.devices[idx].port = port;
+    Ok(())
+}
+
+/// 手动改端口：写回记录并落盘；不自动建立链路（用户随后连接时使用新端口）。
+#[tauri::command]
+pub fn set_wifi_port(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    port: u32,
+) -> Result<AppConfig, UserError> {
+    let cfg = mutate_and_persist(&app, &state, |cfg| {
+        apply_wifi_port(cfg, &id, port)?;
+        if let Some(d) = cfg.devices.iter().find(|d| d.id == id) {
+            log_device("修改端口", d);
+        }
+        Ok(())
+    })?;
+    // 新端口对应的链路可能已经存在于 adb 列表里；刷新一次让界面立即反映。
+    // 环境不可用时探测会失败，状态沿用既有结果，不影响本次保存。
+    refresh_probe(&app);
+    publish_status(&app);
+    Ok(cfg)
+}
+
 /// 切换排序方式：只改偏好，不触碰手动顺序（spec「设备列表排序方式」）。
 #[tauri::command]
 pub fn set_device_sort_mode(
@@ -512,7 +564,7 @@ fn probe_adb(dir: &Path) -> Result<HashSet<String>, String> {
 pub fn connect_link(dir: &Path, connection_id: &str) -> Result<String, String> {
     let adb = dir.join(ADB_BIN);
     if !adb.is_file() {
-        return Err(format!("运行环境内未找到 {ADB_BIN}，无法建立无线链路"));
+        return Err(format!("运行环境内未找到 {ADB_BIN}"));
     }
     run_captured(&adb, &["connect", connection_id], LINK_TIMEOUT)
 }
@@ -1234,6 +1286,71 @@ mod tests {
         items.iter().map(|s| (*s).to_string()).collect()
     }
 
+    // ── 手动修改无线端口（spec「手动修改无线连接端口」）──
+
+    fn config_with(devices: Vec<Device>) -> AppConfig {
+        let mut cfg = AppConfig::fresh();
+        cfg.devices = devices;
+        cfg
+    }
+
+    #[test]
+    fn wifi_port_update_rewrites_connection_id() {
+        let mut cfg = config_with(vec![wifi("dev-1", "客厅", "192.168.1.5", 5555)]);
+
+        apply_wifi_port(&mut cfg, "dev-1", 37001).unwrap();
+
+        assert_eq!(cfg.devices[0].port, 37001);
+        assert_eq!(cfg.devices[0].connection_id(), "192.168.1.5:37001");
+        // 其它字段不受影响。
+        assert_eq!(cfg.devices[0].alias, "客厅");
+    }
+
+    #[test]
+    fn wifi_port_rejects_out_of_range_and_keeps_record() {
+        let mut cfg = config_with(vec![wifi("dev-1", "客厅", "192.168.1.5", 5555)]);
+
+        for bad in [0, 65536] {
+            let err = apply_wifi_port(&mut cfg, "dev-1", bad).unwrap_err();
+            assert_eq!(err.code, codes::DEVICE_INVALID);
+            assert_eq!(cfg.devices[0].port, 5555);
+            assert_eq!(cfg.devices[0].connection_id(), "192.168.1.5:5555");
+        }
+    }
+
+    #[test]
+    fn wifi_port_rejects_duplicate_connection_id() {
+        let mut cfg = config_with(vec![
+            wifi("dev-1", "客厅", "192.168.1.5", 5555),
+            wifi("dev-2", "书房", "192.168.1.5", 37001),
+        ]);
+
+        let err = apply_wifi_port(&mut cfg, "dev-1", 37001).unwrap_err();
+
+        assert_eq!(err.code, codes::DEVICE_INVALID);
+        assert_eq!(cfg.devices[0].port, 5555, "冲突时不得改动原记录");
+        assert_eq!(cfg.devices[1].port, 37001);
+    }
+
+    #[test]
+    fn wifi_port_rejects_usb_device() {
+        let mut cfg = config_with(vec![usb("dev-1", "主力机", "S1")]);
+
+        let err = apply_wifi_port(&mut cfg, "dev-1", 37001).unwrap_err();
+
+        assert_eq!(err.code, codes::WIRELESS_NOT_WIRELESS);
+        assert_eq!(cfg.devices[0].port, 0);
+    }
+
+    #[test]
+    fn wifi_port_rejects_unknown_device() {
+        let mut cfg = config_with(vec![wifi("dev-1", "客厅", "192.168.1.5", 5555)]);
+
+        let err = apply_wifi_port(&mut cfg, "missing", 37001).unwrap_err();
+
+        assert_eq!(err.code, codes::DEVICE_NOT_FOUND);
+    }
+
     // ── 6.3：adb 输出解析 ─────────────────────────────────────
 
     #[test]
@@ -1442,6 +1559,15 @@ mod tests {
     fn missing_binary_is_reported() {
         let err = probe_adb(Path::new(r"C:\definitely\not\here")).unwrap_err();
         assert!(err.contains(ADB_BIN));
+    }
+
+    #[test]
+    fn connect_link_missing_adb_does_not_repeat_the_error_title() {
+        let err = connect_link(Path::new(r"C:\definitely\not\here"), "192.168.1.5:5555")
+            .unwrap_err();
+        assert!(err.contains(ADB_BIN), "实际错误：{err}");
+        // 标题「无法建立无线链路」由调用方的消息码提供，detail 不得自带。
+        assert!(!err.contains("无法建立无线链路"), "实际错误：{err}");
     }
 
     #[test]

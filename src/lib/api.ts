@@ -66,6 +66,9 @@ export const addDevice = (device: Device): Promise<AppConfig> =>
 /** 只改别名：不发送整份设备对象，避免覆盖同时更新的连接标识。 */
 export const renameDevice = (id: string, alias: string): Promise<AppConfig> =>
   invoke('rename_device', { id, alias });
+/** 手动修改无线设备的连接端口：只改 port，返回落盘后的完整配置。 */
+export const setWifiPort = (id: string, port: number): Promise<AppConfig> =>
+  invoke('set_wifi_port', { id, port });
 export const deleteDevice = (id: string): Promise<AppConfig> =>
   invoke('delete_device', { id });
 
@@ -103,10 +106,6 @@ export const pairWireless = (request: PairRequest): Promise<WirelessJoin> =>
 /** 把扫描结果里的一台设备连上并登记（不涉及配对）。 */
 export const joinWireless = (request: JoinRequest): Promise<WirelessJoin> =>
   invoke('join_wireless', { request });
-/** 重新解析一台无线设备的连接端口，并按新端口建链、写回记录。 */
-export const resolveWifiPort = (deviceId: string): Promise<WirelessJoin> =>
-  invoke('resolve_wifi_port', { deviceId });
-
 // ── 会话控制（Group 9 / tasks 9.1–9.4）──
 
 /** 会话列表变化事件名（与后端 `session::EVENT_SESSION_CHANGED` 对齐）。 */

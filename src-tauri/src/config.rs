@@ -552,6 +552,19 @@ impl Update {
     }
 }
 
+/// 主窗口上次退出时的普通几何（物理像素）。
+///
+/// 只记录非最大化、非最小化状态下的外框尺寸与位置；最大化状态不在这里表达。
+/// 字段归后端所有（前端保存不参与合并），见 `merge_frontend_config`。
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowGeometry {
+    pub width: u32,
+    pub height: u32,
+    pub x: i32,
+    pub y: i32,
+}
+
 /// 应用配置根对象。
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -587,6 +600,9 @@ pub struct AppConfig {
     /// 更新检查偏好。缺字段时取出厂默认，老配置文件照常可读。
     #[serde(default)]
     pub update: Update,
+    /// 主窗口上次退出时的普通几何。缺字段时按「无保存几何」处理，首次启动仍用默认尺寸。
+    #[serde(default)]
+    pub window: Option<WindowGeometry>,
 }
 
 /// 兜底默认值与 [`AppConfig::fresh`] 保持一致：`main.rs` 在配置真的读不出来时
@@ -610,6 +626,7 @@ impl AppConfig {
             logging: Logging::default(),
             ui: Ui::default(),
             update: Update::default(),
+            window: None,
         }
     }
 
@@ -1095,6 +1112,8 @@ mod tests {
         assert_eq!(cfg.schema_version, SCHEMA_VERSION);
         // 老配置没有 `scrcpyDir`：读成 None，继续使用约定目录。
         assert_eq!(cfg.scrcpy_dir, None);
+        // 老配置没有 `window`：读成 None，本次仍以默认尺寸启动。
+        assert_eq!(cfg.window, None);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1969,6 +1988,12 @@ mod tests {
         latest.device_list.revision = 7;
         latest.channels.proxies = vec!["https://kept.example/".to_string()];
         latest.scrcpy_dir = Some("C:/kept".to_string());
+        latest.window = Some(WindowGeometry {
+            width: 1280,
+            height: 800,
+            x: 120,
+            y: 80,
+        });
 
         // 旧前端快照：设备数组为空、时间与排序都是旧的，还带一条已删设备的覆盖。
         let mut incoming = AppConfig::fresh();
@@ -1984,6 +2009,12 @@ mod tests {
         );
         incoming.channels.proxies = vec!["https://stale.example/".to_string()];
         incoming.scrcpy_dir = None;
+        incoming.window = Some(WindowGeometry {
+            width: 1100,
+            height: 720,
+            x: 0,
+            y: 0,
+        });
 
         let merged = merge_frontend_config(&latest, incoming);
 
@@ -1994,7 +2025,30 @@ mod tests {
         assert_eq!(merged.device_list.revision, 7);
         assert_eq!(merged.channels.proxies, vec!["https://kept.example/".to_string()]);
         assert_eq!(merged.scrcpy_dir.as_deref(), Some("C:/kept"));
+        assert_eq!(merged.window, latest.window, "窗口几何归后端所有，前端保存不得覆盖");
         assert!(merged.overrides.is_empty(), "已删设备的覆盖不得复活");
         assert_eq!(merged.defaults["video"]["bitrate"], 8, "前端拥有的字段照常合并");
+    }
+
+    #[test]
+    fn window_geometry_round_trips_through_disk() {
+        let dir = unique_temp_dir("window");
+        let path = config_path_in(&dir);
+        let mut cfg = AppConfig::fresh();
+        cfg.window = Some(WindowGeometry {
+            width: 1280,
+            height: 800,
+            x: -120,
+            y: 64,
+        });
+
+        save_config_to(&path, &cfg).unwrap();
+        let loaded = load_config_from(&path).unwrap();
+
+        assert_eq!(loaded.window, cfg.window);
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"window\""));
+        assert!(raw.contains("\"width\": 1280"));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -16,6 +16,7 @@ mod logger;
 mod shell;
 mod ui_message;
 mod window_icon;
+mod window_state;
 mod webview_env;
 mod fonts;
 mod instance;
@@ -230,10 +231,18 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         // 关窗后前端还要先落盘再销毁窗口，这段期间窗口仍然存在；若此时再次启动，
         // 单例回调不能把即将退出的窗口拉回前台。
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { .. } => {
+                // 关窗时同步取一次：前端随后会 `destroy`，此后窗口句柄不再可读。
+                window_state::track(window);
                 instance::mark_exiting();
             }
+            // 只记普通状态下的几何；延迟到状态稳定再判定，避开最大化过渡的第一帧
+            // （见 `window_state::schedule_track`）。
+            tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) => {
+                window_state::schedule_track(window)
+            }
+            _ => {}
         })
         // 兜底之一：页面加载完成后仍未显示窗口（锚点选择见 `spawn_reveal_fallback`）。
         .on_page_load(|webview, payload| {
@@ -279,8 +288,24 @@ fn main() {
             // 已先于本钩子创建（见 tauri 的 `app::setup`），此时窗口句柄才有效。
             for (_, window) in app.webview_windows() {
                 window_icon::apply(&window);
+                // 关装饰是运行时操作：Windows 保留外框尺寸，把原标题栏高度并进客户区，
+                // 内容会比配置的 1100×720 高出一截。先记下创建时的客户区，关完再设
+                // 回去，使「默认 1100×720」仍指内容尺寸（有保存几何时随后会被覆盖）。
+                #[cfg(windows)]
+                let created_inner = window.inner_size().ok();
                 // 同上：窗口已创建、尚未显示，正是关装饰的时机（见该函数的说明）。
                 disable_system_decorations(&window);
+                #[cfg(windows)]
+                if let Some(size) = created_inner {
+                    if let Err(e) = window.set_size(size) {
+                        logger::warn("app", format!("恢复默认窗口尺寸失败：{e}"));
+                    }
+                }
+            }
+            // 窗口仍隐藏：在首次显示前应用上次的普通几何，避免先以默认尺寸上屏再跳变。
+            // 位置已不在任何显示器内时只恢复尺寸并居中（见 `window_state::restore`）。
+            if let Some(window) = app.get_webview_window("main") {
+                window_state::restore(&window, cfg.window);
             }
             app.manage(AppState {
                 config: Mutex::new(cfg),
@@ -316,6 +341,7 @@ fn main() {
             device::get_device_status,
             device::add_device,
             device::rename_device,
+            device::set_wifi_port,
             device::delete_device,
             device::set_device_sort_mode,
             device::set_device_sort_direction,
@@ -326,7 +352,6 @@ fn main() {
             wireless::cancel_wireless_scan,
             wireless::pair_wireless,
             wireless::join_wireless,
-            wireless::resolve_wifi_port,
             session::connect_device,
             session::connect_all,
             session::disconnect_device,
@@ -358,6 +383,13 @@ fn main() {
             // 避免这段时间的再次启动把即将退出的窗口重新拉回前台。
             if let tauri::RunEvent::ExitRequested { .. } = &event {
                 instance::mark_exiting();
+                // 不经过 `CloseRequested` 的退出（macOS 的 Cmd+Q）也取一次当前普通几何；
+                // 已完成关窗流程时窗口已销毁，这里无声跳过。
+                if let Some(main) = handle.get_webview_window("main") {
+                    window_state::track(&main.as_ref().window());
+                }
+                // 窗口事件阶段只改内存；到这里前端关窗钩子的落盘已完成，统一写一次几何。
+                window_state::persist(&handle);
             }
             // 会话由本应用持有：退出前结束它们，否则会留下无人管理、也无人能断开的投屏窗口。
             if let tauri::RunEvent::Exit = event {

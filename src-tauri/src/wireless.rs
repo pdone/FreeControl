@@ -39,6 +39,8 @@ pub const MDNS_WINDOW: Duration = Duration::from_secs(6);
 pub const PAIR_WINDOW: Duration = Duration::from_secs(4);
 /// 配对后等待连接服务出现的窗口。
 pub const RESOLVE_WINDOW: Duration = Duration::from_secs(8);
+/// 连接失败后自动兜底的解析窗口：用户正在等连接结果，短于显式解析。
+pub const CONNECT_RESOLVE_WINDOW: Duration = Duration::from_secs(4);
 /// 窗口内的轮询间隔。
 const MDNS_POLL: Duration = Duration::from_millis(300);
 /// `adb pair` 的超时：对不可达地址会阻塞到 TCP 超时，与 `connect` 同理只能靠外部终止。
@@ -209,16 +211,31 @@ pub fn pick_connect_port(services: &[MdnsService], ip: &str, prefer: Option<u16>
     }
 }
 
-/// 解析某台设备的连接端口；窗口内没等到就报错（原因里带上 IP，便于对照）。
-fn resolve_port(app: &AppHandle, ip: &str, prefer: Option<u16>) -> Result<u16, String> {
+/// 在给定窗口内解析某台设备的连接端口；没等到就报错（原因里带上 IP，便于对照）。
+fn resolve_port_within(
+    app: &AppHandle,
+    ip: &str,
+    prefer: Option<u16>,
+    window: Duration,
+) -> Result<u16, String> {
     let services = collect_services(
-        RESOLVE_WINDOW,
+        window,
         |_| true,
         || mdns_query(app),
         |list| pick_connect_port(list, ip, prefer).is_some(),
     )?;
     pick_connect_port(&services, ip, prefer)
         .ok_or_else(|| format!("未能解析出 {ip} 的连接端口：设备可能已关闭无线调试，或网络收不到多播"))
+}
+
+/// 解析配对设备的连接端口（显式操作，沿用较宽窗口）。
+fn resolve_port(app: &AppHandle, ip: &str, prefer: Option<u16>) -> Result<u16, String> {
+    resolve_port_within(app, ip, prefer, RESOLVE_WINDOW)
+}
+
+/// 连接失败后的自动兜底解析：用户正在等连接结果，窗口比显式解析短。
+pub(crate) fn resolve_for_connect(app: &AppHandle, ip: &str, current: u16) -> Result<u16, String> {
+    resolve_port_within(app, ip, Some(current), CONNECT_RESOLVE_WINDOW)
 }
 
 // ── 前端可见的结果形状 ─────────────────────────────────────────
@@ -708,41 +725,6 @@ fn adb_dir(app: &AppHandle) -> Result<PathBuf, UserError> {
             .with_detail(missing.join("、")));
     }
     Ok(dir)
-}
-
-#[tauri::command]
-pub async fn resolve_wifi_port(
-    app: AppHandle,
-    device_id: String,
-) -> Result<WirelessJoin, UserError> {
-    run_blocking(move || resolve_blocking(&app, &device_id)).await
-}
-
-fn resolve_blocking(app: &AppHandle, device_id: &str) -> Result<WirelessJoin, UserError> {
-    let (ip, current) = {
-        let state = app.state::<AppState>();
-        let cfg = state.config.lock().unwrap();
-        let device = cfg
-            .devices
-            .iter()
-            .find(|d| d.id == device_id)
-            .ok_or_else(|| UserError::new(codes::DEVICE_NOT_FOUND))?;
-        if device.kind != config::KIND_WIFI {
-            return Err(UserError::new(codes::WIRELESS_NOT_WIRELESS));
-        }
-        (device.ip.trim().to_string(), device.port)
-    };
-    let port = resolve_port(app, &ip, Some(current)).map_err(|e| {
-        UserError::new(codes::WIRELESS_PORT_UNRESOLVED).with_detail(e)
-    })?;
-    logger::info(
-        "device",
-        format!("已重新解析「{ip}」的连接端口：{current} → {port}"),
-    );
-    let dir = adb_dir(app)?;
-    // 端口只在这条链路真的建立之后才写回记录（`join_blocking` 里完成）——
-    // 既有规则「链路建立失败不得改动设备记录」优先于「解析成功即写回」。
-    join_blocking(app, &dir, &ip, port, None)
 }
 
 #[cfg(test)]

@@ -629,7 +629,8 @@
   .range-val { min-width: 70px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); font-size: 13px; }
 
   /* ---------- Device cards (merged: management + connection) ---------- */
-  .dev-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .dev-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; --dev-toolbar-control-h: 32px; }
+  .dev-toolbar .btn { height: var(--dev-toolbar-control-h); }
   .dev-toolbar .spacer { flex: 1; }
   /* 批量结果的就地反馈位：可收缩，长结果在本行内换行，不把按钮挤走（与产品侧同名规则同值） */
   .dev-toolbar .status-text { min-width: 0; }
@@ -647,8 +648,8 @@
   .dev-card.offline { opacity: .72; }
   /* 排序方式选择器（与产品侧 DeviceSortSelect 同形）：固定宽度，窄窗口随工具栏折行。 */
   .dev-sort { position: relative; flex: none; width: 156px; }
-  .dev-sort .sel-trigger { padding: 7px 26px 7px 10px; font-size: 12px; }
-  .dev-sort-value { display: flex; align-items: center; gap: 4px; }
+  .dev-sort .sel-trigger { display: inline-flex; align-items: center; height: var(--dev-toolbar-control-h); padding: 0 26px 0 10px; font-size: 12px; }
+  .dev-sort-value { display: flex; flex: 1; min-width: 0; align-items: center; gap: 4px; }
   .dev-sort-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   /* 方向箭头只占文字行内位置；右侧下拉指示仍用绝对定位。 */
   .dev-sort .dev-sort-arrow { position: static; flex: none; width: 12px; height: 12px; margin-top: 0; right: auto; top: auto; }
@@ -682,6 +683,10 @@
   .dev-alias .edit:hover { color: var(--accent-hover); }
   .dev-alias .edit svg { width: 13px; height: 13px; stroke: currentColor; }
   .dev-alias input { font-weight: 600; font-size: 14.5px; padding: 3px 7px; width: 200px; }
+  .dev-meta .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; transition: color .16s; }
+  .dev-meta .edit:hover { color: var(--accent-hover); }
+  .dev-meta .edit svg { width: 13px; height: 13px; stroke: currentColor; }
+  input.dev-cid-input { width: 74px; height: 18px; padding: 0 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
   /* 别名行里的标识：外框必须与别名的行盒等高（14.5px × 行高 1.5 = 21.75px；
      15.75 = 21.75 − 2×2 内边距 − 2×1 边框）。否则标识一出现就把该行由 21.75 顶到 22.5，
      整张卡片与下方内容跟着位移 0.75px。与产品侧 app.css 的同名规则同一取值。 */
@@ -2591,6 +2596,8 @@
   "serial 可留空：设备会先登记，待检测到唯一一台未登记的 USB 设备后自动补全连接标识。": "The serial can be empty: the device is registered first, and its connection ID is filled in after a unique unregistered USB device is detected.",
   "IP 地址 : 端口": "IP address : port",
   "端口": "Port",
+  "修改端口": "Edit port",
+  "保存": "Save",
   "Android 11 及以上需先在设备上完成配对，可选择「配对码」方式；无线调试的连接端口是随机的，一般不是 5555。已知连接地址时可直接保存。": "On Android 11 and newer, pair the device first using Pairing code. The wireless debugging connection port is random and usually not 5555. If you know the connection address, you can save it directly.",
   "局域网设备": "Devices on the network",
   "扫描局域网设备": "Scan network",
@@ -3739,7 +3746,7 @@
       /* 连接 / 断开入口的提示逐字取产品侧 DevicePage 的 `connectHint`：可用时说这一步会做什么，
          不可用时把原因写在按钮上。按钮可能被禁用（禁用元素不派发指针事件），故与产品同款套 .tip-host。 */
       const connTip = d.status==='connected' ? '断开该设备的会话'
-        : canConnect ? (d.status==='offline' ? '点「连接」会先尝试重新连上这台设备，成功后再打开投屏' : '连接该设备')
+        : canConnect ? (d.status==='offline' ? '点「连接」会先尝试重连；端口变了会自动重新解析并再试一次' : '连接该设备')
         : '设备离线：adb 中未检测到该设备，无法连接';
       card.innerHTML=`
         <div class="dev-main" data-pick="${d.id}">
@@ -3753,9 +3760,15 @@
             </div>
             <div class="dev-meta">
               <span class="tag ${d.type}"><i data-lucide="${d.type==='usb'?'usb':'wifi'}"></i>${d.type==='usb'?'USB':'WiFi'}</span>
-              <span class="dev-cid">${escapeHtml(idEl)}</span><span>·</span>
+              ${portEditId===d.id
+                ? `<span class="dev-cid">${escapeHtml(d.ip)}:</span><input class="dev-cid-input" type="number" min="1" max="65535" step="1" value="${d.port}" aria-label="修改端口">`
+                : `<span class="dev-cid">${escapeHtml(idEl)}</span>${d.type==='wifi' && d.status==='offline'
+                    ? `<span class="edit" data-cid-edit="${d.id}" role="button" tabindex="0" aria-label="修改端口" data-tip="手动填写该设备当前的连接端口；保存后连接标识随之更新，不会自动连接"><i data-lucide="pencil"></i></span>`
+                    : ''}`}
+              <span>·</span>
               <span class="status-text ${scls}">${stxt}</span>
               <span>·</span><span>最后 ${d.last}</span>
+              ${portErrors[d.id]?`<span class="status-text offline">${escapeHtml(portErrors[d.id])}</span>`:''}
             </div>
           </div>
           <div class="dev-actions">
@@ -3771,10 +3784,20 @@
     });
     lucide.createIcons();
     box.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click', e=>{
-      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit],[data-handle]')) return;
+      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit],[data-handle],[data-cid-edit],.dev-cid-input')) return;
       selectedId=el.dataset.pick; renderDeviceList(); renderPreview();
     }));
     box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); startRename(b.dataset.edit); }));
+    box.querySelectorAll('[data-cid-edit]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); startPortEdit(b.dataset.cidEdit); }));
+    box.querySelectorAll('.dev-cid-input').forEach(inp=>{
+      inp.addEventListener('click', e=>e.stopPropagation());
+      inp.addEventListener('blur', commitPortEdit);
+      inp.addEventListener('keydown', e=>{
+        if (e.key==='Enter') inp.blur();
+        if (e.key==='Escape'){ portCancelled=true; inp.blur(); }
+      });
+    });
+    if (portEditId) { const inp=box.querySelector('.dev-cid-input'); if(inp){ inp.focus(); inp.select(); } }
     box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); deleteDevice(b.dataset.del); }));
     box.querySelectorAll('[data-conn]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); connectDev(b.dataset.conn); }));
     box.querySelectorAll('[data-disc]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); disconnectDev(b.dataset.disc); }));
@@ -3792,6 +3815,53 @@
     const inp=document.createElement('input'); inp.value=d.alias; span.replaceWith(inp); inp.focus(); inp.select();
     const commit=()=>{ d.alias=inp.value.trim()||d.alias; renderDeviceList(); renderPreview(); updatePills(); };
     inp.addEventListener('blur', commit); inp.addEventListener('keydown', e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){ inp.value=d.alias; commit(); } });
+  }
+  /* ---------- 手动修改无线端口（与产品侧 DevicePage 的内联编辑同源） ---------- */
+  let portEditId = null;
+  let portCancelled = false;
+  const portErrors = {};
+  function portText(key, params={}){
+    const zh = {
+      invalid:'请输入 1–65535 的整数端口',
+      duplicate:`连接标识 ${params.cid} 已被其他设备使用`,
+    };
+    const en = {
+      invalid:'Enter an integer port from 1 to 65535',
+      duplicate:`Connection ID ${params.cid} is already used by another device`,
+    };
+    const lang = window.__protoLang ? window.__protoLang.get().lang : 'zh';
+    return (lang==='en' ? en : zh)[key];
+  }
+  function startPortEdit(id){
+    const d=getDev(id); if(!d) return;
+    delete portErrors[id];
+    portCancelled=false;
+    portEditId=id;
+    renderDeviceList();
+  }
+  function commitPortEdit(){
+    const id=portEditId; if(!id) return;
+    const d=getDev(id);
+    const input=document.querySelector('.dev-cid-input');
+    const raw=input ? input.value : '';
+    const cancelled=portCancelled;
+    portEditId=null; portCancelled=false;
+    if(!d){ renderDeviceList(); return; }
+    const port=Number(raw);
+    if(!cancelled){
+      if(!Number.isInteger(port) || port<1 || port>65535){
+        portErrors[id]=portText('invalid');
+      } else if(port!==d.port){
+        const cid=`${d.ip}:${port}`;
+        if(devices.some(x=>x.id!==d.id && `${x.ip}:${x.port}`===cid)){
+          portErrors[id]=portText('duplicate', { cid });
+        } else {
+          d.port=port;
+          delete portErrors[id];
+        }
+      }
+    }
+    renderDeviceList(); renderPreview(); updatePills();
   }
   function deleteDevice(id){
     if (id===selectedId) selectedId = devices.find(x=>x.id!==id)?.id || null;

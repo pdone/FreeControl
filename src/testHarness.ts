@@ -37,6 +37,7 @@ let statuses: Record<string, DeviceStatus> = {
   'dev-2': 'connected',
   'dev-3': 'offline',
   'dev-4': 'idle',
+  'dev-5': 'offline',
   'dev-6': 'offline',
 };
 
@@ -170,6 +171,23 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
       const d = config.devices.find((x) => x.id === args?.id);
       if (!d) throw { code: 'device.notFound' };
       d.alias = String(args?.alias);
+      bump();
+      return structuredClone(config);
+    }
+    case 'set_wifi_port': {
+      const d = config.devices.find((x) => x.id === args?.id);
+      if (!d) throw { code: 'device.notFound' };
+      if (d.kind !== 'wifi') throw { code: 'wireless.notWireless' };
+      const port = Number(args?.port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw { code: 'device.invalid', detail: '无线设备的端口不合法' };
+      }
+      const cid = `${d.ip}:${port}`;
+      if (config.devices.some((x) => x.id !== d.id && x.connectionId === cid)) {
+        throw { code: 'device.invalid', detail: `连接标识 ${cid} 已被其他设备使用` };
+      }
+      d.port = port;
+      d.connectionId = cid;
       bump();
       return structuredClone(config);
     }
