@@ -808,6 +808,8 @@ pub struct ConnectOutcome {
     pub alias: String,
     pub ok: bool,
     pub error: Option<UserError>,
+    /// 会话已启动但「最近会话启动时间」未能持久化（不影响连接结果）
+    pub warning: Option<UserError>,
 }
 
 /// 连接（单台或批量）的结果。
@@ -1246,12 +1248,20 @@ fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> R
     }
 }
 
-/// 启动一个会话并登记。返回是否发生槽位复用（降级）。
+/// 单次会话启动的结果。
+struct StartOutcome {
+    /// 是否发生槽位复用（降级）
+    reused: bool,
+    /// 会话已启动、但最近启动时间未能保存；必须与连接成功结果并存
+    time_warning: Option<UserError>,
+}
+
+/// 启动一个会话并登记。
 fn start_session(
     app: &AppHandle,
     device: &Device,
     args: Vec<String>,
-) -> Result<bool, UserError> {
+) -> Result<StartOutcome, UserError> {
     let state = app.state::<AppState>();
     let dir = scrcpy::scrcpy_dir(app)
         .map_err(|e| UserError::new(codes::SESSION_ENVIRONMENT_NOT_READY).with_detail(e))?;
@@ -1368,20 +1378,74 @@ fn start_session(
         );
     }
 
+    let started_at = record.started_at;
     {
         let mut map = state.sessions.lock().unwrap();
         prune_ended(&mut map);
         map.insert(record.device_id.clone(), record);
     }
-    Ok(plan.reused)
+    // 会话锁已释放，再写配置：写盘失败只产生一条独立警告，绝不把已启动的会话报成失败。
+    let time_warning = time_save_warning(
+        record_session_start(app, &device.id, started_at),
+        &device.alias,
+    );
+    if time_warning.is_none() {
+        // 时间与修订号一起下发，最近时间排序与迟到快照防护都以此为准。
+        device::publish_status(app);
+    }
+    Ok(StartOutcome {
+        reused: plan.reused,
+        time_warning,
+    })
 }
 
-fn outcome_ok(device: &Device) -> ConnectOutcome {
+/// 把「最近启动时间保存失败」转成一条独立的设备级警告；成功时为 `None`。
+///
+/// 失败只记日志、不结束会话、不改连接结果 —— 已启动的会话不能被报成失败。
+fn time_save_warning(result: Result<(), String>, alias: &str) -> Option<UserError> {
+    result.err().map(|e| {
+        logger::warn(
+            "session",
+            format!("会话已启动，但最近启动时间未能保存（{alias}）：{e}"),
+        );
+        UserError::new(codes::SESSION_TIME_SAVE_FAILED).with_detail(e)
+    })
+}
+
+/// 把本次会话启动时间写入**最新**设备记录；设备已被删除时不复活记录。
+fn record_session_start(app: &AppHandle, device_id: &str, started_at: u64) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    config::update_config_file(
+        app,
+        state.inner(),
+        |cfg| apply_session_started(cfg, device_id, started_at),
+        |e| e,
+    )
+    .map(|_| ())
+}
+
+/// 把启动时间写到指定设备；设备不存在时返回错误（调用方据此提示，不复活记录）。
+fn apply_session_started(
+    cfg: &mut config::AppConfig,
+    device_id: &str,
+    started_at: u64,
+) -> Result<(), String> {
+    let d = cfg
+        .devices
+        .iter_mut()
+        .find(|d| d.id == device_id)
+        .ok_or_else(|| "设备记录已不存在".to_string())?;
+    d.last_session_started_at = Some(started_at);
+    Ok(())
+}
+
+fn outcome_ok(device: &Device, warning: Option<UserError>) -> ConnectOutcome {
     ConnectOutcome {
         device_id: device.id.clone(),
         alias: device.alias.clone(),
         ok: true,
         error: None,
+        warning,
     }
 }
 
@@ -1391,6 +1455,7 @@ fn outcome_fail(device_id: &str, alias: &str, error: UserError) -> ConnectOutcom
         alias: alias.to_string(),
         ok: false,
         error: Some(error),
+        warning: None,
     }
 }
 
@@ -1453,16 +1518,16 @@ pub async fn connect_device(
 fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectResult, UserError> {
     let state = app.state::<AppState>();
     let device = find_device(&state, &request.device_id)?;
-    let degraded = start_session(app, &device, request.args)?;
+    let started = start_session(app, &device, request.args)?;
     let sessions = session_infos(&state);
     publish_sessions(app, &sessions);
     // 会话一起，设备状态就要立刻变成「已连接」（不等订阅的下一帧）。
     device::publish_status(app);
     Ok(ConnectResult {
-        outcomes: vec![outcome_ok(&device)],
+        outcomes: vec![outcome_ok(&device, started.time_warning)],
         sessions,
-        degraded,
-        warning: degraded.then(|| {
+        degraded: started.reused,
+        warning: started.reused.then(|| {
             UserMessage::new(codes::SESSION_WINDOW_ARRANGEMENT_DEGRADED)
         }),
     })
@@ -1493,9 +1558,9 @@ fn connect_all_blocking(
             }
         };
         match start_session(app, &device, request.args) {
-            Ok(reused) => {
-                degraded |= reused;
-                outcomes.push(outcome_ok(&device));
+            Ok(started) => {
+                degraded |= started.reused;
+                outcomes.push(outcome_ok(&device, started.time_warning));
             }
             Err(e) => outcomes.push(outcome_fail(&device.id, &device.alias, e)),
         }
@@ -2208,5 +2273,68 @@ mod tests {
         // 没有输出时给一句可读的兜底，而不是空原因。
         let err = link_outcome(None, "  ").unwrap_err();
         assert!(err.contains("设备仍不可达"));
+    }
+
+    // ── 最近会话启动时间（add-device-list-sorting）──────────────
+
+    fn device_record(id: &str, alias: &str) -> config::Device {
+        config::Device {
+            id: id.to_string(),
+            alias: alias.to_string(),
+            kind: config::KIND_USB.to_string(),
+            serial: "S1".to_string(),
+            ip: String::new(),
+            port: 0,
+            last_session_started_at: None,
+        }
+    }
+
+    #[test]
+    fn session_start_time_updates_only_the_target_device() {
+        let mut cfg = config::AppConfig::fresh();
+        cfg.devices.push(device_record("a", "A"));
+        cfg.devices.push(device_record("b", "B"));
+
+        apply_session_started(&mut cfg, "a", 100).unwrap();
+        assert_eq!(cfg.devices[0].last_session_started_at, Some(100));
+        assert_eq!(cfg.devices[1].last_session_started_at, None);
+        assert_eq!(cfg.devices[0].connection_id(), "S1", "其它字段不受影响");
+
+        // 再次启动用新时间覆盖（最近优先）。
+        apply_session_started(&mut cfg, "a", 200).unwrap();
+        assert_eq!(cfg.devices[0].last_session_started_at, Some(200));
+    }
+
+    #[test]
+    fn session_start_time_does_not_resurrect_a_deleted_device() {
+        let mut cfg = config::AppConfig::fresh();
+        assert!(apply_session_started(&mut cfg, "gone", 100).is_err());
+        assert!(cfg.devices.is_empty(), "不得为已删除设备重新建记录");
+    }
+
+    #[test]
+    fn time_save_failure_is_a_warning_not_a_connect_failure() {
+        assert!(time_save_warning(Ok(()), "A").is_none());
+
+        let warning = time_save_warning(Err("磁盘已满".to_string()), "A").unwrap();
+        assert_eq!(warning.code, codes::SESSION_TIME_SAVE_FAILED);
+        assert_eq!(warning.detail.as_deref(), Some("磁盘已满"));
+
+        // 连接结果仍是成功，且按设备携带警告 —— 前端据此贴到对应设备卡。
+        let device = device_record("a", "A");
+        let outcome = outcome_ok(&device, Some(warning));
+        assert!(outcome.ok);
+        assert!(outcome.error.is_none());
+        assert!(outcome.warning.is_some());
+    }
+
+    #[test]
+    fn session_start_time_is_independent_of_session_lifecycle() {
+        // 时间只在启动瞬间写入：函数本身不读会话状态，快速退出 / 断开都不会再调用它。
+        let mut cfg = config::AppConfig::fresh();
+        cfg.devices.push(device_record("a", "A"));
+        apply_session_started(&mut cfg, "a", 300).unwrap();
+        // 模拟会话结束后再次读配置：时间仍在。
+        assert_eq!(cfg.devices[0].last_session_started_at, Some(300));
     }
 }

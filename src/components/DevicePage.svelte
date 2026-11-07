@@ -11,8 +11,15 @@
   // 状态尚未探测出来时不放行，不留「点了才报错」的路径。
   import {
     devices,
+    sortedDevices,
+    sortMode,
+    sortDirections,
+    setSortMode,
+    setSortDirection,
+    reorderDevices,
     deviceStatus,
     deviceStatusMeta,
+    deviceNotices,
     selectedDeviceId,
     renameDevice,
     deleteDevice,
@@ -36,13 +43,18 @@
   import { tip } from '../lib/tooltip';
   import AddDeviceDialog from './AddDeviceDialog.svelte';
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
+  import DeviceSortSelect from './DeviceSortSelect.svelte';
+  import { moveToIndex, sameOrder, flippedDirection } from '../lib/deviceSort';
   import { resolveWifiPort } from '../lib/api';
   import type {
     ConnectResult,
     Device,
     DeviceStatusView,
     SessionInfo,
+    SortDirection,
+    SortMode,
   } from '../lib/types';
+  import { onDestroy, tick } from 'svelte';
   import {
     Plus,
     Zap,
@@ -55,6 +67,7 @@
     Usb,
     Wifi,
     RefreshCw,
+    GripVertical,
   } from 'lucide-svelte';
 
   // ── 新增设备 ──
@@ -103,6 +116,431 @@
       : '';
 
   $: noticeText = $sessionNotice ? renderNotice($sessionNotice, $t) : '';
+
+  // ── 排序与重排（spec device-management「设备列表排序方式」等）──
+  //
+  // `devices` 保持登记顺序（批量连接 / 窗口槽位按它走）；本页只渲染派生顺序。
+  // 拖动 / 键盘重排 / 别名编辑期间冻结一份可见顺序，避免状态推送把目标挪走。
+  let sortBusy = false;
+  let sortError = '';
+  let sortAnnouncement = '';
+  /** 编辑别名期间冻结的可见顺序（防止输入框因自动重排跳位）。 */
+  let frozenIds: string[] | null = null;
+
+  type OrderDraft = {
+    id: string;
+    ids: string[];
+    startIds: string[];
+    memberSig: string;
+  };
+  type DragState = OrderDraft & {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    dropBefore: string | null;
+  };
+
+  let drag: DragState | null = null;
+  let keyDrag: OrderDraft | null = null;
+  /** 每台设备的手柄：键盘确认后把焦点送回被移动的那一个。 */
+  let handleEls: Record<string, HTMLButtonElement> = {};
+
+  onDestroy(() => detachPointer());
+
+  $: sortOptions = [
+    { value: 'manual', label: $t('device.sort.manual') },
+    {
+      value: 'status',
+      label: $t('device.sort.status'),
+      direction: $sortDirections.status,
+      directionLabel: directionText($sortDirections.status),
+    },
+    {
+      value: 'name',
+      label: $t('device.sort.name'),
+      direction: $sortDirections.name,
+      directionLabel: directionText($sortDirections.name),
+    },
+    {
+      value: 'lastConnected',
+      label: $t('device.sort.lastConnected'),
+      direction: $sortDirections.lastConnected,
+      directionLabel: directionText($sortDirections.lastConnected),
+    },
+  ] as {
+    value: SortMode;
+    label: string;
+    direction?: SortDirection;
+    directionLabel?: string;
+  }[];
+  $: sortedIds = $sortedDevices.map((d) => d.id);
+  $: byId = Object.fromEntries($devices.map((d) => [d.id, d]));
+  // 编辑期间冻结既有顺序，但新增设备仍要出现（追加在末尾），删除的设备由 byId 过滤掉。
+  $: frozenView = frozenIds
+    ? [...frozenIds, ...sortedIds.filter((id) => !frozenIds!.includes(id))]
+    : null;
+  $: activeDraft = drag?.ids ?? keyDrag?.ids ?? frozenView;
+  $: visibleIds = activeDraft ?? sortedIds;
+  $: visibleDevices = visibleIds
+    .map((id) => byId[id])
+    .filter((d): d is Device => !!d);
+  $: memberSig = $devices.map((d) => d.id).join('|');
+  $: sortLocked = !!drag || !!keyDrag || sortBusy;
+
+  // 拖动 / 键盘拿起期间设备成员变化：取消本次调整并提示（不提交旧集合）。
+  //
+  // 取消放到微任务里执行：在同一个响应式块内同步重置 `drag` 会让「显示顺序」那几条
+  // 声明与它自己形成写回环，Svelte 可能不再重算 `visibleIds`，列表会停在空数组上。
+  $: if ((drag || keyDrag) && (drag ?? keyDrag)!.memberSig !== memberSig) {
+    const changedSig = memberSig;
+    queueMicrotask(() => {
+      const current = drag ?? keyDrag;
+      if (current && current.memberSig !== changedSig) {
+        cancelReorder('device.sort.listChanged');
+      }
+    });
+  }
+
+  function newDraft(id: string): OrderDraft {
+    const ids = visibleIds.slice();
+    return { id, ids, startIds: ids, memberSig };
+  }
+
+  function announce(text: string): void {
+    sortAnnouncement = text;
+  }
+
+  function positionText(id: string, ids: string[]): string {
+    return $t('device.sort.moved', {
+      alias: byId[id]?.alias ?? id,
+      index: ids.indexOf(id) + 1,
+      total: ids.length,
+    });
+  }
+
+  function cancelReorder(noticeKey?: Parameters<Translate>[0]): void {
+    detachPointer();
+    drag = null;
+    keyDrag = null;
+    if (noticeKey) announce($t(noticeKey));
+  }
+
+  async function commitOrder(
+    ids: string[],
+    droppedId: string,
+    restoreFocus = false,
+  ): Promise<void> {
+    sortBusy = true;
+    sortError = '';
+    try {
+      await reorderDevices(ids);
+      announce(
+        $t('device.sort.dropped', {
+          alias: byId[droppedId]?.alias ?? droppedId,
+          index: ids.indexOf(droppedId) + 1,
+          total: ids.length,
+        }),
+      );
+    } catch (e) {
+      sortError = errorTextOf(e, $t);
+    } finally {
+      sortBusy = false;
+      drag = null;
+      keyDrag = null;
+      detachPointer();
+      if (restoreFocus) {
+        // 键盘重排后焦点留在同一台设备的手柄上（DOM 重排 / 重渲染可能让它掉到 body）。
+        await tick();
+        handleEls[droppedId]?.focus();
+      }
+    }
+  }
+
+  async function onSortModeChange(e: CustomEvent<SortMode>): Promise<void> {
+    const mode = e.detail;
+    if (mode === $sortMode || sortLocked) return;
+    sortBusy = true;
+    sortError = '';
+    try {
+      await setSortMode(mode);
+    } catch (err) {
+      sortError = `${$t('device.sort.failed')}${$t('common.detailSeparator')}${errorTextOf(err, $t)}`;
+    } finally {
+      sortBusy = false;
+    }
+  }
+
+  function directionText(direction: SortDirection): string {
+    return $t(
+      direction === 'asc' ? 'device.sort.ascending' : 'device.sort.descending',
+    );
+  }
+
+  /** 再次选择当前自动方式：翻转该方式自己的方向，并播报结果。 */
+  async function onSortDirectionToggle(e: CustomEvent<SortMode>): Promise<void> {
+    const mode = e.detail;
+    if (mode === 'manual' || sortLocked) return;
+    const next = flippedDirection($sortDirections[mode]);
+    sortBusy = true;
+    sortError = '';
+    try {
+      await setSortDirection(mode, next);
+      const label = sortOptions.find((o) => o.value === mode)?.label ?? mode;
+      announce(
+        $t('device.sort.directionChanged', {
+          mode: label,
+          direction: directionText(next),
+        }),
+      );
+    } catch (err) {
+      sortError = `${$t('device.sort.failed')}${$t('common.detailSeparator')}${errorTextOf(err, $t)}`;
+    } finally {
+      sortBusy = false;
+    }
+  }
+
+  // ── 指针拖动 ──
+  let listEl: HTMLDivElement;
+  let scrollEl: HTMLElement | null = null;
+  let lastPointerY = 0;
+  let scrollDir = 0;
+  let scrollFrame = 0;
+  /** 被拖卡片与跟随指针的浮层（浮层是卡片的一份快照，不参与布局与命中测试）。 */
+  let dragCardEl: HTMLElement | null = null;
+  let ghostEl: HTMLElement | null = null;
+  let ghostOffsetX = 0;
+  let ghostOffsetY = 0;
+
+  function onHandlePointerDown(e: PointerEvent, d: Device): void {
+    if (e.button !== 0 || sortLocked || editingId !== null || visibleDevices.length < 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {
+      // 合成事件没有活动指针；真实指针操作不会走到这里。
+    }
+    dragCardEl = (e.currentTarget as HTMLElement).closest<HTMLElement>('.dev-card');
+    const draft = newDraft(d.id);
+    drag = {
+      ...draft,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      dropBefore: null,
+    };
+    scrollEl = findScrollParent(listEl);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('keydown', onDragKeydown, true);
+    window.addEventListener('blur', onWindowBlur);
+  }
+
+  function detachPointer(): void {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerCancel);
+    window.removeEventListener('keydown', onDragKeydown, true);
+    window.removeEventListener('blur', onWindowBlur);
+    removeGhost();
+    dragCardEl = null;
+    stopAutoScroll();
+  }
+
+  /** 越过激活阈值后给被拖卡片做一份浮层，跟手显示当前正在移动的是哪一台。 */
+  function startGhost(clientX: number, clientY: number): void {
+    const card =
+      dragCardEl ??
+      listEl?.querySelector<HTMLElement>(
+        `[data-device-id="${CSS.escape(drag?.id ?? '')}"]`,
+      ) ??
+      null;
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const clone = card.cloneNode(true) as HTMLElement;
+    clone.classList.remove('dragging', 'drop-before', 'sel');
+    clone.classList.add('dev-drag-ghost');
+    clone.removeAttribute('data-device-id');
+    clone.setAttribute('aria-hidden', 'true');
+    // 克隆只用于看：不进入 Tab 序列，也不响应指针（点穿到下面的落点计算）。
+    clone.setAttribute('inert', '');
+    clone.style.width = `${r.width}px`;
+    document.body.appendChild(clone);
+    ghostEl = clone;
+    ghostOffsetX = clientX - r.left;
+    ghostOffsetY = clientY - r.top;
+    moveGhost(clientX, clientY);
+  }
+
+  function moveGhost(clientX: number, clientY: number): void {
+    if (!ghostEl) return;
+    ghostEl.style.transform = `translate3d(${clientX - ghostOffsetX}px, ${
+      clientY - ghostOffsetY
+    }px, 0)`;
+  }
+
+  function removeGhost(): void {
+    ghostEl?.remove();
+    ghostEl = null;
+  }
+
+  function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+    let p = el?.parentElement ?? null;
+    while (p) {
+      const oy = getComputedStyle(p).overflowY;
+      if (oy === 'auto' || oy === 'scroll') return p;
+      p = p.parentElement;
+    }
+    return null;
+  }
+
+  function onPointerMove(e: PointerEvent): void {
+    const draft = drag;
+    if (!draft || e.pointerId !== draft.pointerId) return;
+    lastPointerY = e.clientY;
+    if (!draft.active) {
+      const dx = e.clientX - draft.startX;
+      const dy = e.clientY - draft.startY;
+      if (Math.hypot(dx, dy) < 5) return;
+      drag = { ...draft, active: true };
+      scrollEl = findScrollParent(listEl);
+      startGhost(e.clientX, e.clientY);
+    }
+    updateDropTarget(e.clientY);
+    moveGhost(e.clientX, e.clientY);
+    updateAutoScroll(e.clientY);
+  }
+
+  /** 按指针相对卡片中点的位置计算插入点（序列不含被拖设备）。 */
+  function updateDropTarget(pointerY: number): void {
+    const draft = drag;
+    if (!draft || !listEl) return;
+    const cards = Array.from(listEl.querySelectorAll<HTMLElement>('[data-device-id]')).filter(
+      (el) => el.dataset.deviceId !== draft.id,
+    );
+    let index = cards.length;
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect();
+      if (pointerY < r.top + r.height / 2) {
+        index = i;
+        break;
+      }
+    }
+    const ids = moveToIndex(draft.startIds, draft.id, index);
+    drag = { ...draft, ids, dropBefore: cards[index]?.dataset.deviceId ?? null };
+  }
+
+  function updateAutoScroll(pointerY: number): void {
+    if (!scrollEl) return;
+    const r = scrollEl.getBoundingClientRect();
+    const edge = 48;
+    const speed = 12;
+    scrollDir = pointerY < r.top + edge ? -speed : pointerY > r.bottom - edge ? speed : 0;
+    if (scrollDir && !scrollFrame) {
+      const step = (): void => {
+        if (!drag?.active || !scrollEl || !scrollDir) {
+          scrollFrame = 0;
+          return;
+        }
+        scrollEl.scrollTop += scrollDir;
+        updateDropTarget(lastPointerY);
+        scrollFrame = requestAnimationFrame(step);
+      };
+      scrollFrame = requestAnimationFrame(step);
+    }
+  }
+
+  function stopAutoScroll(): void {
+    scrollDir = 0;
+    if (scrollFrame) cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0;
+  }
+
+  function onPointerUp(e: PointerEvent): void {
+    const draft = drag;
+    if (!draft || e.pointerId !== draft.pointerId) return;
+    const moved = draft.active && !sameOrder(draft.ids, draft.startIds);
+    detachPointer();
+    if (moved) void commitOrder(draft.ids, draft.id);
+    else {
+      drag = null;
+      keyDrag = null;
+    }
+  }
+
+  function onPointerCancel(): void {
+    cancelReorder();
+  }
+
+  function onWindowBlur(): void {
+    if (sortBusy) return;
+    if (drag || keyDrag) cancelReorder();
+  }
+
+  function onDragKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && !sortBusy && (drag || keyDrag)) {
+      e.preventDefault();
+      cancelReorder('device.sort.cancelled');
+    }
+  }
+
+  // ── 键盘重排 ──
+
+  function onHandleKeydown(e: KeyboardEvent, d: Device): void {
+    if (sortBusy || editingId !== null || visibleDevices.length < 2) return;
+    const k = e.key;
+    if (keyDrag && keyDrag.id !== d.id) {
+      // 焦点挪到别的手柄：先放弃未提交的草稿，再让这一下照常开始新的拿起。
+      cancelReorder();
+    }
+    if (k === ' ' || k === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (keyDrag?.id === d.id) {
+        const ids = keyDrag.ids;
+        const id = keyDrag.id;
+        const start = keyDrag.startIds;
+        keyDrag = null;
+        if (!sameOrder(ids, start)) void commitOrder(ids, id, true);
+        else announce($t('device.sort.cancelled'));
+        return;
+      }
+      if (drag) return;
+      keyDrag = newDraft(d.id);
+      announce($t('device.sort.grabbed', { alias: d.alias }));
+      return;
+    }
+    if (!keyDrag || keyDrag.id !== d.id) return;
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      const at = keyDrag.ids.indexOf(d.id);
+      const to = k === 'ArrowUp' ? at - 1 : at + 1;
+      if (to < 0 || to >= keyDrag.ids.length) return;
+      const ids = moveToIndex(keyDrag.ids, d.id, to);
+      keyDrag = { ...keyDrag, ids };
+      announce(positionText(d.id, ids));
+      return;
+    }
+    if (k === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelReorder('device.sort.cancelled');
+      return;
+    }
+    if (k === 'Tab') {
+      // 不拦 Tab：先取消草稿，再让焦点正常移动。
+      cancelReorder();
+    }
+  }
+
+  function onHandleBlur(): void {
+    // 焦点离开正在键盘调整的手柄 → 取消（确认走空格 / Enter）。
+    if (keyDrag) cancelReorder();
+  }
 
   function renderNotice(notice: SessionNotice, tr: Translate): string {
     switch (notice.kind) {
@@ -303,6 +741,8 @@
 
   function startEdit(d: Device): void {
     rowErr = { ...rowErr, [d.id]: null };
+    // 编辑期间冻结顺序：状态/别名推送触发的自动重排不得把输入框挪走。
+    frozenIds = visibleIds.slice();
     editingId = d.id;
     editValue = d.alias;
     editCancelled = false;
@@ -323,16 +763,19 @@
     const cancelled = editCancelled;
     editingId = null;
     editCancelled = false;
-    if (cancelled || value === d.alias) return;
-    if (!value) {
-      rowErr = { ...rowErr, [d.id]: { code: 'device.aliasEmpty' } };
-      return;
-    }
     try {
+      if (cancelled || value === d.alias) return;
+      if (!value) {
+        rowErr = { ...rowErr, [d.id]: { code: 'device.aliasEmpty' } };
+        return;
+      }
       // 改名立即落盘（tasks 6.2）：后端返回落盘后的整份配置，前端整体替换，重启后仍是新别名。
       await renameDevice(d.id, value);
     } catch (e) {
       rowErr = { ...rowErr, [d.id]: e };
+    } finally {
+      // 提交或取消后恢复派生排序。
+      frozenIds = null;
     }
   }
 
@@ -399,6 +842,14 @@
       <ZapOff /> {$t('device.disconnectAll')}
     </button>
   </span>
+  <DeviceSortSelect
+    value={$sortMode}
+    options={sortOptions}
+    label={$t('device.sort.aria')}
+    disabled={sortLocked || editingId !== null}
+    on:change={onSortModeChange}
+    on:toggle={onSortDirectionToggle}
+  />
   <div class="spacer"></div>
   {#if summary}
     <span class="status-text" use:tip={statusError || null}>{summary}</span>
@@ -408,6 +859,10 @@
   {#if $sessionNotice}
     <span class="status-text">{noticeText}</span>
   {/if}
+  {#if sortError}
+    <span class="status-text offline">{sortError}</span>
+  {/if}
+  <span class="sr-only" aria-live="polite">{sortAnnouncement}</span>
 </div>
 
 {#if $devices.length === 0}
@@ -415,8 +870,12 @@
     {$t('device.empty')}
   </div>
 {:else}
-  <div class="dev-list">
-    {#each $devices as d (d.id)}
+  <div
+    class="dev-list"
+    bind:this={listEl}
+    class:drop-end={drag?.active && drag.dropBefore === null}
+  >
+    {#each visibleDevices as d (d.id)}
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
       {@const win = sess ? windowText(sess, $t) : ''}
@@ -425,6 +884,9 @@
         class:sel={$selectedDeviceId === d.id}
         class:connected={s === 'connected'}
         class:offline={s === 'offline'}
+        class:dragging={drag?.active && drag.id === d.id}
+        class:drop-before={drag?.active && drag.dropBefore === d.id}
+        data-device-id={d.id}
       >
         <div
           class="dev-main"
@@ -433,6 +895,23 @@
           on:click={() => selectDevice(d.id)}
           on:keydown={(e) => onCardKeydown(e, d.id)}
         >
+          <button
+            type="button"
+            bind:this={handleEls[d.id]}
+            class="dev-handle"
+            class:active={drag?.id === d.id || keyDrag?.id === d.id}
+            class:busy={sortBusy}
+            disabled={visibleDevices.length < 2 || editingId !== null}
+            aria-disabled={sortBusy || undefined}
+            aria-label={$t('device.sort.handle', { alias: d.alias })}
+            on:pointerdown={(e) => onHandlePointerDown(e, d)}
+            on:keydown={(e) => onHandleKeydown(e, d)}
+            on:blur={onHandleBlur}
+            on:click|stopPropagation
+            on:dblclick|stopPropagation
+          >
+            <GripVertical />
+          </button>
           <span class="status-dot {s}"></span>
           <div class="dev-id">
             <div class="dev-alias">
@@ -505,6 +984,10 @@
               {/if}
               {#if rowErr[d.id]}
                 <span class="status-text offline">{errorTextOf(rowErr[d.id], $t)}</span>
+              {/if}
+              {#if $deviceNotices[d.id]}
+                <span>·</span>
+                <span class="status-text warn">{errorTextOf($deviceNotices[d.id], $t)}</span>
               {/if}
             </div>
           </div>

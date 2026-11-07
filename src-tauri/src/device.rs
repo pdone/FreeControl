@@ -43,15 +43,26 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-#[tauri::command]
-pub fn get_devices(state: State<'_, AppState>) -> Vec<Device> {
-    state.config.lock().unwrap().devices.clone()
+/// 设备列表快照：排序类命令的返回值，也是状态事件里的设备一侧。
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceListSnapshot {
+    pub devices: Vec<Device>,
+    pub device_list: config::DeviceList,
+}
+
+pub(crate) fn snapshot_of(cfg: &AppConfig) -> DeviceListSnapshot {
+    let (devices, device_list) = cfg.device_list_snapshot();
+    DeviceListSnapshot {
+        devices,
+        device_list,
+    }
 }
 
 /// 在一次「读-改-写」事务里修改配置并立即落盘，返回落盘后的完整配置。
 ///
-/// 修改先作用于副本：校验或落盘失败时内存与磁盘都保持原样，不会出现
-/// 「界面报错、内存却已经改了」这种半生效状态（重启后又变回去）。
+/// 配置锁覆盖到落盘与回填（见 `config::update_config_file`）：两次保存交错时
+/// 后写者基于最新值修改，不会用旧副本盖掉先写者的改动。
 ///
 /// `pub(crate)`：无线配对 / 发现（`crate::wireless`）登记设备时复用同一套事务语义，
 /// 不另写一份「先落盘再改内存」的顺序。
@@ -63,12 +74,9 @@ pub(crate) fn mutate_and_persist<F>(
 where
     F: FnOnce(&mut AppConfig) -> Result<(), UserError>,
 {
-    let mut candidate = state.config.lock().unwrap().clone();
-    mutate(&mut candidate)?;
-    config::save_config_to_disk(app, &candidate)
-        .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
-    *state.config.lock().unwrap() = candidate.clone();
-    Ok(candidate)
+    config::update_config_file(app, state.inner(), mutate, |e| {
+        UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e)
+    })
 }
 
 /// 记一行设备变更（新增 / 修改 / 删除）：取值取自**规范化之后**的登记项，与落盘内容一致。
@@ -92,6 +100,7 @@ pub fn add_device(
     mut device: Device,
 ) -> Result<AppConfig, UserError> {
     device.id.clear();
+    device.last_session_started_at = None;
     let cfg = mutate_and_persist(&app, &state, |cfg| {
         let id = cfg
             .upsert_device(device)
@@ -109,22 +118,73 @@ pub fn add_device(
     Ok(cfg)
 }
 
-/// 更新设备：别名内联编辑、探测到 serial 后补全连接标识都走这里（spec「编辑别名」）。
+/// 修改别名（spec「编辑别名」）：只改这一个字段。
+///
+/// 不接收整份设备对象：改名请求晚于 serial / 端口更新到达时，旧副本会把新的连接标识写回去。
 #[tauri::command]
-pub fn update_device(
+pub fn rename_device(
     app: AppHandle,
     state: State<'_, AppState>,
-    device: Device,
+    id: String,
+    alias: String,
 ) -> Result<AppConfig, UserError> {
+    let alias = alias.trim().to_string();
+    if alias.is_empty() {
+        return Err(UserError::new(codes::DEVICE_INVALID).with_detail("设备名称不能为空"));
+    }
     mutate_and_persist(&app, &state, |cfg| {
-        let id = cfg
-            .upsert_device(device)
-            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))?;
-        if let Some(d) = cfg.devices.iter().find(|d| d.id == id) {
-            log_device("修改", d);
-        }
+        let d = cfg
+            .devices
+            .iter_mut()
+            .find(|d| d.id == id)
+            .ok_or_else(|| UserError::new(codes::DEVICE_NOT_FOUND))?;
+        d.alias = alias.clone();
+        log_device("修改", d);
         Ok(())
     })
+}
+
+/// 切换排序方式：只改偏好，不触碰手动顺序（spec「设备列表排序方式」）。
+#[tauri::command]
+pub fn set_device_sort_mode(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    mode: String,
+) -> Result<DeviceListSnapshot, UserError> {
+    let cfg = mutate_and_persist(&app, &state, |cfg| {
+        cfg.set_sort_mode(&mode)
+            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))
+    })?;
+    Ok(snapshot_of(&cfg))
+}
+
+/// 翻转某种自动排序的升降序；手动模式不接受方向（spec「设备列表排序方式」）。
+#[tauri::command]
+pub fn set_device_sort_direction(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    mode: String,
+    direction: String,
+) -> Result<DeviceListSnapshot, UserError> {
+    let cfg = mutate_and_persist(&app, &state, |cfg| {
+        cfg.set_sort_direction(&mode, &direction)
+            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))
+    })?;
+    Ok(snapshot_of(&cfg))
+}
+
+/// 拖动/键盘重排：接收完整的新排列，保存手动顺序并切到手动模式。
+#[tauri::command]
+pub fn reorder_devices(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ordered_ids: Vec<String>,
+) -> Result<DeviceListSnapshot, UserError> {
+    let cfg = mutate_and_persist(&app, &state, |cfg| {
+        cfg.reorder_devices(&ordered_ids)
+            .map_err(|e| UserError::new(codes::DEVICE_INVALID).with_detail(e))
+    })?;
+    Ok(snapshot_of(&cfg))
 }
 
 /// 删除设备：别名映射、参数覆盖与覆盖启停开关一并清除（device-management spec）。
@@ -245,6 +305,12 @@ pub struct DeviceStatusPayload {
     pub error: Option<UserError>,
     /// 后端当前持有的设备列表（可能含订阅期间补全的 serial；前端据此同步）
     pub devices: Vec<Device>,
+    /// 排序方式、手动顺序与设备数据域修订号
+    pub device_list: config::DeviceList,
+    /// 运行态快照序号：状态表 / stale / probed / error 实际变化时递增。
+    ///
+    /// 与 `deviceList.revision` 分开：状态变化很频繁且不落盘，设备记录变化才递增修订号。
+    pub status_sequence: u64,
 }
 
 // ── 纯函数：adb 输出解析 / 状态合并 / serial 补全 ─────────────
@@ -478,9 +544,13 @@ fn devices_snapshot(state: &AppState) -> Vec<Device> {
 /// 采集合成一份状态快照：配置中的设备 + 会话表 + 最近一次 adb 探测结果。
 ///
 /// 三次取数各自加锁后立即释放，不做嵌套加锁 —— 锁顺序一旦在某条路径上反转就会死锁。
-pub fn build_payload(app: &AppHandle) -> DeviceStatusPayload {
+fn compute_payload(app: &AppHandle) -> DeviceStatusPayload {
     let state = app.state::<AppState>();
-    let devices = devices_snapshot(&state);
+    // 设备与排序偏好取自**同一把锁**下的同一份配置，避免两次取数之间被写入拆开。
+    let (devices, device_list) = {
+        let cfg = state.config.lock().unwrap();
+        (cfg.devices.clone(), cfg.device_list.clone())
+    };
     let probe = probe_snapshot(&state);
     let sessions = session::active_ids(&state);
     let statuses = merge_statuses(&devices, probe.devices.as_ref(), &sessions);
@@ -495,7 +565,42 @@ pub fn build_payload(app: &AppHandle) -> DeviceStatusPayload {
             .error
             .map(|e| UserError::new(codes::DEVICE_STATUS_PROBE_FAILED).with_detail(e)),
         devices,
+        device_list,
+        status_sequence: 0,
     }
+}
+
+/// 快照内容是否等价（不含运行态序号）。
+fn payload_content_eq(a: &DeviceStatusPayload, b: &DeviceStatusPayload) -> bool {
+    a.statuses == b.statuses
+        && a.stale == b.stale
+        && a.probed == b.probed
+        && a.error == b.error
+        && a.devices == b.devices
+        && a.device_list == b.device_list
+}
+
+/// 构建快照并分配运行态序号；返回「内容是否变化」。
+///
+/// 取数与比较都在状态缓存锁内完成：主动查询与事件发布共用这一条串行入口，
+/// 不会出现「锁外构造成旧快照、再补一个新序号」的回退。内部对配置 / 探测 / 会话锁
+/// 只做短暂读取，调用方不得持有这些锁再进来。
+fn build_payload_with_change(app: &AppHandle) -> (DeviceStatusPayload, bool) {
+    let state = app.state::<AppState>();
+    let mut cache = state.device_status.lock().unwrap();
+    let mut payload = compute_payload(app);
+    let (seq, changed) = match cache.as_ref() {
+        Some(prev) if payload_content_eq(prev, &payload) => (prev.status_sequence, false),
+        Some(prev) => (prev.status_sequence.saturating_add(1), true),
+        None => (1, true),
+    };
+    payload.status_sequence = seq;
+    *cache = Some(payload.clone());
+    (payload, changed)
+}
+
+pub fn build_payload(app: &AppHandle) -> DeviceStatusPayload {
+    build_payload_with_change(app).0
 }
 
 /// 某台设备当前的运行期状态；设备不存在时为 `None`。
@@ -519,14 +624,9 @@ pub fn status_of_device(state: &AppState, device_id: &str) -> Option<String> {
 /// 要等下一次设备变化通知才反映出来，故这些动作结束后主动调一次本函数，让界面即时刷新。
 /// 变化判定以 `AppState.device_status`（最近一次下发的那份）为准，避免重复推送。
 pub fn publish_status(app: &AppHandle) {
-    let payload = build_payload(app);
-    let state = app.state::<AppState>();
-    {
-        let mut cache = state.device_status.lock().unwrap();
-        if cache.as_ref() == Some(&payload) {
-            return;
-        }
-        *cache = Some(payload.clone());
+    let (payload, changed) = build_payload_with_change(app);
+    if !changed {
+        return;
     }
     // 推送放在锁外：事件可能引发前端继续发命令，拿着锁推送等于给自己埋一个死锁。
     let _ = app.emit(EVENT_DEVICE_STATUS, payload);
@@ -536,21 +636,34 @@ pub fn publish_status(app: &AppHandle) {
 /// 下一帧设备变化通知到达时会再试。
 fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>) {
     let state = app.state::<AppState>();
-    let mut candidate = state.config.lock().unwrap().clone();
-    let Some(serial) = adopt_unknown_serial(&mut candidate, adb) else {
-        return;
-    };
-    if config::save_config_to_disk(app, &candidate).is_err() {
-        return;
+    // 先做一次只读预判：绝大多数探测帧没有可补全的 serial，不该因此写一次盘。
+    {
+        let cfg = state.config.lock().unwrap();
+        if adopt_unknown_serial(&mut cfg.clone(), adb).is_none() {
+            return;
+        }
     }
-    // 这也是一次「用户没操作、盘上却变了」的配置写入，记一行解释它的来由。
-    if let Some(d) = candidate.devices.iter().find(|d| d.serial == serial) {
-        logger::info(
-            "device",
-            format!("探测补全连接标识：「{}」→ {serial}", d.alias),
-        );
-    }
-    *state.config.lock().unwrap() = candidate;
+    // 与其它配置写入同一把锁：补全 serial 不能覆盖同时保存的排序或最近启动时间。
+    let updated = config::update_config_file(
+        app,
+        state.inner(),
+        |cfg| {
+            let Some(serial) = adopt_unknown_serial(cfg, adb) else {
+                return Ok(());
+            };
+            // 这也是一次「用户没操作、盘上却变了」的配置写入，记一行解释它的来由。
+            if let Some(d) = cfg.devices.iter().find(|d| d.serial == serial) {
+                logger::info(
+                    "device",
+                    format!("探测补全连接标识：「{}」→ {serial}", d.alias),
+                );
+            }
+            Ok(())
+        },
+        |e| e,
+    );
+    // 落盘失败时下一帧设备变化通知到达会再试。
+    let _ = updated;
 }
 
 /// 记录本次探测结果：成功时覆盖设备集合并清掉错误，失败时**保留上次成功的集合**、只记原因。
@@ -1101,6 +1214,7 @@ mod tests {
             serial: serial.to_string(),
             ip: String::new(),
             port: 0,
+            last_session_started_at: None,
         }
     }
 
@@ -1112,6 +1226,7 @@ mod tests {
             serial: String::new(),
             ip: ip.to_string(),
             port,
+            last_session_started_at: None,
         }
     }
 
@@ -1702,5 +1817,54 @@ mod tests {
 
         // 预算必须短于探测：连接不可达地址会阻塞到 TCP 超时，等太久界面看起来像卡死。
         assert!(LINK_TIMEOUT < PROBE_TIMEOUT);
+    }
+
+    // ── 设备列表快照（add-device-list-sorting）──────────────────
+
+    #[test]
+    fn snapshot_carries_devices_and_sort_prefs() {
+        let mut cfg = AppConfig::fresh();
+        cfg.devices.push(usb("dev-a", "A", "S1"));
+        cfg.device_list.sort_mode = config::SORT_NAME.to_string();
+        cfg.device_list.manual_order = vec!["dev-a".to_string()];
+        cfg.device_list.revision = 4;
+
+        let snap = snapshot_of(&cfg);
+        assert_eq!(snap.devices.len(), 1);
+        assert_eq!(snap.device_list.sort_mode, config::SORT_NAME);
+        assert_eq!(snap.device_list.manual_order, vec!["dev-a"]);
+        assert_eq!(snap.device_list.revision, 4);
+    }
+
+    #[test]
+    fn payload_content_equality_ignores_runtime_sequence() {
+        let make = |seq: u64| DeviceStatusPayload {
+            statuses: HashMap::from([("dev-a".to_string(), STATUS_IDLE.to_string())]),
+            stale: false,
+            probed: true,
+            error: None,
+            devices: vec![usb("dev-a", "A", "S1")],
+            device_list: config::DeviceList {
+                sort_mode: config::SORT_STATUS.to_string(),
+                directions: config::SortDirections::default(),
+                manual_order: vec!["dev-a".to_string()],
+                revision: 2,
+            },
+            status_sequence: seq,
+        };
+
+        assert!(payload_content_eq(&make(1), &make(2)), "序号不参与内容比较");
+
+        let mut moved = make(2);
+        moved.statuses = HashMap::from([("dev-a".to_string(), STATUS_OFFLINE.to_string())]);
+        assert!(!payload_content_eq(&make(1), &moved), "状态变化必须被识别");
+
+        let mut renamed = make(2);
+        renamed.devices[0].alias = "B".to_string();
+        assert!(!payload_content_eq(&make(1), &renamed), "设备元数据变化必须被识别");
+
+        let mut mode = make(2);
+        mode.device_list.sort_mode = config::SORT_MANUAL.to_string();
+        assert!(!payload_content_eq(&make(1), &mode), "排序偏好变化必须被识别");
     }
 }

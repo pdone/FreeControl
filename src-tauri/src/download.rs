@@ -2101,14 +2101,12 @@ pub fn add_proxy_address(
     state: State<'_, AppState>,
     url: String,
 ) -> Result<ProxyList, UserError> {
-    {
-        let mut cfg = state.config.lock().unwrap();
-        push_proxy(&mut cfg, &url)?;
-        let snapshot = cfg.clone();
-        drop(cfg);
-        config::save_config_to_disk(&app, &snapshot)
-            .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
-    }
+    config::update_config_file(
+        &app,
+        state.inner(),
+        |cfg| push_proxy(cfg, &url),
+        |e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e),
+    )?;
     // 只改一处配置即可生效：通道列表每次下载时按配置现算。
     Ok(proxy_list(&state))
 }
@@ -2120,14 +2118,12 @@ pub fn remove_proxy_address(
     state: State<'_, AppState>,
     url: String,
 ) -> Result<ProxyList, UserError> {
-    {
-        let mut cfg = state.config.lock().unwrap();
-        remove_proxy(&mut cfg, &url)?;
-        let snapshot = cfg.clone();
-        drop(cfg);
-        config::save_config_to_disk(&app, &snapshot)
-            .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
-    }
+    config::update_config_file(
+        &app,
+        state.inner(),
+        |cfg| remove_proxy(cfg, &url),
+        |e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e),
+    )?;
     Ok(proxy_list(&state))
 }
 

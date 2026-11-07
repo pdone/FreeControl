@@ -654,6 +654,7 @@ pub fn upsert_wireless_record(
         serial: String::new(),
         ip: host.to_string(),
         port,
+        last_session_started_at: None,
     };
     let id = cfg
         .upsert_device(device)
@@ -1000,6 +1001,7 @@ mod tests {
             serial: String::new(),
             ip: ip.to_string(),
             port,
+            last_session_started_at: None,
         }
     }
 

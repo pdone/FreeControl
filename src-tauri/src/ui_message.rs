@@ -101,6 +101,7 @@ pub mod codes {
     pub const SESSION_NO_RECORD: &str = "session.noRecord";
     pub const SESSION_STOP_FAILED: &str = "session.stopFailed";
     pub const SESSION_WINDOW_ARRANGEMENT_DEGRADED: &str = "session.windowArrangementDegraded";
+    pub const SESSION_TIME_SAVE_FAILED: &str = "session.timeSaveFailed";
 
     pub const ENV_INVALID_DIR: &str = "environment.invalidDir";
     pub const ENV_DIR_LOCKED: &str = "environment.dirLocked";

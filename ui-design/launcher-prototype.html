@@ -645,6 +645,30 @@
   .dev-card.sel { border-color: var(--accent-line); }
   /* 既已连接又被选中：不再需要合并声明 —— 色条走 box-shadow、选中走边框色，两者各占一个属性。 */
   .dev-card.offline { opacity: .72; }
+  /* 排序方式选择器（与产品侧 DeviceSortSelect 同形）：固定宽度，窄窗口随工具栏折行。 */
+  .dev-sort { position: relative; flex: none; width: 156px; }
+  .dev-sort .sel-trigger { padding: 7px 26px 7px 10px; font-size: 12px; }
+  .dev-sort-value { display: flex; align-items: center; gap: 4px; }
+  .dev-sort-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* 方向箭头只占文字行内位置；右侧下拉指示仍用绝对定位。 */
+  .dev-sort .dev-sort-arrow { position: static; flex: none; width: 12px; height: 12px; margin-top: 0; right: auto; top: auto; }
+  .dev-sort .dev-sort-arrow svg { position: static; width: 12px; height: 12px; margin-top: 0; stroke-width: 2; }
+  .dev-sort-trigger[aria-expanded="true"] .dev-sort-arrow svg { transform: none; }
+  .dev-sort-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dev-sort-opt-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .dev-sort-opt .dev-sort-arrow { flex: none; width: 13px; height: 13px; color: var(--text-faint); }
+  .dev-sort-opt .dev-sort-arrow svg { width: 13px; height: 13px; stroke-width: 2; }
+  .sel-opt[aria-selected="true"] .dev-sort-arrow { color: inherit; }
+  /* 拖动手柄：与产品侧同尺寸，不挤动状态点。 */
+  .dev-handle { flex: none; display: grid; place-items: center; width: 18px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-faint); cursor: grab; touch-action: none; }
+  .dev-handle svg { width: 14px; height: 14px; }
+  .dev-handle:hover, .dev-handle:focus-visible { color: var(--text); }
+  .dev-card.dragging { opacity: .6; }
+  .dev-card.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+  .dev-card.connected.drop-before { box-shadow: inset 3px 0 0 var(--success), inset 0 2px 0 var(--accent); }
+  .dev-list.drop-end { box-shadow: inset 0 -2px 0 var(--accent); }
+  /* 拖动跟随层：被拖卡片的只读快照，浮在指针下，原卡留着当占位。 */
+  .dev-drag-ghost { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; user-select: none; box-shadow: var(--shadow); opacity: .96; will-change: transform; }
   .dev-main { display: flex; align-items: center; gap: 13px; cursor: pointer; }
   .status-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   /* 「已连接」与「在线」的状态点同形同色：已连接的强调不落在状态点上，而落在卡片左缘
@@ -1058,6 +1082,18 @@
           <button class="btn sm primary" id="addDeviceBtn"><i data-lucide="plus"></i>添加设备</button>
           <button class="btn sm" id="connAll" data-tip="连接所有在线且未连接的设备（离线设备不会被尝试连接）"><i data-lucide="zap"></i>全部连接</button>
           <button class="btn sm" id="discAll" data-tip="结束所有正在运行的会话"><i data-lucide="zap-off"></i>全部断开</button>
+          <div class="dev-sort" id="devSort" data-v="manual">
+            <button class="sel-trigger dev-sort-trigger" type="button" role="combobox" aria-label="设备排序方式" aria-haspopup="listbox" aria-expanded="false" aria-controls="devSortList">
+              <span class="sel-text dev-sort-value"><span class="dev-sort-label">手动排序</span><span class="dev-sort-arrow" aria-hidden="true"></span></span>
+              <i data-lucide="chevron-down"></i>
+            </button>
+            <div class="sel-list dev-sort-list hidden" id="devSortList" role="listbox" aria-label="设备排序方式">
+              <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="manual"><span class="dev-sort-opt-label">手动排序</span></button>
+              <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="status"><span class="dev-sort-opt-label">按在线状态</span><span class="dev-sort-arrow" aria-hidden="true"></span></button>
+              <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="name"><span class="dev-sort-opt-label">按设备名称</span><span class="dev-sort-arrow" aria-hidden="true"></span></button>
+              <button class="sel-opt dev-sort-opt" type="button" role="option" tabindex="-1" data-v="lastConnected"><span class="dev-sort-opt-label">按最后连接时间</span><span class="dev-sort-arrow" aria-hidden="true"></span></button>
+            </div>
+          </div>
           <div class="spacer"></div>
           <!-- 批量操作的结果就地呈现在本行内（与产品侧 DevicePage 工具栏的反馈位同槽，不另起一行） -->
           <span class="status-text" id="devNotice"></span>
@@ -2058,6 +2094,9 @@
     "app-window": ["svg",{},[["rect",{"x":"2","y":"4","width":"20","height":"16","rx":"2"}],["path",{"d":"M10 4v4"}],["path",{"d":"M2 8h20"}],["path",{"d":"M6 4v4"}]]],
     "check": ["svg",{},[["path",{"d":"M20 6 9 17l-5-5"}]]],
     "chevron-down": ["svg",{},[["path",{"d":"m6 9 6 6 6-6"}]]],
+    "arrow-up": ["svg",{},[["path",{"d":"M12 19V5"}],["path",{"d":"m5 12 7-7 7 7"}]]],
+    "arrow-down": ["svg",{},[["path",{"d":"M12 5v14"}],["path",{"d":"m19 12-7 7-7-7"}]]],
+    "grip-vertical": ["svg",{},[["circle",{"cx":"9","cy":"5","r":"1"}],["circle",{"cx":"9","cy":"12","r":"1"}],["circle",{"cx":"9","cy":"19","r":"1"}],["circle",{"cx":"15","cy":"5","r":"1"}],["circle",{"cx":"15","cy":"12","r":"1"}],["circle",{"cx":"15","cy":"19","r":"1"}]]],
     "chevrons-left": ["svg",{},[["path",{"d":"m11 17-5-5 5-5"}],["path",{"d":"m18 17-5-5 5-5"}]]],
     "circle-alert": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["line",{"x1":"12","x2":"12","y1":"8","y2":"12"}],["line",{"x1":"12","x2":"12.01","y1":"16","y2":"16"}]]],
     "circle-check": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m9 12 2 2 4-4"}]]],
@@ -2723,10 +2762,17 @@
   "已启用设备参数": "Device parameters on",
   "断开": "Disconnect",
   "连接": "Connect",
-  "最后 {11}": "Last {11}",
+  "最后 {12}": "Last {12}",
   "参数": "Parameters",
   "删除": "Delete",
   "重命名": "Rename",
+  "设备排序方式": "Device sort order",
+  "手动排序": "Manual order",
+  "按在线状态": "Status",
+  "按设备名称": "Device name",
+  "按最后连接时间": "Last connected",
+  "拖动调整设备顺序": "Drag to reorder devices",
+  "已切换为手动排序": "Switched to manual order",
   "设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）": "Set device parameters for this device (they take priority over global parameters; empty items use the global value)",
   "删除该设备（连带清除其设备参数）": "Delete this device (also clears its device parameters)",
   "「{0}」的设备参数": "Device parameters for \"{0}\"",
@@ -3064,13 +3110,18 @@
   };
   // 每台设备覆盖的启用 / 禁用开关（默认启用）——与覆盖值一并持久化，禁用不清值
   const ovEnabled = {};
-  // 设备清单
+  // 设备清单（last 是显示文案；lastAt 是排序用的启动会话时间，默认按原有观感排列）
+  const demoNow = Date.now();
   let devices = [
-    { id:'d1', alias:'Pixel 8',     type:'usb',  serial:'08081FDD4006LYE',           status:'connected', last:'当前连接' },
-    { id:'d2', alias:'客厅投屏',     type:'wifi', ip:'192.168.1.50',  port:5555,      status:'idle',      last:'2 分钟前' },
-    { id:'d3', alias:'Redmi K60',    type:'wifi', ip:'192.168.31.22', port:5555,      status:'idle',      last:'14 分钟前' },
-    { id:'d4', alias:'旧机 S23',     type:'wifi', ip:'192.168.0.88',  port:5555,      status:'offline',   last:'昨天 23:14' }
+    { id:'d1', alias:'Pixel 8',     type:'usb',  serial:'08081FDD4006LYE',           status:'connected', last:'当前连接', lastAt:demoNow },
+    { id:'d2', alias:'客厅投屏',     type:'wifi', ip:'192.168.1.50',  port:5555,      status:'idle',      last:'2 分钟前', lastAt:demoNow - 2*60*1000 },
+    { id:'d3', alias:'Redmi K60',    type:'wifi', ip:'192.168.31.22', port:5555,      status:'idle',      last:'14 分钟前', lastAt:demoNow - 14*60*1000 },
+    { id:'d4', alias:'旧机 S23',     type:'wifi', ip:'192.168.0.88',  port:5555,      status:'offline',   last:'昨天 23:14', lastAt:demoNow - 24*60*60*1000 }
   ];
+  // 排序偏好（与产品侧 deviceList 同义）：手动顺序独立于 devices 的注册顺序。
+  let manualOrder = devices.map(d => d.id);
+  let sortMode = 'manual';
+  const sortDirs = { status:'asc', name:'asc', lastConnected:'desc' };
   let selectedId = 'd1';
   let uid = 100;
 
@@ -3171,6 +3222,17 @@
   }
 
   function selSync(el){
+    // 排序选择器的指示（文字 + 方向箭头）由 syncSortUI 维护，这里只同步选项选中态。
+    if (el.id === 'devSort'){
+      let idx = 0;
+      selOpts(el).forEach((o, i)=>{
+        o.id = `devSort-opt-${i}`;
+        const on = o.dataset.v === sortMode;
+        o.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) idx = i;
+      });
+      return idx;
+    }
     const v = el.dataset.v ?? '';
     let text = '', idx = 0;
     selOpts(el).forEach((o, i)=>{
@@ -3228,7 +3290,9 @@
     const below = port.bottom - r.bottom - SEL_GAP - SEL_M;
     const above = r.top - port.top - SEL_GAP - SEL_M;
     const up = below < Math.min(natural, 220) && above > below;
-    list.style.maxHeight = Math.min(natural, Math.max(76, up ? above : below)) + 'px';
+    const available = up ? above : below;
+    // 内容放得下时不写 max-height：高度恰好等于内容时的亚像素取整会让列表凭空出现滚动条。
+    list.style.maxHeight = natural > available ? Math.min(natural, Math.max(76, available)) + 'px' : '';
     list.classList.toggle('up', up);
     list.style.visibility = '';
     selMark(el);
@@ -3320,6 +3384,55 @@
     selClose(selOpenEl);
   }, true);
   window.addEventListener('resize', ()=>{ if (selOpenEl) selClose(selOpenEl); });
+
+  /* ---------- 设备排序下拉：再次选择当前自动方式 = 翻转方向 ---------- */
+  const devSortEl = document.getElementById('devSort');
+  const devSortTrigger = selTrigger(devSortEl);
+
+  function sortChoose(){
+    const opt = selOpts(devSortEl)[selActive];
+    if (!opt){ selClose(devSortEl); return; }
+    const next = opt.dataset.v;
+    if (next === sortMode){
+      if (sortMode !== 'manual') sortDirs[sortMode] = sortDirs[sortMode]==='asc' ? 'desc' : 'asc';
+    } else {
+      sortMode = next;
+    }
+    selClose(devSortEl);
+    syncSortUI();
+    renderDeviceList();
+    devSortTrigger.focus();
+  }
+
+  devSortTrigger.addEventListener('click', ()=>{
+    selOpenEl === devSortEl ? selClose(devSortEl) : selOpen(devSortEl, 1);
+  });
+  devSortTrigger.addEventListener('keydown', e=>{
+    const k = e.key;
+    if (selOpenEl !== devSortEl){
+      if (k==='Enter' || k===' ' || k==='ArrowDown' || k==='ArrowUp' || k==='Home' || k==='End'){
+        if (k!=='Enter') e.preventDefault();
+        e.stopPropagation();
+        selOpen(devSortEl, (k==='ArrowUp' || k==='End') ? -1 : 1);
+      }
+      return;
+    }
+    if (['ArrowDown','ArrowUp','Home','End','Enter',' ','Escape'].includes(k)) e.stopPropagation();
+    switch (k){
+      case 'ArrowDown': e.preventDefault(); selMove(devSortEl, 1); break;
+      case 'ArrowUp': e.preventDefault(); selMove(devSortEl, -1); break;
+      case 'Home': e.preventDefault(); selActive = 0; selMark(devSortEl); selReveal(devSortEl); break;
+      case 'End': e.preventDefault(); selActive = selOpts(devSortEl).length - 1; selMark(devSortEl); selReveal(devSortEl); break;
+      case 'Enter': case ' ': e.preventDefault(); sortChoose(); break;
+      case 'Escape': e.preventDefault(); selClose(devSortEl); break;
+      case 'Tab': selClose(devSortEl); break;
+    }
+  });
+  selOpts(devSortEl).forEach((o, i)=>{
+    o.addEventListener('mousedown', e=>e.preventDefault());
+    o.addEventListener('mousemove', ()=>{ if (selOpenEl === devSortEl){ selActive = i; selMark(devSortEl); } });
+    o.addEventListener('click', ()=>{ selActive = i; sortChoose(); });
+  });
 
   function toggleSourceUI(){
     const cam = readControl(document.querySelector('[data-g=source][data-k=videoSource]'))==='camera';
@@ -3561,10 +3674,60 @@
   // 再发起会话（连接标识是用户填的 IP:端口，链路可以重建）；离线的 USB 设备不行，其在线与否
   // 由物理接入决定。卡片入口与点连接共用这一处判定；「全部连接」不用它 —— 那只作用于在线设备。
   function canConnectDevice(d){ return d.status==='idle' || (d.status==='offline' && d.type==='wifi'); }
+
+  /* ---------- 排序（与产品侧 deviceSort / DeviceSortSelect 的可见行为一致） ---------- */
+  const SORT_LABELS = { manual:'手动排序', status:'按在线状态', name:'按设备名称', lastConnected:'按最后连接时间' };
+  function orderedDevices(){
+    const index = new Map(manualOrder.map((id, i)=>[id, i]));
+    const byManual = (a, b)=>{
+      const ia = index.has(a.id) ? index.get(a.id) : Number.MAX_SAFE_INTEGER;
+      const ib = index.has(b.id) ? index.get(b.id) : Number.MAX_SAFE_INTEGER;
+      return ia - ib;
+    };
+    if (sortMode==='manual') return [...devices].sort(byManual);
+    if (sortMode==='status'){
+      const rank = { connected:0, idle:1, offline:2 };
+      const dir = sortDirs.status==='desc' ? -1 : 1;
+      return [...devices].sort((a, b)=>(rank[a.status] - rank[b.status]) * dir || byManual(a, b));
+    }
+    if (sortMode==='name'){
+      const locale = (window.__protoLang && window.__protoLang.get().lang)==='en' ? 'en' : 'zh';
+      const collator = new Intl.Collator(locale, { numeric:true, sensitivity:'accent' });
+      const dir = sortDirs.name==='desc' ? -1 : 1;
+      return [...devices].sort((a, b)=>collator.compare(a.alias.trim(), b.alias.trim()) * dir || byManual(a, b));
+    }
+    const newestFirst = sortDirs.lastConnected !== 'asc';
+    return [...devices].sort((a, b)=>{
+      const ta = a.lastAt ?? null, tb = b.lastAt ?? null;
+      if (ta === tb) return byManual(a, b);
+      if (ta === null) return 1;
+      if (tb === null) return -1;
+      return (newestFirst ? tb - ta : ta - tb) || byManual(a, b);
+    });
+  }
+
+  function syncSortUI(){
+    const el = document.getElementById('devSort'); if (!el) return;
+    el.dataset.v = sortMode;
+    el.querySelector('.dev-sort-label').textContent = SORT_LABELS[sortMode];
+    const trigArrow = el.querySelector('.dev-sort-trigger .dev-sort-arrow');
+    const trigDir = sortMode==='manual' ? '' : sortDirs[sortMode];
+    trigArrow.innerHTML = trigDir ? `<i data-lucide="${trigDir==='asc'?'arrow-up':'arrow-down'}"></i>` : '';
+    selOpts(el).forEach((o, i)=>{
+      o.id = `devSort-opt-${i}`;
+      o.setAttribute('aria-selected', o.dataset.v===sortMode ? 'true' : 'false');
+      const arrow = o.querySelector('.dev-sort-arrow');
+      if (!arrow) return;
+      const dir = o.dataset.v==='manual' ? '' : sortDirs[o.dataset.v];
+      arrow.innerHTML = dir ? `<i data-lucide="${dir==='asc'?'arrow-up':'arrow-down'}"></i>` : '';
+    });
+    lucide.createIcons();
+  }
+
   function renderDeviceList(){
     const box=document.getElementById('deviceList'); box.innerHTML='';
     if (!devices.length){ box.innerHTML='<div class="ov-empty">暂无设备，请点击左上角「添加设备」。</div>'; }
-    devices.forEach(d=>{
+    orderedDevices().forEach(d=>{
       const [stxt,scls]=statusMeta(d.status);
       const idEl = d.type==='usb' ? `serial: ${d.serial||'(待检测)'}` : `IP: ${d.ip}:${d.port}`;
       const oc = overrideCount(d.id);
@@ -3580,6 +3743,7 @@
         : '设备离线：adb 中未检测到该设备，无法连接';
       card.innerHTML=`
         <div class="dev-main" data-pick="${d.id}">
+          <button class="dev-handle" type="button" data-handle="${d.id}" aria-label="拖动调整设备顺序" aria-disabled="false"><i data-lucide="grip-vertical"></i></button>
           <span class="status-dot ${scls}"></span>
           <div class="dev-id">
             <div class="dev-alias">
@@ -3607,13 +3771,17 @@
     });
     lucide.createIcons();
     box.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click', e=>{
-      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit]')) return;
+      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit],[data-handle]')) return;
       selectedId=el.dataset.pick; renderDeviceList(); renderPreview();
     }));
     box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); startRename(b.dataset.edit); }));
     box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); deleteDevice(b.dataset.del); }));
     box.querySelectorAll('[data-conn]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); connectDev(b.dataset.conn); }));
     box.querySelectorAll('[data-disc]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); disconnectDev(b.dataset.disc); }));
+    box.querySelectorAll('[data-handle]').forEach(h=>{
+      h.addEventListener('click', e=>e.stopPropagation());
+      h.addEventListener('pointerdown', e=>startDeviceDrag(e, h.dataset.handle));
+    });
     // 打开参数弹窗：不改变选中设备（design D3），预览由弹窗自己按所属设备渲染。
     box.querySelectorAll('[data-ov]').forEach(b=>b.addEventListener('click', e=>{
       e.stopPropagation(); openParamsDialog(b.dataset.ov);
@@ -3627,8 +3795,105 @@
   }
   function deleteDevice(id){
     if (id===selectedId) selectedId = devices.find(x=>x.id!==id)?.id || null;
-    devices = devices.filter(d=>d.id!==id); delete overrides[id]; delete ovEnabled[id];
+    devices = devices.filter(d=>d.id!==id); manualOrder = manualOrder.filter(x=>x!==id);
+    delete overrides[id]; delete ovEnabled[id];
     renderDeviceList(); renderPreview(); updatePills();
+  }
+
+  /* ---------- 指针拖动（与产品侧一致：5px 激活、浮层跟随、有效释放切手动） ---------- */
+  let deviceDrag = null;
+
+  function startDeviceDrag(e, id){
+    if (e.button!==0 || devices.length<2 || deviceDrag) return;
+    e.preventDefault(); e.stopPropagation();
+    const handle = e.currentTarget;
+    const card = handle.closest('.dev-card');
+    const list = document.getElementById('deviceList');
+    if (!card || !list) return;
+    deviceDrag = {
+      id, pointerId:e.pointerId, startX:e.clientX, startY:e.clientY,
+      card, list, active:false, ghost:null, offsetX:0, offsetY:0,
+      startIds: orderedDevices().map(d=>d.id)
+    };
+    try { handle.setPointerCapture?.(e.pointerId); } catch (_) { /* 合成指针没有活动捕获 */ }
+    window.addEventListener('pointermove', onDeviceDragMove);
+    window.addEventListener('pointerup', onDeviceDragEnd);
+    window.addEventListener('pointercancel', onDeviceDragCancel);
+    window.addEventListener('keydown', onDeviceDragKey, true);
+    window.addEventListener('blur', onDeviceDragCancel);
+  }
+
+  function onDeviceDragMove(e){
+    const d = deviceDrag;
+    if (!d || e.pointerId!==d.pointerId) return;
+    if (!d.active){
+      if (Math.hypot(e.clientX-d.startX, e.clientY-d.startY) < 5) return;
+      d.active = true;
+      const r = d.card.getBoundingClientRect();
+      d.offsetX = e.clientX - r.left;
+      d.offsetY = e.clientY - r.top;
+      const ghost = d.card.cloneNode(true);
+      ghost.classList.remove('sel', 'dragging', 'drop-before');
+      ghost.classList.add('dev-drag-ghost');
+      ghost.removeAttribute('data-id');
+      ghost.setAttribute('aria-hidden', 'true');
+      ghost.setAttribute('inert', '');
+      ghost.style.width = `${r.width}px`;
+      document.body.appendChild(ghost);
+      d.ghost = ghost;
+      d.card.classList.add('dragging');
+    }
+    if (d.ghost){
+      d.ghost.style.transform = `translate3d(${e.clientX-d.offsetX}px, ${e.clientY-d.offsetY}px, 0)`;
+    }
+    const cards = [...d.list.querySelectorAll('.dev-card')].filter(el=>el!==d.card);
+    let index = cards.length;
+    for (let i=0; i<cards.length; i++){
+      const r = cards[i].getBoundingClientRect();
+      if (e.clientY < r.top + r.height/2){ index = i; break; }
+    }
+    d.list.querySelectorAll('.drop-before').forEach(el=>el.classList.remove('drop-before'));
+    d.list.classList.remove('drop-end');
+    if (index < cards.length) cards[index].classList.add('drop-before');
+    else d.list.classList.add('drop-end');
+    if (index >= cards.length) d.list.appendChild(d.card);
+    else d.list.insertBefore(d.card, cards[index]);
+  }
+
+  function onDeviceDragKey(e){
+    if (e.key==='Escape' && deviceDrag){
+      e.preventDefault();
+      finishDeviceDrag(false);
+    }
+  }
+
+  function onDeviceDragEnd(e){
+    if (!deviceDrag || e.pointerId!==deviceDrag.pointerId) return;
+    finishDeviceDrag(true);
+  }
+
+  function onDeviceDragCancel(){ finishDeviceDrag(false); }
+
+  function finishDeviceDrag(commit){
+    const d = deviceDrag; if (!d) return;
+    window.removeEventListener('pointermove', onDeviceDragMove);
+    window.removeEventListener('pointerup', onDeviceDragEnd);
+    window.removeEventListener('pointercancel', onDeviceDragCancel);
+    window.removeEventListener('keydown', onDeviceDragKey, true);
+    window.removeEventListener('blur', onDeviceDragCancel);
+    d.ghost?.remove();
+    d.card.classList.remove('dragging');
+    d.list.querySelectorAll('.drop-before').forEach(el=>el.classList.remove('drop-before'));
+    d.list.classList.remove('drop-end');
+    const ids = [...d.list.querySelectorAll('.dev-card')].map(el=>el.dataset.id);
+    deviceDrag = null;
+    if (commit && d.active && ids.join('|')!==d.startIds.join('|')){
+      manualOrder = ids;
+      sortMode = 'manual';
+      syncSortUI();
+      devNotice.textContent = '已切换为手动排序';
+    }
+    renderDeviceList();
   }
 
   /* ===================== 设备参数弹窗（config ㉞） =====================
@@ -3858,7 +4123,7 @@
   }
   function connectDev(id){
     const d=getDev(id); if(!d||!canConnectDevice(d)) return;
-    d.status='connected'; d.last='当前连接'; selectedId=id;
+    d.status='connected'; d.last='当前连接'; d.lastAt=Date.now(); selectedId=id;
     renderDeviceList(); renderPreview(); updatePills();
   }
   function disconnectDev(id){
@@ -4484,8 +4749,8 @@
         if (existing.status === 'offline') existing.status = 'idle';
         return existing;
       }
-      const d = { id:'d' + (++uid), alias:alias || model || ip, literalAlias:true, type:'wifi', ip, port, status:'idle', last:'刚刚添加' };
-      devices.push(d); return d;
+      const d = { id:'d' + (++uid), alias:alias || model || ip, literalAlias:true, type:'wifi', ip, port, status:'idle', last:'刚刚添加', lastAt:null };
+      devices.push(d); manualOrder.push(d.id); return d;
     }
     async function submitWrite(kind, request, commit, rowId) {
       if (!state.open || write || ((kind === 'join' || kind === 'pair') && (probe || pendingDetect))) return;
@@ -4523,8 +4788,8 @@
       const request = method === 'usb' ? { type:'usb', alias, serial:draft.serial.trim() }
         : { type:'wifi', alias, ip:draft.ip.trim(), port:Number(draft.port) };
       submitWrite('save', request, () => {
-        const d = { id:'d' + (++uid), ...request, literalAlias:!!draft.alias.trim(), status:'idle', last:'刚刚添加' };
-        devices.push(d); return d;
+        const d = { id:'d' + (++uid), ...request, literalAlias:!!draft.alias.trim(), status:'idle', last:'刚刚添加', lastAt:null };
+        devices.push(d); manualOrder.push(d.id); return d;
       });
     }
     function joinRow(row) {
@@ -4909,7 +5174,7 @@
   const devNotice = document.getElementById('devNotice');
   document.getElementById('connAll').addEventListener('click', ()=>{
     const n = devices.filter(d=>d.status==='idle').length;
-    devices.forEach(d=>{ if(d.status==='idle'){ d.status='connected'; d.last='当前连接'; } });
+    devices.forEach(d=>{ if(d.status==='idle'){ d.status='connected'; d.last='当前连接'; d.lastAt=Date.now(); } });
     renderDeviceList(); renderPreview(); updatePills();
     devNotice.textContent = n ? `已连接 ${n} 台` : '没有可连接的设备';
   });
@@ -5626,6 +5891,7 @@
 
   syncThemeSeg(); applyTheme(); applyAccent(accentHex);
 
+  syncSortUI();
   renderDeviceList(); renderPreview(); updatePills(); syncNavTitles();
   renderProxyList(); syncProxyAddBtn();
 

@@ -50,6 +50,11 @@ pub struct Device {
     pub ip: String,
     /// WiFi 连接的端口（默认 5555）
     pub port: u16,
+    /// 最近一次由本应用启动 scrcpy 会话的时间（Unix 毫秒）；`None` 表示无记录。
+    ///
+    /// 只有会话启动路径能改写它：新增设备忽略入参里的值，更新既有设备始终保留后端那份。
+    #[serde(default)]
+    pub last_session_started_at: Option<u64>,
     // 序列化时另输出派生的 `connectionId`（见下方手写 impl），字段本身不在此结构里 ——
     // 它是计算值，存一份就会有漂移的可能。
 }
@@ -69,13 +74,14 @@ impl Serialize for Device {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut st = serializer.serialize_struct("Device", 7)?;
+        let mut st = serializer.serialize_struct("Device", 8)?;
         st.serialize_field("id", &self.id)?;
         st.serialize_field("alias", &self.alias)?;
         st.serialize_field("kind", &self.kind)?;
         st.serialize_field("serial", &self.serial)?;
         st.serialize_field("ip", &self.ip)?;
         st.serialize_field("port", &self.port)?;
+        st.serialize_field("lastSessionStartedAt", &self.last_session_started_at)?;
         st.serialize_field("connectionId", &self.connection_id())?;
         st.end()
     }
@@ -122,6 +128,124 @@ impl Device {
                 Ok(())
             }
             other => Err(format!("设备类型不合法：{}", other)),
+        }
+    }
+}
+
+/// 设备列表排序方式取值（自描述字符串，与前端 `SortMode` 对齐）。
+pub const SORT_MANUAL: &str = "manual";
+pub const SORT_STATUS: &str = "status";
+pub const SORT_NAME: &str = "name";
+pub const SORT_LAST_CONNECTED: &str = "lastConnected";
+
+pub const DEFAULT_SORT_MODE: &str = SORT_MANUAL;
+
+/// 自动排序的升降序取值（手动模式没有方向）。
+pub const SORT_ASC: &str = "asc";
+pub const SORT_DESC: &str = "desc";
+
+fn default_sort_mode() -> String {
+    DEFAULT_SORT_MODE.to_string()
+}
+
+fn default_asc() -> String {
+    SORT_ASC.to_string()
+}
+
+fn default_desc() -> String {
+    SORT_DESC.to_string()
+}
+
+/// 每种自动排序方式各自记住的方向：切到另一种方式时沿用该方式自己的方向，
+/// 不会被上一次的选择带偏。默认值保持原有观感（名称升序、状态在线优先、最近连接优先）。
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SortDirections {
+    #[serde(default = "default_asc")]
+    pub status: String,
+    #[serde(default = "default_asc")]
+    pub name: String,
+    #[serde(default = "default_desc")]
+    pub last_connected: String,
+}
+
+impl Default for SortDirections {
+    fn default() -> Self {
+        SortDirections {
+            status: default_asc(),
+            name: default_asc(),
+            last_connected: default_desc(),
+        }
+    }
+}
+
+impl SortDirections {
+    fn normalize(&mut self) {
+        for (slot, fallback) in [
+            (&mut self.status, SORT_ASC),
+            (&mut self.name, SORT_ASC),
+            (&mut self.last_connected, SORT_DESC),
+        ] {
+            if !matches!(slot.as_str(), SORT_ASC | SORT_DESC) {
+                *slot = fallback.to_string();
+            }
+        }
+    }
+}
+
+/// 设备列表偏好：排序方式、升降序、手动顺序与设备数据域修订号。
+///
+/// 手动顺序是设备稳定 ID 的序列，与 `devices` 的**登记顺序**分开保存 ——
+/// 显示排序与拖动不得改变登记顺序（批量连接与窗口槽位仍按登记顺序）。
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceList {
+    /// "manual" | "status" | "name" | "lastConnected"
+    #[serde(default = "default_sort_mode")]
+    pub sort_mode: String,
+    /// 自动排序各自的升序 / 降序（手动模式不使用）。
+    #[serde(default)]
+    pub directions: SortDirections,
+    /// 设备 id 序列；读入时补齐/去重/剔除失效项。
+    #[serde(default)]
+    pub manual_order: Vec<String>,
+    /// 设备数据域修订号：设备记录、排序偏好或最近启动时间实际变化时递增。
+    #[serde(default)]
+    pub revision: u64,
+}
+
+impl Default for DeviceList {
+    fn default() -> Self {
+        DeviceList {
+            sort_mode: default_sort_mode(),
+            directions: SortDirections::default(),
+            manual_order: Vec::new(),
+            revision: 0,
+        }
+    }
+}
+
+impl DeviceList {
+    /// 读入兼容：未知模式退手动；未知方向退回该方式的默认值；
+    /// 手动顺序只保留仍存在的 id（保留首次出现），未覆盖的设备按登记顺序补到末尾。
+    pub fn normalize(&mut self, devices: &[Device]) {
+        if !matches!(
+            self.sort_mode.as_str(),
+            SORT_MANUAL | SORT_STATUS | SORT_NAME | SORT_LAST_CONNECTED
+        ) {
+            self.sort_mode = default_sort_mode();
+        }
+        self.directions.normalize();
+        let known: std::collections::HashSet<&str> =
+            devices.iter().map(|d| d.id.as_str()).collect();
+        let mut seen = std::collections::HashSet::new();
+        self.manual_order
+            .retain(|id| known.contains(id.as_str()) && seen.insert(id.clone()));
+        for d in devices {
+            if !seen.contains(&d.id) {
+                seen.insert(d.id.clone());
+                self.manual_order.push(d.id.clone());
+            }
         }
     }
 }
@@ -442,6 +566,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub scrcpy_dir: Option<String>,
     pub devices: Vec<Device>,
+    /// 设备列表排序方式与手动顺序（缺字段时按手动排序 + 登记顺序）。
+    #[serde(default)]
+    pub device_list: DeviceList,
     /// 8 组默认参数（前端拥有字段模型；后端以 JSON 透明存储，便于前向兼容）。
     #[serde(default)]
     pub defaults: serde_json::Value,
@@ -476,6 +603,7 @@ impl AppConfig {
             schema_version: SCHEMA_VERSION,
             scrcpy_dir: None,
             devices: Vec::new(),
+            device_list: DeviceList::default(),
             defaults: serde_json::Value::Null,
             overrides: HashMap::new(),
             channels: Channels::default(),
@@ -509,9 +637,12 @@ impl AppConfig {
         }
 
         if device.id.is_empty() {
+            // 新设备的时间只能由会话启动路径产生：入参里带了也不认。
+            device.last_session_started_at = None;
             device.id = new_device_id();
             let id = device.id.clone();
             self.devices.push(device);
+            self.device_list.manual_order.push(id.clone());
             return Ok(id);
         }
 
@@ -521,11 +652,17 @@ impl AppConfig {
             .position(|d| d.id == device.id)
             .ok_or_else(|| "设备不存在".to_string())?;
         let id = device.id.clone();
+        // 后端拥有该字段：整对象回传不得改写它。
+        device.last_session_started_at = self.devices[idx].last_session_started_at;
         self.devices[idx] = device;
+        // 兼容手工编辑过的配置：顺序里缺这一项时补到末尾（正常路径不会走到）。
+        if !self.device_list.manual_order.contains(&id) {
+            self.device_list.manual_order.push(id.clone());
+        }
         Ok(id)
     }
 
-    /// 删除设备：别名映射、参数覆盖与覆盖启停开关一并清除（device-management spec）。
+    /// 删除设备：别名映射、参数覆盖、覆盖启停开关与手动顺序成员一并清除。
     ///
     /// 覆盖表必须一起删：留下孤儿覆盖后，设备 id 万一被复用，旧覆盖会毫无征兆地生效。
     /// 返回该设备是否存在（供命令层区分「删了」与「本来就没有」）。
@@ -533,7 +670,67 @@ impl AppConfig {
         let before = self.devices.len();
         self.devices.retain(|d| d.id != id);
         self.overrides.remove(id);
+        self.device_list.manual_order.retain(|x| x != id);
         self.devices.len() != before
+    }
+
+    /// 切换排序方式；未知取值不落盘。
+    pub fn set_sort_mode(&mut self, mode: &str) -> Result<(), String> {
+        if !matches!(
+            mode,
+            SORT_MANUAL | SORT_STATUS | SORT_NAME | SORT_LAST_CONNECTED
+        ) {
+            return Err(format!("排序方式不合法：{mode}"));
+        }
+        self.device_list.sort_mode = mode.to_string();
+        Ok(())
+    }
+
+    /// 设置某种自动排序的升降序；手动模式没有方向，未知取值不落盘。
+    pub fn set_sort_direction(&mut self, mode: &str, direction: &str) -> Result<(), String> {
+        if !matches!(direction, SORT_ASC | SORT_DESC) {
+            return Err(format!("排序方向不合法：{direction}"));
+        }
+        let slot = match mode {
+            SORT_STATUS => &mut self.device_list.directions.status,
+            SORT_NAME => &mut self.device_list.directions.name,
+            SORT_LAST_CONNECTED => &mut self.device_list.directions.last_connected,
+            _ => return Err("手动排序没有升降序".to_string()),
+        };
+        *slot = direction.to_string();
+        Ok(())
+    }
+
+    /// 用拖放后的完整排列替换手动顺序，并切到手动模式。
+    ///
+    /// 只接受与当前设备集合**完全一致**的排列（不重复、不遗漏、不含未知 id）：
+    /// 成员在拖动期间变化时宁可直接拒绝，也不猜用户想把它放到哪。
+    pub fn reorder_devices(&mut self, ordered: &[String]) -> Result<(), String> {
+        if ordered.len() != self.devices.len() {
+            return Err("设备列表已变化，请重试".to_string());
+        }
+        let mut seen = std::collections::HashSet::new();
+        for id in ordered {
+            if !seen.insert(id) || !self.devices.iter().any(|d| &d.id == id) {
+                return Err("设备列表已变化，请重试".to_string());
+            }
+        }
+        self.device_list.manual_order = ordered.to_vec();
+        self.device_list.sort_mode = SORT_MANUAL.to_string();
+        Ok(())
+    }
+
+    /// 设备数据域（设备记录、排序方式、升降序与手动顺序，不含修订号）是否等价。
+    pub fn device_domain_eq(&self, other: &AppConfig) -> bool {
+        self.devices == other.devices
+            && self.device_list.sort_mode == other.device_list.sort_mode
+            && self.device_list.directions == other.device_list.directions
+            && self.device_list.manual_order == other.device_list.manual_order
+    }
+
+    /// 设备列表快照（命令回执与状态事件共用）。
+    pub fn device_list_snapshot(&self) -> (Vec<Device>, DeviceList) {
+        (self.devices.clone(), self.device_list.clone())
     }
 }
 
@@ -606,6 +803,8 @@ pub fn load_config_from(path: &Path) -> Result<AppConfig, String> {
     cfg.ui.normalize();
     // 更新检查偏好归一化：未知频率退「每次启动」。
     cfg.update.normalize();
+    // 设备排序偏好归一化：旧配置没有该段时按手动 + 登记顺序补齐。
+    cfg.device_list.normalize(&cfg.devices);
     Ok(cfg)
 }
 
@@ -708,6 +907,61 @@ pub fn cleanup_stale_tmp(root: &Path) {
     }
 }
 
+/// 在同一把它们都写进配置文件的地方，持锁完成「读最新 → 改副本 → 落盘 → 回填」。
+///
+/// 克隆后立刻放锁的旧写法会让两次保存互相覆盖（后写者用旧副本盖掉先写者的改动），
+/// 而原子 rename 只保证文件不损坏。这里不执行 adb / 进程 / 事件 / 会话锁操作。
+///
+/// 设备数据域真的变化时递增修订号：前端据此拒绝迟到的旧设备快照。
+pub(crate) fn update_config_file<F, E>(
+    app: &AppHandle,
+    state: &AppState,
+    mutate: F,
+    on_save_error: impl Fn(String) -> E,
+) -> Result<AppConfig, E>
+where
+    F: FnOnce(&mut AppConfig) -> Result<(), E>,
+{
+    let path = config_path(app).map_err(&on_save_error)?;
+    update_config_at(&path, &state.config, mutate, on_save_error)
+}
+
+/// 事务内核（可脱离 Tauri 测试）：同一把锁内读最新值、改副本、落盘、回填。
+pub(crate) fn update_config_at<F, E>(
+    path: &Path,
+    config: &std::sync::Mutex<AppConfig>,
+    mutate: F,
+    on_save_error: impl Fn(String) -> E,
+) -> Result<AppConfig, E>
+where
+    F: FnOnce(&mut AppConfig) -> Result<(), E>,
+{
+    let mut guard = config.lock().unwrap();
+    let mut candidate = guard.clone();
+    mutate(&mut candidate)?;
+    if !guard.device_domain_eq(&candidate) {
+        candidate.device_list.revision = guard.device_list.revision.saturating_add(1);
+    }
+    save_config_to(path, &candidate).map_err(on_save_error)?;
+    *guard = candidate.clone();
+    Ok(candidate)
+}
+
+/// 合并前端保存的配置：只接受前端拥有的字段，其余以后端最新值（`latest`）为准。
+fn merge_frontend_config(latest: &AppConfig, incoming: AppConfig) -> AppConfig {
+    let mut merged = latest.clone();
+    merged.defaults = incoming.defaults;
+    merged.overrides = incoming
+        .overrides
+        .into_iter()
+        .filter(|(id, _)| merged.devices.iter().any(|d| &d.id == id))
+        .collect();
+    merged.ui = incoming.ui;
+    merged.logging = incoming.logging;
+    merged.update = incoming.update;
+    merged
+}
+
 // ── Tauri 命令 ─────────────────────────────────────────────
 
 #[tauri::command]
@@ -721,11 +975,16 @@ pub fn save_config(
     state: State<'_, AppState>,
     config: AppConfig,
 ) -> Result<(), String> {
-    // 先落盘再改内存：写失败时内存保持原样，界面上的「已保存」才不会说谎
-    // （与 `device` 模块的写命令保持同一套语义）。
+    // 前端只拥有这些字段；设备记录、排序偏好、通道、目录与 schema 一律以后端最新值为准。
+    // 否则一次去抖保存（可能仍带着旧的设备快照）会把刚保存的排序、时间或删除写回来。
     let retention = config.logging.retention_days();
-    save_config_to_disk(&app, &config)?;
-    *state.config.lock().unwrap() = config;
+    {
+        let mut guard = state.config.lock().unwrap();
+        let merged = merge_frontend_config(&guard, config);
+        // 设备域未变，修订号保持不变；先落盘再改内存。
+        save_config_to_disk(&app, &merged)?;
+        *guard = merged;
+    }
     // 日志保留策略随配置一起落盘，改完立即按新策略清理一次（tasks 4.2 / design D7）：
     // 放在这里而不是另开一条命令，是为了让前端不需要第二条保存通道，
     // 也就不会出现「界面改了、后端不知道」的空档。值没变时 `set_retention` 自己会跳过。
@@ -765,6 +1024,7 @@ mod tests {
             serial: serial.to_string(),
             ip: String::new(),
             port: 0,
+            last_session_started_at: None,
         }
     }
 
@@ -776,6 +1036,7 @@ mod tests {
             serial: String::new(),
             ip: ip.to_string(),
             port,
+            last_session_started_at: None,
         }
     }
 
@@ -1408,5 +1669,332 @@ mod tests {
         assert_eq!(entry.values["window"]["fullscreen"], true);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ── 设备列表排序（add-device-list-sorting）──────────────────
+
+    #[test]
+    fn old_config_defaults_to_manual_registration_order_without_history() {
+        let dir = unique_temp_dir("sort-default");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+        // 旧配置：没有 deviceList，设备也没有最近启动时间。
+        fs::write(
+            &path,
+            br#"{"devices":[{"id":"dev-b","alias":"B","kind":"usb","serial":"S2","ip":"","port":0},{"id":"dev-a","alias":"A","kind":"usb","serial":"S1","ip":"","port":0}],"defaults":null,"overrides":{},"channels":{"proxies":[]}}"#,
+        )
+        .unwrap();
+
+        let cfg = load_config_from(&path).unwrap();
+
+        assert_eq!(cfg.device_list.sort_mode, SORT_MANUAL);
+        assert_eq!(cfg.device_list.manual_order, vec!["dev-b", "dev-a"]);
+        assert_eq!(cfg.device_list.revision, 0);
+        assert_eq!(cfg.device_list.directions, SortDirections::default());
+        assert!(cfg.devices.iter().all(|d| d.last_session_started_at.is_none()));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn device_list_normalization_dedupes_and_appends_missing_devices() {
+        let mut cfg = AppConfig::fresh();
+        cfg.devices.push(usb("a", "A", "S1"));
+        cfg.devices.push(usb("b", "B", "S2"));
+        cfg.device_list.sort_mode = "weird".to_string();
+        cfg.device_list.directions.status = "sideways".to_string();
+        cfg.device_list.directions.name = SORT_DESC.to_string();
+        cfg.device_list.directions.last_connected = "".to_string();
+        cfg.device_list.manual_order = vec![
+            "ghost".to_string(),
+            "b".to_string(),
+            "b".to_string(),
+        ];
+
+        cfg.device_list.normalize(&cfg.devices);
+
+        assert_eq!(cfg.device_list.sort_mode, SORT_MANUAL);
+        assert_eq!(cfg.device_list.directions.status, SORT_ASC, "未知方向退回默认");
+        assert_eq!(cfg.device_list.directions.name, SORT_DESC, "合法方向保留");
+        assert_eq!(
+            cfg.device_list.directions.last_connected, SORT_DESC,
+            "最后连接默认最近优先"
+        );
+        assert_eq!(cfg.device_list.manual_order, vec!["b", "a"]);
+    }
+
+    #[test]
+    fn new_device_appends_to_manual_order_and_ignores_incoming_time() {
+        let mut cfg = AppConfig::fresh();
+        let mut d = usb("", "A", "S1");
+        d.last_session_started_at = Some(123);
+        let id = cfg.upsert_device(d).unwrap();
+
+        assert_eq!(cfg.device_list.manual_order, vec![id.clone()]);
+        let created = cfg.devices.iter().find(|x| x.id == id).unwrap();
+        assert_eq!(created.last_session_started_at, None, "新设备不得携带历史时间");
+    }
+
+    #[test]
+    fn update_keeps_backend_time_and_serial_but_changes_alias() {
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "A", "S1")).unwrap();
+        cfg.devices[0].last_session_started_at = Some(999);
+
+        let mut incoming = cfg.devices[0].clone();
+        incoming.alias = "新名字".to_string();
+        incoming.serial = "OLD".to_string();
+        incoming.last_session_started_at = Some(1);
+        cfg.upsert_device(incoming).unwrap();
+
+        assert_eq!(cfg.devices[0].alias, "新名字");
+        assert_eq!(cfg.devices[0].serial, "OLD");
+        assert_eq!(cfg.devices[0].last_session_started_at, Some(999));
+    }
+
+    #[test]
+    fn remove_device_clears_time_and_manual_order() {
+        let mut cfg = AppConfig::fresh();
+        let a = cfg.upsert_device(usb("", "A", "S1")).unwrap();
+        let b = cfg.upsert_device(usb("", "B", "S2")).unwrap();
+        cfg.devices[0].last_session_started_at = Some(5);
+
+        assert!(cfg.remove_device(&a));
+        assert_eq!(cfg.device_list.manual_order, vec![b.clone()]);
+        assert_eq!(cfg.devices.len(), 1);
+        assert_eq!(cfg.devices[0].id, b);
+    }
+
+    #[test]
+    fn reorder_requires_exact_permutation_and_switches_to_manual() {
+        let mut cfg = AppConfig::fresh();
+        let a = cfg.upsert_device(usb("", "A", "S1")).unwrap();
+        let b = cfg.upsert_device(usb("", "B", "S2")).unwrap();
+        cfg.device_list.sort_mode = SORT_NAME.to_string();
+
+        assert!(cfg.reorder_devices(&[b.clone(), b.clone()]).is_err());
+        assert!(cfg.reorder_devices(&[a.clone()]).is_err());
+        assert!(cfg.reorder_devices(&[a.clone(), "ghost".to_string()]).is_err());
+        assert_eq!(cfg.device_list.sort_mode, SORT_NAME);
+
+        cfg.reorder_devices(&[b.clone(), a.clone()]).unwrap();
+        assert_eq!(cfg.device_list.manual_order, vec![b, a]);
+        assert_eq!(cfg.device_list.sort_mode, SORT_MANUAL);
+    }
+
+    #[test]
+    fn set_sort_mode_rejects_unknown_values() {
+        let mut cfg = AppConfig::fresh();
+        assert!(cfg.set_sort_mode("sideways").is_err());
+        assert_eq!(cfg.device_list.sort_mode, SORT_MANUAL);
+        cfg.set_sort_mode(SORT_LAST_CONNECTED).unwrap();
+        assert_eq!(cfg.device_list.sort_mode, SORT_LAST_CONNECTED);
+    }
+
+    #[test]
+    fn sort_direction_is_per_mode_and_validated() {
+        let mut cfg = AppConfig::fresh();
+        assert!(cfg.set_sort_direction(SORT_STATUS, "sideways").is_err());
+        assert!(cfg.set_sort_direction(SORT_MANUAL, SORT_DESC).is_err());
+        assert_eq!(cfg.device_list.directions, SortDirections::default());
+
+        cfg.set_sort_direction(SORT_STATUS, SORT_DESC).unwrap();
+        cfg.set_sort_direction(SORT_NAME, SORT_DESC).unwrap();
+
+        assert_eq!(cfg.device_list.directions.status, SORT_DESC);
+        assert_eq!(cfg.device_list.directions.name, SORT_DESC);
+        assert_eq!(
+            cfg.device_list.directions.last_connected, SORT_DESC,
+            "改一种方式的方向不影响其他方式"
+        );
+    }
+
+    #[test]
+    fn device_time_is_serialized_and_round_trips() {
+        let mut d = usb("dev-1", "A", "S1");
+        d.last_session_started_at = Some(1_729_340_000_123);
+        let json = serde_json::to_value(&d).unwrap();
+        assert_eq!(json["lastSessionStartedAt"], 1_729_340_000_123_u64);
+
+        let mut cfg = AppConfig::fresh();
+        cfg.device_list.sort_mode = SORT_STATUS.to_string();
+        cfg.device_list.directions.status = SORT_DESC.to_string();
+        cfg.device_list.manual_order = vec!["dev-1".to_string()];
+        cfg.devices.push(d);
+        cfg.device_list.revision = 3;
+
+        let dir = unique_temp_dir("sort-round");
+        let path = config_path_in(&dir);
+        save_config_to(&path, &cfg).unwrap();
+        let loaded = load_config_from(&path).unwrap();
+
+        assert_eq!(loaded.devices[0].last_session_started_at, Some(1_729_340_000_123));
+        assert_eq!(loaded.device_list.sort_mode, SORT_STATUS);
+        assert_eq!(loaded.device_list.directions.status, SORT_DESC);
+        assert_eq!(loaded.device_list.revision, 3);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn transaction_increments_revision_only_for_device_changes() {
+        let dir = unique_temp_dir("tx-revision");
+        let path = config_path_in(&dir);
+        let lock = std::sync::Mutex::new(AppConfig::fresh());
+
+        update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.ui.language = LANGUAGE_EN.to_string();
+                Ok::<(), String>(())
+            },
+            |e| e,
+        )
+        .unwrap();
+        assert_eq!(lock.lock().unwrap().device_list.revision, 0, "纯外观改动不增修订号");
+
+        update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
+            },
+            |e| e,
+        )
+        .unwrap();
+        assert_eq!(lock.lock().unwrap().device_list.revision, 1);
+
+        // 重复提交同一种模式：设备域未变，修订号不再增长。
+        update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
+            },
+            |e| e,
+        )
+        .unwrap();
+        assert_eq!(lock.lock().unwrap().device_list.revision, 1);
+
+        update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.set_sort_direction(SORT_STATUS, SORT_DESC)
+                    .map_err(|e| e.to_string())
+            },
+            |e| e,
+        )
+        .unwrap();
+        assert_eq!(lock.lock().unwrap().device_list.revision, 2, "方向变化属于设备域");
+
+        update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.set_sort_direction(SORT_STATUS, SORT_DESC)
+                    .map_err(|e| e.to_string())
+            },
+            |e| e,
+        )
+        .unwrap();
+        assert_eq!(lock.lock().unwrap().device_list.revision, 2, "同方向不重复递增");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_transactions_do_not_lose_updates() {
+        let dir = unique_temp_dir("tx-concurrent");
+        let path = Arc::new(config_path_in(&dir));
+        let lock = Arc::new(std::sync::Mutex::new(AppConfig::fresh()));
+        lock.lock().unwrap().defaults = serde_json::json!(0);
+
+        let mut handles = Vec::new();
+        for _ in 0..16 {
+            let path = Arc::clone(&path);
+            let lock = Arc::clone(&lock);
+            handles.push(thread::spawn(move || {
+                update_config_at(
+                    &path,
+                    &lock,
+                    |cfg| {
+                        let n = cfg.defaults.as_u64().unwrap_or(0);
+                        cfg.defaults = serde_json::json!(n + 1);
+                        Ok::<(), String>(())
+                    },
+                    |e| e,
+                )
+                .unwrap();
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(lock.lock().unwrap().defaults, serde_json::json!(16));
+        assert_eq!(load_config_from(&path).unwrap().defaults, serde_json::json!(16));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn failed_write_leaves_memory_untouched() {
+        let dir = unique_temp_dir("tx-fail");
+        fs::create_dir_all(&dir).unwrap();
+        // 把一个普通文件当成目录，落盘必然失败。
+        let blocker = dir.join("blocked");
+        fs::write(&blocker, b"x").unwrap();
+        let path = blocker.join("config.json");
+        let lock = std::sync::Mutex::new(AppConfig::fresh());
+
+        let result = update_config_at(
+            &path,
+            &lock,
+            |cfg| {
+                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
+            },
+            |e| e,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(lock.lock().unwrap().device_list.sort_mode, SORT_MANUAL);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn frontend_save_cannot_overwrite_backend_device_domain() {
+        let mut latest = AppConfig::fresh();
+        let id = latest.upsert_device(usb("", "A", "S1")).unwrap();
+        latest.devices[0].last_session_started_at = Some(42);
+        latest.device_list.sort_mode = SORT_NAME.to_string();
+        latest.device_list.revision = 7;
+        latest.channels.proxies = vec!["https://kept.example/".to_string()];
+        latest.scrcpy_dir = Some("C:/kept".to_string());
+
+        // 旧前端快照：设备数组为空、时间与排序都是旧的，还带一条已删设备的覆盖。
+        let mut incoming = AppConfig::fresh();
+        incoming.devices.clear();
+        incoming.device_list.sort_mode = SORT_MANUAL.to_string();
+        incoming.defaults = serde_json::json!({ "video": { "bitrate": 8 } });
+        incoming.overrides.insert(
+            "ghost".to_string(),
+            OverrideEntry {
+                enabled: true,
+                values: serde_json::json!({}),
+            },
+        );
+        incoming.channels.proxies = vec!["https://stale.example/".to_string()];
+        incoming.scrcpy_dir = None;
+
+        let merged = merge_frontend_config(&latest, incoming);
+
+        assert_eq!(merged.devices.len(), 1);
+        assert_eq!(merged.devices[0].id, id);
+        assert_eq!(merged.devices[0].last_session_started_at, Some(42));
+        assert_eq!(merged.device_list.sort_mode, SORT_NAME);
+        assert_eq!(merged.device_list.revision, 7);
+        assert_eq!(merged.channels.proxies, vec!["https://kept.example/".to_string()]);
+        assert_eq!(merged.scrcpy_dir.as_deref(), Some("C:/kept"));
+        assert!(merged.overrides.is_empty(), "已删设备的覆盖不得复活");
+        assert_eq!(merged.defaults["video"]["bitrate"], 8, "前端拥有的字段照常合并");
     }
 }

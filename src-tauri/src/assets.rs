@@ -128,13 +128,16 @@ pub fn set_scrcpy_dir(
         .map_err(|e| UserError::new(codes::ENV_DIR_LOCKED).with_detail(e))?;
     let normalized = normalize_custom_dir(path)
         .map_err(|e| UserError::new(codes::ENV_INVALID_DIR).with_detail(e))?;
-    let mut cfg = state.config.lock().unwrap().clone();
-    cfg.scrcpy_dir = normalized;
-    // 先落盘再改内存：写失败时界面上的目录不会先于磁盘变化。
-    crate::config::save_config_to_disk(&app, &cfg)
-        .map_err(|e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e))?;
-    *state.config.lock().unwrap() = cfg.clone();
-    Ok(cfg)
+    // 持锁完成读改写：目录保存不能覆盖同时发生的设备排序或最近启动时间。
+    crate::config::update_config_file(
+        &app,
+        state.inner(),
+        |cfg| {
+            cfg.scrcpy_dir = normalized.clone();
+            Ok(())
+        },
+        |e| UserError::new(codes::CONFIG_SAVE_FAILED).with_detail(e),
+    )
 }
 
 fn ensure_dir_change_allowed(

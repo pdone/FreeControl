@@ -2094,6 +2094,133 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .dev-card.offline {
   opacity: 0.72;
 }
+/* 排序方式选择器：占固定宽度，窄窗口下随工具栏折行（不引入横向滚动）。 */
+.dev-sort {
+  flex: none;
+  width: 156px;
+}
+.dev-sort .dev-sort-trigger {
+  padding: 7px 26px 7px 10px;
+  font-size: 12px;
+}
+/* 当前方式 + 方向箭头：箭头只占文字行内的位置，不参与右侧下拉指示的绝对定位。 */
+.dev-sort .dev-sort-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dev-sort-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dev-sort .dev-sort-arrow {
+  position: static;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 0;
+  right: auto;
+  top: auto;
+  stroke-width: 2;
+}
+/* 展开时只翻转右侧的 ChevronDown；方向箭头保持原样。 */
+.dev-sort-trigger[aria-expanded="true"] .dev-sort-arrow {
+  transform: none;
+}
+/* 选项行：文字在左，方向箭头在右（与「再次选择切换方向」的提示对应）。 */
+.dev-sort-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dev-sort-opt-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dev-sort-opt .dev-sort-arrow {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--text-faint);
+  stroke-width: 2;
+}
+.sel-opt[aria-selected="true"] .dev-sort-arrow {
+  color: inherit;
+}
+/* 拖动手柄：所有卡片同一位置，不挤动状态点；只在聚焦 / 拖动中加强。 */
+.dev-handle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+.dev-handle svg {
+  width: 14px;
+  height: 14px;
+}
+.dev-handle:hover,
+.dev-handle.active {
+  color: var(--text);
+}
+.dev-handle:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 1px;
+}
+.dev-handle:disabled,
+.dev-handle.busy {
+  opacity: 0.35;
+  cursor: default;
+}
+.dev-card.dragging {
+  opacity: 0.6;
+}
+/* 拖动跟随层：被拖卡片的一份只读快照，浮在指针下方；原卡留在列表里当占位。
+   宽高取原卡实测值（脚本内联），这里只负责层级 / 阴影 / 不拦截事件。 */
+.dev-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: var(--shadow);
+  opacity: 0.96;
+  will-change: transform;
+}
+/* 插入落点：被拖设备将插入这张卡之前；拖到列表末尾时画在列表底部。 */
+.dev-card.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.dev-card.connected.drop-before {
+  box-shadow: inset 3px 0 0 var(--success), inset 0 2px 0 var(--accent);
+}
+.dev-list.drop-end {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .dev-main {
   display: flex;
   align-items: center;
@@ -2275,6 +2402,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    不能沿用 .offline：那一档是 --text-faint（灰），会把错误降级成提示。 */
 .status-text.danger {
   color: var(--danger);
+}
+/* 非阻断的附加警告（会话已启动、最近启动时间未保存），取既有 --warn。 */
+.status-text.warn {
+  color: var(--warn);
 }
 .status-text.unknown {
   color: var(--text-faint);

@@ -31,6 +31,41 @@ export interface Device {
    * 新增设备时不填（后端会忽略）。
    */
   connectionId?: string;
+  /**
+   * 最近一次由本应用启动 scrcpy 会话的时间（Unix 毫秒）；`null` / 缺省表示无记录。
+   * 由后端写入并持久化，前端只读。
+   */
+  lastSessionStartedAt?: number | null;
+}
+
+/** 设备列表排序方式（与后端 `SORT_*` 常量对齐）。 */
+export type SortMode = 'manual' | 'status' | 'name' | 'lastConnected';
+
+/** 自动排序的升降序（手动模式没有方向）。 */
+export type SortDirection = 'asc' | 'desc';
+
+/** 每种自动排序各自记住的方向；默认保持原有观感。 */
+export interface SortDirections {
+  status: SortDirection;
+  name: SortDirection;
+  lastConnected: SortDirection;
+}
+
+/** 排序方式、方向、手动顺序与设备数据域修订号。 */
+export interface DeviceListPrefs {
+  sortMode: SortMode;
+  /** 每种自动排序各自的升降序；切到另一种方式时沿用该方式自己的方向。 */
+  directions: SortDirections;
+  /** 设备稳定 ID 序列；与设备登记顺序（`AppConfig.devices`）分开保存。 */
+  manualOrder: string[];
+  /** 设备数据域修订号：设备记录 / 排序偏好 / 最近启动时间变化时递增。 */
+  revision: number;
+}
+
+/** 设备列表快照：排序命令回执与状态事件共用。 */
+export interface DeviceListSnapshot {
+  devices: Device[];
+  deviceList: DeviceListPrefs;
 }
 
 /**
@@ -59,6 +94,10 @@ export interface DeviceStatusPayload {
   error: UserError | null;
   /** 后端当前持有的设备列表（可能含订阅期间补全的 serial） */
   devices: Device[];
+  /** 排序方式、手动顺序与设备数据域修订号 */
+  deviceList: DeviceListPrefs;
+  /** 运行态快照序号：状态表 / stale / probed / error 变化时递增（不落盘）。 */
+  statusSequence: number;
 }
 
 // ── 无线配对与发现（spec `device-management` 的三条新增要求）──
@@ -164,6 +203,8 @@ export interface ConnectOutcome {
   alias: string;
   ok: boolean;
   error: UserError | null;
+  /** 会话已启动但最近启动时间未保存（不影响连接结果） */
+  warning?: UserError | null;
 }
 
 export interface ConnectResult {
@@ -263,6 +304,7 @@ export interface AppConfig {
   /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
   scrcpyDir: string | null;
   devices: Device[];
+  deviceList: DeviceListPrefs;
   defaults: Defaults;
   overrides: Record<string, OverrideEntry>;
   channels: Channels;

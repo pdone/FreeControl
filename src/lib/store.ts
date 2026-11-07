@@ -17,18 +17,23 @@ import {
   applyLanguage,
   DEFAULT_LANGUAGE,
   isLanguagePref,
+  resolvedLang,
   type MessageKey,
 } from './i18n';
+import { sortDevices } from './deviceSort';
+import { acceptStatusSequence, reduceDeviceList } from './deviceSnapshot';
 import {
   getConfig,
   saveConfig,
   getCompatStatus,
-  getDevices,
   getDeviceStatus,
   listSystemFonts,
   addDevice as addDeviceCmd,
-  updateDevice as updateDeviceCmd,
+  renameDevice as renameDeviceCmd,
   deleteDevice as deleteDeviceCmd,
+  setDeviceSortMode,
+  setDeviceSortDirection,
+  reorderDevices as reorderDevicesCmd,
   getEnvStatus,
   setScrcpyDir,
   getProxyList,
@@ -54,6 +59,8 @@ import type {
   ConnectResult,
   Defaults,
   Device,
+  DeviceListPrefs,
+  DeviceListSnapshot,
   DeviceStatus,
   DeviceStatusPayload,
   DeviceStatusView,
@@ -61,6 +68,8 @@ import type {
   OverrideEntry,
   ProxyList,
   SessionInfo,
+  SortDirection,
+  SortMode,
   SystemFont,
   UiPrefs,
   UpdateFrequency,
@@ -305,6 +314,61 @@ export const deviceStatusMeta = writable<{
   stale: boolean;
   error: UserError | null;
 }>({ probed: false, stale: false, error: null });
+
+const EMPTY_DEVICE_LIST: DeviceListPrefs = {
+  sortMode: 'manual',
+  directions: { status: 'asc', name: 'asc', lastConnected: 'desc' },
+  manualOrder: [],
+  revision: 0,
+};
+
+/** 排序方式与手动顺序（后端权威；前端只渲染并提交改动）。 */
+export const deviceListPrefs = writable<DeviceListPrefs>(EMPTY_DEVICE_LIST);
+/** 当前排序方式。 */
+export const sortMode = derived(deviceListPrefs, ($p): SortMode => $p.sortMode);
+/** 当前每种自动排序各自记住的方向（箭头显示用）。 */
+export const sortDirections = derived(
+  deviceListPrefs,
+  ($p): DeviceListPrefs['directions'] => $p.directions,
+);
+
+/**
+ * 显示顺序：按当前排序方式派生，**不写回** `devices`。
+ *
+ * 原始 `devices` 保持设备登记顺序 —— 批量连接与窗口槽位仍按它走。
+ */
+export const sortedDevices = derived(
+  [devices, deviceStatus, deviceListPrefs, resolvedLang],
+  ([$devices, $status, $prefs, $lang]): Device[] =>
+    sortDevices($devices, $status, $prefs, $lang),
+);
+
+/** 已接收的设备域快照；`null` 表示尚未收到任何带修订号的快照。 */
+let deviceSnapshot: DeviceListSnapshot | null = null;
+/** 已应用的状态快照序号（运行态防回退）。 */
+let statusSequence = -1;
+
+/**
+ * 原子接收设备列表 + 排序偏好。返回是否接收（旧修订号会被拒绝）。
+ *
+ * 这是设备域的**唯一**入口：配置回执、状态事件、主动查询与初始化都走这里，
+ * 不能在合并全局配置时另写一份设备数组。
+ */
+export function applyDeviceListSnapshot(snap: DeviceListSnapshot): boolean {
+  const { next, accepted } = reduceDeviceList(deviceSnapshot, snap);
+  if (!accepted) return false;
+  deviceSnapshot = next;
+  devices.set(next.devices);
+  deviceListPrefs.set(next.deviceList);
+  config.update((c) =>
+    c ? { ...c, devices: next.devices, deviceList: next.deviceList } : c,
+  );
+  // 已被删除的设备不能继续留在选中态（否则命令预览会指向一台不存在的设备）。
+  selectedDeviceId.update((id) =>
+    id && next.devices.some((d) => d.id === id) ? id : null,
+  );
+  return true;
+}
 /**
  * 设备计数的**唯一来源**：只有顶栏的设备概况读它（设备页不再回显同一份计数，
  * 见 app-shell 规格「顶部状态指示」与 device-management 规格「设备列表汇总」），不各自 `filter`。
@@ -360,6 +424,23 @@ export type SessionNotice =
   | { kind: 'error'; labelKey: MessageKey; error: unknown };
 
 export const sessionNotice = writable<SessionNotice | null>(null);
+/**
+ * 每台设备的连接附加提示（当前：会话已启动但最近启动时间未保存）。
+ *
+ * 与 `sessionNotice`（批量/排列降级的整行提示）分开：这条要贴在对应设备卡上。
+ * 下次对该设备发起连接时重置。
+ */
+export const deviceNotices = writable<Record<string, UserError>>({});
+
+/** 把连接结果里按设备的警告同步到设备卡提示位。 */
+function applyConnectWarnings(outcomes: ConnectResult['outcomes']): void {
+  const map = { ...get(deviceNotices) };
+  for (const o of outcomes) {
+    if (o.warning) map[o.deviceId] = o.warning;
+    else delete map[o.deviceId];
+  }
+  deviceNotices.set(map);
+}
 export const compat = writable<CompatStatus | null>(null);
 /** scrcpy 运行环境状态（Group 3）：目录 · 就绪 · 缺失清单。 */
 export const envStatus = writable<EnvStatus | null>(null);
@@ -400,6 +481,10 @@ export async function loadProxies(): Promise<void> {
  * 否则随后的去抖保存会把前端残留的旧覆盖写回盘上，被删设备的覆盖又「复活」。
  */
 function applyConfig(c: AppConfig): void {
+  // 设备一侧经唯一入口按修订号接收；迟到的旧设备快照不会覆盖已保存的排序或时间。
+  applyDeviceListSnapshot({ devices: c.devices, deviceList: c.deviceList });
+  const acceptedDevices = get(devices);
+  const acceptedPrefs = get(deviceListPrefs);
   // 去抖窗口内可能已有未落盘的用户改动（默认参数、某台设备的覆盖取值，以及外观 / 日志 /
   // 更新偏好）。设备写命令返回的是后端那份配置，直接整体替换会把这次改动吞掉，故按
   // 「保留本地」处理：
@@ -408,16 +493,18 @@ function applyConfig(c: AppConfig): void {
   //     （后端已连带清除），留下就是「复活」；
   //   · ui / logging / update：前端写入的偏好，后端返回的配置尚未包含去抖窗口里的改动，
   //     整体保留本地副本。
-  // 其余字段（设备、通道、运行环境目录）一律以后端为准 —— 后端已落盘。
+  // 其余字段（通道、运行环境目录）一律以后端为准 —— 后端已落盘。
   const local = get(config);
   if (dirty && local) {
-    const alive = new Set(c.devices.map((d) => d.id));
+    const alive = new Set(acceptedDevices.map((d) => d.id));
     const overrides: Record<string, OverrideEntry> = { ...c.overrides };
     for (const [id, entry] of Object.entries(local.overrides ?? {})) {
       if (alive.has(id)) overrides[id] = entry;
     }
     config.set({
       ...c,
+      devices: acceptedDevices,
+      deviceList: acceptedPrefs,
       defaults: local.defaults,
       overrides,
       ui: local.ui,
@@ -425,47 +512,33 @@ function applyConfig(c: AppConfig): void {
       update: local.update,
     });
   } else {
-    config.set(c);
+    config.set({
+      ...c,
+      devices: acceptedDevices,
+      deviceList: acceptedPrefs,
+    });
   }
-  devices.set(c.devices);
-}
-
-/** 两份设备列表是否等价（避免一次状态推送就触发一次重渲染）。 */
-function sameDevices(a: Device[], b: Device[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((d, i) => JSON.stringify(d) === JSON.stringify(b[i]));
-}
-
-/**
- * 用后端下发的设备列表替换前端副本（tasks 6.1 / 6.3）。
- *
- * 只替换 `devices` 一侧，**不整体替换 `config`**：用户可能正有未落盘的默认参数改动
- * （去抖窗口内），整体替换会把它们丢掉。设备一侧始终以后端为准（后端已落盘）。
- */
-function syncDevices(list: Device[]): void {
-  if (sameDevices(get(devices), list)) return;
-  devices.set(list);
-  config.update((c) => (c ? { ...c, devices: list } : c));
 }
 
 /**
  * 应用一份设备状态快照（tasks 6.3）：状态、元信息与设备列表一起更新。
  *
- * 列表也一起同步，是因为设备状态探测会在发现 serial 后补全 USB 设备的连接标识 ——
- * 只更新状态会让界面上的标识停在「待检测」。
+ * 设备一侧按修订号接收；运行态另按 `statusSequence` 门控 —— 即使设备元数据没有变化，
+ * 一份更旧的主动查询结果也不能把「已连接」回退成「在线」。
  */
 export function applyDeviceStatus(payload: DeviceStatusPayload): void {
+  applyDeviceListSnapshot({
+    devices: payload.devices,
+    deviceList: payload.deviceList,
+  });
+  if (!acceptStatusSequence(statusSequence, payload.statusSequence)) return;
+  statusSequence = payload.statusSequence;
   deviceStatus.set(payload.statuses);
   deviceStatusMeta.set({
     probed: payload.probed,
     stale: payload.stale,
     error: payload.error,
   });
-  syncDevices(payload.devices);
-  // 已被删除的设备不能继续留在选中态（否则命令预览会指向一台不存在的设备）。
-  selectedDeviceId.update((id) =>
-    id && payload.devices.some((d) => d.id === id) ? id : null,
-  );
 }
 
 /**
@@ -488,22 +561,39 @@ export async function addDevice(device: Device): Promise<Device | null> {
   return created;
 }
 
-/** 更新设备（别名、连接标识）。 */
-export async function updateDevice(device: Device): Promise<void> {
-  applyConfig(await updateDeviceCmd(device));
+/** 重命名（tasks 6.2）：只改别名，不重发整份设备对象（避免覆盖并发更新的连接标识）。 */
+export async function renameDevice(id: string, alias: string): Promise<void> {
+  applyConfig(await renameDeviceCmd(id, alias));
 }
 
-/** 重命名（tasks 6.2）：别名内联编辑落盘 —— 只改这一个字段，不重发整份设备对象。 */
-export async function renameDevice(id: string, alias: string): Promise<void> {
-  const d = get(devices).find((x) => x.id === id);
-  if (!d) return;
-  await updateDevice({ ...d, alias });
+/** 切换排序方式（不触碰手动顺序）。 */
+export async function setSortMode(mode: SortMode): Promise<void> {
+  applyDeviceListSnapshot(await setDeviceSortMode(mode));
+}
+
+/** 设置某种自动排序的升降序；后端拒绝手动模式与非法取值。 */
+export async function setSortDirection(
+  mode: SortMode,
+  direction: SortDirection,
+): Promise<void> {
+  applyDeviceListSnapshot(await setDeviceSortDirection(mode, direction));
+}
+
+/** 有效拖放 / 键盘确认后提交完整排列，并切到手动模式。 */
+export async function reorderDevices(orderedIds: string[]): Promise<void> {
+  applyDeviceListSnapshot(await reorderDevicesCmd(orderedIds));
 }
 
 /** 删除设备（tasks 6.5）：别名映射、参数覆盖与覆盖开关由后端一并清除。 */
 export async function deleteDevice(id: string): Promise<void> {
   applyConfig(await deleteDeviceCmd(id));
   selectedDeviceId.update((sel) => (sel === id ? null : sel));
+  deviceNotices.update((map) => {
+    if (!(id in map)) return map;
+    const next = { ...map };
+    delete next[id];
+    return next;
+  });
 }
 
 /** 追加代理地址；格式非法或重复时由后端拒绝，异常信息直接用于提示用户。 */
@@ -589,6 +679,7 @@ export async function connectDevice(deviceId: string): Promise<ConnectResult> {
   const request: ConnectRequest = { deviceId, args: argsForDevice(deviceId) };
   const res = await connectDeviceCmd(request);
   applySessions(res.sessions);
+  applyConnectWarnings(res.outcomes);
   sessionNotice.set(res.warning ? { kind: 'warning', warning: res.warning } : null);
   return res;
 }
@@ -642,6 +733,7 @@ export async function connectAll(): Promise<ConnectResult> {
   }
   const res = await connectAllCmd(requests);
   applySessions(res.sessions);
+  applyConnectWarnings(res.outcomes);
   sessionNotice.set(res.warning ? { kind: 'warning', warning: res.warning } : null);
   return res;
 }
@@ -1187,12 +1279,15 @@ export async function initApp(): Promise<void> {
       await saveConfig(c).catch((e) => console.error('迁移旧开关取值后回写配置失败', e));
     }
     config.set(c);
+    // 与后续事件同一入口：初始配置也带修订号，旧状态快照无法把它覆盖回去。
+    applyDeviceListSnapshot({ devices: c.devices, deviceList: c.deviceList });
   } catch (e) {
     console.error('加载配置失败', e);
     config.set({
       schemaVersion: 1,
       scrcpyDir: null,
       devices: [],
+      deviceList: EMPTY_DEVICE_LIST,
       defaults: BUILTIN_DEFAULTS,
       overrides: {},
       channels: { proxies: [] },
@@ -1210,11 +1305,6 @@ export async function initApp(): Promise<void> {
       },
       update: DEFAULT_UPDATE,
     });
-  }
-  try {
-    devices.set(await getDevices());
-  } catch (e) {
-    console.error('加载设备失败', e);
   }
   try {
     // 先订阅再取快照：后端只在状态**变化**时推送，若只订阅不取快照，

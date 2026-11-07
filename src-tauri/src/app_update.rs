@@ -851,9 +851,13 @@ fn replace_and_restart(app: &AppHandle, pending: &PendingAppUpdate) -> Result<()
     }
 
     // 会话随应用退出结束；重启前先落盘配置，避免去抖窗口里的改动丢失。
-    let cfg = app.state::<AppState>().config.lock().unwrap().clone();
-    if let Err(e) = config::save_config_to_disk(app, &cfg) {
-        logger::warn("app-update", format!("重启更新前保存配置失败：{e}"));
+    // 持锁写盘，避免用刚释放锁前的旧副本覆盖同时到达的保存；锁在结束会话前释放。
+    {
+        let state = app.state::<AppState>();
+        let cfg = state.config.lock().unwrap();
+        if let Err(e) = config::save_config_to_disk(app, &cfg) {
+            logger::warn("app-update", format!("重启更新前保存配置失败：{e}"));
+        }
     }
     session::shutdown_all(app);
 

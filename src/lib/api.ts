@@ -8,6 +8,7 @@ import type {
   ConnectRequest,
   ConnectResult,
   Device,
+  DeviceListSnapshot,
   DeviceStatusPayload,
   DiscoveredDevice,
   EnvStatus,
@@ -47,8 +48,6 @@ export const setScrcpyDir = (path: string | null): Promise<AppConfig> =>
 /** 运行环境状态：目录 + 就绪判定 + 缺失清单（首启引导与「重新检测」共用）。 */
 export const getEnvStatus = (): Promise<EnvStatus> => invoke('get_env_status');
 
-export const getDevices = (): Promise<Device[]> => invoke('get_devices');
-
 // ── 设备实时状态（Group 6 / tasks 6.3）──
 
 /** 状态推送事件名（与后端 `device::EVENT_DEVICE_STATUS` 对齐）。 */
@@ -64,10 +63,24 @@ export const getDeviceStatus = (): Promise<DeviceStatusPayload> => invoke('get_d
  */
 export const addDevice = (device: Device): Promise<AppConfig> =>
   invoke('add_device', { device });
-export const updateDevice = (device: Device): Promise<AppConfig> =>
-  invoke('update_device', { device });
+/** 只改别名：不发送整份设备对象，避免覆盖同时更新的连接标识。 */
+export const renameDevice = (id: string, alias: string): Promise<AppConfig> =>
+  invoke('rename_device', { id, alias });
 export const deleteDevice = (id: string): Promise<AppConfig> =>
   invoke('delete_device', { id });
+
+/** 切换排序方式（只改偏好，不改手动顺序）。 */
+export const setDeviceSortMode = (mode: string): Promise<DeviceListSnapshot> =>
+  invoke('set_device_sort_mode', { mode });
+/** 设置某种自动排序的升降序（手动模式没有方向）。 */
+export const setDeviceSortDirection = (
+  mode: string,
+  direction: string,
+): Promise<DeviceListSnapshot> =>
+  invoke('set_device_sort_direction', { mode, direction });
+/** 拖动 / 键盘重排：提交完整排列，保存为手动顺序并切到手动模式。 */
+export const reorderDevices = (orderedIds: string[]): Promise<DeviceListSnapshot> =>
+  invoke('reorder_devices', { orderedIds });
 
 // ── 无线配对与发现（spec `device-management` 的三条新增要求）──
 //
