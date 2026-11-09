@@ -17,7 +17,9 @@
 //! - 结果只在变化时以事件 [`EVENT_DEVICE_STATUS`] 推给前端，同时缓存一份供
 //!   `get_device_status` 取快照 —— 否则「首次探测早于前端注册监听」会让界面永远停在检测中；
 //! - 单次探测失败**不改变已有状态**：沿用上一次成功结果并标记 `stale`（design D13 风险条目）；
-//! - 另在探测成功后按 1:1 规则补全「serial 未知的 USB 设备」的连接标识（spec 场景「添加 USB 设备」）。
+//! - 另在探测成功后按 1:1 规则补全「serial 未知的 USB 设备」的连接标识（spec 场景「添加 USB 设备」）：
+//!   候选只取形态像硬件 serial 的标识（排除 mDNS 服务名与 `IP:端口`），且 adb 仍有未就绪
+//!   transport 时不猜；已误补为无线标识的 USB 记录在同一轮里先清除、再按同一规则补全。
 //!
 //! ## Group 9：会话层接入（tasks 9.1–9.3）
 //! 会话表由 [`crate::session`] 持有；本模块只从它取「**仍在运行**的会话」，于是
@@ -340,7 +342,24 @@ const WAIT_TICK: Duration = Duration::from_millis(30);
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct AdbProbe {
     pub devices: Option<HashSet<String>>,
+    /// 未就绪 transport 中形态像硬件 serial 的标识（见 [`ProbeList::pending`]）：
+    /// 只用于「还有疑似 USB 设备没就绪，先不猜」这道闸门。
+    pub pending: HashSet<String>,
     pub error: Option<String>,
+}
+
+/// 一次设备列表探测的解析结果。
+///
+/// `devices` 与 `pending` 来自同一份净荷：前者参与三态合并，后者只影响自动补全。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ProbeList {
+    /// 状态为 `device` 的标识：可发起会话。
+    pub devices: HashSet<String>,
+    /// 未就绪 transport（`offline` / `unauthorized` 等）中形态像硬件 serial 的标识。
+    ///
+    /// 无线地址与服务名不算：离线的无线记录不该长期挡住补全；而一台尚未授权的手机
+    /// 恰恰是「用户刚插上、下一帧就会变成可用」的候选，此时不能拿别的标识去猜。
+    pub pending: HashSet<String>,
 }
 
 /// 下发给前端的设备状态快照（事件与命令共用同一结构）。
@@ -367,43 +386,37 @@ pub struct DeviceStatusPayload {
 
 // ── 纯函数：adb 输出解析 / 状态合并 / serial 补全 ─────────────
 
-/// 解析 `adb devices` 的标准输出，返回状态为 `device` 的连接标识集合。
-///
-/// 输出形如（platform-tools 的 `adb devices` 实现）：
-///
-/// ```text
-/// List of devices attached
-/// 08081FDD4006LYE	device
-/// 192.168.1.5:5555	device
-/// emulator-5554	offline
-/// ```
-///
-/// 只把 `device` 视为「设备存在」；`offline` / `unauthorized` / `no permissions` 都不算 ——
-/// 它们无法发起会话，在界面上就是「离线」。表头（`List of devices attached`）与
-/// 守护进程提示（`* daemon ...`）的第二个字段都不是 `device`，天然被滤掉。
-pub fn parse_adb_devices(output: &str) -> HashSet<String> {
-    parse_track_devices(output)
-}
-
 /// 解析设备列表净荷：`adb devices` 的标准输出与 `host:track-devices` 的帧净荷同构
 /// （后者没有 `List of devices attached` 表头，逐行解析天然兼容）。
 ///
 /// 只把 `device` 视为「设备存在」；`offline` / `unauthorized` / `no permissions` 都不算 ——
-/// 它们无法发起会话，在界面上就是「离线」。
-pub fn parse_track_devices(payload: &str) -> HashSet<String> {
-    payload
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let serial = parts.next()?;
-            let state = parts.next()?;
-            if state == "device" {
-                Some(serial.to_string())
-            } else {
-                None
-            }
-        })
-        .collect()
+/// 它们无法发起会话，在界面上就是「离线」。表头与守护进程提示（`* daemon ...`）的第二个
+/// 字段不是已知 transport 状态，天然被滤掉；未就绪设备另进 `pending`，只用于补全闸门。
+pub fn parse_device_list(payload: &str) -> ProbeList {
+    let mut list = ProbeList::default();
+    for line in payload.lines() {
+        let mut parts = line.split_whitespace();
+        let (Some(id), Some(state)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if state == "device" {
+            list.devices.insert(id.to_string());
+        } else if is_pending_state(state) && !is_network_transport_id(id) {
+            list.pending.insert(id.to_string());
+        }
+    }
+    list
+}
+
+/// adb 中「存在但还不能发起会话」的 transport 状态。
+///
+/// 只认这张白名单：解析器同时要兼容 `adb devices` 的表头与守护进程提示，不能把
+/// 任意非 `device` 的行都当成待就绪设备。
+fn is_pending_state(state: &str) -> bool {
+    matches!(
+        state,
+        "offline" | "unauthorized" | "recovery" | "sideload" | "bootloader" | "rescue" | "no"
+    )
 }
 
 /// 合并「配置中的设备」「adb 探测结果」「会话表」得出每台设备的状态（design D13）。
@@ -440,14 +453,26 @@ pub fn merge_statuses(
 /// 把 adb 中唯一一条未被登记的连接标识，补到唯一一台 serial 未知的 USB 设备上
 /// （device-management spec 场景「添加 USB 设备」：serial 留空 → 后续检测到再补全）。
 ///
-/// 只在「恰好一台待补全设备 + 恰好一条未认领标识」时补全：这是唯一能 1:1 对应的情形，
+/// 只在「恰好一台待补全设备 + 恰好一条未认领候选」时补全：这是唯一能 1:1 对应的情形，
 /// 多对多时任何自动指派都可能张冠李戴 —— 宁可留空由用户自己填。
 /// 已在别处登记过的标识不会被抢走，否则会凭空改掉另一台设备的连接标识。
 ///
-/// **mDNS 服务名不算候选**（[`is_mdns_service_name`]）：已配对的无线设备会被 adb 自动连出一条
-/// 以服务名命名的 transport，它与用户显式 `adb connect` 出来的 `IP:端口` 指向同一台设备。
-/// 不排除它，一台 serial 留空的 USB 设备就可能被写上 `adb-xxx._adb-tls-connect._tcp`。
-pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Option<String> {
+/// **无线连接标识不算候选**（[`is_network_transport_id`]）：mDNS 服务名与 `IP:端口`
+/// 都指向网络 transport，不可能是 USB 设备的硬件 serial。已配对的无线设备会被 adb
+/// 自动连出一条服务名 transport，它与显式 `adb connect` 出的 `IP:端口` 并存于同一台设备；
+/// 不排除它们，一台 serial 留空的 USB 设备就可能被写上另一台设备的地址。
+///
+/// **还有未就绪 transport 时不猜**：`pending` 非空说明 adb 里有一台还不能发起会话、
+/// 形态却像硬件 serial 的设备（典型是刚插上、等待用户允许 USB 调试的手机）。
+/// 此时唯一未认领的「可用」标识很可能属于另一台设备，猜错会永久写坏记录。
+pub fn adopt_unknown_serial(
+    cfg: &mut AppConfig,
+    adb: &HashSet<String>,
+    pending: &HashSet<String>,
+) -> Option<String> {
+    if !pending.is_empty() {
+        return None;
+    }
     let claimed: HashSet<String> = cfg
         .devices
         .iter()
@@ -457,7 +482,7 @@ pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Optio
     let unclaimed: Vec<&String> = adb
         .iter()
         .filter(|s| !claimed.contains(*s))
-        .filter(|s| !is_mdns_service_name(s))
+        .filter(|s| !is_network_transport_id(s))
         .collect();
     if unclaimed.len() != 1 {
         return None;
@@ -477,11 +502,34 @@ pub fn adopt_unknown_serial(cfg: &mut AppConfig, adb: &HashSet<String>) -> Optio
     Some(serial)
 }
 
+/// 清掉 USB 记录上呈无线连接标识形态的 serial（历史误补），返回被清掉的
+/// `(别名, 旧标识)` 供调用方记日志。
+///
+/// 只动 `kind == usb` 且 serial 为网络形态的记录：合法硬件 serial、无线记录、
+/// 别名与其它字段一律不碰。
+pub fn repair_usb_serials(cfg: &mut AppConfig) -> Vec<(String, String)> {
+    let mut repaired = Vec::new();
+    for d in &mut cfg.devices {
+        if d.kind == config::KIND_USB && is_network_transport_id(&d.serial) {
+            let old = std::mem::take(&mut d.serial);
+            repaired.push((d.alias.clone(), old));
+        }
+    }
+    repaired
+}
+
+/// 无线 transport 的标识形态：mDNS 服务名，或含 `:` 的 `IP:端口`（含 IPv6 的 `[::1]:5555`）。
+///
+/// USB 侧永远是设备硬件序列号，不含 `:`；scrcpy 判定 tcpip 也只看这个冒号。
+pub fn is_network_transport_id(id: &str) -> bool {
+    is_mdns_service_name(id) || id.contains(':')
+}
+
 /// 形如 `adb-5c17e2d3-URzewu._adb-tls-connect._tcp` 的标识：adb 通过 mDNS **自动**连接
 /// 已配对无线设备时产生的 transport 名，2026-10-23 实测与 `IP:端口` 并存于同一条设备。
 ///
-/// 它不是任何 USB 设备的 serial（USB 侧永远是设备硬件序列号），故只在「补全 serial」这一处
-/// 被排除；`merge_statuses` 仍按 `IP:端口` 匹配，不受这条 transport 影响。
+/// 它不是任何 USB 设备的 serial，由 [`is_network_transport_id`] 在补全与存量修正时排除；
+/// `merge_statuses` 仍按 `IP:端口` 匹配，不受这条 transport 影响。
 pub fn is_mdns_service_name(serial: &str) -> bool {
     serial.contains("._adb-tls-") || serial.ends_with("._adb._tcp")
 }
@@ -543,7 +591,7 @@ pub(crate) fn run_captured(bin: &Path, args: &[&str], timeout: Duration) -> Resu
 ///
 /// 设备状态的常规来源已改为订阅（`host:track-devices`）；这条路径只在服务端拉不起来时
 /// 作为复核与诊断保留 —— 它也是订阅出问题时的回滚出口。
-fn probe_adb(dir: &Path) -> Result<HashSet<String>, String> {
+fn probe_adb(dir: &Path) -> Result<ProbeList, String> {
     let adb = dir.join(ADB_BIN);
     if !adb.is_file() {
         return Err(format!(
@@ -552,7 +600,7 @@ fn probe_adb(dir: &Path) -> Result<HashSet<String>, String> {
         ));
     }
     let out = run_captured(&adb, &["devices"], PROBE_TIMEOUT)?;
-    Ok(parse_adb_devices(&out))
+    Ok(parse_device_list(&out))
 }
 
 /// 为无线设备建立 adb 链路；返回 adb 的**原始输出**。
@@ -684,14 +732,19 @@ pub fn publish_status(app: &AppHandle) {
     let _ = app.emit(EVENT_DEVICE_STATUS, payload);
 }
 
-/// 把探测到的 serial 补进配置并落盘。落盘失败则不改内存（与设备写命令同一语义），
-/// 下一帧设备变化通知到达时会再试。
-fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>) {
+/// 修正 USB 记录上的无线标识、并把探测到的 serial 补进配置后落盘。
+/// 落盘失败则不改内存（与设备写命令同一语义），下一帧设备变化通知到达时会再试。
+fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>, pending: &HashSet<String>) {
     let state = app.state::<AppState>();
-    // 先做一次只读预判：绝大多数探测帧没有可补全的 serial，不该因此写一次盘。
+    // 先做一次只读预判：绝大多数探测帧既没有要修正、也没有要补全的 serial，不该写一次盘。
+    // 判空用克隆跑一遍「先修后补」，与事务内是同一顺序 —— 否则修掉误补后腾出的候选
+    // 在预判里看不到，会出现「该写却没写」。
     {
         let cfg = state.config.lock().unwrap();
-        if adopt_unknown_serial(&mut cfg.clone(), adb).is_none() {
+        let mut candidate = cfg.clone();
+        let repaired = repair_usb_serials(&mut candidate);
+        let adopted = adopt_unknown_serial(&mut candidate, adb, pending);
+        if repaired.is_empty() && adopted.is_none() {
             return;
         }
     }
@@ -700,7 +753,14 @@ fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>) {
         app,
         state.inner(),
         |cfg| {
-            let Some(serial) = adopt_unknown_serial(cfg, adb) else {
+            // 先修掉历史误补：腾出的「未认领」名额让紧随其后的补全能在一轮内落定真实值。
+            for (alias, old) in repair_usb_serials(cfg) {
+                logger::info(
+                    "device",
+                    format!("清除 USB 设备「{alias}」上的无线连接标识：{old}"),
+                );
+            }
+            let Some(serial) = adopt_unknown_serial(cfg, adb, pending) else {
                 return Ok(());
             };
             // 这也是一次「用户没操作、盘上却变了」的配置写入，记一行解释它的来由。
@@ -722,18 +782,19 @@ fn persist_adopted_serial(app: &AppHandle, adb: &HashSet<String>) {
 ///
 /// 失败与恢复**只在状态翻转时**记一行：轮询每 2 秒一轮，不判翻转就会把日志刷满，
 /// 而真正要排查的正是「什么时候开始失败、什么时候恢复的」这两条时间点。
-fn store_probe(app: &AppHandle, result: Result<HashSet<String>, String>) {
+fn store_probe(app: &AppHandle, result: Result<ProbeList, String>) {
     let state = app.state::<AppState>();
     let mut probe = state.adb_probe.lock().unwrap();
     match result {
-        Ok(set) => {
+        Ok(list) => {
             if let Some(prev) = probe.error.take() {
                 logger::info(
                     "device",
                     format!("连接标识探测已恢复（此前失败原因：{prev}）"),
                 );
             }
-            probe.devices = Some(set);
+            probe.devices = Some(list.devices);
+            probe.pending = list.pending;
         }
         Err(e) => {
             if probe.error.as_deref() != Some(e.as_str()) {
@@ -885,11 +946,12 @@ fn consume_track_stream(
 
 /// 一帧设备列表到达：写快照 → 补 serial → 推送。与既有轮询的一轮等价。
 fn apply_track_frame(app: &AppHandle, payload: &str) {
-    let devices = parse_track_devices(payload);
-    store_probe(app, Ok(devices));
-    let adb = probe_snapshot(&app.state::<AppState>()).devices;
-    if let Some(adb) = adb.as_ref() {
-        persist_adopted_serial(app, adb);
+    store_probe(app, Ok(parse_device_list(payload)));
+    // 两个入参取自同一份快照：补全闸门看到的「可用设备」与「未就绪 transport」
+    // 必须来自同一次探测，不能一帧新、一帧旧。
+    let probe = probe_snapshot(&app.state::<AppState>());
+    if let Some(adb) = probe.devices.as_ref() {
+        persist_adopted_serial(app, adb, &probe.pending);
     }
     publish_status(app);
 }
@@ -1154,7 +1216,7 @@ fn verify_protocol_on(stream: &mut TcpStream) -> Result<(), String> {
 /// 一次性查询当前设备列表（`host:devices`）。
 ///
 /// 供「无线链路建立后本次操作内即刷新」使用：与订阅走同一套帧协议，因此**不创建子进程**。
-pub fn query_devices_now() -> Result<HashSet<String>, String> {
+pub fn query_devices_now() -> Result<ProbeList, String> {
     query_devices_at(server_endpoint().as_str())
 }
 
@@ -1164,16 +1226,18 @@ pub fn query_devices_now() -> Result<HashSet<String>, String> {
 /// 这正是最需要复核的窗口。若此时直接按「查询失败」回退，复核在最关键的时刻失效。
 pub fn live_devices(app: &AppHandle) -> Result<HashSet<String>, String> {
     let first = match query_devices_now() {
-        Ok(set) => return Ok(set),
+        Ok(list) => return Ok(list.devices),
         Err(e) => e,
     };
     let dir = scrcpy::scrcpy_dir(app)?;
     ensure_server_running(&dir)?;
-    query_devices_now().map_err(|e| format!("{first}；拉起服务端后仍失败：{e}"))
+    query_devices_now()
+        .map(|list| list.devices)
+        .map_err(|e| format!("{first}；拉起服务端后仍失败：{e}"))
 }
 
 /// 一次性查询（可指定端点，便于用本地桩验证）。
-fn query_devices_at(endpoint: &str) -> Result<HashSet<String>, String> {
+fn query_devices_at(endpoint: &str) -> Result<ProbeList, String> {
     let mut stream =
         TcpStream::connect(endpoint).map_err(|e| format!("无法连接 adb 服务端（{endpoint}）：{e}"))?;
     stream
@@ -1184,7 +1248,7 @@ fn query_devices_at(endpoint: &str) -> Result<HashSet<String>, String> {
         .map_err(|e| format!("向 adb 服务端发送请求失败：{e}"))?;
     read_status(&mut stream, SERVER_REPLY_TIMEOUT)?;
     let payload = read_one_frame(&mut stream, SERVER_REPLY_TIMEOUT)?;
-    Ok(parse_track_devices(&payload))
+    Ok(parse_device_list(&payload))
 }
 
 /// 向 adb 服务端发一条 **host 服务**请求并取回一帧净荷（`host:mdns:services` 这类）。
@@ -1362,7 +1426,7 @@ mod tests {
                    emulator-5554\toffline\r\n\
                    ABC123\tunauthorized\r\n\
                    \r\n";
-        let got = parse_adb_devices(out);
+        let got = parse_device_list(out).devices;
 
         assert_eq!(got.len(), 2);
         assert!(got.contains("08081FDD4006LYE"));
@@ -1375,9 +1439,31 @@ mod tests {
     #[test]
     fn parses_empty_and_noisy_output() {
         // 没有设备时只有表头（adb 自身启动提示走 stderr，但多解析几个词也不该误判成设备）。
-        assert!(parse_adb_devices("List of devices attached\n\n").is_empty());
-        assert!(parse_adb_devices("").is_empty());
-        assert!(parse_adb_devices("* daemon not running; starting now at tcp:5037\n").is_empty());
+        assert!(parse_device_list("List of devices attached\n\n").devices.is_empty());
+        assert!(parse_device_list("").devices.is_empty());
+        assert!(parse_device_list("* daemon not running; starting now at tcp:5037\n")
+            .devices
+            .is_empty());
+    }
+
+    #[test]
+    fn parse_device_list_separates_ready_and_pending() {
+        // device 进可用集合；未授权的硬件 serial 进未就绪集合；
+        // 无线地址 / 服务名即使未就绪也不进未就绪集合（它们不可能是 USB serial）。
+        let payload = "List of devices attached\n\
+                       S1\tdevice\n\
+                       S2\tunauthorized\n\
+                       S3\toffline\n\
+                       ABC123\tno\tpermissions\n\
+                       mi10:5555\toffline\n\
+                       adb-abc._adb-tls-connect._tcp\tunauthorized\n\
+                       * daemon not running; starting now at tcp:5037\n";
+        let list = parse_device_list(payload);
+
+        assert_eq!(list.devices, set(&["S1"]));
+        assert_eq!(list.pending, set(&["S2", "S3", "ABC123"]));
+        assert!(!list.pending.contains("List"), "表头不是待就绪设备");
+        assert!(!list.pending.contains("daemon"));
     }
 
     // ── 6.3：状态合并（会话表优先） ────────────────────────────
@@ -1436,7 +1522,7 @@ mod tests {
         let mut cfg = AppConfig::fresh();
         let id = cfg.upsert_device(usb("", "新设备", "")).unwrap();
 
-        let adopted = adopt_unknown_serial(&mut cfg, &set(&["S-9"]));
+        let adopted = adopt_unknown_serial(&mut cfg, &set(&["S-9"]), &set(&[]));
 
         assert_eq!(adopted.as_deref(), Some("S-9"));
         assert_eq!(cfg.devices[0].id, id, "补全 serial 不应换 id");
@@ -1448,20 +1534,20 @@ mod tests {
         // 两条未认领标识 → 无法 1:1 对应，留空由用户自己填。
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(usb("", "新设备", "")).unwrap();
-        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1", "S-2"])).is_none());
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1", "S-2"]), &set(&[])).is_none());
         assert_eq!(cfg.devices[0].connection_id(), "");
 
         // 两台待补全设备 → 同样不猜。
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(usb("", "A", "")).unwrap();
         cfg.upsert_device(usb("", "B", "")).unwrap();
-        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1"])).is_none());
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1"]), &set(&[])).is_none());
 
         // 没有任何未认领标识（都已登记）→ 不补全，也不改动既有标识。
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(usb("", "已知", "S-1")).unwrap();
         cfg.upsert_device(usb("", "新设备", "")).unwrap();
-        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1"])).is_none());
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-1"]), &set(&[])).is_none());
         assert_eq!(cfg.devices[0].connection_id(), "S-1");
         assert_eq!(cfg.devices[1].connection_id(), "");
     }
@@ -1471,7 +1557,7 @@ mod tests {
         // 无线设备的标识是用户填的 IP:端口，不该被 adb 里的 serial 覆盖。
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(wifi("", "平板", "192.168.1.5", 5555)).unwrap();
-        assert!(adopt_unknown_serial(&mut cfg, &set(&["192.168.1.5:5555"])).is_none());
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["192.168.1.5:5555"]), &set(&[])).is_none());
     }
 
     #[test]
@@ -1482,14 +1568,22 @@ mod tests {
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(usb("", "新设备", "")).unwrap();
 
-        assert!(adopt_unknown_serial(&mut cfg, &set(&["adb-abc._adb-tls-connect._tcp"])).is_none());
+        assert!(adopt_unknown_serial(
+            &mut cfg,
+            &set(&["adb-abc._adb-tls-connect._tcp"]),
+            &set(&[])
+        )
+        .is_none());
         assert_eq!(cfg.devices[0].connection_id(), "", "不该被写上服务名");
 
         // 同一次探测里既有真 serial 又有服务名：服务名不参与计数，真 serial 照旧补上。
         let mut cfg = AppConfig::fresh();
         cfg.upsert_device(usb("", "新设备", "")).unwrap();
-        let adopted =
-            adopt_unknown_serial(&mut cfg, &set(&["S-9", "adb-abc._adb-tls-connect._tcp"]));
+        let adopted = adopt_unknown_serial(
+            &mut cfg,
+            &set(&["S-9", "adb-abc._adb-tls-connect._tcp"]),
+            &set(&[]),
+        );
         assert_eq!(adopted.as_deref(), Some("S-9"));
         assert_eq!(cfg.devices[0].connection_id(), "S-9");
 
@@ -1498,6 +1592,86 @@ mod tests {
         assert!(is_mdns_service_name("adb-5c17e2d3-URzewu._adb-tls-connect._tcp"));
         assert!(!is_mdns_service_name("08081FDD4006LYE"));
         assert!(!is_mdns_service_name("192.168.1.5:5555"));
+    }
+
+    #[test]
+    fn does_not_adopt_a_host_port_transport() {
+        // 2026-11-09 真机：adb 里另有一台设备的无线 transport `mi10:5555`。
+        // 它未登记、形态却不是硬件 serial，不能补到 serial 留空的 USB 设备上。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["mi10:5555"]), &set(&[])).is_none());
+        assert_eq!(cfg.devices[0].connection_id(), "", "不该被写上无线地址");
+
+        // 与真 serial 同时出现时，无线标识不参与计数，真 serial 照旧补上。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+        let adopted = adopt_unknown_serial(&mut cfg, &set(&["S-9", "mi10:5555"]), &set(&[]));
+        assert_eq!(adopted.as_deref(), Some("S-9"));
+        assert_eq!(cfg.devices[0].connection_id(), "S-9");
+    }
+
+    #[test]
+    fn does_not_adopt_while_a_transport_is_pending() {
+        // 刚插上的手机还处于 unauthorized：它不在可用集合里，但必须挡住「唯一候选」的猜测。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["mi10:5555"]), &set(&["5c17e2d3"]))
+            .is_none());
+        assert_eq!(cfg.devices[0].connection_id(), "");
+
+        // 即使唯一可用候选本身像硬件 serial，未就绪设备在场时也不猜。
+        assert!(adopt_unknown_serial(&mut cfg, &set(&["S-9"]), &set(&["S-8"])).is_none());
+        assert_eq!(cfg.devices[0].connection_id(), "");
+
+        // 它变为可用、成为唯一候选后补上。
+        let mut cfg = AppConfig::fresh();
+        cfg.upsert_device(usb("", "新设备", "")).unwrap();
+        assert_eq!(
+            adopt_unknown_serial(&mut cfg, &set(&["5c17e2d3", "mi10:5555"]), &set(&[]))
+                .as_deref(),
+            Some("5c17e2d3")
+        );
+    }
+
+    #[test]
+    fn repairs_network_serials_on_usb_records() {
+        // 误补的历史记录：只清 USB 记录上的网络形态 serial，其它记录与字段不动。
+        let mut cfg = config_with(vec![
+            usb("dev-1", "手机", "mi10:5555"),
+            usb("dev-2", "正常", "08081FDD4006LYE"),
+            wifi("dev-3", "平板", "192.168.1.5", 5555),
+        ]);
+
+        let repaired = repair_usb_serials(&mut cfg);
+
+        assert_eq!(repaired, vec![("手机".to_string(), "mi10:5555".to_string())]);
+        assert_eq!(cfg.devices[0].connection_id(), "");
+        assert_eq!(cfg.devices[0].alias, "手机", "别名不受影响");
+        assert_eq!(cfg.devices[1].connection_id(), "08081FDD4006LYE");
+        assert_eq!(cfg.devices[2].connection_id(), "192.168.1.5:5555");
+
+        // 已经是合法值 / 无线记录 → 无变化。
+        let mut clean = config_with(vec![usb("dev-1", "手机", "S1")]);
+        assert!(repair_usb_serials(&mut clean).is_empty());
+    }
+
+    #[test]
+    fn repair_then_adopt_fills_the_real_serial_in_one_pass() {
+        // 误补为 mi10:5555 的 USB 记录：修正腾出名额后，同一轮补上真实的 5c17e2d3。
+        let mut cfg = config_with(vec![usb("dev-1", "Piexl10", "mi10:5555")]);
+
+        assert_eq!(repair_usb_serials(&mut cfg).len(), 1);
+        let adopted = adopt_unknown_serial(
+            &mut cfg,
+            &set(&["5c17e2d3", "mi10:5555", "temp10:5555"]),
+            &set(&[]),
+        );
+
+        assert_eq!(adopted.as_deref(), Some("5c17e2d3"));
+        assert_eq!(cfg.devices[0].connection_id(), "5c17e2d3");
     }
 
     // ── 6.3：带超时的子进程执行 ───────────────────────────────
@@ -1532,7 +1706,7 @@ mod tests {
             Duration::from_secs(10),
         )
         .unwrap();
-        let got = parse_adb_devices(&out);
+        let got = parse_device_list(&out).devices;
 
         let _ = std::fs::remove_file(&script);
         assert_eq!(got.len(), 1);
@@ -1720,14 +1894,14 @@ mod tests {
         // 订阅帧没有 `List of devices attached` 表头；解析结果必须与带表头时一致。
         let payload = "S1\tdevice\n192.168.1.5:5555\tdevice\nEMU\toffline\n";
         assert_eq!(
-            parse_track_devices(payload),
-            parse_adb_devices(&format!("List of devices attached\n{payload}"))
+            parse_device_list(payload),
+            parse_device_list(&format!("List of devices attached\n{payload}"))
         );
         assert_eq!(
-            parse_track_devices(payload),
+            parse_device_list(payload).devices,
             set(&["S1", "192.168.1.5:5555"])
         );
-        assert!(parse_track_devices("").is_empty());
+        assert!(parse_device_list("").devices.is_empty());
     }
 
     #[test]
@@ -1750,10 +1924,12 @@ mod tests {
             let mut buf = [0u8; 64];
             let n = stream.read(&mut buf).unwrap();
             assert_eq!(&buf[..n], &encode_frame("host:devices")[..]);
-            write_okay_frame(&mut stream, "S1\tdevice\n");
+            write_okay_frame(&mut stream, "S1\tdevice\nS2\tunauthorized\n");
         });
 
-        assert_eq!(query_devices_at(&endpoint).unwrap(), set(&["S1"]));
+        let list = query_devices_at(&endpoint).unwrap();
+        assert_eq!(list.devices, set(&["S1"]));
+        assert_eq!(list.pending, set(&["S2"]));
         handle.join().unwrap();
     }
 
