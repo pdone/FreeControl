@@ -225,3 +225,21 @@ export const openLogDir = (): Promise<void> => invoke('open_log_dir');
  * 故前端**不需要**任何额外的窗口权限声明；前台化结果由后端写入日志文件。
  */
 export const bringMainWindowToFront = (): Promise<void> => invoke('bring_main_window_to_front');
+
+// ── Windows 托盘（app-tray）──
+
+/** 托盘是否真的可用（本次只在 Windows 且创建成功时为 true）。 */
+export const getTrayStatus = (): Promise<boolean> => invoke('get_tray_status');
+/** 切换托盘图标样式；只传取值，图标资产由后端按取值选择。 */
+export const setTrayIconStyle = (style: string): Promise<void> =>
+  invoke('set_tray_icon_style', { style });
+/** 托盘菜单文案随界面语言更新（原生菜单不能读前端字典，故由前端按当前语言下发）。 */
+export const setTrayMenuLabels = (show: string, quit: string): Promise<void> =>
+  invoke('set_tray_menu_labels', { show, quit });
+/** 记录「主窗口已被用户主动收进托盘」，供启动兜底、再次启动与自动前台化判断。 */
+export const setTrayHidden = (hidden: boolean): Promise<void> =>
+  invoke('set_tray_hidden', { hidden });
+/** 真退出分支开始处调用：覆盖「落盘到销毁」之间的空窗，避免再次启动把窗口拉回前台。 */
+export const markAppExiting = (): Promise<void> => invoke('mark_app_exiting');
+/** 托盘「退出」请求（后端发出，前端复用同一次落盘与退出分支）。 */
+export const EVENT_TRAY_QUIT = 'tray-quit-requested';

@@ -4,7 +4,8 @@
   //
   // 外观两个字段走 setThemeMode / setAccent（改 `config.ui`），视觉由 theme.ts 的订阅立即应用；
   // 自动更新走 setAutoUpdate / setUpdateFrequency（改 `config.update`），上次检查时间由检查包装写入。
-  // 两者都复用既有去抖保存，不碰 `defaults.*`。页内两张偏好卡同排等宽：外观 + 自动更新。
+  // 两者都复用既有去抖保存，不碰 `defaults.*`。右列是自动更新 + 托盘两张卡叠放，
+  // 外观跨其高度；托盘卡只在后端报告可用时渲染（非 Windows 不出现）。
   // 日志内容由 `SettingsLogCards` 渲染：运行日志参数 / 日志文件同排在前，会话输出独占整行放在页面底部。
   // 界面语言是本次新增的第三个外观字段：改 `config.ui.language`，由 i18n 订阅立即应用。
   import {
@@ -12,12 +13,15 @@
     openUpdateDialog,
     setAccent,
     setAutoUpdate,
+    setCloseToTray,
     setCodeFont,
     setThemeMode,
+    setTrayIconStyle,
     setUiFont,
     setUiLanguage,
     setUiScale,
     setUpdateFrequency,
+    trayReady,
   } from '../lib/store';
   import {
     ACCENTS,
@@ -34,7 +38,12 @@
   import SettingsLogCards from './SettingsLogCards.svelte';
   import { Check, RefreshCw } from 'lucide-svelte';
   import { DEFAULT_LANGUAGE, t, type MessageKey } from '../lib/i18n';
-  import type { LanguagePref, UpdateFrequency, UpdatePrefs } from '../lib/types';
+  import type {
+    LanguagePref,
+    TrayIconStyle,
+    UpdateFrequency,
+    UpdatePrefs,
+  } from '../lib/types';
 
   const THEMES: Array<{ value: ThemeMode; labelKey: MessageKey }> = [
     { value: 'system', labelKey: 'settings.theme.system' },
@@ -55,6 +64,17 @@
     { value: 'en', labelKey: 'settings.language.en' },
   ];
 
+  const TRAY_STYLES: Array<{ value: TrayIconStyle; labelKey: MessageKey }> = [
+    { value: 'color', labelKey: 'settings.tray.icon.color' },
+    { value: 'white', labelKey: 'settings.tray.icon.white' },
+    { value: 'black', labelKey: 'settings.tray.icon.black' },
+  ];
+
+  const TRAY_CLOSE_MODES: Array<{ value: boolean; labelKey: MessageKey }> = [
+    { value: false, labelKey: 'settings.tray.close.exit' },
+    { value: true, labelKey: 'settings.tray.close.hide' },
+  ];
+
   const DEFAULT_UPDATE_PREFS: UpdatePrefs = {
     autoCheck: false,
     frequency: 'launch',
@@ -73,6 +93,9 @@
 
   // 更新检查偏好：与外观同处「设置」，但独立落在 config.update。
   $: updatePrefs = $config?.update ?? DEFAULT_UPDATE_PREFS;
+  // 托盘偏好：只在后端报告托盘可用时渲染卡片（非 Windows 或创建失败都不出现）。
+  $: trayIconStyle = $config?.tray?.iconStyle ?? 'color';
+  $: closeToTray = $config?.tray?.closeToTray ?? false;
   $: lastChecked = updatePrefs.lastCheckedAt
     ? formatTimestamp(updatePrefs.lastCheckedAt)
     : '';
@@ -198,46 +221,84 @@
     </div>
   </div>
 
-  <div class="card">
-    <h3>{$t('settings.update.title')}</h3>
-    <div class="field">
-      <div class="toggle">
-        <span class="t-label"
-          >{$t('settings.update.autoCheck')}<HelpTip title={$t('settings.update.helpTitle')} label={$t('settings.update.helpLabel')}>
-            <span class="fhelp-p">{$t('settings.update.help')}</span>
-          </HelpTip></span
-        >
-        <label class="switch">
-          <input type="checkbox" checked={updatePrefs.autoCheck} on:change={onAutoToggle} />
-          <span class="slider"></span>
-        </label>
-      </div>
-    </div>
-    <div class="field">
-      <span class="flabel">{$t('settings.update.frequency')}</span>
-      <div class="seg" use:segSlide>
-        {#each UPDATES as f (f.value)}
-          <button
-            class:active={updatePrefs.frequency === f.value}
-            disabled={!updatePrefs.autoCheck}
-            on:click={() => setUpdateFrequency(f.value)}
-            >{$t(f.labelKey)}</button
+  <div class="card-stack">
+    <div class="card">
+      <h3>{$t('settings.update.title')}</h3>
+      <div class="field">
+        <div class="toggle">
+          <span class="t-label"
+            >{$t('settings.update.autoCheck')}<HelpTip title={$t('settings.update.helpTitle')} label={$t('settings.update.helpLabel')}>
+              <span class="fhelp-p">{$t('settings.update.help')}</span>
+            </HelpTip></span
           >
-        {/each}
+          <label class="switch">
+            <input type="checkbox" checked={updatePrefs.autoCheck} on:change={onAutoToggle} />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="flabel">{$t('settings.update.frequency')}</span>
+        <div class="seg" use:segSlide>
+          {#each UPDATES as f (f.value)}
+            <button
+              class:active={updatePrefs.frequency === f.value}
+              disabled={!updatePrefs.autoCheck}
+              on:click={() => setUpdateFrequency(f.value)}
+              >{$t(f.labelKey)}</button
+            >
+          {/each}
+        </div>
+      </div>
+      <div class="field">
+        <div class="path-row auto-update-status">
+          <button class="btn sm" on:click={() => openUpdateDialog()}>
+            <RefreshCw />{$t('settings.update.check')}
+          </button>
+          <span class="hint">
+            {updatePrefs.lastCheckedAt
+              ? $t('settings.update.lastChecked', { time: lastChecked })
+              : $t('settings.update.neverChecked')}
+          </span>
+        </div>
       </div>
     </div>
-    <div class="field">
-      <div class="path-row auto-update-status">
-        <button class="btn sm" on:click={() => openUpdateDialog()}>
-          <RefreshCw />{$t('settings.update.check')}
-        </button>
-        <span class="hint">
-          {updatePrefs.lastCheckedAt
-            ? $t('settings.update.lastChecked', { time: lastChecked })
-            : $t('settings.update.neverChecked')}
-        </span>
+
+    {#if $trayReady}
+      <div class="card">
+        <h3>{$t('settings.tray.title')}</h3>
+        <div class="field">
+          <span class="flabel">{$t('settings.tray.icon.label')}<HelpTip title={$t('settings.tray.icon.helpTitle')} label={$t('settings.tray.icon.helpLabel')}>
+              <span class="fhelp-p">{$t('settings.tray.icon.help')}</span>
+            </HelpTip></span
+          >
+          <div class="seg" use:segSlide>
+            {#each TRAY_STYLES as s (s.value)}
+              <button
+                class:active={trayIconStyle === s.value}
+                on:click={() => void setTrayIconStyle(s.value)}
+                >{$t(s.labelKey)}</button
+              >
+            {/each}
+          </div>
+        </div>
+        <div class="field">
+          <span class="flabel">{$t('settings.tray.close.label')}<HelpTip title={$t('settings.tray.close.helpTitle')} label={$t('settings.tray.close.helpLabel')}>
+              <span class="fhelp-p">{$t('settings.tray.close.help')}</span>
+            </HelpTip></span
+          >
+          <div class="seg" use:segSlide>
+            {#each TRAY_CLOSE_MODES as m (m.value)}
+              <button
+                class:active={closeToTray === m.value}
+                on:click={() => setCloseToTray(m.value)}
+                >{$t(m.labelKey)}</button
+              >
+            {/each}
+          </div>
+        </div>
       </div>
-    </div>
+    {/if}
   </div>
 
   <div class="card col2">

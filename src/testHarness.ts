@@ -91,6 +91,7 @@ let config: AppConfig = {
     codeFont: null,
   },
   update: { autoCheck: false, frequency: 'launch', lastCheckedAt: null },
+  tray: { iconStyle: 'color', closeToTray: false },
 };
 
 let statusSequence = 1;

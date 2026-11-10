@@ -18,8 +18,10 @@ import {
   DEFAULT_LANGUAGE,
   isLanguagePref,
   resolvedLang,
+  translateNow,
   type MessageKey,
 } from './i18n';
+import { decideCloseAction } from './closeAction';
 import { sortDevices } from './deviceSort';
 import { acceptStatusSequence, reduceDeviceList } from './deviceSnapshot';
 import {
@@ -49,8 +51,14 @@ import {
   clearSessionLog as clearSessionLogCmd,
   bringMainWindowToFront as bringMainWindowToFrontCmd,
   checkAppUpdate,
+  getTrayStatus,
+  setTrayIconStyle as setTrayIconStyleCmd,
+  setTrayMenuLabels,
+  setTrayHidden,
+  markAppExiting,
   EVENT_DEVICE_STATUS,
   EVENT_SESSION_CHANGED,
+  EVENT_TRAY_QUIT,
 } from './api';
 import type {
   AppConfig,
@@ -73,6 +81,8 @@ import type {
   SortDirection,
   SortMode,
   SystemFont,
+  TrayIconStyle,
+  TrayPrefs,
   UiPrefs,
   UpdateFrequency,
   UpdatePrefs,
@@ -200,6 +210,75 @@ export function setUiFont(uiFont: string | null): void {
 /** 代码字体（设置页）：`null` 表示系统默认。 */
 export function setCodeFont(codeFont: string | null): void {
   config.update((c) => (c ? { ...c, ui: { ...uiOf(c), codeFont } } : c));
+  scheduleSave();
+}
+
+// ── 托盘偏好（app-tray）────────────────────────────────────
+//
+// 本次只有 Windows 创建托盘；字段与界面语义保持平台无关，macOS / Linux 后续接入时复用。
+// 两项都落在 `config.tray`，复用既有去抖保存；托盘是否可用由后端在运行期给出，
+// 前端不读平台名 —— 设置卡片与关闭决策都以这个信号为判据。
+
+const DEFAULT_TRAY: TrayPrefs = { iconStyle: 'color', closeToTray: false };
+
+/** 托盘是否真的可用（Windows 且创建成功才为 true）。 */
+export const trayReady = writable(false);
+
+function trayOf(c: AppConfig | null): TrayPrefs {
+  return c?.tray ?? DEFAULT_TRAY;
+}
+
+/** 原生菜单文案随生效语言下发；托盘不可用时后端空操作。 */
+async function syncTrayMenuLabels(): Promise<void> {
+  try {
+    await setTrayMenuLabels(translateNow('tray.menu.show'), translateNow('tray.menu.quit'));
+  } catch (e) {
+    console.error('同步托盘菜单文案失败', e);
+  }
+}
+
+resolvedLang.subscribe(() => void syncTrayMenuLabels());
+
+/** 启动时读取托盘能力并同步一次菜单文案。 */
+export async function initTray(): Promise<void> {
+  try {
+    trayReady.set(await getTrayStatus());
+  } catch (e) {
+    console.error('读取托盘状态失败', e);
+  }
+  await syncTrayMenuLabels();
+}
+
+/**
+ * 图标样式（设置页）：改配置 → 立即换图 → 去抖落盘。
+ *
+ * 换图失败时把配置改回原值并落盘，避免界面显示一种、托盘却是另一种。
+ * `trayIconSeq` 防止连续点击时先失败的那次把后一次的取值回滚。
+ */
+let trayIconSeq = 0;
+export async function setTrayIconStyle(iconStyle: TrayIconStyle): Promise<void> {
+  const current = trayOf(get(config)).iconStyle;
+  if (current === iconStyle) return;
+  const seq = ++trayIconSeq;
+  config.update((c) => (c ? { ...c, tray: { ...trayOf(c), iconStyle } } : c));
+  scheduleSave();
+  try {
+    await setTrayIconStyleCmd(iconStyle);
+  } catch (e) {
+    if (seq !== trayIconSeq) return;
+    config.update((c) =>
+      c ? { ...c, tray: { ...trayOf(c), iconStyle: current } } : c,
+    );
+    scheduleSave();
+    console.error('切换托盘图标失败，已恢复原样式', e);
+  }
+}
+
+/** 关闭窗口时的行为（设置页）：改配置 → 下次关闭生效 → 去抖落盘。 */
+export function setCloseToTray(closeToTray: boolean): void {
+  config.update((c) =>
+    c ? { ...c, tray: { ...trayOf(c), closeToTray } } : c,
+  );
   scheduleSave();
 }
 
@@ -507,8 +586,8 @@ function applyConfig(c: AppConfig): void {
   //   · 默认参数：整体保留本地那份；
   //   · 覆盖表：只保留**新配置里仍然存在**的设备 —— 被删设备的覆盖必须以后端为准
   //     （后端已连带清除），留下就是「复活」；
-  //   · ui / logging / update：前端写入的偏好，后端返回的配置尚未包含去抖窗口里的改动，
-  //     整体保留本地副本。
+  //   · ui / logging / update / tray：前端写入的偏好，后端返回的配置尚未包含去抖窗口里的
+  //     改动，整体保留本地副本。
   // 其余字段（通道、运行环境目录）一律以后端为准 —— 后端已落盘。
   const local = get(config);
   if (dirty && local) {
@@ -526,6 +605,7 @@ function applyConfig(c: AppConfig): void {
       ui: local.ui,
       logging: local.logging,
       update: local.update,
+      tray: local.tray,
     });
   } else {
     config.set({
@@ -797,7 +877,10 @@ async function bringMainWindowToFront(): Promise<void> {
  * 两处必须守住：
  * - **基线**：以订阅那一刻的计数为基线（`last`），因此「启动时本来就是 0」不会被当成一次跃迁；
  * - **退出中不触发**：应用退出会结束全部会话、已连接数同样归零，但那一刻用户要的是退出
- *   （`closeHandled` 是关窗钩子已经接管的标志，见 `registerFlushOnClose`）。
+ *   （`quitting` 是真退出分支已经开始的标志，见 `quitApplication`）。
+ *
+ * 用户主动收进托盘时这里照常调用；Rust 侧按 `USER_HIDDEN` 拒绝显示并写日志 ——
+ * 判据只有一处，前端不必再维护一份隐藏状态。
  *
  * 前台化失败只落控制台：真正的复核出口是 Rust 侧写进日志的那一行。
  */
@@ -805,7 +888,7 @@ export function watchLastDisconnect(): void {
   let last = get(deviceCounts).connected;
   deviceCounts.subscribe((counts) => {
     const now = counts.connected;
-    if (last > 0 && now === 0 && !closeHandled) {
+    if (last > 0 && now === 0 && !quitting) {
       void bringMainWindowToFront().catch((e) => console.error('把主窗口带回前台失败', e));
     }
     last = now;
@@ -905,7 +988,8 @@ export async function toggleWindowMaximize(): Promise<void> {
  * 关闭主窗口（自绘标题栏的关闭键）。
  *
  * 走的就是系统关闭按钮那条路：`close()` 触发 `close-requested`，由 `registerFlushOnClose`
- * 拦下、先落盘再 `destroy()`。**不引入第二套退出逻辑，也不加二次确认**。
+ * 拦下、先落盘，再按 `tray.closeToTray` 收进托盘或 `destroy()` 退出。
+ * **不引入第二套退出逻辑，也不加二次确认**。
  */
 export async function closeWindow(): Promise<void> {
   try {
@@ -1143,14 +1227,64 @@ export async function flushSave(): Promise<void> {
   }
 }
 
-/** 是否已经处理过一次关窗（见下方：防止 destroy 失败后窗口被锁死）。 */
-let closeHandled = false;
+/** 本次关闭正在处理：防重复点击；隐藏成功后复位。 */
+let closing = false;
+/** 真退出已经开始：供 `watchLastDisconnect` 与托盘退出复用判断。 */
+let quitting = false;
+/** 销毁失败后放行一次原生关闭，避免窗口锁死（不再使用一次性闩锁）。 */
+let allowNativeClose = false;
+/** 关闭退出与托盘退出共用同一个在途退出动作，避免两套销毁流程并发。 */
+let quitInFlight: Promise<void> | null = null;
+
+/** 落盘上限：卡住窗口比丢一次改动更糟。 */
+const FLUSH_TIMEOUT_MS = 800;
+
+async function flushBeforeClose(): Promise<void> {
+  await Promise.race([
+    flushSave(),
+    new Promise((resolve) => setTimeout(resolve, FLUSH_TIMEOUT_MS)),
+  ]);
+}
+
+async function destroyWindow(): Promise<void> {
+  const win = getCurrentWindow();
+  try {
+    await win.destroy();
+  } catch (e) {
+    // 退一步请求按原生方式关闭：放行后本回调不会再拦它。
+    console.error('销毁窗口失败，改为请求原生关闭', e);
+    allowNativeClose = true;
+    await win.close().catch((err) => console.error('关闭窗口失败', err));
+  }
+}
 
 /**
- * 关窗前刷一次未落盘的改动（tasks 5.2）。
+ * 真退出：置退出中 → 落盘 → 销毁。
  *
- * 先拦下关窗动作，落盘完成后再真正销毁窗口；落盘失败或超时都照常关闭 ——
- * 卡住窗口比丢一次改动更糟。
+ * 关闭键的退出分支与托盘「退出」共用这一个在途 Promise；`markAppExiting` 在落盘前
+ * 调用，覆盖「落盘到销毁」之间再次启动会把窗口拉回前台的空窗。
+ */
+function quitApplication(): Promise<void> {
+  if (!quitInFlight) {
+    quitInFlight = (async () => {
+      quitting = true;
+      try {
+        await markAppExiting();
+      } catch (e) {
+        console.error('标记应用退出中失败', e);
+      }
+      await flushBeforeClose();
+      await destroyWindow();
+    })();
+  }
+  return quitInFlight;
+}
+
+/**
+ * 关窗前刷一次未落盘的改动，再按偏好隐藏到托盘或退出（tasks 5.2 / app-tray）。
+ *
+ * 隐藏分支不置退出中，避免收进托盘被单例当成「正在退出」；隐藏失败时退回退出，
+ * 不能把窗口留在关不掉的状态。
  *
  * **依赖能力声明**：`destroy` / `close` 都不在 `core:default` 里，必须由
  * `src-tauri/capabilities/default.json` 显式授予 `core:window:allow-destroy`。
@@ -1160,21 +1294,33 @@ let closeHandled = false;
 async function registerFlushOnClose(): Promise<void> {
   const win = getCurrentWindow();
   await win.onCloseRequested(async (event) => {
-    // 已经拦过一次就不再拦：万一销毁失败（权限缺失 / IPC 异常），第二次点关闭
-    // 必须能走原生路径退出，不能把窗口锁死。
-    if (closeHandled) return;
-    closeHandled = true;
+    if (allowNativeClose) return;
     event.preventDefault();
-    await Promise.race([
-      flushSave(),
-      new Promise((resolve) => setTimeout(resolve, 800)),
-    ]);
+    if (closing) return;
+    closing = true;
     try {
-      await win.destroy();
-    } catch (e) {
-      // 退一步请求按原生方式关闭：上面已置 closeHandled，这次不会再被本回调拦住。
-      console.error('销毁窗口失败，改为请求原生关闭', e);
-      await win.close().catch((err) => console.error('关闭窗口失败', err));
+      await flushBeforeClose();
+      const action = decideCloseAction({
+        closeToTray: trayOf(get(config)).closeToTray,
+        trayReady: get(trayReady),
+        quitting,
+      });
+      if (action === 'hide') {
+        try {
+          await setTrayHidden(true);
+          await win.hide();
+          console.info('主窗口已收进托盘，投屏会话继续运行');
+          return;
+        } catch (e) {
+          console.error('收进托盘失败，改为退出', e);
+          await setTrayHidden(false).catch((err) =>
+            console.error('清除托盘隐藏状态失败', err),
+          );
+        }
+      }
+      await quitApplication();
+    } finally {
+      closing = false;
     }
   });
 }
@@ -1278,6 +1424,12 @@ export async function updateScrcpyDir(path: string | null): Promise<void> {
 export async function initApp(): Promise<void> {
   // 关窗前刷未落盘改动的钩子（tasks 5.2）；注册失败只记录，不影响其它初始化。
   registerFlushOnClose().catch((e) => console.error('注册关窗保存钩子失败', e));
+  // 托盘能力与原生菜单文案：与配置读取并行，不阻塞首屏。
+  void initTray();
+  // 托盘「退出」复用关闭流程的退出分支：落盘后再销毁窗口，不另立一套退出逻辑。
+  void listen(EVENT_TRAY_QUIT, () => void quitApplication()).catch((e) =>
+    console.error('订阅托盘退出事件失败', e),
+  );
   // 标题栏所需的两处窗口状态（app-shell 规格「自定义标题栏」）：不等它 —— 外壳先上屏，
   // 查询通常在首帧绘制之前就回来（本地 IPC），因此不会出现控件后到的跳动。
   void initWindowChrome();
@@ -1326,6 +1478,7 @@ export async function initApp(): Promise<void> {
         codeFont: null,
       },
       update: DEFAULT_UPDATE,
+      tray: DEFAULT_TRAY,
     });
   }
   try {

@@ -309,6 +309,20 @@ export interface UpdatePrefs {
   lastCheckedAt: number | null;
 }
 
+/** 托盘图标样式（`tray.iconStyle`）：彩色为出厂默认。 */
+export type TrayIconStyle = 'color' | 'white' | 'black';
+
+/**
+ * 托盘偏好（后端 `config::TrayPrefs`）。
+ *
+ * 本次只有 Windows 使用；字段保持平台无关，macOS / Linux 后续接入时直接复用。
+ */
+export interface TrayPrefs {
+  iconStyle: TrayIconStyle;
+  /** 关闭主窗口时是否收进托盘；出厂 `false`（与引入托盘前一致）。 */
+  closeToTray: boolean;
+}
+
 export interface AppConfig {
   schemaVersion: number;
   /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
@@ -321,6 +335,7 @@ export interface AppConfig {
   logging: Logging;
   ui: UiPrefs;
   update: UpdatePrefs;
+  tray: TrayPrefs;
   /**
    * 主窗口上次退出时的普通几何（物理像素）；后端拥有并维护，前端只读回显，
    * 保存配置时不参与合并。缺省表示尚无保存几何。

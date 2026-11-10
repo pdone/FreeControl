@@ -793,6 +793,16 @@ textarea,
 .card.col2 {
   grid-column: span 2;
 }
+/* 设置页右列：自动更新与托盘两张卡叠放。子卡按内容高度分配剩余空间 ——
+   非 Windows 不渲染托盘卡时，自动更新仍拉伸到与外观等高，右下不露出页面底色。 */
+.card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.card-stack > .card {
+  flex: 1 1 auto;
+}
 .card h3 {
   font-size: 11.5px;
   font-weight: 600;

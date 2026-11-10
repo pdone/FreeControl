@@ -521,6 +521,83 @@ fn normalize_hex(raw: &str) -> Option<String> {
     Some(s.to_ascii_lowercase())
 }
 
+/// 托盘图标样式取值（自描述字符串）。
+///
+/// 本次只在 Windows 使用，但配置形状保持平台无关：macOS / Linux 后续接入时直接复用，
+/// 不新增字段，也不迁移旧配置。
+pub const TRAY_ICON_COLOR: &str = "color";
+pub const TRAY_ICON_WHITE: &str = "white";
+pub const TRAY_ICON_BLACK: &str = "black";
+
+/// 出厂默认托盘图标：彩色（同一份资产在深色与浅色任务栏上都可辨认）。
+pub const DEFAULT_TRAY_ICON: &str = TRAY_ICON_COLOR;
+
+/// 托盘偏好（`tray` 段）：图标样式与关闭窗口时的行为。
+///
+/// 两项都是**用户偏好**，与 scrcpy 参数无关；后端只存取与降级。字段保持平台无关 ——
+/// 非 Windows 平台不展示设置也不创建托盘，但读到同一份配置时照常按默认值处理。
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayPrefs {
+    /// "color" | "white" | "black"
+    #[serde(
+        default = "default_tray_icon",
+        deserialize_with = "deserialize_tray_icon_style"
+    )]
+    pub icon_style: String,
+    /// 关闭主窗口时是否收进托盘；出厂 `false`（与引入托盘前一致）。
+    #[serde(default, deserialize_with = "deserialize_lossy_bool")]
+    pub close_to_tray: bool,
+}
+
+fn default_tray_icon() -> String {
+    DEFAULT_TRAY_ICON.to_string()
+}
+
+/// 图标样式的宽容反序列化：非字符串按出厂默认处理。
+///
+/// 与字体字段同一口径：手工把 `iconStyle` 写成数字 / 数组，不该让整份配置读不出来。
+fn deserialize_tray_icon_style<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match raw {
+        Some(serde_json::Value::String(style)) => style,
+        _ => default_tray_icon(),
+    })
+}
+
+/// 关闭偏好的宽容反序列化：只有显式 `true` 才算开启，其它结构一律按 `false`。
+fn deserialize_lossy_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(matches!(raw, Some(serde_json::Value::Bool(true))))
+}
+
+impl Default for TrayPrefs {
+    fn default() -> Self {
+        TrayPrefs {
+            icon_style: default_tray_icon(),
+            close_to_tray: false,
+        }
+    }
+}
+
+impl TrayPrefs {
+    /// 加载时归一化：未知样式退彩色；关闭偏好已是布尔，无需额外处理。
+    pub fn normalize(&mut self) {
+        if !matches!(
+            self.icon_style.as_str(),
+            TRAY_ICON_COLOR | TRAY_ICON_WHITE | TRAY_ICON_BLACK
+        ) {
+            self.icon_style = default_tray_icon();
+        }
+    }
+}
+
 /// 自动检查频率取值（自描述字符串，不用数字档位）。
 pub const FREQ_LAUNCH: &str = "launch";
 pub const FREQ_DAILY: &str = "daily";
@@ -622,6 +699,9 @@ pub struct AppConfig {
     /// 更新检查偏好。缺字段时取出厂默认，老配置文件照常可读。
     #[serde(default)]
     pub update: Update,
+    /// 托盘偏好。缺字段时取出厂默认；本次只有 Windows 使用，但配置形状保持平台无关。
+    #[serde(default)]
+    pub tray: TrayPrefs,
     /// 主窗口上次退出时的普通几何。缺字段时按「无保存几何」处理，首次启动仍用默认尺寸。
     #[serde(default)]
     pub window: Option<WindowGeometry>,
@@ -648,6 +728,7 @@ impl AppConfig {
             logging: Logging::default(),
             ui: Ui::default(),
             update: Update::default(),
+            tray: TrayPrefs::default(),
             window: None,
         }
     }
@@ -842,6 +923,8 @@ pub fn load_config_from(path: &Path) -> Result<AppConfig, String> {
     cfg.ui.normalize();
     // 更新检查偏好归一化：未知频率退「每次启动」。
     cfg.update.normalize();
+    // 托盘偏好归一化：未知图标样式退彩色；关闭偏好已在反序列化时按 false 兜底。
+    cfg.tray.normalize();
     // 设备排序偏好归一化：旧配置没有该段时按手动 + 登记顺序补齐。
     cfg.device_list.normalize(&cfg.devices);
     Ok(cfg)
@@ -987,7 +1070,7 @@ where
 }
 
 /// 合并前端保存的配置：只接受前端拥有的字段，其余以后端最新值（`latest`）为准。
-fn merge_frontend_config(latest: &AppConfig, incoming: AppConfig) -> AppConfig {
+fn merge_frontend_config(latest: &AppConfig, mut incoming: AppConfig) -> AppConfig {
     let mut merged = latest.clone();
     merged.defaults = incoming.defaults;
     merged.overrides = incoming
@@ -998,6 +1081,9 @@ fn merge_frontend_config(latest: &AppConfig, incoming: AppConfig) -> AppConfig {
     merged.ui = incoming.ui;
     merged.logging = incoming.logging;
     merged.update = incoming.update;
+    // 前端写入的托盘偏好照常合并；落盘前再归一化一次，防止手工调用命令写入未知样式。
+    incoming.tray.normalize();
+    merged.tray = incoming.tray;
     merged
 }
 
@@ -2060,6 +2146,8 @@ mod tests {
             x: 0,
             y: 0,
         });
+        incoming.tray.icon_style = TRAY_ICON_BLACK.to_string();
+        incoming.tray.close_to_tray = true;
 
         let merged = merge_frontend_config(&latest, incoming);
 
@@ -2073,6 +2161,57 @@ mod tests {
         assert_eq!(merged.window, latest.window, "窗口几何归后端所有，前端保存不得覆盖");
         assert!(merged.overrides.is_empty(), "已删设备的覆盖不得复活");
         assert_eq!(merged.defaults["video"]["bitrate"], 8, "前端拥有的字段照常合并");
+        assert_eq!(merged.tray.icon_style, TRAY_ICON_BLACK);
+        assert!(merged.tray.close_to_tray);
+    }
+
+    #[test]
+    fn tray_prefs_default_and_lossy_read() {
+        let dir = unique_temp_dir("tray-default");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+
+        // 旧配置没有 tray 段：两项都取出厂默认。
+        fs::write(&path, r#"{"devices":[]}"#).unwrap();
+        let cfg = load_config_from(&path).unwrap();
+        assert_eq!(cfg.tray.icon_style, TRAY_ICON_COLOR);
+        assert!(!cfg.tray.close_to_tray);
+
+        // 手工改坏两项：样式退彩色、关闭偏好退 false，其它字段照常读出。
+        fs::write(
+            &path,
+            r#"{"devices":[],"tray":{"iconStyle":"purple","closeToTray":"yes"}}"#,
+        )
+        .unwrap();
+        let cfg = load_config_from(&path).unwrap();
+        assert_eq!(cfg.tray.icon_style, TRAY_ICON_COLOR);
+        assert!(!cfg.tray.close_to_tray);
+        assert_eq!(cfg.channels.proxies, DEFAULT_PROXIES.to_vec());
+
+        // 非布尔结构同样按 false 处理，而不是让整份配置读不出来。
+        fs::write(&path, r#"{"devices":[],"tray":{"closeToTray":1}}"#).unwrap();
+        assert!(!load_config_from(&path).unwrap().tray.close_to_tray);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tray_prefs_round_trip_through_disk() {
+        let dir = unique_temp_dir("tray-roundtrip");
+        let path = config_path_in(&dir);
+        let mut cfg = AppConfig::fresh();
+        cfg.tray.icon_style = TRAY_ICON_WHITE.to_string();
+        cfg.tray.close_to_tray = true;
+
+        save_config_to(&path, &cfg).unwrap();
+        let loaded = load_config_from(&path).unwrap();
+
+        assert_eq!(loaded.tray.icon_style, TRAY_ICON_WHITE);
+        assert!(loaded.tray.close_to_tray);
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"tray\""));
+        assert!(raw.contains("\"iconStyle\": \"white\""));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

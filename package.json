@@ -19,7 +19,7 @@
     "app:dev": "tauri dev",
     "app:build": "tauri build --no-bundle",
     "test:rs": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
-    "test:web": "node --experimental-strip-types --test src/lib/deviceSort.test.mjs",
+    "test:web": "node --experimental-strip-types --test \"src/lib/*.test.mjs\"",
     "verify": "npm run check:version && npm run check:icons && npm run check && npm run test:rs && npm run build",
     "tauri": "tauri"
   },

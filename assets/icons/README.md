@@ -110,7 +110,7 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 
 若托盘图标要跟随主题切换，前端监听 `getCurrentWindow().theme()`，Rust 侧 `tray.set_icon(...)` 切换 `tray-64-white.png` / `tray-64-black.png` —— 同样用 `include_image!` 预定义两个常量。
 
-> `tray/` 的这几个变体由生成流程按母版产出（`tray-64-color` 是底板变体，其余是图形剪影的单色染色）。v1 未启用托盘图标，这批文件只在包内保留；将来启用时注意地板值在深色托盘上的可辨识度。
+> `tray/` 的这几个变体由生成流程按母版产出（`tray-64-color` 是底板变体，`tray-64-transparent` 与白 / 黑两档是图形剪影）。Windows 托盘三档样式已启用：彩色档取 `tray-64-color`，白色 / 黑色档用于跟随深浅任务栏，`tray-64-transparent` 不用于托盘。
 
 ## 5. Logo 用法建议
 

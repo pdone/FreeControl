@@ -20,6 +20,7 @@ mod window_state;
 mod webview_env;
 mod fonts;
 mod instance;
+mod tray;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -91,6 +92,11 @@ const FALLBACK_REVEAL_AFTER_START: Duration = Duration::from_millis(10_000);
 fn spawn_reveal_fallback(app: tauri::AppHandle, delay: Duration, reason: &'static str) {
     std::thread::spawn(move || {
         std::thread::sleep(delay);
+        // 用户主动收进托盘不是「前端没显示出来」：兜底只服务首次呈现，
+        // 不该把用户刚藏起来的窗口重新弹回屏幕。
+        if tray::user_hidden() {
+            return;
+        }
         let Some(window) = app.get_webview_window("main") else {
             return;
         };
@@ -131,6 +137,15 @@ fn spawn_reveal_fallback(app: tauri::AppHandle, delay: Duration, reason: &'stati
 /// 一套「显示 / 恢复 / 前置 / 焦点尽力」口径，不另写一份。
 #[tauri::command]
 fn bring_main_window_to_front(app: tauri::AppHandle) -> Result<(), String> {
+    // 用户主动收进托盘后，会话结束不应把窗口重新弹出；前端照常调用，
+    // 由 Rust 侧按同一份隐藏态拒绝，避免前后端各存一份判据。
+    if tray::user_hidden() {
+        logger::info(
+            "app",
+            "主窗口已收进托盘（最后一个设备已断开），跳过前台化",
+        );
+        return Ok(());
+    }
     present_main_window(&app, "最后一个设备已断开")
 }
 
@@ -139,12 +154,19 @@ pub(crate) fn present_main_window<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     reason: &str,
 ) -> Result<(), String> {
+    // 注意：这里先不查 `USER_HIDDEN` —— 托盘显示与再次启动正是要把隐藏窗口重新呈现。
+    // 最后设备断开的前台化走 `bring_main_window_to_front`，那里才做抑制。
+    if tray::user_hidden() {
+        logger::info("app", format!("主窗口从托盘恢复（{reason}）"));
+    }
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "未找到主窗口".to_string())?;
     window
         .show()
         .map_err(|e| format!("显示主窗口失败：{e}"))?;
+    // 真正显示后才清除隐藏态：显示失败时下一次自动前台化仍应被抑制。
+    tray::clear_user_hidden();
     if let Err(e) = window.unminimize() {
         // 窗口没最小化时这一步没有意义，失败也不影响后续 —— 记一行即可。
         logger::warn("app", format!("主窗口恢复（unminimize）失败：{e}"));
@@ -234,8 +256,8 @@ fn main() {
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { .. } => {
                 // 关窗时同步取一次：前端随后会 `destroy`，此后窗口句柄不再可读。
+                // 是否真退出由前端按关闭偏好决定，这里不置退出中 —— 收进托盘不是退出。
                 window_state::track(window);
-                instance::mark_exiting();
             }
             // 只记普通状态下的几何；延迟到状态稳定再判定，避开最大化过渡的第一帧
             // （见 `window_state::schedule_track`）。
@@ -255,6 +277,8 @@ fn main() {
             }
         })
         .setup(|app| {
+            // 托盘句柄的托管状态必须先于创建：命令与托盘回调都从这里取句柄。
+            app.manage(tray::TrayState::default());
             let handle = app.handle().clone();
             let loaded = config::load_config(&handle);
             let cfg = loaded.clone().unwrap_or_default();
@@ -283,6 +307,13 @@ fn main() {
                 config::cleanup_stale_tmp(&root);
                 // 应用更新：未应用的待更新包与替换时的旧版本备份只在本次运行内有效。
                 app_update::cleanup_stale(&handle);
+            }
+            // 托盘：本次只在 Windows 创建；失败只记日志，应用照常以「关闭即退出」运行。
+            // 初始菜单文案按配置语言给一份，前端就绪后会按 i18n 字典再同步一次。
+            if tray::supported() {
+                if let Err(e) = tray::create(&handle, &cfg.tray, &cfg.ui.language) {
+                    logger::warn("app", e);
+                }
             }
             // 窗口图标按显示器 DPI 供给原生层（design D1）。放在这里的前提是 config 声明的窗口
             // 已先于本钩子创建（见 tauri 的 `app::setup`），此时窗口句柄才有效。
@@ -375,6 +406,11 @@ fn main() {
             links::open_external_link,
             logger::open_log_dir,
             bring_main_window_to_front,
+            tray::get_tray_status,
+            tray::set_tray_icon_style,
+            tray::set_tray_menu_labels,
+            tray::set_tray_hidden,
+            instance::mark_app_exiting,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -394,6 +430,9 @@ fn main() {
             // 会话由本应用持有：退出前结束它们，否则会留下无人管理、也无人能断开的投屏窗口。
             if let tauri::RunEvent::Exit = event {
                 session::shutdown_all(handle);
+                // 必须在进程结束前摘掉：Tauri 在本次事件后直接 `process::exit`，托管状态不会
+                // 析构，漏掉这一步会在通知区留下需要鼠标划过才消失的残留图标。
+                tray::dispose(&handle);
                 // adb 服务端**不**在退出时结束：它与其设备连接留给下次启动复用，退出清场对
                 // 「下载最新版本」毫无贡献 —— 替换前那一刻会自行结束它（design D1）。
                 // 退出行写在各会话的结束行**之后**：顺序反了会把「会话被应用主动结束」
@@ -462,6 +501,47 @@ mod tests {
             perms.iter().any(|p| p == "core:window:allow-show"),
             "启动期放窗口出来依赖 core:window:allow-show，但 capabilities/default.json 未声明：{:?}",
             perms
+        );
+    }
+
+    /// 能力声明必须授予「收进托盘」用到的 `hide`。
+    ///
+    /// `store.ts::registerFlushOnClose` 在隐藏分支先置 `set_tray_hidden(true)` 再 `win.hide()`；
+    /// `hide` **不在** `core:default` 里。缺权限时前置标记已写成功、隐藏却被拒，关闭流程会落进
+    /// 「隐藏失败改退出」的回退分支 —— 表现为「开了收进托盘，点关闭仍然退出」，日志顺序是
+    /// `主窗口已收进托盘 → 主窗口隐藏状态已清除 → 关闭请求：按直接退出处理`。
+    #[test]
+    fn capability_grants_window_hide_permission() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/capabilities/default.json");
+        let raw = std::fs::read_to_string(path).unwrap();
+        let json: Value = serde_json::from_str(&raw).unwrap();
+        let perms: Vec<String> = json["permissions"]
+            .as_array()
+            .expect("capabilities 必须有 permissions 数组")
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect();
+
+        assert!(
+            perms.iter().any(|p| p == "core:window:allow-hide"),
+            "收进托盘依赖 core:window:allow-hide，但 capabilities/default.json 未声明：{:?}",
+            perms
+        );
+    }
+
+    /// 进程退出前必须显式移除托盘图标。
+    ///
+    /// Tauri 的 `run` 在 `RunEvent::Exit` 回调之后直接 `std::process::exit`，托管状态与资源表
+    /// 都不会析构；漏掉 `tray::dispose` 的失效方式是退出后通知区残留图标、鼠标划过才消失 ——
+    /// 功能不报错，只在真机上看得到，故直接读源码断言这行还在。
+    #[test]
+    fn exit_event_disposes_tray_icon() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/main.rs");
+        let raw = std::fs::read_to_string(path).unwrap();
+
+        assert!(
+            raw.contains("tray::dispose(&handle)"),
+            "`RunEvent::Exit` 分支必须调用 `tray::dispose`：否则退出后托盘图标会残留在通知区"
         );
     }
 

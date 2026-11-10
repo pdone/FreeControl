@@ -35,6 +35,7 @@
 - **Interface scale** — enlarge the whole interface from the Settings page in four steps (100% / 115% / 130% / 150%), with text, icons and spacing growing together; the step is saved with your configuration
 - **Interface and code fonts** — choose separate fonts for the interface and code areas on the Settings page, with missing glyphs falling back to the matching system stack
 - **Interface language** — switch the UI between Chinese and English on the Settings page, or follow the system
+- **Tray (Windows)** — keep the app in the notification area when the window closes so mirroring continues; reopen or quit from the tray menu, and pick a color, white or black icon to match the taskbar
 
 ## Interface
 
@@ -185,6 +186,10 @@ The "Settings" page has a one-click shortcut to the log directory; the files liv
 ### adb is still running after I quit the app
 
 That is intentional: quitting does not stop the adb server, so wireless connections survive the exit and are reused on the next launch.
+
+### Does the app keep running after I close the window
+
+By default, no: closing the main window quits the app and ends running mirroring sessions. In Settings → Tray, set When closing to Minimize to tray and closing the window only hides the app in the notification area while mirroring continues. To quit for good, right-click the tray icon and choose Quit. The tray and this setting appear on Windows only.
 
 ## License
 

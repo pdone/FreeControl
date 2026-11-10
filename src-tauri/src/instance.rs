@@ -50,6 +50,14 @@ pub fn is_exiting() -> bool {
     EXITING.load(Ordering::SeqCst)
 }
 
+/// 真退出分支开始处由前端调用：覆盖「落盘到销毁」之间再次启动会把窗口拉回前台的
+/// 空窗。收进托盘不走这里 —— 那个分支不会置退出中。
+#[tauri::command]
+pub fn mark_app_exiting() {
+    mark_exiting();
+    logger::info("app", "关闭请求：按直接退出处理");
+}
+
 /// 第二个进程被判定为「已有实例」后的回调。
 ///
 /// 这里只做三件事：记下启动参数与工作目录（当前没有 CLI 语义，留作排查）、检查是否正在退出、
@@ -96,6 +104,13 @@ pub fn on_second_launch<R: tauri::Runtime>(
             format!("再次启动：启动参数 {args:?}，工作目录 {cwd}"),
         );
         if is_exiting() {
+            return;
+        }
+        // 用户主动收进托盘不是「冷启动还没显示」：立即呈现，不等首帧期限。
+        // 这里只认隐藏态，不改 `USER_HIDDEN` —— 呈现成功后由 `present_main_window` 统一清除。
+        if crate::tray::user_hidden() {
+            logger::info("app", "再次启动：主窗口已收进托盘，立即呈现");
+            present(&app, "再次启动");
             return;
         }
 
