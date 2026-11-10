@@ -33,11 +33,43 @@ const TRAY_ID: &str = "main";
 /// 又不至于让用户觉得点了退出没反应。
 const QUIT_WATCHDOG: Duration = Duration::from_millis(1500);
 
-// 三个变体都来自 `assets/icons/tray`（64×64），不新建或改写资产。
-// 彩色档用带圆角底板的 `tray-64-color`：通知区里保留完整品牌徽标；白 / 黑两档是透明剪影。
-const ICON_COLOR: &[u8] = include_bytes!("../../assets/icons/tray/tray-64-color.png");
-const ICON_WHITE: &[u8] = include_bytes!("../../assets/icons/tray/tray-64-white.png");
-const ICON_BLACK: &[u8] = include_bytes!("../../assets/icons/tray/tray-64-black.png");
+// 三个变体都来自 `assets/icons/tray`，按 Windows 小图标尺寸各备一份原生层：
+// 系统把 64px HICON 直接缩到 16px 时走低质量缩放，边缘会出现明显锯齿，
+// 所以运行期按主屏缩放在这些层里取最接近的一档，而不是永远给 64px。
+// 彩色档用纯色 `#FCCD01` 透明剪影，白 / 黑两档是单色剪影。
+const ICON_COLOR: &[(u32, &[u8])] = &[
+    (16, include_bytes!("../../assets/icons/tray/tray-16-color.png")),
+    (20, include_bytes!("../../assets/icons/tray/tray-20-color.png")),
+    (24, include_bytes!("../../assets/icons/tray/tray-24-color.png")),
+    (28, include_bytes!("../../assets/icons/tray/tray-28-color.png")),
+    (32, include_bytes!("../../assets/icons/tray/tray-32-color.png")),
+    (36, include_bytes!("../../assets/icons/tray/tray-36-color.png")),
+    (40, include_bytes!("../../assets/icons/tray/tray-40-color.png")),
+    (48, include_bytes!("../../assets/icons/tray/tray-48-color.png")),
+    (64, include_bytes!("../../assets/icons/tray/tray-64-color.png")),
+];
+const ICON_WHITE: &[(u32, &[u8])] = &[
+    (16, include_bytes!("../../assets/icons/tray/tray-16-white.png")),
+    (20, include_bytes!("../../assets/icons/tray/tray-20-white.png")),
+    (24, include_bytes!("../../assets/icons/tray/tray-24-white.png")),
+    (28, include_bytes!("../../assets/icons/tray/tray-28-white.png")),
+    (32, include_bytes!("../../assets/icons/tray/tray-32-white.png")),
+    (36, include_bytes!("../../assets/icons/tray/tray-36-white.png")),
+    (40, include_bytes!("../../assets/icons/tray/tray-40-white.png")),
+    (48, include_bytes!("../../assets/icons/tray/tray-48-white.png")),
+    (64, include_bytes!("../../assets/icons/tray/tray-64-white.png")),
+];
+const ICON_BLACK: &[(u32, &[u8])] = &[
+    (16, include_bytes!("../../assets/icons/tray/tray-16-black.png")),
+    (20, include_bytes!("../../assets/icons/tray/tray-20-black.png")),
+    (24, include_bytes!("../../assets/icons/tray/tray-24-black.png")),
+    (28, include_bytes!("../../assets/icons/tray/tray-28-black.png")),
+    (32, include_bytes!("../../assets/icons/tray/tray-32-black.png")),
+    (36, include_bytes!("../../assets/icons/tray/tray-36-black.png")),
+    (40, include_bytes!("../../assets/icons/tray/tray-40-black.png")),
+    (48, include_bytes!("../../assets/icons/tray/tray-48-black.png")),
+    (64, include_bytes!("../../assets/icons/tray/tray-64-black.png")),
+];
 
 /// 用户是否主动把主窗口收进了托盘。
 ///
@@ -84,7 +116,7 @@ pub fn create(app: &AppHandle, prefs: &config::TrayPrefs, language: &str) -> Res
     if !supported() {
         return Ok(());
     }
-    let icon = icon_for(&prefs.icon_style)?;
+    let icon = icon_for(&prefs.icon_style, primary_scale(app))?;
     let (show, quit) = default_labels(language);
     let menu = build_menu(app, &show, &quit)?;
     let tray = TrayIconBuilder::with_id(TRAY_ID)
@@ -128,7 +160,6 @@ pub fn dispose(app: &AppHandle) {
 /// 但手工调用命令不该让托盘消失。
 pub fn set_icon_style(state: &TrayState, style: &str) -> Result<(), String> {
     let style = known_style(style);
-    let image = icon_for(style)?;
     // 先克隆句柄再离开锁：`set_icon` 可能调度到主线程，不应持锁等待。
     let icon = state
         .icon
@@ -137,6 +168,7 @@ pub fn set_icon_style(state: &TrayState, style: &str) -> Result<(), String> {
         .as_ref()
         .cloned()
         .ok_or_else(|| "托盘不可用".to_string())?;
+    let image = icon_for(style, primary_scale(icon.app_handle()))?;
     icon.set_icon(Some(image))
         .map_err(|e| format!("切换托盘图标失败：{e}"))?;
     logger::info("tray", format!("托盘图标样式切换为 {style}"));
@@ -236,16 +268,34 @@ fn request_quit(app: &AppHandle) {
     });
 }
 
-/// 按样式取内嵌 PNG 并解码成托盘图像。
+/// 主屏缩放：通知区挂在主屏任务栏上，托盘图标尺寸不随窗口所在显示器变化。
+fn primary_scale(app: &AppHandle) -> f64 {
+    app.primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0)
+}
+
+/// 按样式与系统缩放取内嵌 PNG，并解码成托盘图像。
 ///
-/// 不用 `Image::from_app_icon_resource`：它只有应用图标，没有白色 / 黑色变体。
-fn icon_for(style: &str) -> Result<tauri::image::Image<'static>, String> {
-    let (bytes, label) = match style {
+/// 系统小图标在 100% 是 16px，150% 是 24px……把 64px 的 HICON 交给系统缩小会走
+/// 低质量缩放并出现锯齿，因此这里选最接近 `16 × 缩放` 的原生层。
+fn icon_for(style: &str, scale: f64) -> Result<tauri::image::Image<'static>, String> {
+    let (variants, label) = match style {
         config::TRAY_ICON_WHITE => (ICON_WHITE, "白色"),
         config::TRAY_ICON_BLACK => (ICON_BLACK, "黑色"),
         _ => (ICON_COLOR, "彩色"),
     };
-    tauri::image::Image::from_bytes(bytes).map_err(|e| format!("解码{label}托盘图标失败：{e}"))
+    let target = (16.0 * scale).round().clamp(16.0, 64.0) as i64;
+    let (size, bytes) = variants
+        .iter()
+        .min_by_key(|item| (item.0 as i64 - target).abs())
+        .ok_or_else(|| format!("{label}托盘图标没有可用尺寸"))?;
+    let image = tauri::image::Image::from_bytes(bytes)
+        .map_err(|e| format!("解码{label}托盘图标失败：{e}"))?;
+    logger::info("tray", format!("托盘图标取 {size}px 原生层（目标 {target}px）"));
+    Ok(image)
 }
 
 // ── Tauri 命令（前端只经能力信号使用，不读平台名）────────────────
@@ -287,12 +337,43 @@ pub fn set_tray_hidden(hidden: bool) {
 mod tests {
     use super::*;
 
+    /// 内容包围盒的宽/高占比与中心占比；`glyph=true` 只算高饱和不透明像素（品牌图形）。
+    fn bbox_ratios(px: &[u8], w: u32, h: u32, glyph: bool) -> (f64, f64, f64, f64) {
+        let (mut min_x, mut max_x, mut min_y, mut max_y) = (w, 0u32, h, 0u32);
+        for y in 0..h {
+            for x in 0..w {
+                let i = ((y * w + x) * 4) as usize;
+                let r = px[i] as i32;
+                let g = px[i + 1] as i32;
+                let b = px[i + 2] as i32;
+                let sat = r.max(g).max(b) - r.min(g).min(b);
+                let hit = if glyph {
+                    px[i + 3] > 200 && sat >= 150
+                } else {
+                    px[i + 3] > 0
+                };
+                if hit {
+                    min_x = min_x.min(x);
+                    max_x = max_x.max(x);
+                    min_y = min_y.min(y);
+                    max_y = max_y.max(y);
+                }
+            }
+        }
+        assert!(max_x >= min_x && max_y >= min_y, "托盘图像没有识别到内容");
+        (
+            (max_x - min_x + 1) as f64 / w as f64,
+            (max_y - min_y + 1) as f64 / h as f64,
+            (min_x + max_x + 1) as f64 / 2.0 / w as f64,
+            (min_y + max_y + 1) as f64 / 2.0 / h as f64,
+        )
+    }
+
     #[test]
     fn three_styles_decode_to_distinct_64px_images() {
-        let color = icon_for(config::TRAY_ICON_COLOR).unwrap();
-        let white = icon_for(config::TRAY_ICON_WHITE).unwrap();
-        let black = icon_for(config::TRAY_ICON_BLACK).unwrap();
-
+        let color = icon_for(config::TRAY_ICON_COLOR, 4.0).unwrap();
+        let white = icon_for(config::TRAY_ICON_WHITE, 4.0).unwrap();
+        let black = icon_for(config::TRAY_ICON_BLACK, 4.0).unwrap();
         for (name, image) in [("彩色", &color), ("白色", &white), ("黑色", &black)] {
             assert_eq!(image.width(), 64, "{name}托盘图标宽度");
             assert_eq!(image.height(), 64, "{name}托盘图标高度");
@@ -300,6 +381,80 @@ mod tests {
         assert_ne!(color.rgba(), white.rgba(), "彩色与白色不得是同一份图像");
         assert_ne!(color.rgba(), black.rgba(), "彩色与黑色不得是同一份图像");
         assert_ne!(white.rgba(), black.rgba(), "白色与黑色不得是同一份图像");
+    }
+
+    /// 系统请求的小图标尺寸必须取同尺寸原生层，而不是让系统把 64px 缩到 16px。
+    ///
+    /// 失效方式同样是静默的：图标仍能显示，只是边缘会出现硬阶梯状锯齿。
+    #[test]
+    fn icon_for_picks_native_size_for_system_scale() {
+        for (scale, expected) in [
+            (1.0, 16),
+            (1.25, 20),
+            (1.5, 24),
+            (1.75, 28),
+            (2.0, 32),
+            (2.25, 36),
+            (2.5, 40),
+            (3.0, 48),
+            (4.0, 64),
+        ] {
+            let image = icon_for(config::TRAY_ICON_COLOR, scale).unwrap();
+            assert_eq!(
+                (image.width(), image.height()),
+                (expected, expected),
+                "缩放 {scale} 应取 {expected}px 原生层"
+            );
+        }
+    }
+
+    /// 三档托盘图像必须是完成小尺寸光学校正的透明剪影：占位、居中、彩色为纯色且不铺底板。
+    ///
+    /// 这些断言读的是编译期嵌入的资产；资产重出后忘记同步，或校正只做了一部分档位，
+    /// 编译与运行都不会报错，只有通知区里继续显示偏小的图形、色块或带明暗的彩色档。
+    #[test]
+    fn tray_images_are_optically_scaled_and_uncropped() {
+        let color = icon_for(config::TRAY_ICON_COLOR, 4.0).unwrap();
+        let white = icon_for(config::TRAY_ICON_WHITE, 4.0).unwrap();
+        let black = icon_for(config::TRAY_ICON_BLACK, 4.0).unwrap();
+
+        for (name, image) in [("彩色", &color), ("白色", &white), ("黑色", &black)] {
+            let (w, h, cx, cy) = bbox_ratios(image.rgba(), image.width(), image.height(), false);
+            assert!(
+                (0.74..=0.82).contains(&w) && (0.80..=0.88).contains(&h),
+                "{name}图形占位 {w:.1}%x{h:.1}% 应在 74%–82% / 80%–88%（小尺寸光学校正）"
+            );
+            assert!(
+                (cx - 0.5).abs() <= 0.02 && (cy - 0.5).abs() <= 0.02,
+                "{name}图形中心 ({cx:.3}, {cy:.3}) 偏离画布中心超过 2%"
+            );
+            assert_eq!(
+                image.rgba()[3],
+                0,
+                "{name}档左上角必须透明：托盘三档都不再铺底板"
+            );
+        }
+
+        let (w, h, _, _) = bbox_ratios(color.rgba(), color.width(), color.height(), true);
+        assert!(
+            (0.74..=0.82).contains(&w) && (0.80..=0.88).contains(&h),
+            "彩色档图形占位 {w:.1}%x{h:.1}% 应在 74%–82% / 80%–88%（小尺寸光学校正）"
+        );
+
+        // 彩色档必须是纯色 #FCCD01：不能保留母版的明暗渐变，也不能退回带底板的写法。
+        let mut checked = false;
+        for px in color.rgba().chunks_exact(4) {
+            if px[3] > 250 {
+                assert_eq!(
+                    (px[0], px[1], px[2]),
+                    (252, 205, 1),
+                    "彩色托盘图标应为纯色 #FCCD01，实际不透明像素为 {:?}",
+                    &px[..3]
+                );
+                checked = true;
+            }
+        }
+        assert!(checked, "彩色托盘图标里没有不透明像素");
     }
 
     #[test]

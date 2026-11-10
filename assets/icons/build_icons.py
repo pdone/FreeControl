@@ -21,6 +21,8 @@ PLATE_MID_HEX = '#383838'                # 亮度带中点，供只能取纯色�
 SAT_LO, SAT_HI = 45.0, 150.0             # 分离阈值：底板饱和度 <= 59，图形 >= 159
 GLYPH_MIN_LUMA = 100.0                   # 低于此亮度的一定是底板（图形最暗约 127）
 LUMA = np.array([0.299, 0.587, 0.114])
+TRAY_GLYPH_SCALE = 1.2                   # 托盘三档的光学校正倍率（openspec: small-icon-optical-scaling）
+TRAY_SIZES = (16, 20, 24, 28, 32, 36, 40, 48, 64)  # 覆盖 Windows 100%–300% 的小图标尺寸，避免系统缩图产生锯齿
 
 # ---------------------------------------------------------------- 工具函数
 def defringe(im):
@@ -103,6 +105,44 @@ def save_png(im, path):
     im.save(path, 'PNG', optimize=True)
 
 
+def resize_wh(im, w, h):
+    """非正方形目标尺寸的缩放：与 `resize()` 同一套 defringe / 地板回抬处理。"""
+    im = defringe(im.convert('RGBA'))
+    if im.size == (w, h):
+        return im
+    out = im.resize((w, h), Image.LANCZOS)
+    a = np.array(out).astype(np.float32)
+    a[a[..., 3] < 6, 3] = 0
+    a = lift_floor(a)
+    return defringe(Image.fromarray(a.astype(np.uint8), 'RGBA'))
+
+
+def optical_glyph(glyph, scale=TRAY_GLYPH_SCALE):
+    """把透明图形绕其 alpha 包围盒中心等比放大，画布尺寸不变。"""
+    al = np.array(glyph.convert('RGBA'))[..., 3]
+    ys, xs = np.where(al > 0)
+    x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    nw = max(1, round((x1 - x0) * scale))
+    nh = max(1, round((y1 - y0) * scale))
+    scaled = resize_wh(glyph.crop((x0, y0, x1, y1)), nw, nh)
+    canvas = Image.new('RGBA', glyph.size, (0, 0, 0, 0))
+    canvas.paste(scaled, (round(cx - nw / 2.0), round(cy - nh / 2.0)), scaled)
+    return defringe(canvas)
+
+
+def glyph_span(im):
+    """透明图形 alpha 包围盒的宽/高占比与中心占比，供托盘校正自检。"""
+    al = np.array(im.convert('RGBA'))[..., 3]
+    ys, xs = np.where(al > 0)
+    return (
+        (xs.max() + 1 - xs.min()) / im.width,
+        (ys.max() + 1 - ys.min()) / im.height,
+        (xs.min() + xs.max() + 1) / 2.0 / im.width,
+        (ys.min() + ys.max() + 1) / 2.0 / im.height,
+    )
+
+
 def bmp_layer(im, size):
     """
     未压缩的 32bpp 位图层（ICO 里的 BMP 变体）：BITMAPINFOHEADER + 自底向上的 BGRA 行 + 全零 AND mask。
@@ -156,6 +196,13 @@ base = purify(raw)                        # 母版即真源，只清边缘，作
 
 # 透明版 logo（按饱和度抠背景 + defringe）
 logo_tr = defringe(strip_background(base))
+# 托盘三档共用的放大图形：彩色档不再铺底板，与白 / 黑剪影同形同占位
+tray_glyph = optical_glyph(logo_tr, TRAY_GLYPH_SCALE)
+tw, th, tcx, tcy = glyph_span(tray_glyph)
+print(f'tray glyph: {tw:.1%}x{th:.1%}, center ({tcx:.1%}, {tcy:.1%})')
+assert 0.74 <= tw <= 0.82, f'托盘图形宽度 {tw:.1%} 超出 74%–82%'
+assert 0.80 <= th <= 0.88, f'托盘图形高度 {th:.1%} 超出 80%–88%'
+assert abs(tcx - 0.5) <= 0.02 and abs(tcy - 0.5) <= 0.02, '托盘图形中心偏移超过 2%'
 
 os.makedirs(f'{ROOT}/logo', exist_ok=True)
 save_png(logo_tr, f'{ROOT}/logo/logo-transparent.png')   # 母版是输入，不在这里回写
@@ -176,17 +223,25 @@ save_png(resize(base, 50), f'{OUT}/StoreLogo.png')
 # ---- 托盘 ----
 TRAY = f'{ROOT}/tray'
 os.makedirs(TRAY, exist_ok=True)
-save_png(resize(base, 64), f'{TRAY}/tray-64-color.png')
-save_png(resize(logo_tr, 64), f'{TRAY}/tray-64-transparent.png')
-
 def recolor(im, rgb):
     a = np.array(im.convert('RGBA'))
     a[..., 0], a[..., 1], a[..., 2] = rgb
     return Image.fromarray(a, 'RGBA')
 
-save_png(defringe(recolor(resize(logo_tr, 64), (255, 255, 255))), f'{TRAY}/tray-64-white.png')
-save_png(defringe(recolor(resize(logo_tr, 64), (0, 0, 0))), f'{TRAY}/tray-64-black.png')
-save_png(defringe(recolor(resize(logo_tr, 44), (0, 0, 0))), f'{TRAY}/tray-mac-template@2x.png')
+
+# 彩色档：纯色 #FCCD01 剪影（保留放大后的轮廓与 alpha，不保留明暗层次）
+# 每个尺寸都从 1024 校正件原生重采样；交给系统缩放的 64px 单层在 16px 通知区会出锯齿。
+for size in TRAY_SIZES:
+    base_glyph = resize(tray_glyph, size)
+    save_png(
+        defringe(recolor(base_glyph, tuple(int(v) for v in FG))),
+        f'{TRAY}/tray-{size}-color.png',
+    )
+    save_png(defringe(recolor(base_glyph, (255, 255, 255))), f'{TRAY}/tray-{size}-white.png')
+    save_png(defringe(recolor(base_glyph, (0, 0, 0))), f'{TRAY}/tray-{size}-black.png')
+
+save_png(resize(tray_glyph, 64), f'{TRAY}/tray-64-transparent.png')
+save_png(defringe(recolor(resize(tray_glyph, 44), (0, 0, 0))), f'{TRAY}/tray-mac-template@2x.png')
 
 # ---- Android ----
 AND = f'{ROOT}/android/res'

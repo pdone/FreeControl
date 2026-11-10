@@ -30,6 +30,15 @@ python assets/icons/build_icons.py
 
 > 为什么到处都要 defringe：AI 出图的透明区 RGB 常被压成近黑，缩放插值时会把黑色渗进边缘；defringe 在缩放前后各填一次「最近实心像素的颜色」，透明区就没有黑色可渗。同理，`resize()` 里还有一步**地板回抬** —— LANCZOS 核带负瓣，方底与图形的高对比边缘会下冲，把方底压到地板之下（实测旧成品 32px 最低 31.4），按亮度把方底像素抬回地板。
 
+### 托盘图形的光学校正
+
+通知区把托盘图标缩到 16px 显示，母版里只占 64.4%×69.5% 的图形会显得比同排程序小一圈。因此 `tray/` 三档统一使用一份放大的透明图形：
+
+- 图形绕其 alpha 包围盒中心等比放大 **1.2 倍**，64px 画布上的占位约 78%×84%（原图约 66%×72%）。
+- 三档均按 **16 / 20 / 24 / 28 / 32 / 36 / 40 / 48 / 64** 原生尺寸各出一份；运行期按主屏缩选取同尺寸层，避免把 64px 交给系统缩到 16px 时出现锯齿。
+- 彩色档为 **纯色 `#FCCD01` 剪影**：不铺圆角底板，也不保留母版的明暗渐变；白 / 黑档为单色剪影，三档同形同占位。
+- 该校正只作用于托盘：桌面 / 任务栏图标、`icon.ico` / `icon.icns` 与界面用件仍由母版按原比例派生。
+
 ## 2. 目录与落位
 
 | 本包目录 | 拷到项目中的位置 | 说明 |
@@ -110,7 +119,7 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 
 若托盘图标要跟随主题切换，前端监听 `getCurrentWindow().theme()`，Rust 侧 `tray.set_icon(...)` 切换 `tray-64-white.png` / `tray-64-black.png` —— 同样用 `include_image!` 预定义两个常量。
 
-> `tray/` 的这几个变体由生成流程按母版产出（`tray-64-color` 是底板变体，`tray-64-transparent` 与白 / 黑两档是图形剪影）。Windows 托盘三档样式已启用：彩色档取 `tray-64-color`，白色 / 黑色档用于跟随深浅任务栏，`tray-64-transparent` 不用于托盘。
+> `tray/` 的这几个变体由生成流程按母版产出，并统一使用放大后的透明图形：`tray-64-color` 是纯色 `#FCCD01` 剪影，黑色 / 白色档是单色剪影，`tray-64-transparent` 保留母版的彩色明暗层次（不用于托盘）；三档托盘样式均不铺底板。Windows 托盘三档样式已启用：彩色档取 `tray-{size}-color`，白色 / 黑色档取 `tray-{size}-white` / `-black`；`size` 由主屏缩放在 16–64 的原生层中选取（100% → 16、150% → 24、200% → 32）。
 
 ## 5. Logo 用法建议
 
@@ -133,7 +142,7 @@ iOS 成品**满幅不透明**（App Store 与 Xcode 校验要求），四角不�
 desktop/    19 个（PNG × 17 + icon.ico + icon.icns）
 android/    18 个（mipmap-mdpi ~ xxxhdpi 各 3 张 + values/背景色 + 2 个 anydpi-v26 配置）
 ios/        16 个（PNG × 15 + Contents.json）
-tray/        5 个托盘变体
+tray/        29 个（三档 × 16–64 共 9 档 + 透明档 + mac 模板）
 logo/        2 个（母版 PNG、透明版 PNG）
 preview.png  对照图：上排各尺寸桌面图标，下排托盘变体（棋盘格底衬）
 ```
