@@ -2,6 +2,21 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.5.0
+
+### New
+
+- Tray on Windows: set "When closing" to "Minimize to tray" in Settings → Tray, and closing the window keeps the app in the notification area with mirroring still running; reopen it or quit from the tray menu. (#146)
+- The tray icon can be color, white or black to match the taskbar.
+
+### Improved
+
+- When a wireless device reopens wireless debugging on a new port, the automatic retry after a failed connection now skips the port that just failed and tries the newly resolved one instead of being blocked by a stale record. (#147)
+
+### Fixed
+
+- USB devices with no serial number are no longer given a wireless address or service name; records already filled in incorrectly are corrected on the next probe.
+
 ## v2.4.1
 
 ### Improved

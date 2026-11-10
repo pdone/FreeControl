@@ -313,6 +313,10 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 18px; }
   .card.col2 { grid-column: span 2; }
+  /* 设置页右列：自动更新与托盘两张卡叠放。子卡按内容高度分配剩余空间 ——
+     与产品 `src/app.css` 的 .card-stack 同款，字体卡位置不因此被顶开。 */
+  .card-stack { display: flex; flex-direction: column; gap: 14px; }
+  .card-stack > .card { flex: 1 1 auto; }
   /* 占位块不是 .card，`.card.col2` 的选择器命中不到它；设置页的「会话输出」占位仍要独占整行。 */
   .ov-empty.col2 { grid-column: span 2; }
   .card h3 { font-size: 11.5px; font-weight: 600; color: var(--text-dim); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
@@ -1793,6 +1797,8 @@
             </div>
           </div>
 
+          <!-- 设置页右列：自动更新与托盘叠放（产品侧为 .card-stack），外观卡决定这一行高度。 -->
+          <div class="card-stack">
           <!-- 自动更新：本程序自身的更新偏好，与 scrcpy 参数无关。开关与频率只存在页面内；
                关闭自动检查时频率仍常驻但不可用；后台定时检查不在原型里模拟，
                自动发现新版后的「结果态直出」用 #update=available|ready 演示。 -->
@@ -1822,6 +1828,34 @@
                 <span class="hint" id="lastCheckText">上次检查：尚未检查</span>
               </div>
             </div>
+          </div>
+
+          <!-- 托盘（Windows）：关闭窗口时收进通知区，投屏继续。与产品 SettingsPage 的托盘卡一致；
+               两组分段控件只演示选中态，不持久化。 -->
+          <div class="card">
+            <h3>托盘</h3>
+            <div class="field">
+              <span class="flabel">图标样式<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="托盘图标样式的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">托盘图标样式</span><span class="fhelp-p">按任务栏明暗选择：白色适合深色任务栏，黑色适合浅色任务栏；彩色在两者上都可辨认。</span></span>
+              </span></span>
+              <div class="seg" id="trayIconStyle">
+                <button class="active" data-v="color">彩色</button>
+                <button data-v="white">白色</button>
+                <button data-v="black">黑色</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">关闭窗口时<span class="fhelp">
+                <button class="fhelp-btn" type="button" aria-label="关闭窗口时行为的说明"><i data-lucide="circle-help"></i></button>
+                <span class="fhelp-panel"><span class="fhelp-title">关闭窗口时</span><span class="fhelp-p">收进托盘后主窗口隐藏，正在进行的投屏继续运行；要彻底退出，请从托盘菜单选择「退出」。</span></span>
+              </span></span>
+              <div class="seg" id="trayCloseMode">
+                <button class="active" data-v="exit">直接退出</button>
+                <button data-v="hide">收进托盘</button>
+              </div>
+            </div>
+          </div>
           </div>
 
           <!-- 字体（config ㉜）：列表为固定演示数据，原型不扫描系统字体；预览字体在本机缺失时
@@ -2590,6 +2624,19 @@
   "每周": "Weekly",
   "每月": "Monthly",
   "上次检查：尚未检查": "Last checked: never",
+  "托盘": "Tray",
+  "图标样式": "Icon",
+  "托盘图标样式": "Tray icon",
+  "托盘图标样式的说明": "About tray icon styles",
+  "按任务栏明暗选择：白色适合深色任务栏，黑色适合浅色任务栏；彩色在两者上都可辨认。": "Match the taskbar: white for dark taskbars, black for light ones; color works on both.",
+  "彩色": "Color",
+  "白色": "White",
+  "黑色": "Black",
+  "关闭窗口时": "When closing",
+  "关闭窗口时行为的说明": "About closing the window",
+  "收进托盘后主窗口隐藏，正在进行的投屏继续运行；要彻底退出，请从托盘菜单选择「退出」。": "The window is hidden and mirroring keeps running; choose Quit from the tray menu to exit completely.",
+  "直接退出": "Exit",
+  "收进托盘": "Minimize to tray",
   "运行日志参数": "Runtime log options",
   "日志级别（--verbosity）": "Log level (--verbosity)",
   "设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。": "Set the scrcpy log level, which controls how much process detail appears in the session log.",
@@ -3133,9 +3180,9 @@
      正式实现中：该值由 Tauri 的 getVersion()（取 tauri.conf.json 的构建期版本）下发，
      前端一律通过该 API 读取，页面里不得写版本字面量（见 about-page design D5）。
      ============================================================ */
-  const APP_VERSION = '2.4.1';
+  const APP_VERSION = '2.5.0';
   // 原型演示用的模拟最新版；产品侧由 GitHub 最新正式发行下发，不写死在界面里。
-  const UPDATE_LATEST_VERSION = '2.4.2';
+  const UPDATE_LATEST_VERSION = '2.5.1';
 
   // 每台设备的参数覆盖（仅覆盖的字段）
   const overrides = {};
@@ -5794,6 +5841,15 @@
       seg.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
     });
   })();
+
+  /* 托盘卡两组分段控件：点击只切换本组选中态，与设置页其他分段控件同口径；原型不持久化。 */
+  for (const id of ['trayIconStyle','trayCloseMode']) {
+    const seg=document.getElementById(id); if(!seg) continue;
+    seg.addEventListener('click', e=>{
+      const b=e.target.closest('button[data-v]'); if(!b) return;
+      seg.querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
+    });
+  }
 
   /* 自定义取色：控件的值由系统/内核取色器给出，形状本就是 #rrggbb；
      只在 change（确认）时写入 —— 拖动中由取色器自己预览。 */
