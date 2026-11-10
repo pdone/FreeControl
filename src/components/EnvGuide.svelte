@@ -15,9 +15,15 @@
   import { installRunning, runInstall } from '../lib/install';
   import { t } from '../lib/i18n';
   import { AlertTriangle, Download } from 'lucide-svelte';
+  import { fade } from 'svelte/transition';
+  import { DIALOG_FADE } from '../lib/motion';
 
   $: show = !!$envStatus && !$envStatus.ready && !$envGuideDismissed;
   $: missingText = ($envStatus?.missing ?? []).join($t('common.commaSeparator'));
+
+  function dismiss(): void {
+    envGuideDismissed.set(true);
+  }
 
   function startAcquire(): void {
     // 顺序不可换：只跳不关会让弹窗盖住目标页（design D2）。
@@ -30,7 +36,8 @@
 </script>
 
 {#if show}
-  <div class="overlay show">
+  <div class="overlay show" transition:fade={DIALOG_FADE}>
+    <div class="overlay-backdrop" role="presentation" on:click={dismiss}></div>
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('guide.title')}</h2>
@@ -43,9 +50,7 @@
         </div>
       </div>
       <div class="actions">
-        <button class="btn ghost" on:click={() => envGuideDismissed.set(true)}
-          >{$t('guide.later')}</button
-        >
+        <button class="btn ghost" on:click={dismiss}>{$t('guide.later')}</button>
         <button class="btn primary" on:click={startAcquire} disabled={$installRunning}>
           <Download /> {$t('guide.install')}
         </button>

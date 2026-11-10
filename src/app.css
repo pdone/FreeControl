@@ -2872,6 +2872,8 @@ input.dev-cid-input {
   inset: 0;
 }
 .modal {
+  /* 面板须在 .overlay-backdrop（绝对定位、铺满遮罩）之上，否则点按钮会先命中遮罩。 */
+  position: relative;
   /* 默认宽度统一为 min(520px, 视口 − 48px)：原来的 460px（原型基线）在装长正文与
      运行环境目录这类长路径时显得局促。尺寸取自「需要 scrcpy 运行环境」那个弹窗 ——
      它曾用 `.modal.wide` 单独放宽，现在默认宽度就是它，故该修饰类一并删除。

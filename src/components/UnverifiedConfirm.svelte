@@ -18,10 +18,18 @@
   import { errorTextOf } from '../lib/message';
   import { AlertTriangle, Download } from 'lucide-svelte';
   import { tip } from '../lib/tooltip';
+  import { fade } from 'svelte/transition';
+  import { DIALOG_FADE } from '../lib/motion';
+
+  function onBackdrop(): void {
+    if ($installRunning) return;
+    void cancelPendingInstall();
+  }
 </script>
 
 {#if $pendingInstall}
-  <div class="overlay show">
+  <div class="overlay show" transition:fade={DIALOG_FADE}>
+    <div class="overlay-backdrop" role="presentation" on:click={onBackdrop}></div>
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('unverified.title')}</h2>

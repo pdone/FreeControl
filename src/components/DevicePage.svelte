@@ -44,6 +44,8 @@
   import { t } from '../lib/i18n';
   import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
+  import { fade } from 'svelte/transition';
+  import { DIALOG_FADE } from '../lib/motion';
   import AddDeviceDialog from './AddDeviceDialog.svelte';
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
@@ -895,6 +897,11 @@
     pendingDelete = d;
   }
 
+  function cancelDelete(): void {
+    if (delBusy) return;
+    pendingDelete = null;
+  }
+
   async function confirmDelete(): Promise<void> {
     const d = pendingDelete;
     if (!d) return;
@@ -1213,7 +1220,8 @@
 
 <!-- 删除确认（spec「设备记录的增删」：删除前给出确认，避免误删） -->
 {#if pendingDelete}
-  <div class="overlay show">
+  <div class="overlay show" transition:fade={DIALOG_FADE}>
+    <div class="overlay-backdrop" role="presentation" on:click={cancelDelete}></div>
     <div class="modal">
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('device.delete.title')}</h2>
@@ -1224,7 +1232,7 @@
         })}<b>{$t('device.delete.bold')}</b>{$t('device.delete.after')}
       </p>
       <div class="actions">
-        <button class="btn ghost" on:click={() => (pendingDelete = null)} disabled={delBusy}>
+        <button class="btn ghost" on:click={cancelDelete} disabled={delBusy}>
           {$t('device.delete.cancel')}
         </button>
         <button class="btn danger" on:click={confirmDelete} disabled={delBusy}>
