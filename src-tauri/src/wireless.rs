@@ -195,45 +195,44 @@ fn collect_services(
 
 /// 从服务表里挑出某台设备的连接端口（纯函数）。
 ///
-/// `prefer` 是设备记录里现有的端口：同一 IP 出现多条连接服务时优先沿用它，避免
-/// 「解析一次换一个端口」来回跳；没有命中才取最小端口（结果稳定、可复现）。
-pub fn pick_connect_port(services: &[MdnsService], ip: &str, prefer: Option<u16>) -> Option<u16> {
+/// `exclude` 是本次连接刚失败的端口：兜底解析把它排除在候选之外 —— 服务表基于多播
+/// （UDP），旧端口的记录可能残留，沿用刚失败的端口等于永不重试。候选取最小端口
+/// （结果稳定、可复现）；配对等没有失败端口的情形传 `None`。
+pub fn pick_connect_port(services: &[MdnsService], ip: &str, exclude: Option<u16>) -> Option<u16> {
     let mut ports: Vec<u16> = services
         .iter()
-        .filter(|s| s.host == ip && s.kind != MdnsKind::Pairing)
+        .filter(|s| s.host == ip && s.kind != MdnsKind::Pairing && Some(s.port) != exclude)
         .map(|s| s.port)
         .collect();
     ports.sort_unstable();
     ports.dedup();
-    match prefer {
-        Some(p) if ports.contains(&p) => Some(p),
-        _ => ports.first().copied(),
-    }
+    ports.first().copied()
 }
 
 /// 在给定窗口内解析某台设备的连接端口；没等到就报错（原因里带上 IP，便于对照）。
 fn resolve_port_within(
     app: &AppHandle,
     ip: &str,
-    prefer: Option<u16>,
+    exclude: Option<u16>,
     window: Duration,
 ) -> Result<u16, String> {
     let services = collect_services(
         window,
         |_| true,
         || mdns_query(app),
-        |list| pick_connect_port(list, ip, prefer).is_some(),
+        |list| pick_connect_port(list, ip, exclude).is_some(),
     )?;
-    pick_connect_port(&services, ip, prefer)
+    pick_connect_port(&services, ip, exclude)
         .ok_or_else(|| format!("未能解析出 {ip} 的连接端口：设备可能已关闭无线调试，或网络收不到多播"))
 }
 
 /// 解析配对设备的连接端口（显式操作，沿用较宽窗口）。
-fn resolve_port(app: &AppHandle, ip: &str, prefer: Option<u16>) -> Result<u16, String> {
-    resolve_port_within(app, ip, prefer, RESOLVE_WINDOW)
+fn resolve_port(app: &AppHandle, ip: &str) -> Result<u16, String> {
+    resolve_port_within(app, ip, None, RESOLVE_WINDOW)
 }
 
 /// 连接失败后的自动兜底解析：用户正在等连接结果，窗口比显式解析短。
+/// 本次失败的端口排除在候选之外，残留的旧服务记录不会被当作解析结果。
 pub(crate) fn resolve_for_connect(app: &AppHandle, ip: &str, current: u16) -> Result<u16, String> {
     resolve_port_within(app, ip, Some(current), CONNECT_RESOLVE_WINDOW)
 }
@@ -553,7 +552,7 @@ fn pair_blocking(app: &AppHandle, request: PairRequest) -> Result<WirelessJoin, 
         .map_err(|e| UserError::new(codes::WIRELESS_PAIR_FAILED).with_detail(e))?;
     logger::info("device", format!("无线配对成功：{address}"));
     // 配对端口与连接端口不是同一个：按 IP 解析出**连接**端口再建链。
-    let connect_port = resolve_port(app, &host, None)
+    let connect_port = resolve_port(app, &host)
         .map_err(|e| UserError::new(codes::WIRELESS_PORT_UNRESOLVED).with_detail(e))?;
     logger::info(
         "device",
@@ -802,7 +801,7 @@ mod tests {
     }
 
     #[test]
-    fn prefers_the_stored_port_when_it_still_exists() {
+    fn excludes_the_failed_port_and_otherwise_picks_the_smallest() {
         let services = vec![
             MdnsService {
                 name: "a".into(),
@@ -818,9 +817,43 @@ mod tests {
             },
         ];
 
-        // 既有端口仍在 → 沿用，避免解析一次换一个；已消失 → 取最小（结果稳定）。
-        assert_eq!(pick_connect_port(&services, "192.168.1.5", Some(40002)), Some(40002));
+        // 排除其中一个 → 取另一个；排除的端口不在表里 → 没有候选被排掉，取最小（结果稳定）。
+        assert_eq!(pick_connect_port(&services, "192.168.1.5", Some(40002)), Some(40001));
         assert_eq!(pick_connect_port(&services, "192.168.1.5", Some(39999)), Some(40001));
+    }
+
+    #[test]
+    fn stale_port_record_does_not_mask_the_new_port() {
+        // issue #147：设备重开无线调试后换了端口，但旧端口的服务记录仍残留在表里。
+        // 兜底解析的目标是「当前还能连哪个」，刚失败的端口不得被当作解析结果。
+        let services = vec![
+            svc(MdnsKind::Connect, "192.168.1.20", 40001),
+            svc(MdnsKind::Connect, "192.168.1.20", 40002),
+        ];
+
+        assert_eq!(
+            pick_connect_port(&services, "192.168.1.20", Some(40001)),
+            Some(40002)
+        );
+    }
+
+    #[test]
+    fn failed_port_is_not_a_candidate_when_it_is_the_only_one() {
+        // 表里只剩刚失败的端口：排除后无候选，按解析不到处理，不得把旧端口再报一遍。
+        let services = vec![svc(MdnsKind::Connect, "192.168.1.20", 40001)];
+
+        assert_eq!(pick_connect_port(&services, "192.168.1.20", Some(40001)), None);
+    }
+
+    #[test]
+    fn no_exclusion_picks_the_smallest_port() {
+        // 配对路径没有「刚失败的端口」：不排除任何候选，取最小端口（结果稳定、可复现）。
+        let services = vec![
+            svc(MdnsKind::Connect, "192.168.1.20", 40002),
+            svc(MdnsKind::Connect, "192.168.1.20", 40001),
+        ];
+
+        assert_eq!(pick_connect_port(&services, "192.168.1.20", None), Some(40001));
     }
 
     #[test]
@@ -916,6 +949,37 @@ mod tests {
         assert_eq!(got.len(), 1);
         assert_eq!(polls.get(), 1, "命中后不得再查");
         assert!(started.elapsed() < Duration::from_secs(2), "应立刻返回");
+    }
+
+    #[test]
+    fn resolve_window_waits_for_a_port_other_than_the_failed_one() {
+        // 第一拍只有残留的旧记录，第二拍新端口才出现：done 带排除时，
+        // 旧记录不得让发现窗提前结束，终选也不得取回旧端口。
+        let polls = std::cell::Cell::new(0);
+        let got = collect_services(
+            Duration::from_secs(2),
+            |_| true,
+            || {
+                let n = polls.get();
+                polls.set(n + 1);
+                if n == 0 {
+                    Ok(vec![svc(MdnsKind::Connect, "192.168.1.20", 40001)])
+                } else {
+                    Ok(vec![
+                        svc(MdnsKind::Connect, "192.168.1.20", 40001),
+                        svc(MdnsKind::Connect, "192.168.1.20", 40002),
+                    ])
+                }
+            },
+            |list| pick_connect_port(list, "192.168.1.20", Some(40001)).is_some(),
+        )
+        .unwrap();
+
+        assert!(polls.get() >= 2, "旧记录出现不得提前结束（实际 {} 拍）", polls.get());
+        assert_eq!(
+            pick_connect_port(&got, "192.168.1.20", Some(40001)),
+            Some(40002)
+        );
     }
 
     #[test]
