@@ -2,6 +2,17 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.5.1
+
+### Improved
+
+- The delete-device confirmation, first-run guide and "unverified install" confirmation now fade in and out like the other dialogs, and clicking the backdrop outside the panel closes them. Clicking the backdrop is ignored while a deletion is in progress.
+- The notification-area tray icon now picks the native size matching your system scaling instead of being shrunk and looking blurry. The color variant drops its rounded backing plate and becomes a solid silhouette with the same shape and footprint as the white and black ones.
+
+### Fixed
+
+- The factory display for keyboard, mouse and gamepad input now matches scrcpy's own defaults; the previously shown uhid never actually took effect, and choosing it now works for the first time. Existing uhid records are normalized to the new defaults on upgrade, so your current input behavior stays the same.
+
 ## v2.5.0
 
 ### New

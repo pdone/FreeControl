@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "freecontrol"
-version = "2.5.0"
+version = "2.5.1"
 dependencies = [
  "chrono",
  "flate2",
