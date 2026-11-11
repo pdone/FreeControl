@@ -1380,11 +1380,11 @@
             <div class="field"><span class="flabel">键盘（--keyboard）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="键盘（--keyboard）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">键盘（--keyboard）</span><span class="fhelp-p">选择键盘事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送键盘事件；sdk 通过 Android 系统接口把事件投给应用；uhid 把电脑键盘模拟成设备上的物理键盘；aoa 用 AOAv2 协议模拟物理键盘，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 需要先在设备的「设置 → 系统 → 语言和输入法 → 物理键盘」里配好键盘布局。</span></span>
-            </span></span><div class="sel" data-g="control" data-k="keyboard" data-t="select" data-v="uhid">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="键盘（--keyboard）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+            </span></span><div class="sel" data-g="control" data-k="keyboard" data-t="select" data-v="sdk">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="键盘（--keyboard）"><span class="sel-text">sdk</span><i data-lucide="chevron-down"></i></button>
                 <div class="sel-list hidden" role="listbox" aria-label="键盘（--keyboard）">
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="false">sdk</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="false">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="true">sdk</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
                 </div>
@@ -1392,11 +1392,11 @@
             <div class="field"><span class="flabel">鼠标（--mouse）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="鼠标（--mouse）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">鼠标（--mouse）</span><span class="fhelp-p">选择鼠标事件的注入方式。</span><span class="fhelp-p">disabled 不向设备发送鼠标事件；sdk 通过 Android 系统接口投递；uhid 模拟物理 HID 鼠标；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span><span class="fhelp-p">uhid 与 aoa 会捕获电脑鼠标（相对移动模式），按 LAlt、LSuper 或 RSuper 可把鼠标交还给电脑。</span></span>
-            </span></span><div class="sel" data-g="control" data-k="mouse" data-t="select" data-v="uhid">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="鼠标（--mouse）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+            </span></span><div class="sel" data-g="control" data-k="mouse" data-t="select" data-v="sdk">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="鼠标（--mouse）"><span class="sel-text">sdk</span><i data-lucide="chevron-down"></i></button>
                 <div class="sel-list hidden" role="listbox" aria-label="鼠标（--mouse）">
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="false">sdk</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="false">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="sdk" aria-selected="true">sdk</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
                 </div>
@@ -1404,12 +1404,12 @@
             <div class="field"><span class="flabel">游戏手柄（--gamepad）<span class="fhelp">
               <button class="fhelp-btn" type="button" aria-label="游戏手柄（--gamepad）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">游戏手柄（--gamepad）</span><span class="fhelp-p">选择手柄的注入方式。</span><span class="fhelp-p">disabled 不向设备发送手柄事件；uhid 把电脑手柄模拟成设备上的物理手柄；aoa 用 AOAv2 协议模拟，仅 USB 连接可用。</span></span>
-            </span></span><div class="sel" data-g="control" data-k="gamepad" data-t="select" data-v="uhid">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="游戏手柄（--gamepad）"><span class="sel-text">uhid</span><i data-lucide="chevron-down"></i></button>
+            </span></span><div class="sel" data-g="control" data-k="gamepad" data-t="select" data-v="disabled">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="游戏手柄（--gamepad）"><span class="sel-text">disabled</span><i data-lucide="chevron-down"></i></button>
                 <div class="sel-list hidden" role="listbox" aria-label="游戏手柄（--gamepad）">
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="true">uhid</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="uhid" aria-selected="false">uhid</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="aoa" aria-selected="false">aoa</button>
-                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
+                  <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="true">disabled</button>
                 </div>
               </div></div>
             <div class="field"><span class="flabel">快捷键修饰键（--shortcut-mod）<span class="fhelp">
@@ -3153,7 +3153,7 @@
     // 注意 `--new-display` 取空时**仍会下发该 flag、只是不带取值**，其余四个取空则不产生 flag（见 buildArgs）。
     source:   { videoSource:'display', displayMode:'main', displayId:0, newDisplayRes:'', newDisplayDpi:'', noVdDestroy:true, cameraFacing:'', cameraSize:'', cameraFps:'', cameraZoom:1, cameraTorch:false },
     audio:    { audioOff:true, audioSource:'output', audioCodec:'opus', audioEncoder:'', audioDup:false, audioBitrate:0, audioBuffer:50, audioOutBuffer:10 },
-    control:  { noControl:false, keyboard:'uhid', noKeyRepeat:false, mouse:'uhid', gamepad:'uhid', shortMod:[], showTouches:false, turnScreenOff:false, screenOffTimeout:0, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboardOff:false },
+    control:  { noControl:false, keyboard:'sdk', noKeyRepeat:false, mouse:'sdk', gamepad:'disabled', shortMod:[], showTouches:false, turnScreenOff:false, screenOffTimeout:0, stayAwake:false, keepActive:false, powerOffOnClose:false, clipboardOff:false },
     record:   { recordOn:false, recordPath:'D:/Recordings/session.mp4', recordFormat:'mp4', recordOrientation:'0', noWindow:false, timeLimit:0, pauseOnExit:'false' },
     window:   { windowTitle:'', borderless:false, fullscreen:false, alwaysOnTop:false, aspectLockOff:false, bgColor:'#222222', windowWidth:0, windowHeight:0, windowX:0, windowY:0 },
     apps:     { startApp:'' },
@@ -3658,10 +3658,11 @@
     }
     // control
     if (p.control.noControl && !isFlex) add('control.noControl', '--no-control');
-    if (p.control.keyboard!=='uhid') add('control.keyboard', `--keyboard=${p.control.keyboard}`);
+    // 输入模式只在取值与 scrcpy 默认（keyboard/mouse sdk、gamepad disabled）不同时下发。
+    if (p.control.keyboard!=='sdk') add('control.keyboard', `--keyboard=${p.control.keyboard}`);
     if (p.control.noKeyRepeat) add('control.noKeyRepeat', '--no-key-repeat');
-    if (p.control.mouse!=='uhid') add('control.mouse', `--mouse=${p.control.mouse}`);
-    if (p.control.gamepad!=='uhid') add('control.gamepad', `--gamepad=${p.control.gamepad}`);
+    if (p.control.mouse!=='sdk') add('control.mouse', `--mouse=${p.control.mouse}`);
+    if (p.control.gamepad!=='disabled') add('control.gamepad', `--gamepad=${p.control.gamepad}`);
     const mods=p.control.shortMod; if (mods.length) add('control.shortMod', `--shortcut-mod=${mods.join(',')}`);
     if (p.control.showTouches) add('control.showTouches', '--show-touches');
     // 摄像头源下剔除（取值仍留在配置里，切回主屏幕后照常生效，同上面那四项 flex 剔除）。

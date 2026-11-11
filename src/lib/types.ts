@@ -331,6 +331,11 @@ export interface AppConfig {
   deviceList: DeviceListPrefs;
   defaults: Defaults;
   overrides: Record<string, OverrideEntry>;
+  /**
+   * 前端数据迁移标记（如 `inputModeDefaults`）：前端拥有，后端透明存储。
+   * 缺省空对象表示尚未运行过对应迁移。
+   */
+  migrations: Record<string, unknown>;
   channels: Channels;
   logging: Logging;
   ui: UiPrefs;

@@ -1,8 +1,8 @@
 //! 配置持久化层（design D5 / D7；tasks 5.1–5.4）。
 //!
 //! 单一配置文件 `%APPDATA%/FreeControl2/config.json`，含 `schemaVersion` 字段。
-//! 内容：设备列表（别名 ⇄ 连接标识）、默认参数、设备覆盖及其启用/禁用开关、下载通道偏好、
-//! 日志保留策略、外观偏好（主题模式 / 主题色）与更新检查偏好（自动检查 / 频率 / 上次检查时间）。
+//! 内容：设备列表（别名 ⇄ 连接标识）、默认参数、设备覆盖及其启用/禁用开关、前端数据迁移标记、
+//! 下载通道偏好、日志保留策略、外观偏好（主题模式 / 主题色）与更新检查偏好（自动检查 / 频率 / 上次检查时间）。
 //!
 //! ## 初始化（tasks 5.1）
 //! 文件不存在时按默认值初始化并立即落盘一次；`schemaVersion` 由此写入（老文件缺失时补默认值）。
@@ -256,6 +256,11 @@ impl DeviceList {
 pub struct OverrideEntry {
     pub enabled: bool,
     pub values: serde_json::Value,
+}
+
+/// 前端数据迁移标记的缺省值：老配置没有该字段时读成空对象。
+fn empty_object() -> serde_json::Value {
+    serde_json::json!({})
 }
 
 /// 出厂默认代理地址（design D9）：**唯一**声明点。
@@ -687,6 +692,10 @@ pub struct AppConfig {
     /// 设备覆盖表：`deviceId -> OverrideEntry`。
     #[serde(default)]
     pub overrides: HashMap<String, OverrideEntry>,
+    /// 前端数据迁移标记（如 `inputModeDefaults`）：前端拥有，后端透明存储。
+    /// 缺字段时读成空对象，老配置照常可读。
+    #[serde(default = "empty_object")]
+    pub migrations: serde_json::Value,
     /// 下载通道偏好。
     #[serde(default)]
     pub channels: Channels,
@@ -724,6 +733,7 @@ impl AppConfig {
             device_list: DeviceList::default(),
             defaults: serde_json::Value::Null,
             overrides: HashMap::new(),
+            migrations: empty_object(),
             channels: Channels::default(),
             logging: Logging::default(),
             ui: Ui::default(),
@@ -1078,6 +1088,8 @@ fn merge_frontend_config(latest: &AppConfig, mut incoming: AppConfig) -> AppConf
         .into_iter()
         .filter(|(id, _)| merged.devices.iter().any(|d| &d.id == id))
         .collect();
+    // 前端拥有的迁移标记与 defaults 同等对待：整份由前端副本覆盖。
+    merged.migrations = incoming.migrations;
     merged.ui = incoming.ui;
     merged.logging = incoming.logging;
     merged.update = incoming.update;
@@ -1782,12 +1794,15 @@ mod tests {
                 values: serde_json::json!({ "video": { "maxFps": 30 } }),
             },
         );
+        // 前端拥有的迁移标记同样只做透明存取，重启后必须还在。
+        cfg.migrations = serde_json::json!({ "inputModeDefaults": true });
         save_config_to(&path, &cfg).unwrap();
 
         let reloaded = load_config_from(&path).unwrap();
 
         assert_eq!(reloaded.defaults["video"]["bitrate"], 12);
         assert_eq!(reloaded.defaults["advanced"]["customArgs"], "");
+        assert_eq!(reloaded.migrations["inputModeDefaults"], true);
         let entry = reloaded.overrides.get(&id).expect("覆盖应随配置一起保留");
         assert!(entry.enabled);
         assert_eq!(entry.values["video"]["maxFps"], 30);
@@ -2148,6 +2163,7 @@ mod tests {
         });
         incoming.tray.icon_style = TRAY_ICON_BLACK.to_string();
         incoming.tray.close_to_tray = true;
+        incoming.migrations = serde_json::json!({ "inputModeDefaults": true });
 
         let merged = merge_frontend_config(&latest, incoming);
 
@@ -2161,6 +2177,10 @@ mod tests {
         assert_eq!(merged.window, latest.window, "窗口几何归后端所有，前端保存不得覆盖");
         assert!(merged.overrides.is_empty(), "已删设备的覆盖不得复活");
         assert_eq!(merged.defaults["video"]["bitrate"], 8, "前端拥有的字段照常合并");
+        assert_eq!(
+            merged.migrations["inputModeDefaults"], true,
+            "前端拥有的迁移标记照常合并"
+        );
         assert_eq!(merged.tray.icon_style, TRAY_ICON_BLACK);
         assert!(merged.tray.close_to_tray);
     }

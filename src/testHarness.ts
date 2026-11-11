@@ -79,6 +79,7 @@ let config: AppConfig = {
   },
   defaults: BUILTIN_DEFAULTS,
   overrides: {},
+  migrations: {},
   channels: { proxies: [] },
   logging: { retention: '7d' },
   ui: {

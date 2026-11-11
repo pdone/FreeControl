@@ -313,14 +313,16 @@ export function buildArgs(
   //    --stay-awake / --keep-active / --power-off-on-close / --no-clipboard-autosync）──
   // `-n/--no-control` 与 Flex Display 不兼容（doc/scrcpy 的 app/src/cli.c:3272）：flex 档不下发。
   if (bool(c.noControl) && !isFlex) add('control.noControl', '--no-control');
-  if (str(c.keyboard) && str(c.keyboard) !== 'uhid') {
+  // 输入模式只在取值与 scrcpy 默认不同时下发（默认：键盘 / 鼠标 `sdk`、手柄 `disabled`）。
+  // 判据比的是内置默认 —— 它是 scrcpy 默认的镜像；用户改过盘上的默认参数也不改变这一点。
+  if (str(c.keyboard) && str(c.keyboard) !== str(builtin.control?.keyboard)) {
     add('control.keyboard', `--keyboard=${str(c.keyboard)}`);
   }
   if (bool(c.noKeyRepeat)) add('control.noKeyRepeat', '--no-key-repeat');
-  if (str(c.mouse) && str(c.mouse) !== 'uhid') {
+  if (str(c.mouse) && str(c.mouse) !== str(builtin.control?.mouse)) {
     add('control.mouse', `--mouse=${str(c.mouse)}`);
   }
-  if (str(c.gamepad) && str(c.gamepad) !== 'uhid') {
+  if (str(c.gamepad) && str(c.gamepad) !== str(builtin.control?.gamepad)) {
     add('control.gamepad', `--gamepad=${str(c.gamepad)}`);
   }
   const mods = Array.isArray(c.shortMod) ? (c.shortMod as unknown[]).map(str).filter(Boolean) : [];

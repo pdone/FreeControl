@@ -2,7 +2,7 @@ import { writable, derived, get } from 'svelte/store';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
-import { BUILTIN_DEFAULTS, migrateToggleKeys } from './defaults';
+import { BUILTIN_DEFAULTS, migrateInputModes, migrateToggleKeys } from './defaults';
 import { buildArgs, mergeParams } from './command';
 import { validateParams, validateOverrideValues, type ParamErrors } from './validate';
 import {
@@ -602,6 +602,8 @@ function applyConfig(c: AppConfig): void {
       deviceList: acceptedPrefs,
       defaults: local.defaults,
       overrides,
+      // 前端拥有的迁移标记同样保留本地：与 defaults 一样，后端返回的快照可能落后于去抖窗口。
+      migrations: local.migrations,
       ui: local.ui,
       logging: local.logging,
       update: local.update,
@@ -1442,6 +1444,10 @@ export async function initApp(): Promise<void> {
     for (const entry of Object.values(c.overrides ?? {})) {
       if (migrateToggleKeys(entry.values)) migrated = true;
     }
+    // 输入模式旧 `uhid` 的一次性归一（change `fix-input-mode-defaults`）：旧版从未下发这些
+    // 取值，归一为新的 scrcpy 默认值可保留升级前的实际行为；标记落下后用户再选 `uhid` 不会被改写。
+    // 该函数在标记缺省时总会返回真（写入标记），因此与其它迁移共用同一次回写。
+    if (migrateInputModes(c)) migrated = true;
     // 默认参数缺失（Null）时回落内置并回写（tasks 5.1 / 5.4：
     // 首次启动结束时盘上就是完整的默认参数，而不是一个空值）。
     if (!c.defaults || Object.keys(c.defaults).length === 0) {
@@ -1449,7 +1455,7 @@ export async function initApp(): Promise<void> {
       await saveConfig(c);
     } else if (migrated) {
       // 回写失败只记录：迁移是纯读时归一化，下次启动会重跑，不影响本次使用。
-      await saveConfig(c).catch((e) => console.error('迁移旧开关取值后回写配置失败', e));
+      await saveConfig(c).catch((e) => console.error('迁移配置取值后回写失败', e));
     }
     config.set(c);
     // 与后续事件同一入口：初始配置也带修订号，旧状态快照无法把它覆盖回去。
@@ -1463,6 +1469,7 @@ export async function initApp(): Promise<void> {
       deviceList: EMPTY_DEVICE_LIST,
       defaults: BUILTIN_DEFAULTS,
       overrides: {},
+      migrations: {},
       channels: { proxies: [] },
       // 读配置都失败时用的兜底快照：保留策略取出厂默认（`config::RETENTION_7D`），
       // 与后端「缺字段即 7 天」一致；外观偏好同理（跟随系统 + indigo）；

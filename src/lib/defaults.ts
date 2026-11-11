@@ -1,6 +1,19 @@
 import type { Defaults } from './types';
 
 /**
+ * 三项输入模式的 scrcpy 默认取值（doc/scrcpy 的 `doc/keyboard.md` / `mouse.md` / `gamepad.md`：
+ * 键盘与鼠标默认 `sdk`，手柄默认 `disabled`）。
+ *
+ * 界面出厂显示这三个值，但命令拼装会把「等于 scrcpy 默认」的取值跳过 —— 出厂状态仍不替用户
+ * 预设 flag，行为由 scrcpy 自身决定。一次性归一（`migrateInputModes`）也以它为目标值。
+ */
+export const INPUT_MODE_DEFAULTS = {
+  keyboard: 'sdk',
+  mouse: 'sdk',
+  gamepad: 'disabled',
+} as const;
+
+/**
  * 内置默认参数（与 ui-design/launcher-prototype.html 中 `defaults` 一致）。
  * 后端 config.json 的 `defaults` 为空（Null）时，前端以此作为出厂默认，
  * 并在首次保存时写回磁盘（design D7）。flag 名称均对照 doc/scrcpy 源码。
@@ -73,11 +86,12 @@ export const BUILTIN_DEFAULTS: Defaults = {
   },
   control: {
     noControl: false,
-    keyboard: 'uhid',
+    // 输入模式显示 scrcpy 自身默认：出厂状态不产生这三个 flag，行为交给 scrcpy。
+    keyboard: INPUT_MODE_DEFAULTS.keyboard,
     // 关 = 不传 `--no-key-repeat`，按住按键时照常转发重复事件（scrcpy 默认）。
     noKeyRepeat: false,
-    mouse: 'uhid',
-    gamepad: 'uhid',
+    mouse: INPUT_MODE_DEFAULTS.mouse,
+    gamepad: INPUT_MODE_DEFAULTS.gamepad,
     // 空数组 = 不产生 `--shortcut-mod`，快捷键沿用 scrcpy 自身的默认修饰键。
     shortMod: [],
     showTouches: false,
@@ -160,4 +174,43 @@ export function migrateToggleKeys(values: Record<string, unknown> | null | undef
     changed = true;
   }
   return changed;
+}
+
+/** 一次性归一所需的最小配置形状（与 `AppConfig` 结构兼容，避免 defaults 反向依赖类型模块）。 */
+export interface InputModeMigrationTarget {
+  defaults?: unknown;
+  overrides?: Record<string, { values?: unknown } | null | undefined> | null;
+  migrations?: Record<string, unknown> | null;
+}
+
+const INPUT_MODE_KEYS = ['keyboard', 'mouse', 'gamepad'] as const;
+
+/**
+ * 一次性归一（change `fix-input-mode-defaults`）：旧版从未把 `uhid` 下发，故升级时把
+ * `defaults.control` 与各设备覆盖中的 `uhid` 改写为新的 scrcpy 默认值，保留升级前的实际
+ * 输入行为；随后落下 `migrations.inputModeDefaults` 标记，用户之后主动选择 `uhid` 不再被归一。
+ *
+ * 只认恰好等于 `uhid` 的字符串；`sdk` / `aoa` / `disabled`、其它字段与自定义参数原样保留。
+ * 无论是否改到取值都会补标记 —— 新装用户没有旧 `uhid`，同样需要在首次运行时落下标记。
+ * 就地修改传入对象，返回是否发生改动（调用方据此决定是否回写）。
+ */
+export function migrateInputModes(target: InputModeMigrationTarget): boolean {
+  const migrations = (target.migrations ?? {}) as Record<string, unknown>;
+  // 标记已落下即为一次性迁移完成：之后用户主动选择的 `uhid` 必须原样保留。
+  if (migrations.inputModeDefaults === true) return false;
+
+  const normalize = (values: unknown) => {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) return;
+    const control = (values as Record<string, unknown>).control;
+    if (!control || typeof control !== 'object' || Array.isArray(control)) return;
+    const bag = control as Record<string, unknown>;
+    for (const key of INPUT_MODE_KEYS) {
+      if (bag[key] === 'uhid') bag[key] = INPUT_MODE_DEFAULTS[key];
+    }
+  };
+  normalize(target.defaults);
+  for (const entry of Object.values(target.overrides ?? {})) normalize(entry?.values);
+  // 即使没有改到取值也要补标记，否则新装用户之后选择 `uhid` 会在下次启动被误归一。
+  target.migrations = { ...migrations, inputModeDefaults: true };
+  return true;
 }
