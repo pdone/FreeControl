@@ -2,7 +2,7 @@
   // 添加设备：四种添加方式共用一个弹窗；USB / 手动地址写入设备，扫描 / 配对沿用无线命令。
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
   import { t, translateNow } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { addDevice, devices, refreshDeviceStatus } from '../lib/store';
@@ -449,6 +449,7 @@
     <div class="overlay-backdrop" role="presentation" on:click={close}></div>
     <div
       class="modal add-device-modal"
+      transition:dialogScale={DIALOG_SCALE}
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-device-title"

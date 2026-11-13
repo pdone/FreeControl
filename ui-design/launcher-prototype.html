@@ -791,18 +791,26 @@
   .modal.about-modal { position: relative; width: min(520px, calc(100vw - 48px)); height: 555px; padding: 26px 22px 22px; text-align: center; display: flex; flex-direction: column; transition: width .18s ease, height .18s ease; }
   /* 检查更新视图不再与关于同尺寸：宽度取内容所需宽度，高度由脚本按当前状态内容量出；两者都平滑过渡。 */
   .about-modal.update-mode { width: min(424px, calc(100vw - 48px)); }
-  /* 弹出与关闭动画：只淡遮罩，面板不缩放（与添加设备同一形态）。面板一旦带缩放，顶边就要
-     从下往上归位一段（.94→1 在一块 555px 高的面板上是 16.65px，再加 translateY 的 6px），
-     观感像「弹出来之后内容还在动」，故 2026-10-27 起不再缩放。
-     关闭走 .closing（脚本加上），动画播完由 animationend 收掉 .show —— 顺序是「先播动画再消失」，
-     不是瞬隐；监听随之从面板动画改到遮罩动画（见脚本里的 about-fade-out）。
+  /* 弹出与关闭动画（B 版定稿，2026-11-12）：遮罩淡入淡出 + 面板整体缩放（与添加设备 / 设备参数同一形态）。
+     决策链：2026-10-27 曾因「弹出来之后内容还在动」去掉缩放；2026-11-12 先做 B 版原型，评审一度退回
+     A（壳缩放、内容钉死）并做出 A 版；两版对比后用户定稿 B，规则：位移只允许发生在窗口变大的过渡期间，
+     播完后文字不再位移。transform 不影响布局、过渡结束于 scale(1) 且入场不留 fill，播完后零残留由构造保证。
+     面板缩放与遮罩淡入共用同一段 .16s ease。
+     关闭走 .closing（脚本加上），动画播完由 animationend 收掉 .show —— 先播动画再消失，不是瞬隐；
+     收壳监听挂在遮罩淡出上（面板缩放的 animationend 也冒泡到这里，按 animationName 滤掉）。
      时长只写在这里；减少动态效果偏好下压到 0.01ms（仍会触发 animationend，逻辑不必分叉）。 */
   @keyframes about-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes about-fade-out { from { opacity: 1; } to { opacity: 0; } }
+  /* 三个弹窗（关于 / 添加设备 / 设备参数）共用的面板缩放：.94→1，中心为原点。 */
+  @keyframes modal-scale-in { from { transform: scale(.94); } to { transform: scale(1); } }
+  @keyframes modal-scale-out { from { transform: scale(1); } to { transform: scale(.94); } }
   .overlay.about-overlay.show { animation: about-fade-in .16s ease both; }
   .overlay.about-overlay.closing { animation: about-fade-out .16s ease both; }
+  .overlay.about-overlay.show .about-modal { animation: modal-scale-in .16s ease; }
+  .overlay.about-overlay.closing .about-modal { animation: modal-scale-out .16s ease both; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.about-overlay.show, .overlay.about-overlay.closing { animation-duration: .01ms; }
+    .overlay.about-overlay.show, .overlay.about-overlay.closing,
+    .overlay.about-overlay.show .about-modal, .overlay.about-overlay.closing .about-modal { animation-duration: .01ms; }
   }
   /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
   .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .16s; }
@@ -946,11 +954,15 @@
   .modal.dev-params-modal { position: relative; display: flex; flex-direction: column; width: min(720px, 100%); max-height: calc(100vh - 48px); padding: 0; text-align: left; overflow: hidden; transition: width .18s ease; }
   /* 扩大：占满可用区（遮罩的 24px 内边距提供四周留白）；每次打开由脚本复位。 */
   .modal.dev-params-modal.expanded { width: 100%; height: calc(100vh - 48px); max-height: none; }
-  /* 纯遮罩淡入淡出（与产品侧设备参数弹窗同一实现）：面板不缩放。 */
+  /* 遮罩淡入淡出 + 面板缩放（与产品侧设备参数弹窗同一实现，B 版定稿）：复用 about 的遮罩 keyframes
+     与共用的 modal-scale（2026-11-12 决策链见 about 弹窗注释块：位移仅限过渡期间，播完后静止）。 */
   .overlay.dev-params-overlay.show { animation: about-fade-in .16s ease both; }
   .overlay.dev-params-overlay.closing { animation: about-fade-out .16s ease both; }
+  .overlay.dev-params-overlay.show .dev-params-modal { animation: modal-scale-in .16s ease; }
+  .overlay.dev-params-overlay.closing .dev-params-modal { animation: modal-scale-out .16s ease both; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.dev-params-overlay.show, .overlay.dev-params-overlay.closing { animation-duration: .01ms; }
+    .overlay.dev-params-overlay.show, .overlay.dev-params-overlay.closing,
+    .overlay.dev-params-overlay.show .dev-params-modal, .overlay.dev-params-overlay.closing .dev-params-modal { animation-duration: .01ms; }
     .modal.dev-params-modal { transition-duration: .01ms; }
   }
   /* 头部：标题 / 启停开关 / 扩大缩小 / 关闭，固定不随体区滚动。 */
@@ -988,12 +1000,15 @@
   .add-close:disabled { opacity: .5; cursor: not-allowed; }
   @keyframes add-fade-in { from { opacity: 0; } to { opacity: 1; } }
   @keyframes add-fade-out { from { opacity: 1; } to { opacity: 0; } }
-  /* 纯遮罩淡入淡出（与产品侧设备参数弹窗同一实现）：面板不缩放；关闭期间仍屏蔽面板交互。 */
+  /* 遮罩淡入淡出 + 面板缩放（与产品侧设备参数弹窗同一实现，B 版定稿）：复用共用的 modal-scale
+     （2026-11-12 决策链见 about 弹窗注释块）；关闭期间仍屏蔽面板交互。 */
   .overlay.add-overlay.show { animation: add-fade-in .16s ease both; }
   .overlay.add-overlay.closing { animation: add-fade-out .16s ease both; }
-  .overlay.add-overlay.closing .add-device-modal { pointer-events: none; }
+  .overlay.add-overlay.show .add-device-modal { animation: modal-scale-in .16s ease; }
+  .overlay.add-overlay.closing .add-device-modal { animation: modal-scale-out .16s ease both; pointer-events: none; }
   @media (prefers-reduced-motion: reduce) {
-    .overlay.add-overlay.show, .overlay.add-overlay.closing { animation-duration: .01ms; }
+    .overlay.add-overlay.show, .overlay.add-overlay.closing,
+    .overlay.add-overlay.show .add-device-modal, .overlay.add-overlay.closing .add-device-modal { animation-duration: .01ms; }
   }
   .add-device-inner { display: flow-root; min-width: 0; }
   .add-device-modal h2 { margin-bottom: 20px; }
@@ -2049,7 +2064,7 @@
 <!-- 关于 Modal（spec `about-page`：两个入口共用这一个弹窗 —— 侧边栏「关于」入口与品牌行）
      版式取自验收参考图：关闭键 → 品牌图形 → 产品名 → 两行版本行（等宽对齐、各带复制键）→ 标语 →
      技术栈药丸（一行排开）→ 外链按钮栅格 → 居中页脚。
-     弹出与关闭有过渡动画（`.about-overlay` 上的 keyframes，关闭先加 `.closing` 再由 animationend 收掉）。
+     弹出与关闭有过渡动画（B 版定稿：`.about-overlay` 上的遮罩 keyframes + 面板共用 modal-scale 缩放，位移仅限过渡期间、播完后静止；关闭先加 `.closing` 再由 animationend 收掉）。
      两处刻意不照抄参考图（已记账在 design D9/D10）：药丸只用主色派生色（项目硬约束：不得引入品牌色）、
      版本值不加 v 前缀（与「运行环境」页同口径）。入口四颗：三颗外链 + 一颗检查更新。 -->
 <div class="overlay about-overlay" id="aboutModal">
@@ -2858,7 +2873,6 @@
   "仅显示关键信息": "Show key details only",
   "连接失败": "Connection failed",
   "已切换为手动排序": "Switched to manual order",
-  "设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）": "Set device parameters for this device (they take priority over global parameters; empty items use the global value)",
   "删除该设备（连带清除其设备参数）": "Delete this device (also clears its device parameters)",
   "「{0}」的设备参数": "Device parameters for \"{0}\"",
   "视频与显示": "Video & display",
@@ -3864,7 +3878,7 @@
       const connectBtn = d.status==='connected'
         ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
         : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`;
-      const paramsBtn = `<button class="btn sm ghost" data-ov="${d.id}" data-tip="设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）"><i data-lucide="sliders-horizontal"></i>参数</button>`;
+      const paramsBtn = `<button class="btn sm ghost" data-ov="${d.id}"><i data-lucide="sliders-horizontal"></i>参数</button>`;
       card.innerHTML = compact ? `
         <div class="dev-main" data-pick="${d.id}">
           <button class="dev-handle" type="button" data-handle="${d.id}" aria-label="拖动调整设备顺序" aria-disabled="false"><i data-lucide="grip-vertical"></i></button>
@@ -4620,7 +4634,7 @@
     clearUpdateTimers();
     aboutModal.classList.add('closing');
   }
-  // 收 .show 的时机挂在**遮罩**的淡出动画上（面板已不缩放，面板上不再有动画）。
+  // 收 .show 的时机挂在**遮罩**的淡出动画上（面板缩放的 animationend 也冒泡到这里，按 animationName 滤掉）。
   aboutModal.addEventListener('animationend', e=>{
     if (e.animationName==='about-fade-out') {
       aboutModal.classList.remove('show','closing');

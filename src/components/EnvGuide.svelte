@@ -16,7 +16,7 @@
   import { t } from '../lib/i18n';
   import { AlertTriangle, Download } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
 
   $: show = !!$envStatus && !$envStatus.ready && !$envGuideDismissed;
   $: missingText = ($envStatus?.missing ?? []).join($t('common.commaSeparator'));
@@ -38,7 +38,7 @@
 {#if show}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
     <div class="overlay-backdrop" role="presentation" on:click={dismiss}></div>
-    <div class="modal">
+    <div class="modal" transition:dialogScale={DIALOG_SCALE}>
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('guide.title')}</h2>
       <p>{$t('guide.body')}</p>

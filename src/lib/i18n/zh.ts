@@ -472,7 +472,6 @@ export const zh = {
   'device.log': '日志',
   'device.logTip': '在「设置」页查看该会话输出（用于排查问题）',
   'device.params': '参数',
-  'device.paramsTip': '设置该设备的设备参数（优先于全局参数；未填写的项沿用全局参数）',
   'device.delete': '删除',
   'device.deleteTip': '删除该设备（连带清除其设备参数）',
   'device.overrideTitle': '「{alias}」的设备参数',

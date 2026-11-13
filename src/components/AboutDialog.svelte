@@ -36,7 +36,7 @@
   import { copyText } from '../lib/clipboard';
   import { channelLabel } from '../lib/channel';
   import { errorTextOf } from '../lib/message';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
   import { t, type MessageKey } from '../lib/i18n';
   import { tip } from '../lib/tooltip';
   import logoMark from '../../assets/icons/desktop/256x256.png';
@@ -62,9 +62,8 @@
   /** 复制成功反馈时长 —— 与 `LaunchBar` 的命令复制同一档（同一套反馈，不新造第二套）。 */
   const COPIED_MS = 1400;
 
-  // 入场与关闭只淡遮罩、面板不缩放 —— 与添加设备 / 设备参数同一份参数（`src/lib/motion.ts`）。
-  // 面板一旦带缩放，顶边就要从下往上归位一段（0.94→1 在这块 520px 高的面板上是 15.65px），
-  // 观感上像「弹出来之后内容还在动」，故 2026-10-27 起与另两个弹窗对齐。
+  // 入场与关闭：遮罩淡入 + 面板缩放 —— 与添加设备 / 设备参数同一份参数（`src/lib/motion.ts`，
+  // 2026-11-12 定稿 B：位移仅限过渡播放期间，播完 transform 被移除，内容静止在布局位置）。
 
   $: appVer = $appVersion ?? PLACEHOLDER;
   $: scrcpyVer = $compat?.bestFit ?? PLACEHOLDER;
@@ -423,6 +422,7 @@
   <div
     class="modal about-modal"
     class:update-mode={view === 'update'}
+    transition:dialogScale={DIALOG_SCALE}
     role="dialog"
     aria-modal="true"
     aria-label={view === 'about' ? $t('about.dialogLabel') : $t('about.updateLabel')}

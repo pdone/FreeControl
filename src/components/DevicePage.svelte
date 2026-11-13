@@ -45,7 +45,7 @@
   import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
   import { fade } from 'svelte/transition';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
   import AddDeviceDialog from './AddDeviceDialog.svelte';
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
@@ -1198,7 +1198,6 @@
             <button
               class="btn sm ghost"
               on:click|stopPropagation={() => openParams(d.id)}
-              use:tip={$t('device.paramsTip')}
             >
               <SlidersHorizontal /> {$t('device.params')}
             </button>
@@ -1222,7 +1221,7 @@
 {#if pendingDelete}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
     <div class="overlay-backdrop" role="presentation" on:click={cancelDelete}></div>
-    <div class="modal">
+    <div class="modal" transition:dialogScale={DIALOG_SCALE}>
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('device.delete.title')}</h2>
       <p>

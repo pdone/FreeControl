@@ -13,7 +13,7 @@
   // 都回到常态」由挂载/卸载保证，不靠额外的事件去重置（design D4）。
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
   import {
     defaults,
     devices,
@@ -160,6 +160,7 @@
   <div
     class="modal dp-modal"
     class:expanded
+    transition:dialogScale={DIALOG_SCALE}
     role="dialog"
     aria-modal="true"
     aria-label={device ? $t('device.overrideTitle', { alias: device.alias }) : $t('device.params')}

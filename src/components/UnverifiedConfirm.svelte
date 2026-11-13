@@ -19,7 +19,7 @@
   import { AlertTriangle, Download } from 'lucide-svelte';
   import { tip } from '../lib/tooltip';
   import { fade } from 'svelte/transition';
-  import { DIALOG_FADE } from '../lib/motion';
+  import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
 
   function onBackdrop(): void {
     if ($installRunning) return;
@@ -30,7 +30,7 @@
 {#if $pendingInstall}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
     <div class="overlay-backdrop" role="presentation" on:click={onBackdrop}></div>
-    <div class="modal">
+    <div class="modal" transition:dialogScale={DIALOG_SCALE}>
       <div class="ico warn"><AlertTriangle /></div>
       <h2>{$t('unverified.title')}</h2>
       <p>
