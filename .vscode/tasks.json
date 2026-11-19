@@ -20,6 +20,21 @@
       "problemMatcher": []
     },
     {
+      "label": "开发：停应用（释放 1420）",
+      "detail": "结束仍在监听 1420 的进程（残留的 vite 开发服务器）；端口空闲时什么也不做",
+      "type": "shell",
+      "command": "npm run app:stop",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "构建：出免安装单文件",
       "detail": "产出与出包流程同口径的 Windows 裸 exe，不产出安装器",
       "type": "shell",
