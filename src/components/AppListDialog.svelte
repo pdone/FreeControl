@@ -12,6 +12,7 @@
     openDeviceApp,
     appSortMode,
     appSortDesc,
+    setAppSort,
     type AppSortMode,
   } from '../lib/store';
   import { t, resolvedLang } from '../lib/i18n';
@@ -96,10 +97,9 @@
 
   function chooseSort(mode: AppSortMode): void {
     if (mode !== 'default' && mode === $appSortMode) {
-      appSortDesc.set(!$appSortDesc);
+      setAppSort(mode, !$appSortDesc);
     } else {
-      appSortMode.set(mode);
-      appSortDesc.set(false);
+      setAppSort(mode, false);
     }
     sortOpen = false;
     sortTrigger?.focus();

@@ -14,6 +14,14 @@ import {
 import { applyFontStacks, writeFontCache } from './fonts';
 import { applyUiScale, DEFAULT_UI_SCALE, isUiScale } from './scale';
 import {
+  readAppSortPreference,
+  readCachedApps,
+  removeCachedApps,
+  writeAppSortPreference,
+  writeCachedApps,
+  type AppSortMode,
+} from './appListCache';
+import {
   applyLanguage,
   DEFAULT_LANGUAGE,
   isLanguagePref,
@@ -867,24 +875,40 @@ export async function disconnectAll(): Promise<SessionInfo[]> {
 
 // ── 应用列表与打开（app-list-launch）────────────────────────
 
-export type AppSortMode = 'default' | 'name' | 'package';
+export type { AppSortMode } from './appListCache';
 
-/** 应用清单缓存：只在本次运行内有效，不写入配置。 */
+/** 应用清单缓存：内存为事实来源，读取成功的清单同时写入界面本地存储（跨重启保留）。 */
 export const appLists = writable<Record<string, AppEntry[]>>({});
 export const appListLoading = writable<Record<string, boolean>>({});
 export const appListErrors = writable<Record<string, unknown>>({});
-/** 排序是展示偏好，只在本次运行内保持。 */
-export const appSortMode = writable<AppSortMode>('default');
-export const appSortDesc = writable(false);
+const sortPreference = readAppSortPreference();
+/** 排序是展示偏好，跨应用重启保持（界面本地存储）。 */
+export const appSortMode = writable<AppSortMode>(sortPreference?.mode ?? 'default');
+export const appSortDesc = writable(sortPreference?.desc ?? false);
+
+/** 切换排序的唯一入口：同时更新 store 与本地缓存。 */
+export function setAppSort(mode: AppSortMode, desc: boolean): void {
+  appSortMode.set(mode);
+  appSortDesc.set(desc);
+  writeAppSortPreference(mode, desc);
+}
 
 const appInFlight = new Map<string, Promise<AppEntry[]>>();
 
-/** 读取应用清单；已有缓存且未要求刷新时直接返回。同一设备的在途读取会复用。 */
+/** 读取应用清单；内存或本地缓存命中且未要求刷新时直接返回。同一设备的在途读取会复用。 */
 export async function loadDeviceApps(deviceId: string, refresh = false): Promise<AppEntry[]> {
   const cached = get(appLists)[deviceId];
   if (!refresh && cached) return cached;
   const running = appInFlight.get(deviceId);
   if (running) return running;
+
+  if (!refresh) {
+    const persisted = readCachedApps(deviceId);
+    if (persisted) {
+      appLists.update((m) => ({ ...m, [deviceId]: persisted }));
+      return persisted;
+    }
+  }
 
   appListLoading.update((m) => ({ ...m, [deviceId]: true }));
   appListErrors.update((m) => {
@@ -895,6 +919,7 @@ export async function loadDeviceApps(deviceId: string, refresh = false): Promise
   const task = listDeviceApps(deviceId)
     .then((list) => {
       appLists.update((m) => ({ ...m, [deviceId]: list }));
+      writeCachedApps(deviceId, list);
       return list;
     })
     .catch((e) => {
@@ -910,13 +935,14 @@ export async function loadDeviceApps(deviceId: string, refresh = false): Promise
   return task;
 }
 
-/** 设备删除时丢弃其缓存。 */
+/** 设备删除时丢弃其内存与本地缓存。 */
 export function forgetDeviceApps(deviceId: string): void {
   appLists.update((m) => {
     const next = { ...m };
     delete next[deviceId];
     return next;
   });
+  removeCachedApps(deviceId);
 }
 
 /**
