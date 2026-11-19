@@ -45,7 +45,10 @@ import {
   connectDevice as connectDeviceCmd,
   connectAll as connectAllCmd,
   disconnectDevice as disconnectDeviceCmd,
+  disconnectSession as disconnectSessionCmd,
   disconnectAll as disconnectAllCmd,
+  listDeviceApps,
+  openApp as openAppCmd,
   listSessions,
   getSessionLog,
   clearSessionLog as clearSessionLogCmd,
@@ -62,6 +65,8 @@ import {
 } from './api';
 import type {
   AppConfig,
+  AppEntry,
+  AppOpenMode,
   AppUpdateCheck,
   CompatStatus,
   ConnectRequest,
@@ -75,6 +80,7 @@ import type {
   DeviceStatusPayload,
   DeviceStatusView,
   EnvStatus,
+  OpenAppResult,
   OverrideEntry,
   ProxyList,
   SessionInfo,
@@ -498,7 +504,7 @@ export const selectedDeviceId = writable<string | null>(null);
  * 进程与槽位的事实在后端，前端只渲染。
  */
 export const sessions = writable<SessionInfo[]>([]);
-/** 设置页「会话输出」里当前查看的会话（设备 id）。 */
+/** 设置页「会话输出」里当前查看的会话（会话 id）。 */
 export const selectedSessionId = writable<string | null>(null);
 /**
  * 设备卡「日志」按钮 → 设置页「会话输出」的一次性滚动信号。
@@ -691,6 +697,7 @@ export async function reorderDevices(orderedIds: string[]): Promise<void> {
 export async function deleteDevice(id: string): Promise<void> {
   applyConfig(await deleteDeviceCmd(id));
   selectedDeviceId.update((sel) => (sel === id ? null : sel));
+  forgetDeviceApps(id);
   deviceNotices.update((map) => {
     if (!(id in map)) return map;
     const next = { ...map };
@@ -720,7 +727,7 @@ export async function removeProxy(url: string): Promise<void> {
 function applySessions(list: SessionInfo[]): void {
   sessions.set(list);
   // 选中的会话不存在了（记录被裁剪 / 设备被删除）就清空选择，避免日志面板指向不存在的会话。
-  selectedSessionId.update((id) => (id && list.some((s) => s.deviceId === id) ? id : null));
+  selectedSessionId.update((id) => (id && list.some((s) => s.id === id) ? id : null));
 }
 
 /** 取一次会话列表（启动时用：事件只在变化时推，首推可能早于前端注册监听）。 */
@@ -846,11 +853,92 @@ export async function disconnectDevice(deviceId: string): Promise<void> {
   applySessions(await disconnectDeviceCmd(deviceId));
 }
 
+/** 结束单条会话（设置页按窗口结束）。 */
+export async function disconnectSession(sessionId: string): Promise<void> {
+  applySessions(await disconnectSessionCmd(sessionId));
+}
+
 /** 全部断开（tasks 9.2）；返回结束后的会话列表。 */
 export async function disconnectAll(): Promise<SessionInfo[]> {
   const list = await disconnectAllCmd();
   applySessions(list);
   return list;
+}
+
+// ── 应用列表与打开（app-list-launch）────────────────────────
+
+export type AppSortMode = 'default' | 'name' | 'package';
+
+/** 应用清单缓存：只在本次运行内有效，不写入配置。 */
+export const appLists = writable<Record<string, AppEntry[]>>({});
+export const appListLoading = writable<Record<string, boolean>>({});
+export const appListErrors = writable<Record<string, unknown>>({});
+/** 排序是展示偏好，只在本次运行内保持。 */
+export const appSortMode = writable<AppSortMode>('default');
+export const appSortDesc = writable(false);
+
+const appInFlight = new Map<string, Promise<AppEntry[]>>();
+
+/** 读取应用清单；已有缓存且未要求刷新时直接返回。同一设备的在途读取会复用。 */
+export async function loadDeviceApps(deviceId: string, refresh = false): Promise<AppEntry[]> {
+  const cached = get(appLists)[deviceId];
+  if (!refresh && cached) return cached;
+  const running = appInFlight.get(deviceId);
+  if (running) return running;
+
+  appListLoading.update((m) => ({ ...m, [deviceId]: true }));
+  appListErrors.update((m) => {
+    const next = { ...m };
+    delete next[deviceId];
+    return next;
+  });
+  const task = listDeviceApps(deviceId)
+    .then((list) => {
+      appLists.update((m) => ({ ...m, [deviceId]: list }));
+      return list;
+    })
+    .catch((e) => {
+      // 刷新失败保留上一次成功清单；首次失败由弹窗显示错误。
+      appListErrors.update((m) => ({ ...m, [deviceId]: e }));
+      throw e;
+    })
+    .finally(() => {
+      appInFlight.delete(deviceId);
+      appListLoading.update((m) => ({ ...m, [deviceId]: false }));
+    });
+  appInFlight.set(deviceId, task);
+  return task;
+}
+
+/** 设备删除时丢弃其缓存。 */
+export function forgetDeviceApps(deviceId: string): void {
+  appLists.update((m) => {
+    const next = { ...m };
+    delete next[deviceId];
+    return next;
+  });
+}
+
+/**
+ * 打开应用：参数仍按该设备生效参数拼装（与连接、命令预览同源），后端只注入一次性
+ * `--start-app`，不写回配置。
+ */
+export async function openDeviceApp(
+  deviceId: string,
+  packageName: string,
+  mode: AppOpenMode,
+): Promise<OpenAppResult> {
+  const res = await openAppCmd({
+    deviceId,
+    packageName,
+    mode,
+    args: argsForDevice(deviceId),
+  });
+  applySessions(res.sessions);
+  if (res.warning) {
+    deviceNotices.update((m) => ({ ...m, [deviceId]: res.warning! }));
+  }
+  return res;
 }
 
 /**
@@ -898,8 +986,8 @@ export function watchLastDisconnect(): void {
 }
 
 /** 某个会话的输出（tasks 9.4）。 */
-export function sessionLog(deviceId: string): Promise<string> {
-  return getSessionLog(deviceId);
+export function sessionLog(sessionId: string): Promise<string> {
+  return getSessionLog(sessionId);
 }
 
 /**
@@ -908,8 +996,8 @@ export function sessionLog(deviceId: string): Promise<string> {
  * 清的是后端那份缓冲而不是前端视图 —— 只清视图的话，2 秒一轮的自动刷新会把旧行原样带回来。
  * 会话记录本身（运行状态、退出码、实际命令）不受影响，其它会话的输出也不受牵连。
  */
-export function clearSessionLog(deviceId: string): Promise<void> {
-  return clearSessionLogCmd(deviceId);
+export function clearSessionLog(sessionId: string): Promise<void> {
+  return clearSessionLogCmd(sessionId);
 }
 
 /**

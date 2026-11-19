@@ -991,6 +991,47 @@
   .dp-foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--panel-2); }
   .dp-foot-label { flex: none; display: inline-flex; align-items: center; color: var(--text-faint); }
   .dp-foot-label svg { width: 15px; height: 15px; stroke: currentColor; }
+  /* ---------- 应用列表弹窗（app-list-launch）：外壳复用设备参数弹窗 ----------
+     只补列表自身需要的布局与状态呈现；遮罩、面板缩放、扩大两档与关闭都由
+     .dev-params-overlay / .dev-params-modal 承担。 */
+  .app-list-modal { position: relative; display: flex; flex-direction: column; height: min(560px, calc(100vh - 48px)); }
+  .app-list-modal .al-refresh { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+  .app-list-modal .al-refresh:disabled { opacity: .55; cursor: not-allowed; }
+  .app-list-modal .al-refresh.busy svg { animation: update-spin 1.1s linear infinite; }
+  .app-list-modal .al-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; }
+  .al-toolbar { --al-control-h: 34px; flex: none; display: flex; align-items: center; gap: 8px; }
+  /* 排序、搜索、刷新三处控件共用同一高度：三者的内边距/边框各自不同，靠这一条取值对齐。 */
+  .al-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: var(--al-control-h); box-sizing: border-box; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--text-faint); }
+  .app-list-modal .al-refresh { height: var(--al-control-h); box-sizing: border-box; padding: 0 12px; }
+  /* 排序下拉：沿用自绘下拉的 .sel-trigger / .sel-list / .sel-opt 呈现，只补宽度与触发器的值/箭头布局。 */
+  .al-sort { position: relative; flex: none; width: 126px; }
+  .al-sort .sel-trigger { display: inline-flex; align-items: center; height: var(--al-control-h); padding: 0 26px 0 10px; font-size: 12px; }
+  .al-sort-value { display: flex; flex: 1; min-width: 0; align-items: center; gap: 4px; }
+  .al-sort-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .al-sort-arrow { flex: none; display: inline-flex; width: 12px; height: 12px; }
+  .al-sort-arrow svg { width: 12px; height: 12px; stroke-width: 2; }
+  /* 触发器里的方向箭头不能用 .sel-trigger svg 的绝对定位（那是给右端 chevron 的），否则会叠到同一处。 */
+  .al-sort .sel-trigger .al-sort-arrow svg { position: static; right: auto; top: auto; margin-top: 0; transform: none; }
+  .al-sort .sel-list { width: 156px; right: auto; }
+  .al-sort .sel-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .al-sort .sel-opt .al-sort-arrow { width: 13px; height: 13px; }
+  .al-sort .sel-opt .al-sort-arrow svg { width: 13px; height: 13px; }
+  .al-search svg { flex: none; width: 15px; height: 15px; stroke: currentColor; }
+  .al-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font-size: 13px; outline: none; }
+  .al-search input::placeholder { color: var(--text-faint); }
+  .al-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  .al-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
+  .al-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .al-pkg { color: var(--text-faint); font-size: 12px; }
+  .al-actions { flex: none; display: flex; gap: 6px; }
+  .al-actions .btn { padding: 4px 8px; font-size: 12px; }
+  .al-state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px 12px; color: var(--text-dim); font-size: 13px; text-align: center; }
+  .app-list-modal .status-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor; border-radius: 50%; animation: update-spin 1.1s linear infinite; }
+  .al-feedback { flex: none; padding: 8px 10px; border: 1px solid var(--accent-line); border-radius: var(--radius-sm); background: var(--accent-weak); color: var(--accent-text); font-size: 12.5px; }
+  .al-feedback[hidden] { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .app-list-modal .status-spinner, .app-list-modal .al-refresh.busy svg { animation: none; }
+  }
   /* 只测自然内容内层，避免外壳的尺寸过渡反过来影响测量。 */
   #addModal { padding: 16px; }
   .add-device-modal { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow: hidden; transition: height 180ms ease; }
@@ -1613,7 +1654,7 @@
               <button class="fhelp-btn" type="button" aria-label="包名（--start-app）的说明"><i data-lucide="circle-help"></i></button>
               <span class="fhelp-panel"><span class="fhelp-title">包名（--start-app）</span><span class="fhelp-p">连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。</span><span class="fhelp-p">按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。</span></span>
             </span></span>
-              <div class="row"><input type="text" data-g="apps" data-k="startApp" data-t="text" placeholder="org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox" /><button class="btn ghost" style="flex:none">列出应用</button></div></div>
+              <div class="row"><input type="text" data-g="apps" data-k="startApp" data-t="text" placeholder="org.mozilla.firefox  /  ?firefox  /  +org.mozilla.firefox" /></div></div>
             <div class="hint">支持 ? 模糊匹配 / + 强制停止；例如 <code>--start-app=+?firefox</code>：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。</div>
           </div>
           <div class="card">
@@ -2161,6 +2202,39 @@
   </div>
 </div>
 
+<!-- 应用列表弹窗（app-list-launch）：头部沿用设备参数弹窗的标题栏结构，体区固定搜索框、
+     列表自身滚动；刷新、扩大与关闭的动效与遮罩复用 .dev-params-overlay / .dev-params-modal。 -->
+<div class="overlay dev-params-overlay app-list-overlay" id="appsModal">
+  <div class="modal dev-params-modal app-list-modal" role="dialog" aria-modal="true" aria-labelledby="alTitle">
+    <header class="dp-head">
+      <span class="dp-title"><i data-lucide="layout-grid"></i><span class="dp-title-text" id="alTitle">应用列表</span></span>
+      <span class="dp-actions">
+        <span class="tip-host" id="alExpandTip" data-tip="扩大"><button class="dp-icon-btn" id="alExpand" type="button" aria-label="扩大"><i data-lucide="maximize-2"></i></button></span>
+        <button class="dp-icon-btn" id="alClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
+      </span>
+    </header>
+    <div class="al-body">
+      <div class="al-toolbar">
+        <div class="al-sort" id="alSort" data-v="default">
+          <button class="sel-trigger" type="button" role="combobox" aria-label="应用排序方式" aria-haspopup="listbox" aria-expanded="false" aria-controls="alSortList">
+            <span class="al-sort-value"><span class="al-sort-label">默认排序</span><span class="al-sort-arrow" aria-hidden="true"></span></span>
+            <i data-lucide="chevron-down"></i>
+          </button>
+          <div class="sel-list hidden" id="alSortList" role="listbox" aria-label="应用排序方式">
+            <button class="sel-opt" type="button" role="option" data-v="default">默认排序</button>
+            <button class="sel-opt" type="button" role="option" data-v="name"><span class="al-sort-opt-label">按名称</span><span class="al-sort-arrow" aria-hidden="true"></span></button>
+            <button class="sel-opt" type="button" role="option" data-v="pkg"><span class="al-sort-opt-label">按包名</span><span class="al-sort-arrow" aria-hidden="true"></span></button>
+          </div>
+        </div>
+        <label class="al-search"><i data-lucide="search"></i><input id="alSearch" type="search" placeholder="搜索应用名称或包名" autocomplete="off" /></label>
+        <button class="btn ghost sm al-refresh" id="alRefresh" type="button"><i data-lucide="refresh-cw"></i><span>刷新列表</span></button>
+      </div>
+      <div class="al-feedback" id="alFeedback" hidden></div>
+      <div class="al-list" id="alList"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 由 scripts/gen-icon-subset.mjs 生成，勿手改。数据源：lucide-svelte@0.456.0（ISC）
      图标子集内联于此，原型因此自足：断网、双击即可打开，不请求任何外部资源。 -->
 <script id="protoIcons">
@@ -2544,7 +2618,6 @@
   "包名（--start-app）": "Package (--start-app)",
   "连接后直接在设备上打开指定应用；虚拟显示场景尤其有用，应用会开在新屏上。": "Open the specified app on the device after connecting; especially useful with virtual displays, where the app opens on the new display.",
   "按名称匹配时 scrcpy 需要先读取设备上的应用列表，第一次可能稍慢。": "When matching by name, scrcpy first reads the app list from the device, which may be slower the first time.",
-  "列出应用": "List apps",
   "支持 ? 模糊匹配 / + 强制停止；例如": "Supports ? fuzzy matching / + force stop, for example",
   "：先强制停止再按名称模糊匹配启动。可配合虚拟显示器使用。": ": stop it first, then start it by fuzzy name. Works with a virtual display.",
   "网络": "Network",
@@ -2859,6 +2932,35 @@
   "最后 {0}": "Last {0}",
   "参数": "Parameters",
   "删除": "Delete",
+  "应用列表": "APP List",
+  "查看并打开该设备上的应用": "Browse and open apps on this device",
+  "设备离线：adb 中未检测到该设备，无法读取应用列表": "The device is offline: adb does not see it, so its apps cannot be listed",
+  "刷新列表": "Refresh list",
+  "应用排序方式": "App sort order",
+  "默认排序": "Default order",
+  "按名称": "By name",
+  "按包名": "By package",
+  "打开": "Open",
+  "新窗口打开": "Open in new window",
+  "打开：在当前投屏中打开此应用；没有投屏时先启动一个": "Open: launch this app in the existing mirror; start one if none is running",
+  "新窗口打开：使用该设备参数再开一个投屏窗口，并打开此应用": "Open in new window: start another mirror with this device's parameters and open this app",
+  "搜索应用名称或包名": "Search app name or package",
+  "正在读取应用列表…": "Loading apps…",
+  "读取失败": "Couldn't load apps",
+  "没有可启动的应用": "No launchable apps",
+  "没有匹配的应用": "No matching apps",
+  "无法连接设备，请检查 adb 连接": "Cannot reach the device; check the adb connection",
+  "刷新失败：无法连接设备，请检查 adb 连接": "Refresh failed: cannot reach the device; check the adb connection",
+  "已在新窗口打开「{0}」": "Opened {0} in a new window",
+  "已在当前窗口打开「{0}」": "Opened {0} in the current window",
+  "已启动投屏并打开「{0}」": "Started mirroring and opened {0}",
+  "相机": "Camera",
+  "浏览器": "Browser",
+  "文件": "Files",
+  "文件管理": "File manager",
+  "短信": "Messages",
+  "通讯录与拨号": "Contacts & dialer",
+  "企业微信": "WeCom",
   "重命名": "Rename",
   "设备排序方式": "Device sort order",
   "手动排序": "Manual order",
@@ -3879,6 +3981,14 @@
         ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
         : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`;
       const paramsBtn = `<button class="btn sm ghost" data-ov="${d.id}"><i data-lucide="sliders-horizontal"></i>参数</button>`;
+      /* 应用列表入口：排在连接 / 断开之后、参数之前。离线的无线设备可用（产品侧点击时先建链），
+         离线的 USB 设备不可用；简洁密度只留图标并保留可访问名称。 */
+      const appsDisabled = d.type==='usb' && d.status==='offline';
+      const appsTip = appsDisabled
+        ? '设备离线：adb 中未检测到该设备，无法读取应用列表'
+        : '查看并打开该设备上的应用';
+      const appsBtn = `<span class="tip-host" data-tip="${appsTip}"><button class="btn sm ghost" data-apps="${d.id}" ${appsDisabled?'disabled':''}><i data-lucide="layout-grid"></i>应用列表</button></span>`;
+      const appsIconBtn = `<span class="tip-host" data-tip="${appsTip}"><button class="btn sm ghost" data-apps="${d.id}" aria-label="应用列表" ${appsDisabled?'disabled':''}><i data-lucide="layout-grid"></i></button></span>`;
       card.innerHTML = compact ? `
         <div class="dev-main" data-pick="${d.id}">
           <button class="dev-handle" type="button" data-handle="${d.id}" aria-label="拖动调整设备顺序" aria-disabled="false"><i data-lucide="grip-vertical"></i></button>
@@ -3892,6 +4002,7 @@
           </div>
           <div class="dev-actions">
             ${connectBtn}
+            ${appsIconBtn}
             ${paramsBtn}
           </div>
         </div>` : `
@@ -3920,6 +4031,7 @@
           </div>
           <div class="dev-actions">
             ${connectBtn}
+            ${appsBtn}
             ${paramsBtn}
             <button class="btn sm danger" data-del="${d.id}" data-tip="删除该设备（连带清除其设备参数）"><i data-lucide="trash-2"></i>删除</button>
           </div>
@@ -3929,7 +4041,7 @@
     });
     lucide.createIcons();
     box.querySelectorAll('[data-pick]').forEach(el=>el.addEventListener('click', e=>{
-      if (e.target.closest('[data-conn],[data-disc],[data-ov],[data-del],[data-edit],[data-handle],[data-cid-edit],.dev-cid-input')) return;
+      if (e.target.closest('[data-conn],[data-disc],[data-apps],[data-ov],[data-del],[data-edit],[data-handle],[data-cid-edit],.dev-cid-input')) return;
       selectedId=el.dataset.pick; renderDeviceList(); renderPreview();
     }));
     box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', e=>{ e.stopPropagation(); startRename(b.dataset.edit); }));
@@ -3953,6 +4065,9 @@
     // 打开参数弹窗：不改变选中设备（design D3），预览由弹窗自己按所属设备渲染。
     box.querySelectorAll('[data-ov]').forEach(b=>b.addEventListener('click', e=>{
       e.stopPropagation(); openParamsDialog(b.dataset.ov);
+    }));
+    box.querySelectorAll('[data-apps]').forEach(b=>b.addEventListener('click', e=>{
+      e.stopPropagation(); if (b.disabled) return; openAppsDialog(b.dataset.apps);
     }));
   }
   function startRename(id){
@@ -4301,6 +4416,331 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && paramsModal.classList.contains('show')) closeParamsDialog();
   });
+
+  /* ===================== 应用列表弹窗（app-list-launch） =====================
+     原型演示口径：
+     - 首次打开某设备时模拟一次读取（约 900ms），成功结果按设备缓存；重开命中缓存，不重复读取。
+     - 刷新重新读取并替换缓存；失败时保留旧清单。
+     - ?apps=error / ?apps=empty 可强制失败与空结果，用于验收失败态、空态与重试；
+       缺省 ok 展示演示应用清单。
+     - 「新窗口打开」「当前窗口打开」只更新设备状态与弹窗内反馈，模拟产品侧即将发生的
+       新会话 / 当前会话启动；不真的启动 scrcpy。 */
+  const appsModal = document.getElementById('appsModal');
+  const appsShell = appsModal.querySelector('.app-list-modal');
+  const alRefresh = document.getElementById('alRefresh');
+  const alSearch = document.getElementById('alSearch');
+  const alFeedback = document.getElementById('alFeedback');
+  const alList = document.getElementById('alList');
+  const alExpand = document.getElementById('alExpand');
+  const alExpandTip = document.getElementById('alExpandTip');
+  const APPS_DEMO_STATE = (() => {
+    try {
+      const v = new URLSearchParams(location.search).get('apps');
+      return v === 'error' || v === 'empty' ? v : 'ok';
+    } catch (e) { return 'ok'; }
+  })();
+  const DEMO_APPS = [
+    { name:'设置', pkg:'com.android.settings' },
+    { name:'相机', pkg:'com.android.camera' },
+    { name:'浏览器', pkg:'com.android.browser' },
+    { name:'文件', pkg:'com.google.android.documentsui' },
+    { name:'文件管理', pkg:'com.android.fileexplorer' },
+    { name:'短信', pkg:'com.android.mms' },
+    { name:'通讯录与拨号', pkg:'com.android.contacts' },
+    { name:'F-Droid', pkg:'org.fdroid.fdroid' },
+    { name:'企业微信', pkg:'com.tencent.wework' },
+    { name:'Via', pkg:'mark.via' },
+    { name:'Tailscale', pkg:'com.tailscale.ipn' }
+  ];
+  const appsCache = new Map();
+  let appsDeviceId = null;
+  let appsExpanded = false;
+  let appsLoading = false;
+  let appsError = '';
+  let appsFeedback = '';
+  let appsKeyword = '';
+  let appsTimer = null;
+  let appsCloseTimer = null;
+  let appsGen = 0;
+  let appsSortMode = 'default';
+  let appsSortDesc = false;
+  let appsSortOpen = false;
+  let appsSortActive = 0;
+  const alSortEl = document.getElementById('alSort');
+  const alSortTrigger = alSortEl.querySelector('.sel-trigger');
+  const alSortList = document.getElementById('alSortList');
+
+  function appsSortOpts(){ return [...alSortList.querySelectorAll('.sel-opt')]; }
+
+  function appsSortMark(){
+    const opts = appsSortOpts();
+    opts.forEach((o, i) => o.classList.toggle('active', i === appsSortActive));
+    const cur = opts[appsSortActive];
+    if (cur) alSortTrigger.setAttribute('aria-activedescendant', cur.id);
+    else alSortTrigger.removeAttribute('aria-activedescendant');
+  }
+
+  function syncAppsSortUI(syncLabel = true){
+    const dirMode = appsSortMode !== 'default';
+    const base = appsSortMode === 'name' ? '按名称' : appsSortMode === 'pkg' ? '按包名' : '默认排序';
+    // 方向只由箭头图标表达：文字保持单一可翻译短语，避免拼出「按名称 ↑」这类复合串。
+    // 展开菜单时只刷新箭头与选中态，不改写标签 —— 否则英文界面会在展开瞬间回落成中文原文。
+    if (syncLabel) alSortEl.querySelector('.al-sort-label').textContent = base;
+    const arrow = dirMode ? `${appsSortDesc ? 'arrow-down' : 'arrow-up'}` : '';
+    const triggerArrow = alSortEl.querySelector('.sel-trigger .al-sort-arrow');
+    triggerArrow.innerHTML = arrow ? `<i data-lucide="${arrow}"></i>` : '';
+    appsSortOpts().forEach((o, i) => {
+      o.id = `alSort-opt-${i}`;
+      const on = (o.dataset.v || '') === appsSortMode;
+      o.setAttribute('aria-selected', on ? 'true' : 'false');
+      const a = o.querySelector('.al-sort-arrow');
+      if (a) a.innerHTML = on && arrow ? `<i data-lucide="${arrow}"></i>` : '';
+    });
+    lucide.createIcons();
+    if (window.__tipRefresh) window.__tipRefresh();
+  }
+
+  function openAppsSort(dir){
+    if (appsSortOpen) return;
+    const opts = appsSortOpts();
+    if (!opts.length) return;
+    // 展开前刷新一次方向箭头：当前排序项必须在菜单里显示与触发器一致的状态。
+    syncAppsSortUI(false);
+    const idx = opts.findIndex(o => (o.dataset.v || '') === appsSortMode);
+    appsSortActive = dir === -1 ? opts.length - 1 : Math.max(0, idx);
+    alSortList.classList.remove('hidden');
+    alSortTrigger.setAttribute('aria-expanded', 'true');
+    appsSortOpen = true;
+    appsSortMark();
+  }
+
+  function closeAppsSort(){
+    if (!appsSortOpen) return;
+    alSortList.classList.add('hidden');
+    alSortTrigger.setAttribute('aria-expanded', 'false');
+    alSortTrigger.removeAttribute('aria-activedescendant');
+    appsSortOpen = false;
+  }
+
+  function chooseAppsSort(v){
+    if (v === appsSortMode && v !== 'default') appsSortDesc = !appsSortDesc;
+    else { appsSortMode = v || 'default'; appsSortDesc = false; }
+    alSortEl.dataset.v = appsSortMode;
+    closeAppsSort();
+    syncAppsSortUI();
+    renderApps();
+    alSortTrigger.focus();
+  }
+
+  function syncAppsExpandBtn(){
+    const label = appsExpanded ? '缩小' : '扩大';
+    alExpand.setAttribute('aria-label', label);
+    alExpand.setAttribute('aria-pressed', String(appsExpanded));
+    alExpand.innerHTML = `<i data-lucide="${appsExpanded ? 'minimize-2' : 'maximize-2'}"></i>`;
+    alExpandTip.dataset.tip = label;
+    lucide.createIcons();
+    if (window.__tipRefresh) window.__tipRefresh();
+  }
+
+  function renderApps(){
+    const d = getDev(appsDeviceId);
+    if (!d) return;
+    alRefresh.disabled = appsLoading;
+    alRefresh.classList.toggle('busy', appsLoading);
+    alFeedback.hidden = !appsFeedback;
+    alFeedback.textContent = appsFeedback;
+    const cached = appsCache.get(appsDeviceId);
+    if (appsLoading && !cached) {
+      alList.innerHTML = `<div class="al-state"><span class="status-spinner" aria-hidden="true"></span><span>正在读取应用列表…</span></div>`;
+    } else if (appsError && !cached) {
+      alList.innerHTML = `<div class="al-state"><span>读取失败</span><span class="al-pkg">${escapeHtml(appsError)}</span><button class="btn ghost sm" type="button" data-al-retry>重试</button></div>`;
+    } else if (cached) {
+      const sorted = cached.slice();
+      if (appsSortMode === 'name' || appsSortMode === 'pkg') {
+        const collator = new Intl.Collator(document.documentElement.lang || undefined, { sensitivity: 'base', numeric: true });
+        const key = appsSortMode === 'name' ? 'name' : 'pkg';
+        sorted.sort((a, b) => collator.compare(a[key], b[key]) * (appsSortDesc ? -1 : 1));
+      }
+      const kw = appsKeyword.trim().toLowerCase();
+      const list = kw
+        ? sorted.filter(a => a.name.toLowerCase().includes(kw) || a.pkg.toLowerCase().includes(kw))
+        : sorted;
+      if (!cached.length) {
+        alList.innerHTML = `<div class="al-state">没有可启动的应用</div>`;
+      } else if (!list.length) {
+        alList.innerHTML = `<div class="al-state">没有匹配的应用</div>`;
+      } else {
+        alList.innerHTML = list.map(a => `
+          <div class="al-row">
+            <span class="al-name" data-proto-literal>${escapeHtml(a.name)}<span class="al-pkg">（${escapeHtml(a.pkg)}）</span></span>
+            <span class="al-actions">
+              <button class="btn ghost sm" type="button" data-al-cur="${escapeHtml(a.pkg)}" data-al-name="${escapeHtml(a.name)}" data-tip="打开：在当前投屏中打开此应用；没有投屏时先启动一个" aria-label="打开"><i data-lucide="monitor"></i>打开</button>
+              <button class="btn ghost sm" type="button" data-al-new="${escapeHtml(a.pkg)}" data-al-name="${escapeHtml(a.name)}" data-tip="新窗口打开：使用该设备参数再开一个投屏窗口，并打开此应用" aria-label="新窗口打开"><i data-lucide="app-window"></i>新窗口打开</button>
+            </span>
+          </div>`).join('');
+      }
+    } else {
+      alList.innerHTML = '';
+    }
+    lucide.createIcons();
+  }
+
+  function loadApps(refresh){
+    const id = appsDeviceId;
+    if (!id || appsLoading) return;
+    appsLoading = true;
+    appsError = '';
+    appsFeedback = '';
+    const gen = ++appsGen;
+    renderApps();
+    if (appsTimer) clearTimeout(appsTimer);
+    appsTimer = setTimeout(() => {
+      if (gen !== appsGen) return;
+      appsLoading = false;
+      const had = appsCache.has(id);
+      if (APPS_DEMO_STATE === 'error') {
+        if (had) appsFeedback = '刷新失败：无法连接设备，请检查 adb 连接';
+        else appsError = '无法连接设备，请检查 adb 连接';
+      } else if (APPS_DEMO_STATE === 'empty') {
+        appsCache.set(id, []);
+      } else {
+        appsCache.set(id, DEMO_APPS.map(a => ({ ...a })));
+      }
+      if (appsDeviceId === id && appsModal.classList.contains('show')) renderApps();
+    }, 900);
+  }
+
+  function openAppsDialog(id){
+    const d = getDev(id);
+    if (!d) return;
+    // 上一台设备的读取仍在途时直接作废：本轮只服务当前设备。
+    if (appsLoading) {
+      appsGen++;
+      appsLoading = false;
+      if (appsTimer) clearTimeout(appsTimer);
+    }
+    if (appsCloseTimer) { clearTimeout(appsCloseTimer); appsCloseTimer = null; }
+    closeAppsSort();
+    appsDeviceId = id;
+    appsExpanded = false;
+    appsError = '';
+    appsFeedback = '';
+    appsKeyword = '';
+    alSearch.value = '';
+    appsShell.classList.remove('expanded');
+    syncAppsExpandBtn();
+    appsModal.classList.remove('closing');
+    appsModal.classList.add('show');
+    if (appsCache.has(id)) renderApps();
+    else loadApps(false);
+  }
+
+  function closeAppsDialog(){
+    if (!appsModal.classList.contains('show') || appsModal.classList.contains('closing')) return;
+    closeAppsSort();
+    appsModal.classList.add('closing');
+  }
+
+  function openAppFromDialog(kind, pkg, name){
+    const d = getDev(appsDeviceId);
+    if (!d) return;
+    const wasConnected = d.status === 'connected';
+    if (kind === 'new' || !wasConnected) {
+      d.status = 'connected';
+      d.last = '当前连接';
+      d.lastAt = Date.now();
+      appsFeedback = kind === 'new'
+        ? `已在新窗口打开「${name}」`
+        : `已启动投屏并打开「${name}」`;
+    } else {
+      appsFeedback = `已在当前窗口打开「${name}」`;
+    }
+    renderDeviceList();
+    renderPreview();
+    updatePills();
+    renderApps();
+    if (appsCloseTimer) clearTimeout(appsCloseTimer);
+    const id = d.id;
+    // 成功反馈短暂停留后关闭（产品侧成功即关；原型留出可读时间）。
+    appsCloseTimer = setTimeout(() => {
+      if (appsDeviceId === id && appsModal.classList.contains('show')) closeAppsDialog();
+    }, 900);
+  }
+
+  alRefresh.addEventListener('click', () => {
+    if (!appsLoading) loadApps(true);
+  });
+  alSearch.addEventListener('input', () => {
+    appsKeyword = alSearch.value;
+    renderApps();
+  });
+  alSortTrigger.addEventListener('click', e => {
+    e.stopPropagation();
+    appsSortOpen ? closeAppsSort() : openAppsSort();
+  });
+  alSortTrigger.addEventListener('keydown', e => {
+    const k = e.key;
+    const opts = appsSortOpts();
+    if (!appsSortOpen) {
+      if (k === 'Enter' || k === ' ' || k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End') {
+        if (k !== 'Enter') e.preventDefault();
+        e.stopPropagation();
+        openAppsSort((k === 'ArrowUp' || k === 'End') ? -1 : 1);
+      }
+      return;
+    }
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' ', 'Escape', 'Tab'].includes(k)) e.stopPropagation();
+    switch (k) {
+      case 'ArrowDown': e.preventDefault(); appsSortActive = (appsSortActive + 1) % opts.length; appsSortMark(); break;
+      case 'ArrowUp': e.preventDefault(); appsSortActive = (appsSortActive - 1 + opts.length) % opts.length; appsSortMark(); break;
+      case 'Home': e.preventDefault(); appsSortActive = 0; appsSortMark(); break;
+      case 'End': e.preventDefault(); appsSortActive = opts.length - 1; appsSortMark(); break;
+      case 'Enter': case ' ':
+        e.preventDefault();
+        if (opts[appsSortActive]) chooseAppsSort(opts[appsSortActive].dataset.v);
+        break;
+      case 'Escape': e.preventDefault(); closeAppsSort(); break;
+      case 'Tab': closeAppsSort(); break;
+    }
+  });
+  appsSortOpts().forEach((o, i) => {
+    o.addEventListener('mousedown', e => e.preventDefault());
+    o.addEventListener('mousemove', () => { if (appsSortOpen) { appsSortActive = i; appsSortMark(); } });
+  });
+  alSortList.addEventListener('click', e => {
+    e.stopPropagation();
+    const o = e.target.closest('.sel-opt');
+    if (o) chooseAppsSort(o.dataset.v || 'default');
+  });
+  document.addEventListener('click', e => {
+    if (appsSortOpen && !alSortEl.contains(e.target)) closeAppsSort();
+  });
+  alExpand.addEventListener('click', () => {
+    appsExpanded = !appsExpanded;
+    appsShell.classList.toggle('expanded', appsExpanded);
+    syncAppsExpandBtn();
+  });
+  document.getElementById('alClose').addEventListener('click', closeAppsDialog);
+  appsModal.addEventListener('click', e => { if (e.target === appsModal) closeAppsDialog(); });
+  appsModal.addEventListener('animationend', e => {
+    if (e.animationName !== 'about-fade-out' || !appsModal.classList.contains('closing')) return;
+    appsModal.classList.remove('show', 'closing');
+    appsDeviceId = null;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !appsModal.classList.contains('show')) return;
+    if (appsSortOpen) { closeAppsSort(); return; }
+    closeAppsDialog();
+  });
+  alList.addEventListener('click', e => {
+    const retry = e.target.closest('[data-al-retry]');
+    if (retry) { loadApps(true); return; }
+    const nx = e.target.closest('[data-al-new]');
+    if (nx) { openAppFromDialog('new', nx.dataset.alNew, nx.dataset.alName); return; }
+    const cur = e.target.closest('[data-al-cur]');
+    if (cur) openAppFromDialog('current', cur.dataset.alCur, cur.dataset.alName);
+  });
+  syncAppsSortUI();
 
   // 帮助面板在滚动体区内择向：下方放不下一块有意义的说明时向上展开（阈值同产品侧）。
   function trackDpPanelSpace(e){

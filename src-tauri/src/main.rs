@@ -5,6 +5,7 @@
 
 mod scrcpy;
 mod config;
+mod apps;
 mod device;
 mod wireless;
 mod assets;
@@ -42,11 +43,12 @@ pub struct AppState {
     pub pending: Mutex<Option<download::PendingInstall>>,
     /// 在途安装的控制入口；`None` 表示当前没有进行中的获取。
     pub install: Mutex<Option<Arc<download::InstallCtl>>>,
-    /// 会话表（design D13 的「会话层」）：设备 id → 会话记录（进程句柄、日志、窗口槽位）。
+    /// 会话表（design D13 的「会话层」）：会话 id → 会话记录（进程句柄、日志、窗口槽位）。
     ///
-    /// 记录里 `exit` 为 `None` 表示进程仍在运行 —— `device::merge_statuses` 只把这类算作
-    /// 「已连接」，而槽位分配只考虑这类会话的占用。已结束的记录**保留**在表里，供「更多」页
-    /// 查看会话输出（tasks 9.4），数量由 `session::MAX_ENDED_SESSIONS` 限制。
+    /// 同一设备允许多条会话（应用列表的「新窗口打开」），设备状态由「是否存在运行中的会话」
+    /// 聚合。记录里 `exit` 为 `None` 表示进程仍在运行 —— `device::merge_statuses` 只把这类
+    /// 算作「已连接」，而槽位分配只考虑这类会话的占用。已结束的记录**保留**在表里，供
+    /// 「设置」页查看会话输出（tasks 9.4），数量由 `session::MAX_ENDED_SESSIONS` 限制。
     pub sessions: Mutex<HashMap<String, session::SessionRecord>>,
     /// 最近一次设备状态探测结果（tasks 6.3 / 9.1）。
     ///
@@ -386,7 +388,10 @@ fn main() {
             session::connect_device,
             session::connect_all,
             session::disconnect_device,
+            session::disconnect_session,
             session::disconnect_all,
+            apps::list_device_apps,
+            apps::open_app,
             session::list_sessions,
             session::get_session_log,
             session::clear_session_log,

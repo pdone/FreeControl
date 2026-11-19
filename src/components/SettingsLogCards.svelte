@@ -21,7 +21,7 @@
     revealSessionOutput,
     sessionLog,
     clearSessionLog,
-    disconnectDevice,
+    disconnectSession,
   } from '../lib/store';
   import { openLogDir } from '../lib/api';
   import {
@@ -113,7 +113,7 @@
   }
 
   // ── 会话输出与诊断（tasks 9.4）──────────────────────────────
-  let logDeviceId: string | null = null;
+  let logSessionId: string | null = null;
   let logText = '';
   let logErr: unknown = null;
   let sessErr: unknown = null;
@@ -126,35 +126,35 @@
   $: sessionList = $sessions;
   // 未显式选择时回落到最近一条会话（列表按启动时间倒序，故 [0] 就是最近的那条）。
   $: selSession =
-    sessionList.find((s) => s.deviceId === $selectedSessionId) ?? sessionList[0] ?? null;
+    sessionList.find((s) => s.id === $selectedSessionId) ?? sessionList[0] ?? null;
   // 选中会话并读取当前语言：`$t` 出现在这里，语言切换时这条摘要会跟着重算。
   $: selectedMeta = selSession ? sessionMeta(selSession, $t) : '';
   // 选中的会话变了就立刻取一次输出（不等下一轮自动刷新）。
-  $: if (selSession) selectLogFor(selSession.deviceId);
+  $: if (selSession) selectLogFor(selSession.id);
 
   /** 切换要查看的会话；同一条则不重复取。 */
-  function selectLogFor(deviceId: string): void {
-    if (deviceId === logDeviceId) return;
-    logDeviceId = deviceId;
-    void loadLog(deviceId);
+  function selectLogFor(sessionId: string): void {
+    if (sessionId === logSessionId) return;
+    logSessionId = sessionId;
+    void loadLog(sessionId);
   }
 
-  async function loadLog(deviceId: string): Promise<void> {
+  async function loadLog(sessionId: string): Promise<void> {
     const gen = logGen;
     try {
-      const text = await sessionLog(deviceId);
+      const text = await sessionLog(sessionId);
       // 期间用户可能已切到别的会话，或清空过输出：两种「过期」都丢弃，别把旧行写回界面。
-      if (deviceId !== logDeviceId || gen !== logGen) return;
+      if (sessionId !== logSessionId || gen !== logGen) return;
       logText = text;
       logErr = null;
     } catch (e) {
-      if (deviceId !== logDeviceId || gen !== logGen) return;
+      if (sessionId !== logSessionId || gen !== logGen) return;
       logErr = e;
     }
   }
 
   function refreshLog(): void {
-    if (logDeviceId) void loadLog(logDeviceId);
+    if (logSessionId) void loadLog(logSessionId);
   }
 
   /**
@@ -162,12 +162,12 @@
    * 成功才清视图 —— 请求失败时界面继续显示原有输出，与后端的实际状态一致。
    */
   async function clearLog(): Promise<void> {
-    const deviceId = logDeviceId;
-    if (!deviceId) return;
+    const sessionId = logSessionId;
+    if (!sessionId) return;
     logGen += 1;
     try {
-      await clearSessionLog(deviceId);
-      if (deviceId === logDeviceId) {
+      await clearSessionLog(sessionId);
+      if (sessionId === logSessionId) {
         logText = '';
         logErr = null;
       }
@@ -198,16 +198,16 @@
   }
 
   /** 查看某条会话的输出。 */
-  function pickSession(deviceId: string): void {
+  function pickSession(sessionId: string): void {
     sessErr = null;
-    selectedSessionId.set(deviceId);
+    selectedSessionId.set(sessionId);
   }
 
-  /** 从设置页的会话输出区直接结束某个会话（排查异常时不必回设备页）。 */
-  async function stopSession(deviceId: string): Promise<void> {
+  /** 从设置页的会话输出区直接结束某条会话窗口（排查异常时不必回设备页）。 */
+  async function stopSession(sessionId: string): Promise<void> {
     sessErr = null;
     try {
-      await disconnectDevice(deviceId);
+      await disconnectSession(sessionId);
     } catch (e) {
       sessErr = e;
     }
@@ -289,11 +289,11 @@
       <div class="ov-empty">{$t('settings.sessions.empty')}</div>
     {:else}
       <div class="sess-list">
-        {#each sessionList as s (s.deviceId)}
-          <div class="sess-item" class:sel={selSession?.deviceId === s.deviceId}>
+        {#each sessionList as s (s.id)}
+          <div class="sess-item" class:sel={selSession?.id === s.id}>
             <button
               class="sess-pick"
-              on:click={() => pickSession(s.deviceId)}
+              on:click={() => pickSession(s.id)}
               use:tip={$t('settings.sessions.view')}
             >
               <span class="status-dot {s.running ? 'connected' : 'idle'}"></span>
@@ -307,7 +307,7 @@
             {#if s.running}
               <button
                 class="btn ghost sm"
-                on:click={() => stopSession(s.deviceId)}
+                on:click={() => stopSession(s.id)}
               >
                 <ZapOff /> {$t('settings.sessions.disconnect')}
               </button>

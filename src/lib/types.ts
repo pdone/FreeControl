@@ -165,6 +165,8 @@ export interface WirelessJoin {
  * 因此 `running=false` 的会话同样出现在列表里，可继续查看其日志。
  */
 export interface SessionInfo {
+  /** 会话身份：同设备的多个窗口各自不同。 */
+  id: string;
   deviceId: string;
   alias: string;
   connectionId: string;
@@ -214,6 +216,32 @@ export interface ConnectResult {
   degraded: boolean;
   /** 面向用户的提示（当前只有排列降级） */
   warning: UserMessage | null;
+}
+
+/** 设备上的一条可启动应用（名称按设备语言）。 */
+export interface AppEntry {
+  name: string;
+  package: string;
+  /** scrcpy 的 `*` 标记：系统应用 */
+  system: boolean;
+}
+
+export type AppOpenMode = 'newWindow' | 'currentWindow';
+
+/** 打开应用：参数由前端按该设备生效参数拼好，后端只注入一次性 `--start-app`。 */
+export interface OpenAppRequest {
+  deviceId: string;
+  packageName: string;
+  mode: AppOpenMode;
+  args: string[];
+}
+
+export interface OpenAppResult {
+  startedWindow: boolean;
+  sessions: SessionInfo[];
+  warning: UserError | null;
+  /** 虚拟显示降级、摄像头 / 无窗口提示等 */
+  notice: UserMessage | null;
 }
 
 export interface OverrideEntry {

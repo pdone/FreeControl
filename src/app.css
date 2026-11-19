@@ -3806,6 +3806,214 @@ input.dev-cid-input {
   height: 14px;
   stroke: currentColor;
 }
+
+/* ---------- 应用列表弹窗（app-list-launch） ----------
+   外壳复用 .dp-overlay / .dp-modal / .dp-head；本段只补工具栏、排序下拉与列表。
+   排序、搜索、刷新三处由 --al-control-h 一个取值派生高度。 */
+.app-list-modal {
+  height: min(560px, calc(100dvh - 48px));
+}
+.al-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 只有列表滚动：工具栏与反馈常驻，搜索框不会随列表滚走。 */
+  overflow: hidden;
+}
+.al-toolbar {
+  --al-control-h: 34px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.al-sort {
+  position: relative;
+  flex: none;
+  width: 126px;
+}
+.al-sort .sel-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: var(--al-control-h);
+  padding: 0 26px 0 10px;
+  font-size: 12px;
+}
+.al-sort-value {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.al-sort-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.al-sort-dir {
+  flex: none;
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+}
+.al-sort-dir svg {
+  position: static;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  transform: none;
+}
+/* 展开态只翻转右端 chevron，不旋转排序方向箭头。 */
+.al-sort .sel-trigger[aria-expanded="true"] .al-sort-dir svg {
+  transform: none;
+}
+.al-sort-list {
+  width: 156px;
+  right: auto;
+}
+.al-sort-list .sel-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.al-search {
+  flex: 1;
+  min-width: 0;
+  height: var(--al-control-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--text-faint);
+}
+.al-search svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+}
+.al-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.al-search input::placeholder {
+  color: var(--text-faint);
+}
+.al-refresh {
+  flex: none;
+  height: var(--al-control-h);
+  box-sizing: border-box;
+  padding: 0 12px;
+}
+.al-refresh:disabled {
+  opacity: 0.55;
+}
+.al-refresh.busy svg {
+  animation: update-spin 1.1s linear infinite;
+}
+.al-feedback {
+  flex: none;
+  padding: 8px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-weak);
+  color: var(--accent-text);
+  font-size: 12.5px;
+}
+.al-feedback.notice {
+  border-color: var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+}
+.al-error {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--danger);
+}
+.al-error svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  stroke: currentColor;
+}
+.al-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.al-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+.al-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.al-name b {
+  font-weight: 600;
+}
+.al-pkg {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.al-actions {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+.al-actions .btn {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.al-state {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 12px;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .al-refresh.busy svg {
+    animation: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .dp-modal {
     transition-duration: 0.01ms;

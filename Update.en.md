@@ -2,6 +2,17 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.5.2
+
+### New
+
+- Each device card now has APP List: it reads the launchable apps from the phone, supports search and sorting by default order, name or package, and can open an app in the current mirror or in a new window; with no mirror running, Open starts one. The chosen app applies to that launch only and does not overwrite your start-app settings. (#150)
+- Multiple mirror windows can now run for the same device; they take part in disconnecting, logs and window arrangement like any other session.
+
+### Improved
+
+- Session output is listed per window in Settings, so multiple sessions of the same device can be viewed and stopped individually; Disconnect on the device card ends all windows for that device.
+
 ## v2.5.1
 
 ### Improved

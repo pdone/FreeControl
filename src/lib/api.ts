@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AppConfig,
+  AppEntry,
   AppUpdateCheck,
   AppUpdateOutcome,
   AppUpdateProgress,
@@ -14,6 +15,8 @@ import type {
   EnvStatus,
   InstallOutcome,
   JoinRequest,
+  OpenAppRequest,
+  OpenAppResult,
   PairRequest,
   PairingTarget,
   ProxyList,
@@ -127,20 +130,32 @@ export const connectDevice = (request: ConnectRequest): Promise<ConnectResult> =
 /** 全部连接（tasks 9.2）：逐台回传结果；离线设备不会被尝试连接。 */
 export const connectAll = (requests: ConnectRequest[]): Promise<ConnectResult> =>
   invoke('connect_all', { requests });
-/** 断开单台设备，返回最新的会话列表。 */
+/** 断开单台设备（结束该设备全部窗口），返回最新的会话列表。 */
 export const disconnectDevice = (deviceId: string): Promise<SessionInfo[]> =>
   invoke('disconnect_device', { deviceId });
+/** 结束单条会话（设置页按窗口结束）。 */
+export const disconnectSession = (sessionId: string): Promise<SessionInfo[]> =>
+  invoke('disconnect_session', { sessionId });
 /** 全部断开（tasks 9.2），返回最新的会话列表。 */
 export const disconnectAll = (): Promise<SessionInfo[]> => invoke('disconnect_all');
 /** 某个会话的完整输出（tasks 9.4）。 */
-export const getSessionLog = (deviceId: string): Promise<string> =>
-  invoke('get_session_log', { deviceId });
+export const getSessionLog = (sessionId: string): Promise<string> =>
+  invoke('get_session_log', { sessionId });
 /**
  * 清空某个会话已保留的输出。设置页「会话输出」的「清空」按钮走这里 —— 删的是后端那份缓冲，
  * 不是前端视图：只清视图的话 2 秒一轮的自动刷新会把旧行原样带回来。
  */
-export const clearSessionLog = (deviceId: string): Promise<void> =>
-  invoke('clear_session_log', { deviceId });
+export const clearSessionLog = (sessionId: string): Promise<void> =>
+  invoke('clear_session_log', { sessionId });
+
+// ── 应用列表与打开（app-list-launch）──
+
+/** 读取设备上的可启动应用；首次可能较慢。 */
+export const listDeviceApps = (deviceId: string): Promise<AppEntry[]> =>
+  invoke('list_device_apps', { deviceId });
+/** 新窗口 / 当前窗口打开应用；`--start-app` 只在本次启动生效。 */
+export const openApp = (request: OpenAppRequest): Promise<OpenAppResult> =>
+  invoke('open_app', { request });
 
 // ── 运行环境获取（Group 4 / tasks 4.1–4.9）──
 

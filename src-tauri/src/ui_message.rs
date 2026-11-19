@@ -103,6 +103,15 @@ pub mod codes {
     pub const SESSION_WINDOW_ARRANGEMENT_DEGRADED: &str = "session.windowArrangementDegraded";
     pub const SESSION_TIME_SAVE_FAILED: &str = "session.timeSaveFailed";
 
+    pub const APPS_LIST_FAILED: &str = "apps.listFailed";
+    pub const APPS_UNSUPPORTED_VERSION: &str = "apps.unsupportedVersion";
+    pub const APPS_PACKAGE_INVALID: &str = "apps.packageInvalid";
+    pub const APPS_OPEN_FAILED: &str = "apps.openFailed";
+    pub const APPS_ACTIVITY_NOT_FOUND: &str = "apps.activityNotFound";
+    pub const APPS_CONTROL_DISABLED: &str = "apps.controlDisabled";
+    pub const APPS_FALLBACK_NEW_WINDOW: &str = "apps.fallbackNewWindow";
+    pub const APPS_HEADLESS_NOTICE: &str = "apps.headlessNotice";
+
     pub const ENV_INVALID_DIR: &str = "environment.invalidDir";
     pub const ENV_DIR_LOCKED: &str = "environment.dirLocked";
 

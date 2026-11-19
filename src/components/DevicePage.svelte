@@ -21,6 +21,7 @@
     deviceStatus,
     deviceStatusMeta,
     deviceNotices,
+    envStatus,
     selectedDeviceId,
     renameDevice,
     setWifiPort,
@@ -41,7 +42,7 @@
     setDeviceListDensity,
     type SessionNotice,
   } from '../lib/store';
-  import { t } from '../lib/i18n';
+  import { t, type MessageKey } from '../lib/i18n';
   import { errorTextOf, type Translate } from '../lib/message';
   import { tip } from '../lib/tooltip';
   import { fade } from 'svelte/transition';
@@ -50,6 +51,7 @@
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
   import DeviceIssueBadge from './DeviceIssueBadge.svelte';
+  import AppListDialog from './AppListDialog.svelte';
   import { moveToIndex, sameOrder, flippedDirection } from '../lib/deviceSort';
   import { segSlide } from '../lib/segSlide';
   import type {
@@ -57,6 +59,8 @@
     Device,
     DeviceListDensity,
     DeviceStatusView,
+    EnvStatus,
+    SessionInfo,
     SortDirection,
     SortMode,
   } from '../lib/types';
@@ -74,6 +78,7 @@
     Wifi,
     GripVertical,
     LayoutList,
+    LayoutGrid,
     StretchHorizontal,
   } from 'lucide-svelte';
 
@@ -172,12 +177,44 @@
   /** 单台设备的连接 / 断开在途。 */
   let busy: Record<string, boolean> = {};
 
-  // 会话（Group 9）：一台设备至多一条记录，**已结束的记录也保留**（其输出供排查，tasks 9.4）。
-  // 展开成按设备索引的映射，卡片里按 id 取用 —— 不在模板里对每个字段调函数筛选。
-  // 注：`$:` 声明上不能写类型标注，这里的类型由 `Object.fromEntries` 推出（`{ [k: string]: SessionInfo }`）。
+  // 会话（Group 9）：一台设备可以有多条窗口记录，**已结束的记录也保留**（其输出供排查）。
+  // 卡片只按设备索引到最近启动的一条（「日志」入口）；完整列表在设置页。
   $: sessionList = $sessions;
-  $: sessionByDevice = Object.fromEntries(sessionList.map((s) => [s.deviceId, s]));
+  $: sessionByDevice = (() => {
+    const map: Record<string, SessionInfo> = {};
+    for (const s of sessionList) {
+      const cur = map[s.deviceId];
+      if (!cur || s.startedAt > cur.startedAt) map[s.deviceId] = s;
+    }
+    return map;
+  })();
   $: runningCount = sessionList.filter((s) => s.running).length;
+
+  // ── 应用列表（app-list-launch）──
+  let appListDeviceId: string | null = null;
+
+  // `env` 由调用处显式传入：`{@const}` 只追踪表达式里出现的变量，函数体里读 `$envStatus`
+  // 不会让卡片在环境就绪后重算，按钮会一直停在创建时的灰态。
+  function appListBlockedReason(
+    d: Device,
+    s: DeviceStatusView,
+    env: EnvStatus | null,
+  ): MessageKey | '' {
+    if (!env?.ready) return 'device.appListBlockedEnv';
+    if (s === 'idle' || s === 'connected') {
+      return d.connectionId ? '' : 'device.connectBlocked.noId';
+    }
+    // 离线无线设备允许点开：后端会先建链；离线的 USB / 未授权 / 检测中不行。
+    if (s === 'offline' && d.kind === 'wifi') {
+      return d.connectionId ? '' : 'device.connectBlocked.noId';
+    }
+    if (s === 'offline') return 'device.appListBlockedOffline';
+    return 'device.appListBlockedChecking';
+  }
+
+  function openAppList(id: string): void {
+    appListDeviceId = id;
+  }
 
   /** 在线但未连接的设备数（工具条据此禁用「全部连接」，不留点了没反应的按钮）。 */
   $: connectableCount = $devices.filter((d) => $deviceStatus[d.id] === 'idle').length;
@@ -801,7 +838,10 @@
    * 选择「哪条会话」放在 store 里，设备页与设置页的「会话输出」读同一份 —— 不靠路由参数传递。
    */
   function openLog(deviceId: string): void {
-    selectedSessionId.set(deviceId);
+    const latest = sessionList
+      .filter((s) => s.deviceId === deviceId)
+      .sort((a, b) => b.startedAt - a.startedAt)[0];
+    if (latest) selectedSessionId.set(latest.id);
     page.set('settings');
     revealSessionOutput.set(true);
   }
@@ -1003,6 +1043,7 @@
     {#each visibleDevices as d (d.id)}
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
+      {@const appListReason = appListBlockedReason(d, s, $envStatus)}
       <div
         class="dev-card"
         class:compact={compactView}
@@ -1186,6 +1227,34 @@
                 </button>
               </span>
             {/if}
+            {#if compactView}
+              <span
+                class="tip-host"
+                use:tip={appListReason ? $t(appListReason) : $t('device.appListTip')}
+              >
+                <button
+                  class="btn sm ghost"
+                  aria-label={$t('device.appList')}
+                  disabled={!!appListReason}
+                  on:click|stopPropagation={() => openAppList(d.id)}
+                >
+                  <LayoutGrid />
+                </button>
+              </span>
+            {:else}
+              <span
+                class="tip-host"
+                use:tip={appListReason ? $t(appListReason) : $t('device.appListTip')}
+              >
+                <button
+                  class="btn sm ghost"
+                  disabled={!!appListReason}
+                  on:click|stopPropagation={() => openAppList(d.id)}
+                >
+                  <LayoutGrid /> {$t('device.appList')}
+                </button>
+              </span>
+            {/if}
             {#if !compactView && sess}
               <button
                 class="btn sm ghost"
@@ -1247,4 +1316,9 @@
 <!-- 参数弹窗用 `{#if}` 挂载：组件卸载即丢弃「扩大」状态，每次打开都回到常态（design D4）。 -->
 {#if paramsDeviceId}
   <DeviceParamsDialog deviceId={paramsDeviceId} on:close={() => (paramsDeviceId = null)} />
+{/if}
+
+<!-- 应用列表同样按需挂载：缓存与排序在 store 里，弹窗关闭不会丢。 -->
+{#if appListDeviceId}
+  <AppListDialog deviceId={appListDeviceId} on:close={() => (appListDeviceId = null)} />
 {/if}

@@ -12,6 +12,7 @@ import {
   applyDeviceListSnapshot,
   config as configStore,
   devices,
+  envStatus,
   sortedDevices,
   page,
   selectedDeviceId,
@@ -22,11 +23,13 @@ import type {
   Device,
   DeviceListPrefs,
   DeviceStatus,
+  EnvStatus,
   SessionInfo,
 } from './lib/types';
 
 // 相对时间用距当前时刻的偏移，覆盖分钟 / 小时 / 天三档；排序仍按这些值的先后。
 const NOW = Date.now();
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -50,6 +53,7 @@ let statuses: Record<string, DeviceStatus> = {
 };
 
 const sessionFor = (d: Device): SessionInfo => ({
+  id: `sess-${d.id}`,
   deviceId: d.id,
   alias: d.alias,
   connectionId: d.connectionId ?? '',
@@ -256,9 +260,71 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
     case 'disconnect_device': {
       const id = String(args?.deviceId);
       updateStatus(id, 'idle');
-      sessions.update((list) => list.map((s) => ({ ...s, running: false })));
+      sessions.update((list) =>
+        list.map((s) => (s.deviceId === id ? { ...s, running: false } : s)),
+      );
       pushStatuses();
       return get(sessions);
+    }
+    case 'disconnect_session': {
+      const id = String(args?.sessionId);
+      const target = get(sessions).find((s) => s.id === id);
+      if (target) {
+        const stillRunning = get(sessions).some(
+          (s) => s.id !== id && s.deviceId === target.deviceId && s.running,
+        );
+        if (!stillRunning) updateStatus(target.deviceId, 'idle');
+        pushStatuses();
+      }
+      sessions.update((list) =>
+        list.map((s) => (s.id === id ? { ...s, running: false } : s)),
+      );
+      return get(sessions);
+    }
+    case 'list_device_apps':
+      await wait(450);
+      return [
+        { name: '设置', package: 'com.android.settings', system: true },
+        { name: '相机', package: 'com.android.camera', system: true },
+        { name: '浏览器', package: 'com.android.browser', system: true },
+        { name: '文件', package: 'com.google.android.documentsui', system: true },
+        { name: '文件管理', package: 'com.android.fileexplorer', system: true },
+        { name: '短信', package: 'com.android.mms', system: true },
+        { name: '通讯录与拨号', package: 'com.android.contacts', system: true },
+        { name: 'F-Droid', package: 'org.fdroid.fdroid', system: false },
+        { name: '企业微信', package: 'com.tencent.wework', system: false },
+        { name: 'Via', package: 'mark.via', system: false },
+        { name: 'Tailscale', package: 'com.tailscale.ipn', system: false },
+      ];
+    case 'open_app': {
+      const request = (args?.request ?? {}) as {
+        deviceId: string;
+        packageName: string;
+        mode: 'newWindow' | 'currentWindow';
+      };
+      const d = config.devices.find((x) => x.id === request.deviceId)!;
+      const running = get(sessions).some(
+        (s) => s.deviceId === request.deviceId && s.running,
+      );
+      const starts = request.mode === 'newWindow' || !running;
+      if (starts) {
+        const next: SessionInfo = {
+          ...sessionFor(d),
+          id: `sess-${request.deviceId}-${Date.now()}`,
+          pid: 4242 + get(sessions).length,
+          command: `scrcpy -s ${d.connectionId ?? ''} --start-app=${request.packageName}`,
+          running: true,
+        };
+        sessions.update((list) => [next, ...list]);
+        updateStatus(request.deviceId, 'connected');
+        pushStatuses();
+      }
+      return {
+        startedWindow: starts,
+        sessions: get(sessions),
+        warning: null,
+        notice: null,
+      };
     }
     case 'disconnect_all':
       for (const id of Object.keys(statuses)) updateStatus(id, 'idle');
@@ -266,9 +332,11 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
       pushStatuses();
       return [];
     case 'list_sessions':
-      return [];
+      return get(sessions);
     case 'get_session_log':
-      return '';
+      return `[会话启动] ${String(args?.sessionId)}\nharness log line`;
+    case 'clear_session_log':
+      return null;
     case 'get_compat_status':
       return { ok: true, detail: null };
     case 'get_env_status':
@@ -400,6 +468,14 @@ window.__harness = {
 page.set('devices');
 // 让 DevicePage 读到真实的外观偏好（密度开关依赖 config store；否则 setter 无处可写）。
 configStore.set(structuredClone(config));
+// 设备页的「应用列表」入口按运行环境就绪判定；台架不跑 initApp，这里给一份就绪状态。
+envStatus.set({
+  dir: '/tmp/scrcpy',
+  dirHint: '',
+  ready: true,
+  missing: [],
+  isCustom: false,
+} as EnvStatus);
 sessions.set([sessionFor(baseDevices[1])]);
 applyDeviceStatus({
   statuses: { ...statuses },

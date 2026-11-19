@@ -706,15 +706,22 @@ pub fn degraded_warning() -> String {
 
 // ── 会话记录 ───────────────────────────────────────────────────
 
-/// 一个会话（一台设备一条）。
+/// 一个会话（一个 scrcpy 窗口一条；同一设备可以有多条）。
 #[derive(Clone)]
 pub struct SessionRecord {
+    /// 会话身份：设备 id + pid + 启动毫秒，进程退出后仍保留在记录里。
+    pub id: String,
     pub device_id: String,
     pub alias: String,
     pub connection_id: String,
     pub pid: u32,
     /// 启动时刻（Unix 毫秒）
     pub started_at: u64,
+    /// 实际下发的参数（不含 `-s` 与自动排列写入的位置）。
+    ///
+    /// 「当前窗口打开」要据此判断该会话镜像的是主屏、指定显示、虚拟显示还是摄像头，
+    /// 因此不能只留命令文本（命令里的引号会破坏简单切分）。
+    pub args: Vec<String>,
     /// 实际执行的命令（形如 `scrcpy -s <标识> <参数…>`，与命令预览同构）
     pub command: String,
     pub arranged: bool,
@@ -748,6 +755,7 @@ impl SessionRecord {
         let exit = *self.exit.lock().unwrap();
         let log_lines = self.log.lock().unwrap().len();
         SessionInfo {
+            id: self.id.clone(),
             device_id: self.device_id.clone(),
             alias: self.alias.clone(),
             connection_id: self.connection_id.clone(),
@@ -771,6 +779,8 @@ impl SessionRecord {
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
+    /// 会话身份（同设备的多个窗口各自不同）。
+    pub id: String,
     pub device_id: String,
     pub alias: String,
     pub connection_id: String,
@@ -826,7 +836,7 @@ pub struct ConnectResult {
 
 // ── 状态读取（各自短暂加锁，不嵌套） ───────────────────────────
 
-fn find_device(state: &AppState, id: &str) -> Result<Device, UserError> {
+pub(crate) fn find_device(state: &AppState, id: &str) -> Result<Device, UserError> {
     state
         .config
         .lock()
@@ -838,12 +848,19 @@ fn find_device(state: &AppState, id: &str) -> Result<Device, UserError> {
         .ok_or_else(|| UserError::new(codes::SESSION_DEVICE_NOT_FOUND))
 }
 
-/// 某台设备的活跃会话记录（已退出的不算）。
+/// 某台设备最近一条运行中的会话（已退出的不算）。
 pub fn active_record(state: &AppState, device_id: &str) -> Option<SessionRecord> {
-    let map = state.sessions.lock().unwrap();
-    map.get(device_id)
-        .filter(|r| r.running())
-        .cloned()
+    active_records(state, device_id).into_iter().next()
+}
+
+/// 某台设备全部运行中的会话，最近启动的排前面。
+pub fn active_records(state: &AppState, device_id: &str) -> Vec<SessionRecord> {
+    let mut list: Vec<SessionRecord> = records(state)
+        .into_iter()
+        .filter(|r| r.device_id == device_id && r.running())
+        .collect();
+    list.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    list
 }
 
 /// 仍在运行的会话所对应的设备 id 集合（`device::merge_statuses` 的「会话层」输入）。
@@ -851,10 +868,14 @@ pub fn active_record(state: &AppState, device_id: &str) -> Option<SessionRecord>
 /// 已结束的会话**不算**：它的记录还留在表里只是为了查看日志（tasks 9.4），设备状态必须回到
 /// 空闲（界面上的「在线」）/ 离线，否则会出现「进程早已退出、界面还显示已连接」。
 pub fn active_ids(state: &AppState) -> HashSet<String> {
-    records(state)
-        .into_iter()
+    device_ids_of(&records(state))
+}
+
+/// 运行中会话所对应的设备 id（同设备多条会话只计一次）。
+fn device_ids_of(list: &[SessionRecord]) -> HashSet<String> {
+    list.iter()
         .filter(|r| r.running())
-        .map(|r| r.device_id)
+        .map(|r| r.device_id.clone())
         .collect()
 }
 
@@ -865,8 +886,11 @@ fn records(state: &AppState) -> Vec<SessionRecord> {
 
 /// 仍被占用的槽位。
 pub fn occupied_slots(state: &AppState) -> BTreeSet<usize> {
-    records(state)
-        .into_iter()
+    occupied_slots_of(&records(state))
+}
+
+fn occupied_slots_of(list: &[SessionRecord]) -> BTreeSet<usize> {
+    list.iter()
         .filter(|r| r.running())
         .filter_map(|r| r.slot)
         .collect()
@@ -886,14 +910,14 @@ pub fn session_infos(state: &AppState) -> Vec<SessionInfo> {
 /// 只清这一条」这三件事可被单测覆盖（[`session_infos`] 那条路径同理）。
 fn clear_log(
     sessions: &Mutex<HashMap<String, SessionRecord>>,
-    device_id: &str,
+    session_id: &str,
 ) -> Result<(), String> {
     let record = sessions
         .lock()
         .unwrap()
-        .get(device_id)
+        .get(session_id)
         .cloned()
-        .ok_or_else(|| "该设备没有会话记录".to_string())?;
+        .ok_or_else(|| "该会话没有记录".to_string())?;
     record.log.lock().unwrap().clear();
     Ok(())
 }
@@ -1153,9 +1177,9 @@ pub fn reap_exited(app: &AppHandle) -> bool {
 /// 丢弃已结束会话中最早的一批，保持记录数量有界。
 fn prune_ended(map: &mut HashMap<String, SessionRecord>) {
     let mut ended: Vec<(String, u64)> = map
-        .values()
-        .filter(|r| !r.running())
-        .map(|r| (r.device_id.clone(), r.started_at))
+        .iter()
+        .filter(|(_, r)| !r.running())
+        .map(|(id, r)| (id.clone(), r.started_at))
         .collect();
     if ended.len() <= MAX_ENDED_SESSIONS {
         return;
@@ -1308,7 +1332,11 @@ fn persist_resolved_port(app: &AppHandle, device_id: &str, port: u16) {
 ///
 /// 返回实际使用的连接标识：自动换端口后，后续显示尺寸查询、scrcpy 参数与会话记录
 /// 都必须使用新标识，不能继续用修改前的副本。
-fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> Result<String, String> {
+pub(crate) fn ensure_wireless_link(
+    app: &AppHandle,
+    state: &AppState,
+    device: &Device,
+) -> Result<String, String> {
     let dir = scrcpy::scrcpy_dir(app)?;
     let current = device.connection_id();
     match attempt_link(app, state, &dir, device, &current) {
@@ -1347,18 +1375,22 @@ fn ensure_wireless_link(app: &AppHandle, state: &AppState, device: &Device) -> R
 }
 
 /// 单次会话启动的结果。
-struct StartOutcome {
+pub(crate) struct StartOutcome {
     /// 是否发生槽位复用（降级）
-    reused: bool,
+    pub(crate) reused: bool,
     /// 会话已启动、但最近启动时间未能保存；必须与连接成功结果并存
-    time_warning: Option<UserError>,
+    pub(crate) time_warning: Option<UserError>,
 }
 
 /// 启动一个会话并登记。
-fn start_session(
+///
+/// `allow_existing` 只由应用列表的「新窗口打开」传 true：普通连接仍保持「一台设备一条会话」
+/// 的入口语义，应用列表则明确允许在同一设备上再开一个窗口。
+pub(crate) fn start_session(
     app: &AppHandle,
     device: &Device,
     args: Vec<String>,
+    allow_existing: bool,
 ) -> Result<StartOutcome, UserError> {
     let state = app.state::<AppState>();
     let dir = scrcpy::scrcpy_dir(app)
@@ -1373,7 +1405,8 @@ fn start_session(
     if connection_id.is_empty() {
         return Err(UserError::new(codes::SESSION_CONNECTION_UNKNOWN));
     }
-    if active_record(&state, &device.id).is_some() {
+    let existing = active_record(&state, &device.id);
+    if existing.is_some() && !allow_existing {
         return Err(UserError::new(codes::SESSION_ALREADY_RUNNING));
     }
     // 状态判定以**后端**为准（tasks 9.2），不依赖前端的筛选。
@@ -1396,7 +1429,15 @@ fn start_session(
                     .map_err(|e| UserError::new(codes::SESSION_LINK_FAILED).with_detail(e))?;
             }
         }
-        Some(device::STATUS_CONNECTED) => return Err(UserError::new(codes::SESSION_ALREADY_RUNNING)),
+        Some(device::STATUS_CONNECTED) => {
+            if !allow_existing {
+                return Err(UserError::new(codes::SESSION_ALREADY_RUNNING));
+            }
+            // 已有窗口的链路就是可用链路；无线端口若在会话中被重新解析过，以记录里的为准。
+            if let Some(record) = existing.as_ref() {
+                connection_id = record.connection_id.clone();
+            }
+        }
         // 无线设备可能已被应用之外的操作断开（如用户在自己的终端里 `adb disconnect`）：
         // 先把链路建起来，再按重探测结果决定是否继续（design D1 / D2）。
         Some(device::STATUS_OFFLINE) => match link_action(&device.kind) {
@@ -1441,13 +1482,17 @@ fn start_session(
     let (child, log) = spawn_child(&bin, &full, &dir, &source)
         .map_err(|e| UserError::new(codes::SESSION_START_FAILED).with_detail(e))?;
     let pid = child.id();
+    let started_at = now_ms();
+    let session_id = format!("{}#{pid}@{started_at}", device.id);
 
     let record = SessionRecord {
+        id: session_id,
         device_id: device.id.clone(),
         alias: device.alias.clone(),
         connection_id: connection_id.clone(),
         pid,
-        started_at: now_ms(),
+        started_at,
+        args: args.clone(),
         command: command_line(&full),
         arranged: plan.arranged,
         arrange_skip: plan.opt_out,
@@ -1482,7 +1527,8 @@ fn start_session(
     {
         let mut map = state.sessions.lock().unwrap();
         prune_ended(&mut map);
-        map.insert(record.device_id.clone(), record);
+        let id = record.id.clone();
+        map.insert(id, record);
     }
     // 会话锁已释放，再写配置：写盘失败只产生一条独立警告，绝不把已启动的会话报成失败。
     let time_warning = time_save_warning(
@@ -1561,10 +1607,40 @@ fn outcome_fail(device_id: &str, alias: &str, error: UserError) -> ConnectOutcom
 
 // ── 结束会话 ───────────────────────────────────────────────────
 
-/// 结束一台设备的会话（若在运行）；返回是否有会话被结束。
-fn stop_session(app: &AppHandle, device_id: &str) -> Result<bool, String> {
+/// 结束一台设备的全部运行会话；返回是否有会话被结束。
+///
+/// 单条失败不阻止其它窗口结束：逐条尝试后把第一个错误带回，设备卡仍会刷新真实状态。
+fn stop_sessions_of_device(app: &AppHandle, device_id: &str) -> Result<bool, String> {
     let state = app.state::<AppState>();
-    let record = { state.sessions.lock().unwrap().get(device_id).cloned() };
+    let list: Vec<SessionRecord> = records(&state)
+        .into_iter()
+        .filter(|r| r.device_id == device_id && r.running())
+        .collect();
+    let mut stopped = false;
+    let mut first_err = None;
+    for record in list {
+        match stop_child(&record.child, record.pid, GRACEFUL_TIMEOUT) {
+            Ok(code) => {
+                record_exit(&record, code);
+                stopped = true;
+            }
+            Err(e) => {
+                if first_err.is_none() {
+                    first_err = Some(e);
+                }
+            }
+        }
+    }
+    match first_err {
+        Some(e) => Err(e),
+        None => Ok(stopped),
+    }
+}
+
+/// 结束一条会话（设置页的单条结束入口）。
+fn stop_session_by_id(app: &AppHandle, session_id: &str) -> Result<bool, String> {
+    let state = app.state::<AppState>();
+    let record = { state.sessions.lock().unwrap().get(session_id).cloned() };
     let Some(record) = record else { return Ok(false) };
     if !record.running() {
         return Ok(false);
@@ -1580,9 +1656,14 @@ fn stop_session(app: &AppHandle, device_id: &str) -> Result<bool, String> {
 
 /// 结束会话并丢弃其记录（设备被删除时用：记录留着没有意义，还会一直占着内存）。
 pub fn stop_and_forget(app: &AppHandle, device_id: &str) -> Result<(), String> {
-    let stopped = stop_session(app, device_id)?;
+    let stopped = stop_sessions_of_device(app, device_id)?;
     let state = app.state::<AppState>();
-    let changed = { state.sessions.lock().unwrap().remove(device_id).is_some() };
+    let changed = {
+        let mut map = state.sessions.lock().unwrap();
+        let before = map.len();
+        map.retain(|_, r| r.device_id != device_id);
+        map.len() != before
+    };
     if stopped || changed {
         publish_sessions(app, &session_infos(&state));
         device::publish_status(app);
@@ -1618,7 +1699,7 @@ pub async fn connect_device(
 fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectResult, UserError> {
     let state = app.state::<AppState>();
     let device = find_device(&state, &request.device_id)?;
-    let started = start_session(app, &device, request.args)?;
+    let started = start_session(app, &device, request.args, false)?;
     let sessions = session_infos(&state);
     publish_sessions(app, &sessions);
     // 会话一起，设备状态就要立刻变成「已连接」（不等订阅的下一帧）。
@@ -1657,7 +1738,7 @@ fn connect_all_blocking(
                 continue;
             }
         };
-        match start_session(app, &device, request.args) {
+        match start_session(app, &device, request.args, false) {
             Ok(started) => {
                 degraded |= started.reused;
                 outcomes.push(outcome_ok(&device, started.time_warning));
@@ -1692,13 +1773,39 @@ fn disconnect_blocking(
     device_id: &str,
 ) -> Result<Vec<SessionInfo>, UserError> {
     let state = app.state::<AppState>();
-    {
-        let has_record = state.sessions.lock().unwrap().contains_key(device_id);
-        if !has_record {
-            return Err(UserError::new(codes::SESSION_NO_SESSION));
-        }
+    if active_records(&state, device_id).is_empty() {
+        return Err(UserError::new(codes::SESSION_NO_SESSION));
     }
-    stop_session(app, device_id)
+    stop_sessions_of_device(app, device_id)
+        .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;
+    let sessions = session_infos(&state);
+    publish_sessions(app, &sessions);
+    device::publish_status(app);
+    Ok(sessions)
+}
+
+/// 结束单条会话（设置页的会话输出卡片）。
+#[tauri::command]
+pub async fn disconnect_session(
+    app: AppHandle,
+    session_id: String,
+) -> Result<Vec<SessionInfo>, UserError> {
+    run_blocking(move || disconnect_session_blocking(&app, &session_id)).await
+}
+
+fn disconnect_session_blocking(
+    app: &AppHandle,
+    session_id: &str,
+) -> Result<Vec<SessionInfo>, UserError> {
+    let state = app.state::<AppState>();
+    let exists = {
+        let map = state.sessions.lock().unwrap();
+        map.get(session_id).map(|r| r.running()).unwrap_or(false)
+    };
+    if !exists {
+        return Err(UserError::new(codes::SESSION_NO_SESSION));
+    }
+    stop_session_by_id(app, session_id)
         .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;
     let sessions = session_infos(&state);
     publish_sessions(app, &sessions);
@@ -1740,9 +1847,9 @@ pub fn list_sessions(state: State<'_, AppState>) -> Vec<SessionInfo> {
 #[tauri::command]
 pub fn get_session_log(
     state: State<'_, AppState>,
-    device_id: String,
+    session_id: String,
 ) -> Result<String, UserError> {
-    let record = { state.sessions.lock().unwrap().get(&device_id).cloned() }
+    let record = { state.sessions.lock().unwrap().get(&session_id).cloned() }
         .ok_or_else(|| UserError::new(codes::SESSION_NO_RECORD))?;
     let lines = record.log.lock().unwrap().clone();
     Ok(lines.join("\n"))
@@ -1752,9 +1859,9 @@ pub fn get_session_log(
 #[tauri::command]
 pub fn clear_session_log(
     state: State<'_, AppState>,
-    device_id: String,
+    session_id: String,
 ) -> Result<(), UserError> {
-    clear_log(&state.sessions, &device_id)
+    clear_log(&state.sessions, &session_id)
         .map_err(|e| UserError::new(codes::SESSION_NO_RECORD).with_detail(e))
 }
 
@@ -2180,11 +2287,13 @@ mod tests {
             .expect("无法启动 cmd.exe");
         let pid = child.id();
         SessionRecord {
+            id: device_id.to_string(),
             device_id: device_id.to_string(),
             alias: device_id.to_string(),
             connection_id: format!("{device_id}:5555"),
             pid,
             started_at: now_ms(),
+            args: vec![],
             command: "scrcpy -s x".to_string(),
             arranged: true,
             arrange_skip: None,
@@ -2200,6 +2309,39 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
+    fn same_device_sessions_are_distinct_records_and_count_once() {
+        // 同一设备两条运行会话 + 一条已结束：设备状态只计一次，槽位按运行中的窗口各占一个。
+        let a = record_with_log("dev-1", &[]);
+        let mut b = record_with_log("dev-1", &[]);
+        b.id = "dev-1#second".to_string();
+        b.started_at = a.started_at + 1;
+        b.slot = Some(1);
+        let ended = {
+            let mut r = record_with_log("dev-1", &[]);
+            r.id = "dev-1#ended".to_string();
+            record_exit(&r, 0);
+            r
+        };
+
+        let list = vec![a, b, ended];
+
+        assert_eq!(device_ids_of(&list).len(), 1, "同设备多条会话只计一次");
+        assert!(device_ids_of(&list).contains("dev-1"));
+        assert_eq!(occupied_slots_of(&list), set(&[0, 1]), "运行窗口各占一槽");
+        let infos: Vec<_> = list.iter().map(SessionRecord::info).collect();
+        assert_eq!(infos[1].id, "dev-1#second", "会话身份随记录下发");
+        assert!(infos[1].running);
+
+        // 一个窗口结束后释放自己的槽位；只剩运行中的窗口占位。
+        let after_end = vec![list[1].clone(), list[2].clone()];
+        assert_eq!(occupied_slots_of(&after_end), set(&[1]));
+        // 空间不足时沿用既有规则：复用最小已占用槽位并报告降级。
+        assert_eq!(allocate_slot(&set(&[0, 1]), 1), (0, true));
+        assert_eq!(allocate_slot(&set(&[0]), 2), (1, false));
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn clear_log_empties_only_the_target_session() {
         let running = record_with_log("dev-run", &["第一行", "第二行"]);
         let ended = {
@@ -2209,8 +2351,8 @@ mod tests {
             record
         };
         let mut map: HashMap<String, SessionRecord> = HashMap::new();
-        map.insert("dev-run".to_string(), running);
-        map.insert("dev-end".to_string(), ended);
+        map.insert(running.id.clone(), running);
+        map.insert(ended.id.clone(), ended);
         let sessions = Mutex::new(map);
 
         let lines = |id: &str| {
@@ -2249,7 +2391,7 @@ mod tests {
         // 没有记录的设备：报与 `get_session_log` 同措辞的错误，且不动任何缓冲。
         assert_eq!(
             clear_log(&sessions, "dev-none").unwrap_err(),
-            "该设备没有会话记录"
+            "该会话没有记录"
         );
         assert_eq!(sessions.lock().unwrap().len(), 2);
     }
@@ -2267,11 +2409,13 @@ mod tests {
         ];
         let (child, log) = spawn_child(Path::new("cmd.exe"), &args, &cwd, "会话 测试").unwrap();
         let record = SessionRecord {
+            id: "dev-1#test".to_string(),
             device_id: "dev-1".to_string(),
             alias: "测试".to_string(),
             connection_id: "S1".to_string(),
             pid: child.id(),
             started_at: now_ms(),
+            args: vec![],
             command: "cmd.exe".to_string(),
             arranged: true,
             arrange_skip: None,
