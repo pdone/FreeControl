@@ -16,11 +16,11 @@
   import TooltipLayer from './components/TooltipLayer.svelte';
 
   // 6 个纯参数页（一个 key 对应一个分组、由 `ParamPage` 铺满）。
-  // 「高级」/「运行环境」/「设置」三页各自单独渲染：它们都跨组或承载非参数字段
-  // （高级页跨 apps 与 advanced 两组，运行环境页带下载通道，
+  // 「更多」/「运行环境」/「设置」三页各自单独渲染：它们都跨组或承载非参数字段
+  // （更多页跨 apps 与 advanced 两组，运行环境页带下载通道，
   // 设置页带应用自身的外观偏好与日志内容），都不是单靠分组定义就能铺满的页面。
   //
-  // 下方 section 的判据用的是**页键**（与入口名一致：`advanced` = 高级、`environment` = 运行环境），
+  // 下方 section 的判据用的是**页键**（与入口名一致：`advanced` = 更多、`environment` = 运行环境），
   // 与上面提到的默认参数**分组键**（`apps` / `advanced`，属落盘配置字段）是两个命名空间 ——
   // 这里只比较 `$page`，不涉及分组。
   const paramPages = ['source', 'video', 'audio', 'control', 'record', 'window'];

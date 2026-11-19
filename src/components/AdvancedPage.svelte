@@ -1,5 +1,5 @@
 <script lang="ts">
-  // 「高级」页（design D2 / D10 / D11）：入口名、页键（`advanced`）与组件文件名三者一致。
+  // 「更多」页（design D2 / D10 / D11）：入口名取 `nav.advanced`，页键（`advanced`）与组件文件名一致。
   //
   // **页键 ≠ 组键**：本页跨两组渲染 —— 启动应用来自 `apps` 组（`defaults.apps`），
   // 网络与自定义参数来自 `advanced` 组（`defaults.advanced`）。页键 `advanced` 与这两个组键
@@ -21,7 +21,7 @@
 
   /**
    * 本组定义。入参 `'apps'` 是**组键**（落盘字段名，不随页键改名）；title 是模型标签「应用」，
-   * 与本页页名「高级」有别，故 h2 另行写死为「高级」。
+   * 与本页页名「更多」有别，故 h2 取 `nav.advanced` 而不是本组 title。
    */
   const APPS_GROUP = groupOf('apps');
 

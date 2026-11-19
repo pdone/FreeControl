@@ -11,6 +11,7 @@
 
 ### Improved
 
+- The sidebar page formerly called Advanced is now More, with a circled three-dot icon; same place, same contents.
 - Session output is listed per window in Settings, so multiple sessions of the same device can be viewed and stopped individually; Disconnect on the device card ends all windows for that device.
 
 ## v2.5.1

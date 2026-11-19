@@ -916,7 +916,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
   },
   {
     key: 'apps',
-    // 「应用」是本组的归类标签，页名已改为「高级」（design D10：页名与分组标签解耦）。
+    // 「应用」是本组的归类标签，页名已改为「更多」（design D10：页名与分组标签解耦）。
     // 本组卡片由 AdvancedPage 渲染，该页还会带上 advanced 组的网络与自定义参数。
     titleKey: 'param.apps.title',
     subtitleKey:
@@ -946,7 +946,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
 /**
  * 第 8 组「更多」的三张卡片（「scrcpy 运行环境」卡片不含默认参数字段）。
  *
- * 三张卡片各自具名、再以引用组装进分组：**两个页面**按名取用（自定义参数与网络 → 「高级」页，
+ * 三张卡片各自具名、再以引用组装进分组：**两个页面**按名取用（自定义参数与网络 → 「更多」页，
  * 日志参数 → 「设置」页；本组已无独占页面），因此不是按下标 —— 下标在卡片增减时
  * 会**静默**指向相邻卡片（不报错，只渲染出错误的内容）。卡片标题与页标题不同名也是有意为之：
  * 页标题已占用「设置」，卡片再叫同一个名字只是重复。
@@ -954,7 +954,7 @@ export const PARAM_GROUPS: ParamGroup[] = [
  * 会话输出不是参数（没有字段），不进本模型，由设置页的「会话输出」卡片自行渲染。
  */
 
-/** 自定义参数透传（「高级」页）。 */
+/** 自定义参数透传（「更多」页）。 */
 export const CUSTOM_ARGS_CARD: ParamCard = {
   titleKey: 'param.advanced.custom.title',
   span2: true,
@@ -1015,7 +1015,7 @@ export const RUN_LOG_CARD: ParamCard = {
   ],
 };
 
-/** 端口与隧道主机（「高级」页）。 */
+/** 端口与隧道主机（「更多」页）。 */
 export const NETWORK_CARD: ParamCard = {
   titleKey: 'param.advanced.network.title',
   fields: [
@@ -1048,7 +1048,7 @@ export const NETWORK_CARD: ParamCard = {
  * 第 8 组「更多」：与其余 7 组共用同一份字段模型，是为了让参数校验与页面渲染
  * 只有一个来源，每个 flag 也只在这里出现一次。
  *
- * 本组已**没有独占页面**：三张卡片分别落在「高级」页（自定义参数 / 网络）与
+ * 本组已**没有独占页面**：三张卡片分别落在「更多」页（自定义参数 / 网络）与
  * 设置页（日志参数）；末位入口「运行环境」页只承载运行环境与下载通道
  * （后者属 `channels`，不是默认参数）。因此组名「更多」与组内的 subtitle 只是模型内的
  * 归类标签，MUST NOT 当作页面名使用（页名与分组标签解耦，见 design D8 / D10）。

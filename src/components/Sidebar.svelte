@@ -8,7 +8,7 @@
     Gamepad2,
     Disc,
     AppWindow,
-    LayoutGrid,
+    CircleEllipsis,
     Container,
     Settings,
     Info,
@@ -19,7 +19,7 @@
   import { tip } from '../lib/tooltip';
 
   // 11 个平级导航入口：设备 + 7 个参数页（承载 8 个默认参数分组）+ 运行环境页 + 设置页 + 「关于」。
-  // 页键即「页面身份」，与入口名一致（`advanced` = 高级、`environment` = 运行环境、
+  // 页键即「页面身份」，与入口名一致（`advanced` = 更多、`environment` = 运行环境、
   // `settings` = 设置）；注意别与默认参数的**分组键**（同样是 `apps` / `advanced`，
   // 但属落盘配置字段）混为一谈。
   // 「设置」是末位**功能**入口，「关于」（`dialog: true`）是最后一个入口 ——
@@ -37,7 +37,7 @@
     { key: 'control', labelKey: 'nav.control', icon: Gamepad2 },
     { key: 'record', labelKey: 'nav.record', icon: Disc },
     { key: 'window', labelKey: 'nav.window', icon: AppWindow },
-    { key: 'advanced', labelKey: 'nav.advanced', icon: LayoutGrid },
+    { key: 'advanced', labelKey: 'nav.advanced', icon: CircleEllipsis },
     { sep: true },
     { key: 'environment', labelKey: 'nav.environment', icon: Container },
     { key: 'settings', labelKey: 'nav.settings', icon: Settings },

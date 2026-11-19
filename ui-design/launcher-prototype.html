@@ -1120,7 +1120,7 @@
       <div class="nav-item" data-sec="control"><i data-lucide="gamepad-2"></i><span class="nav-text">控制</span></div>
       <div class="nav-item" data-sec="record"><i data-lucide="disc"></i><span class="nav-text">录制</span></div>
       <div class="nav-item" data-sec="window"><i data-lucide="app-window"></i><span class="nav-text">窗口</span></div>
-      <div class="nav-item" data-sec="advanced"><i data-lucide="layout-grid"></i><span class="nav-text">高级</span></div>
+      <div class="nav-item" data-sec="advanced"><i data-lucide="circle-ellipsis"></i><span class="nav-text">更多</span></div>
       <div class="nav-sep"></div>
       <div class="nav-item" data-sec="environment"><i data-lucide="container"></i><span class="nav-text">运行环境</span></div>
       <!-- 「设置」是应用自身偏好与日志的页面，排在末位功能入口；图标 settings 由原「运行环境」让出，
@@ -1644,9 +1644,9 @@
         </div>
       </section>
 
-      <!-- ============ 高级 ============ -->
+      <!-- ============ 更多 ============ -->
       <section class="section" id="sec-advanced">
-        <div class="sec-head"><h2>高级</h2><p>连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底界面未提供的 flag，并可调整端口与隧道主机等网络参数。</p></div>
+        <div class="sec-head"><h2>更多</h2><p>连接后直接启动指定 App（虚拟显示场景尤其有用），用自定义参数兜底界面未提供的 flag，并可调整端口与隧道主机等网络参数。</p></div>
         <div class="grid">
           <div class="card">
             <h3>启动应用</h3>
@@ -2248,6 +2248,7 @@
     "chevrons-left": ["svg",{},[["path",{"d":"m11 17-5-5 5-5"}],["path",{"d":"m18 17-5-5 5-5"}]]],
     "circle-alert": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["line",{"x1":"12","x2":"12","y1":"8","y2":"12"}],["line",{"x1":"12","x2":"12.01","y1":"16","y2":"16"}]]],
     "circle-check": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m9 12 2 2 4-4"}]]],
+    "circle-ellipsis": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M17 12h.01"}],["path",{"d":"M12 12h.01"}],["path",{"d":"M7 12h.01"}]]],
     "circle-help": ["svg",{},[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"}],["path",{"d":"M12 17h.01"}]]],
     "cloud-download": ["svg",{},[["path",{"d":"M12 13v8l-4-4"}],["path",{"d":"m12 21 4-4"}],["path",{"d":"M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.436 8.284"}]]],
     "container": ["svg",{},[["path",{"d":"M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z"}],["path",{"d":"M10 21.9V14L2.1 9.1"}],["path",{"d":"m10 14 11.9-6.9"}],["path",{"d":"M14 19.8v-8.1"}],["path",{"d":"M18 17.5V9.4"}]]],
@@ -2374,7 +2375,7 @@
   "控制": "Control",
   "录制": "Recording",
   "窗口": "Window",
-  "高级": "Advanced",
+  "更多": "More",
   "运行环境": "Environment",
   "设置": "Settings",
   "关于": "About",
@@ -4799,10 +4800,10 @@
     pill.classList.toggle('ok', onlineCount()>0);
     pill.innerHTML=`<span class="dot"></span>${n} 台设备 · ${onlineCount()} 在线 · ${c} 已连接`;
   }
-  // 页键即「页面身份」：与导航项的 data-sec、section 的 id 一致（advanced=高级、environment=运行环境）。
+  // 页键即「页面身份」：与导航项的 data-sec、section 的 id 一致（advanced=更多、environment=运行环境）。
   // 别与数据里的**分组键**（defaults 的 apps / advanced、data-g 属性）混为一谈 —— 那是字段名，不随页面改名。
   // 「关于」不在其中：它不是页面（点它开弹窗、不切页），故导航项挂 data-dialog 而非 data-sec。
-  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'高级',environment:'运行环境',settings:'设置'};
+  const titles={devices:'设备',source:'显示源',video:'视频',audio:'音频',control:'控制',record:'录制',window:'窗口',advanced:'更多',environment:'运行环境',settings:'设置'};
   // 页面跳转：导航点击与顶栏两个状态指示共用同一份判定（不新增过渡 / 滚动逻辑）
   function gotoSection(sec){
     const item=document.querySelector(`.nav-item[data-sec="${sec}"]`); if(!item) return;
