@@ -2933,6 +2933,10 @@ input.dev-cid-input {
   padding: 26px;
   box-shadow: var(--shadow);
 }
+/* 拖拽接线用：整行（图标左右空白 + 标题行）都可拖，同时保持原有的外边距折叠。 */
+.modal-drag-head {
+  display: block;
+}
 .modal .ico {
   width: 46px;
   height: 46px;
@@ -3248,6 +3252,14 @@ input.dev-cid-input {
   margin-bottom: 0;
   opacity: 0;
   pointer-events: none;
+}
+/* 常驻拖拽带：更新视图收起 logo 与名称后仍有可拖区域，高度落在上内边距内。 */
+.about-drag-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
 }
 /* 右上角关闭键：裸图标，hover 才给底与色。
    `.about-views` 是相对定位且排在按钮之后；不给按钮层级的话，它会盖住按钮下半，

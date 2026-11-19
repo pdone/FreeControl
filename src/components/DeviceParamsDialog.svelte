@@ -14,6 +14,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
   import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
+  import { backdropClose } from '../lib/backdrop';
   import {
     defaults,
     devices,
@@ -155,7 +156,7 @@
 <svelte:window on:keydown={onKeydown} />
 
 <div class="overlay dp-overlay show" transition:fade={DIALOG_FADE}>
-  <div class="overlay-backdrop" role="presentation" on:click={close} />
+  <div class="overlay-backdrop" role="presentation" use:backdropClose={close} />
 
   <div
     class="modal dp-modal"
@@ -165,7 +166,7 @@
     aria-modal="true"
     aria-label={device ? $t('device.overrideTitle', { alias: device.alias }) : $t('device.params')}
   >
-    <header class="dp-head">
+    <header class="dp-head" data-tauri-drag-region="deep">
       <span class="dp-title">
         <SlidersHorizontal />
         <span class="dp-title-text">{$t('device.overrideTitle', { alias: device?.alias ?? '' })}</span>

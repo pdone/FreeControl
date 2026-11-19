@@ -831,6 +831,7 @@
     .overlay.about-overlay.show .about-modal, .overlay.about-overlay.closing .about-modal { animation-duration: .01ms; }
   }
   /* 关闭键：右上角裸图标（参考图同一位置）。Esc 与点遮罩也能关，见脚本。 */
+  .about-drag-strip { position: absolute; top: 0; left: 0; right: 0; height: 24px; }
   .about-close { position: absolute; z-index: 1; top: 12px; right: 12px; display: inline-flex; align-items: center; justify-content: center; padding: 5px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); cursor: pointer; transition: .16s; }
   /* 主题切换：生效主题变化时用 View Transitions 做一次整页交叉淡入（与产品侧同一段）。
      首次应用不包（避免启动时从系统色淡到配置色）；不支持该 API 或「减少动态效果」时直切。 */
@@ -956,6 +957,7 @@
   .overlay { position: fixed; inset: 0; background: var(--overlay-bg); backdrop-filter: blur(4px); display: none; place-items: center; z-index: 50; }
   .overlay.show { display: grid; }
   .modal { width: 460px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+  .modal-drag-head { display: block; }
   .modal .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); display: grid; place-items: center; margin-bottom: 16px; }
   .modal .ico svg { width: 24px; height: 24px; stroke: var(--accent-hover); stroke-width: 1.8; fill: none; }
   .modal .ico.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); }
@@ -2035,8 +2037,10 @@
   <div class="modal add-device-modal" role="dialog" aria-modal="true" aria-labelledby="addTitle" tabindex="-1">
     <form class="add-device-inner" id="addForm" autocomplete="off" novalidate>
       <button class="add-close" type="button" id="addClose" aria-label="关闭"><i data-lucide="x"></i></button>
-      <div class="ico"><i data-lucide="tablet-smartphone"></i></div>
-      <h2 id="addTitle">添加设备</h2>
+      <div class="modal-drag-head" data-tauri-drag-region="deep">
+        <div class="ico"><i data-lucide="tablet-smartphone"></i></div>
+        <h2 id="addTitle">添加设备</h2>
+      </div>
       <div class="field">
         <span class="flabel" id="mMethodLabel">添加方式</span>
         <div class="seg add-methods" id="mType" role="group" aria-labelledby="mMethodLabel">
@@ -2127,10 +2131,13 @@
      版本值不加 v 前缀（与「运行环境」页同口径）。入口四颗：三颗外链 + 一颗检查更新。 -->
 <div class="overlay about-overlay" id="aboutModal">
   <div class="modal about-modal">
+    <div class="about-drag-strip" data-tauri-drag-region="deep" aria-hidden="true"></div>
     <button class="about-close" id="aboutClose" aria-label="关闭"><i data-lucide="x"></i></button>
     <!-- 品牌图形复用品牌行那一份（JS 里取同一个 src，不复制 base64），与窗口图标同源 -->
-    <div class="about-logo"><img alt="FreeControl" id="aboutLogo" onerror="this.remove()" />F</div>
-    <div class="about-name">FreeControl</div>
+    <div class="modal-drag-head" data-tauri-drag-region="deep">
+      <div class="about-logo"><img alt="FreeControl" id="aboutLogo" onerror="this.remove()" />F</div>
+      <div class="about-name">FreeControl</div>
+    </div>
     <!-- 两个视图叠在同一栅格里：壳（品牌图形 / 名称 / 关闭键）不参与切换，下面是关于内容 -->
     <div class="about-views">
       <div class="about-view" id="aboutViewAbout">
@@ -2202,7 +2209,7 @@
      「弹窗所属设备」填充；打开不改变设备选中态，预览也不跟随选中设备。 -->
 <div class="overlay dev-params-overlay" id="paramsModal">
   <div class="modal dev-params-modal" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
-    <header class="dp-head">
+    <header class="dp-head" data-tauri-drag-region="deep">
       <span class="dp-title"><i data-lucide="sliders-horizontal"></i><span class="dp-title-text" id="dpTitle"></span></span>
       <span class="dp-actions">
         <label class="switch dp-switch" data-tip="启用 / 停用设备参数（停用后改用全局参数，已填写的设备参数仍保留）"><input type="checkbox" id="dpSwitch" /><span class="slider"></span></label>
@@ -2223,7 +2230,7 @@
      列表自身滚动；刷新、扩大与关闭的动效与遮罩复用 .dev-params-overlay / .dev-params-modal。 -->
 <div class="overlay dev-params-overlay app-list-overlay" id="appsModal">
   <div class="modal dev-params-modal app-list-modal" role="dialog" aria-modal="true" aria-labelledby="alTitle">
-    <header class="dp-head">
+    <header class="dp-head" data-tauri-drag-region="deep">
       <span class="dp-title"><i data-lucide="layout-grid"></i><span class="dp-title-text" id="alTitle">应用列表</span></span>
       <span class="dp-actions">
         <span class="tip-host" id="alExpandTip" data-tip="扩大"><button class="dp-icon-btn" id="alExpand" type="button" aria-label="扩大"><i data-lucide="maximize-2"></i></button></span>

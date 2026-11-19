@@ -13,6 +13,7 @@
   // 下次启动若仍缺失会再提示）。
   import { envStatus, scrcpyDir, envGuideDismissed, page } from '../lib/store';
   import { installRunning, runInstall } from '../lib/install';
+  import { backdropClose } from '../lib/backdrop';
   import { t } from '../lib/i18n';
   import { AlertTriangle, Download } from 'lucide-svelte';
   import { fade } from 'svelte/transition';
@@ -37,10 +38,12 @@
 
 {#if show}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
-    <div class="overlay-backdrop" role="presentation" on:click={dismiss}></div>
+    <div class="overlay-backdrop" role="presentation" use:backdropClose={dismiss}></div>
     <div class="modal" transition:dialogScale={DIALOG_SCALE}>
-      <div class="ico warn"><AlertTriangle /></div>
-      <h2>{$t('guide.title')}</h2>
+      <div class="modal-drag-head" data-tauri-drag-region="deep">
+        <div class="ico warn"><AlertTriangle /></div>
+        <h2>{$t('guide.title')}</h2>
+      </div>
       <p>{$t('guide.body')}</p>
       <div class="field">
         <span class="flabel" style="font-weight: 800;">{$t('guide.dir')}</span>

@@ -4,6 +4,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
+  import { backdropClose } from '../lib/backdrop';
   import {
     appLists,
     appListLoading,
@@ -232,7 +233,7 @@
 <svelte:window on:keydown={onKeydown} on:click={onWindowClick} />
 
 <div class="overlay dp-overlay app-list-overlay show" transition:fade={DIALOG_FADE}>
-  <div class="overlay-backdrop" role="presentation" on:click={close} />
+  <div class="overlay-backdrop" role="presentation" use:backdropClose={close} />
   <div
     class="modal dp-modal app-list-modal"
     class:expanded
@@ -241,7 +242,7 @@
     aria-modal="true"
     aria-label={$t('device.appList')}
   >
-    <header class="dp-head">
+    <header class="dp-head" data-tauri-drag-region="deep">
       <span class="dp-title">
         <LayoutGrid />
         <span class="dp-title-text">{$t('device.appList')}</span>

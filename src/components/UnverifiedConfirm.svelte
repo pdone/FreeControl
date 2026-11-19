@@ -14,6 +14,7 @@
     installRunning,
   } from '../lib/install';
   import { channelLabel } from '../lib/channel';
+  import { backdropClose } from '../lib/backdrop';
   import { t } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { AlertTriangle, Download } from 'lucide-svelte';
@@ -29,10 +30,12 @@
 
 {#if $pendingInstall}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
-    <div class="overlay-backdrop" role="presentation" on:click={onBackdrop}></div>
+    <div class="overlay-backdrop" role="presentation" use:backdropClose={onBackdrop}></div>
     <div class="modal" transition:dialogScale={DIALOG_SCALE}>
-      <div class="ico warn"><AlertTriangle /></div>
-      <h2>{$t('unverified.title')}</h2>
+      <div class="modal-drag-head" data-tauri-drag-region="deep">
+        <div class="ico warn"><AlertTriangle /></div>
+        <h2>{$t('unverified.title')}</h2>
+      </div>
       <p>
         {errorTextOf($pendingInstall.unverifiedReasonMessage, $t)}{$t('unverified.bodyAfter')}
       </p>

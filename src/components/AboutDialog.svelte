@@ -32,6 +32,7 @@
     switchAppUpdateChannel,
     EVENT_APP_UPDATE_PROGRESS,
   } from '../lib/api';
+  import { backdropClose } from '../lib/backdrop';
   import type { AppUpdateCheck, AppUpdateProgress, ChannelView } from '../lib/types';
   import { copyText } from '../lib/clipboard';
   import { channelLabel } from '../lib/channel';
@@ -418,7 +419,7 @@
 <svelte:window on:keydown={onKeydown} />
 
 <div class="overlay about-overlay show" transition:fade={DIALOG_FADE}>
-  <div class="overlay-backdrop" role="presentation" on:click={close} />
+  <div class="overlay-backdrop" role="presentation" use:backdropClose={close} />
   <div
     class="modal about-modal"
     class:update-mode={view === 'update'}
@@ -428,10 +429,13 @@
     aria-label={view === 'about' ? $t('about.dialogLabel') : $t('about.updateLabel')}
     bind:this={modalEl}
   >
+    <div class="about-drag-strip" data-tauri-drag-region="deep" aria-hidden="true"></div>
     <button class="about-close" aria-label={$t('about.close')} on:click={close}><X /></button>
 
-    <div class="about-logo"><img src={logoMark} alt="FreeControl" on:error={hideImg} />F</div>
-    <div class="about-name">FreeControl</div>
+    <div class="modal-drag-head" data-tauri-drag-region="deep">
+      <div class="about-logo"><img src={logoMark} alt="FreeControl" on:error={hideImg} />F</div>
+      <div class="about-name">FreeControl</div>
+    </div>
 
     <div class="about-views">
       <!-- 关于视图 -->

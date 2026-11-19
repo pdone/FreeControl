@@ -3,6 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import { fade } from 'svelte/transition';
   import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
+  import { backdropClose } from '../lib/backdrop';
   import { t, translateNow } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { addDevice, devices, refreshDeviceStatus } from '../lib/store';
@@ -446,7 +447,7 @@
     class:closing
     transition:fade={DIALOG_FADE}
   >
-    <div class="overlay-backdrop" role="presentation" on:click={close}></div>
+    <div class="overlay-backdrop" role="presentation" use:backdropClose={close}></div>
     <div
       class="modal add-device-modal"
       transition:dialogScale={DIALOG_SCALE}
@@ -464,8 +465,10 @@
       >
         <X />
       </button>
-      <div class="ico"><TabletSmartphone /></div>
-      <h2 id="add-device-title">{$t('device.add.title')}</h2>
+      <div class="modal-drag-head" data-tauri-drag-region="deep">
+        <div class="ico"><TabletSmartphone /></div>
+        <h2 id="add-device-title">{$t('device.add.title')}</h2>
+      </div>
 
       <div class="field">
         <span class="flabel" id="add-method-label">{$t('device.add.method')}</span>

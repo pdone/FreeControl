@@ -47,6 +47,7 @@
   import { tip } from '../lib/tooltip';
   import { fade } from 'svelte/transition';
   import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
+  import { backdropClose } from '../lib/backdrop';
   import AddDeviceDialog from './AddDeviceDialog.svelte';
   import DeviceParamsDialog from './DeviceParamsDialog.svelte';
   import DeviceSortSelect from './DeviceSortSelect.svelte';
@@ -1299,10 +1300,12 @@
 <!-- 删除确认（spec「设备记录的增删」：删除前给出确认，避免误删） -->
 {#if pendingDelete}
   <div class="overlay show" transition:fade={DIALOG_FADE}>
-    <div class="overlay-backdrop" role="presentation" on:click={cancelDelete}></div>
+    <div class="overlay-backdrop" role="presentation" use:backdropClose={cancelDelete}></div>
     <div class="modal" transition:dialogScale={DIALOG_SCALE}>
-      <div class="ico warn"><AlertTriangle /></div>
-      <h2>{$t('device.delete.title')}</h2>
+      <div class="modal-drag-head" data-tauri-drag-region="deep">
+        <div class="ico warn"><AlertTriangle /></div>
+        <h2>{$t('device.delete.title')}</h2>
+      </div>
       <p>
         {$t('device.delete.before', {
           alias: pendingDelete.alias,
