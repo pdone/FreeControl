@@ -1106,6 +1106,43 @@
                   </span>
                 {/if}
               {/if}
+              <!-- 连接标识是技术值，要保持可复制（scrcpy 的 -s 取值）：
+                   用语义类名进白名单，而不是靠 `:nth-child` 这类结构选择器指它。
+                   放在名称行、别名与改名入口之后：详情行只留短信息，窄窗口下不折成多行。 -->
+              {#if !compactView}
+                {#if portEditId === d.id}
+                  <span class="dev-cid">{d.ip}:</span>
+                  <input
+                    class="dev-cid-input"
+                    type="number"
+                    min="1"
+                    max="65535"
+                    step="1"
+                    bind:value={portValue}
+                    use:focusAndSelect
+                    on:blur={() => commitPortEdit(d)}
+                    on:keydown={onPortKeydown}
+                    on:click|stopPropagation
+                    aria-label={$t('wireless.editPort')}
+                  />
+                {:else}
+                  <span class="dev-cid">
+                    {d.connectionId || $t('device.connectionPending')}
+                  </span>
+                  {#if s === 'offline' && d.kind === 'wifi'}
+                    <span class="tip-host" use:tip={$t('wireless.editPortTip')}>
+                      <button
+                        type="button"
+                        class="cid-edit"
+                        aria-label={$t('wireless.editPort')}
+                        on:click|stopPropagation={() => startPortEdit(d)}
+                      >
+                        <Pencil />
+                      </button>
+                    </span>
+                  {/if}
+                {/if}
+              {/if}
               {#if compactView}
                 <!-- 简洁模式把连接方式标识与问题图标留在名称行：详情行整行不渲染。 -->
                 <span class="tag {d.kind}">
@@ -1131,41 +1168,6 @@
                 {#if d.kind === 'usb'}<Usb />{:else}<Wifi />{/if}
                 {d.kind === 'usb' ? 'USB' : 'WiFi'}
               </span>
-              <!-- 连接标识是技术值，要保持可复制（scrcpy 的 -s 取值）：
-                   用语义类名进白名单，而不是靠 `:nth-child` 这类结构选择器指它 ——
-                   后者在 .dev-meta 增删任一 span 时会静默指错元素。 -->
-              {#if portEditId === d.id}
-                <span class="dev-cid">{d.ip}:</span>
-                <input
-                  class="dev-cid-input"
-                  type="number"
-                  min="1"
-                  max="65535"
-                  step="1"
-                  bind:value={portValue}
-                  use:focusAndSelect
-                  on:blur={() => commitPortEdit(d)}
-                  on:keydown={onPortKeydown}
-                  on:click|stopPropagation
-                  aria-label={$t('wireless.editPort')}
-                />
-              {:else}
-                <span class="dev-cid">
-                  {d.connectionId || $t('device.connectionPending')}
-                </span>
-                {#if s === 'offline' && d.kind === 'wifi'}
-                  <span class="tip-host" use:tip={$t('wireless.editPortTip')}>
-                    <button
-                      type="button"
-                      class="cid-edit"
-                      aria-label={$t('wireless.editPort')}
-                      on:click|stopPropagation={() => startPortEdit(d)}
-                    >
-                      <Pencil />
-                    </button>
-                  </span>
-                {/if}
-              {/if}
               <span>·</span>
               <span class="status-text {s}">{statusLabel(s, $t)}</span>
               {#if s === 'offline'}
@@ -1272,7 +1274,7 @@
               <button
                 class="btn sm ghost"
                 class:params-on={paramsOn}
-                use:tip={paramsOn ? $t('device.overrideActive') : null}
+                use:tip={paramsOn ? $t('device.overrideActive') : $t('device.paramsTip')}
                 on:click|stopPropagation={() => openParams(d.id)}
               >
                 <SlidersHorizontal /> {$t('device.params')}

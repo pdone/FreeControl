@@ -120,11 +120,19 @@ export function tip(node: HTMLElement, options?: TipOptions) {
     focusVisible = false;
     sync();
   };
+  const onPress = (): void => {
+    // 指针按下即收起，并把本次悬停的「已到点」清掉：按钮随后多半会弹窗 / 换页，
+    // 点击带来的 focusin 与弹窗挂载时的 focusout 若再调 sync()，会把提示重新挂回来闪一下。
+    revealed = false;
+    cancelTimer();
+    hideOwn();
+  };
 
   node.addEventListener('pointerenter', onEnter);
   node.addEventListener('pointerleave', onLeave);
   node.addEventListener('focusin', onFocusIn);
   node.addEventListener('focusout', onFocusOut);
+  node.addEventListener('pointerdown', onPress, true);
   // 自绘提示取代了原生 title，可访问性描述改由提示层承担（提示层挂载时才有文本）。
   for (const el of described) {
     if (!el.hasAttribute('aria-describedby')) el.setAttribute('aria-describedby', TIP_LAYER_ID);
@@ -140,6 +148,7 @@ export function tip(node: HTMLElement, options?: TipOptions) {
       node.removeEventListener('pointerleave', onLeave);
       node.removeEventListener('focusin', onFocusIn);
       node.removeEventListener('focusout', onFocusOut);
+      node.removeEventListener('pointerdown', onPress, true);
       cancelTimer();
       for (const el of described) {
         if (el.getAttribute('aria-describedby') === TIP_LAYER_ID) el.removeAttribute('aria-describedby');

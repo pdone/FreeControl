@@ -703,6 +703,10 @@
   .dev-alias .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; transition: color .16s; }
   .dev-alias .edit:hover { color: var(--accent-hover); }
   .dev-alias .edit svg { width: 13px; height: 13px; stroke: currentColor; }
+  /* 连接标识移到名称行：保持 12px / 常规字重 / 技术值配色，不继承名称的 14.5px 加粗；
+     数字用等宽数字，端口编辑时行高不跳。 */
+  .dev-alias .dev-cid { font-size: 12px; font-weight: 400; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+  .dev-alias .dev-cid-input { font-weight: 400; }
   .dev-alias input { font-weight: 600; font-size: 14.5px; padding: 3px 7px; width: 200px; }
   .dev-meta .edit { color: var(--text-faint); cursor: pointer; display: inline-flex; transition: color .16s; }
   .dev-meta .edit:hover { color: var(--accent-hover); }
@@ -3977,7 +3981,6 @@
     if (!devices.length){ box.innerHTML='<div class="ov-empty">暂无设备，请点击左上角「添加设备」。</div>'; }
     orderedDevices().forEach(d=>{
       const [stxt,scls]=statusMeta(d.status);
-      const idEl = d.type==='usb' ? `serial: ${d.serial||'(待检测)'}` : `IP: ${d.ip}:${d.port}`;
       const oc = overrideCount(d.id);
       const ovOn = isOvEnabled(d.id);
       const compact = density === 'compact';
@@ -4033,14 +4036,14 @@
             <div class="dev-alias">
               <span class="a-text">${escapeHtml(d.alias)}</span>
               <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名"><i data-lucide="pencil"></i></span>
+              ${portEditId===d.id
+                ? `<span class="dev-cid">${escapeHtml(d.ip)}:</span><input class="dev-cid-input" type="number" min="1" max="65535" step="1" value="${d.port}" aria-label="修改端口">`
+                : `<span class="dev-cid">${escapeHtml(d.type==='usb' ? (d.serial||'(待检测)') : `${d.ip}:${d.port}`)}</span>${d.type==='wifi' && d.status==='offline'
+                    ? `<span class="edit" data-cid-edit="${d.id}" role="button" tabindex="0" aria-label="修改端口" data-tip="手动填写该设备当前的连接端口；保存后连接标识随之更新，不会自动连接"><i data-lucide="pencil"></i></span>`
+                    : ''}`}
             </div>
             <div class="dev-meta">
               ${kindTag}
-              ${portEditId===d.id
-                ? `<span class="dev-cid">${escapeHtml(d.ip)}:</span><input class="dev-cid-input" type="number" min="1" max="65535" step="1" value="${d.port}" aria-label="修改端口">`
-                : `<span class="dev-cid">${escapeHtml(idEl)}</span>${d.type==='wifi' && d.status==='offline'
-                    ? `<span class="edit" data-cid-edit="${d.id}" role="button" tabindex="0" aria-label="修改端口" data-tip="手动填写该设备当前的连接端口；保存后连接标识随之更新，不会自动连接"><i data-lucide="pencil"></i></span>`
-                    : ''}`}
               <span>·</span>
               <span class="status-text ${scls}">${stxt}</span>
               ${d.status==='connected' ? '' : `<span>·</span><span>最后 ${d.last}</span>`}

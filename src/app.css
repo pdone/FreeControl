@@ -2383,6 +2383,17 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 3px 7px;
   width: 200px;
 }
+/* 连接标识在名称行：显式回落字号 / 字重 / 颜色，不继承名称的 14.5px 加粗；
+   12px 小于别名 21.75px 的行盒，出现与端口编辑都不撑高名称行（与原型同值）。 */
+.dev-alias .dev-cid {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.dev-alias .dev-cid-input {
+  font-weight: 400;
+}
 /* 连接标识旁的内联端口编辑：与别名编辑同交互，但只占连接标识那一格。
    高度取 18px（12px 字号的行盒），避免输入框出现时把设备卡撑高。 */
 input.dev-cid-input {
@@ -2392,7 +2403,8 @@ input.dev-cid-input {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
-.dev-meta .cid-edit {
+.dev-meta .cid-edit,
+.dev-alias .cid-edit {
   display: inline-flex;
   align-items: center;
   padding: 0;
@@ -2402,10 +2414,12 @@ input.dev-cid-input {
   cursor: pointer;
   transition: color 0.16s;
 }
-.dev-meta .cid-edit:hover {
+.dev-meta .cid-edit:hover,
+.dev-alias .cid-edit:hover {
   color: var(--accent-hover);
 }
-.dev-meta .cid-edit svg {
+.dev-meta .cid-edit svg,
+.dev-alias .cid-edit svg {
   width: 13px;
   height: 13px;
   stroke: currentColor;
