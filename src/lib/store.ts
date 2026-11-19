@@ -14,11 +14,13 @@ import {
 import { applyFontStacks, writeFontCache } from './fonts';
 import { applyUiScale, DEFAULT_UI_SCALE, isUiScale } from './scale';
 import {
+  DEFAULT_APP_SORT_DIRECTIONS,
   readAppSortPreference,
   readCachedApps,
   removeCachedApps,
   writeAppSortPreference,
   writeCachedApps,
+  type AppSortDirections,
   type AppSortMode,
 } from './appListCache';
 import {
@@ -882,15 +884,17 @@ export const appLists = writable<Record<string, AppEntry[]>>({});
 export const appListLoading = writable<Record<string, boolean>>({});
 export const appListErrors = writable<Record<string, unknown>>({});
 const sortPreference = readAppSortPreference();
-/** 排序是展示偏好，跨应用重启保持（界面本地存储）。 */
+/** 排序是展示偏好，跨应用重启保持（界面本地存储）。按名称 / 按包名各自记方向。 */
 export const appSortMode = writable<AppSortMode>(sortPreference?.mode ?? 'default');
-export const appSortDesc = writable(sortPreference?.desc ?? false);
+export const appSortDirections = writable<AppSortDirections>(
+  sortPreference?.directions ?? { ...DEFAULT_APP_SORT_DIRECTIONS },
+);
 
 /** 切换排序的唯一入口：同时更新 store 与本地缓存。 */
-export function setAppSort(mode: AppSortMode, desc: boolean): void {
+export function setAppSort(mode: AppSortMode, directions: AppSortDirections): void {
   appSortMode.set(mode);
-  appSortDesc.set(desc);
-  writeAppSortPreference(mode, desc);
+  appSortDirections.set(directions);
+  writeAppSortPreference(mode, directions);
 }
 
 const appInFlight = new Map<string, Promise<AppEntry[]>>();

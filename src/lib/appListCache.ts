@@ -1,6 +1,6 @@
 // 应用清单的跨重启缓存（localStorage）。缓存只用于加速展示：任何读写失败都按
 // 「未命中 / 未写入」处理，不能影响清单读取与打开应用。
-import type { AppEntry } from './types';
+import type { AppEntry, SortDirection } from './types';
 
 export const APP_LIST_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -125,15 +125,46 @@ export type AppSortMode = 'default' | 'name' | 'package';
 
 export const APP_SORT_CACHE_KEY = 'freecontrol-ui-app-sort';
 
+/** 按名称 / 按包名各自记住方向（与设备列表的按方式方向同构）。 */
+export type AppSortDirections = Record<'name' | 'package', SortDirection>;
+
+export const DEFAULT_APP_SORT_DIRECTIONS: AppSortDirections = { name: 'asc', package: 'asc' };
+
 export interface AppSortPreference {
   mode: AppSortMode;
-  desc: boolean;
+  directions: AppSortDirections;
 }
 
 const SORT_MODES: readonly string[] = ['default', 'name', 'package'];
+/** 独立于清单缓存的版本：升它不会让设备清单缓存失效。 */
+const SORT_CACHE_VERSION = 2;
 
 function isSortMode(value: unknown): value is AppSortMode {
   return typeof value === 'string' && SORT_MODES.includes(value);
+}
+
+function isDirection(value: unknown): value is SortDirection {
+  return value === 'asc' || value === 'desc';
+}
+
+function readDirections(value: unknown): AppSortDirections | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const directions = value as Record<string, unknown>;
+  if (!isDirection(directions.name) || !isDirection(directions.package)) return null;
+  return { name: directions.name, package: directions.package };
+}
+
+/** v1（单一 desc）迁移：当前方式沿用原方向，另一方式升序。 */
+function migrateSortV1(payload: Record<string, unknown>): AppSortPreference | null {
+  if (!isSortMode(payload.mode) || typeof payload.desc !== 'boolean') return null;
+  const direction: SortDirection = payload.desc ? 'desc' : 'asc';
+  return {
+    mode: payload.mode,
+    directions: {
+      name: payload.mode === 'name' ? direction : 'asc',
+      package: payload.mode === 'package' ? direction : 'asc',
+    },
+  };
 }
 
 /** 读取排序偏好；缺失、损坏或取值非法时返回 `null`（调用方回默认排序）。 */
@@ -156,15 +187,22 @@ export function readAppSortPreference(
       return null;
     }
     const payload = parsed as Record<string, unknown>;
-    if (
-      payload.v !== CACHE_VERSION ||
-      !isSortMode(payload.mode) ||
-      typeof payload.desc !== 'boolean'
-    ) {
+    if (payload.v === 1) {
+      const migrated = migrateSortV1(payload);
+      if (migrated) return migrated;
       drop(storage, APP_SORT_CACHE_KEY);
       return null;
     }
-    return { mode: payload.mode, desc: payload.desc };
+    if (payload.v !== SORT_CACHE_VERSION || !isSortMode(payload.mode)) {
+      drop(storage, APP_SORT_CACHE_KEY);
+      return null;
+    }
+    const directions = readDirections(payload.directions);
+    if (!directions) {
+      drop(storage, APP_SORT_CACHE_KEY);
+      return null;
+    }
+    return { mode: payload.mode, directions };
   } catch {
     return null;
   }
@@ -173,12 +211,15 @@ export function readAppSortPreference(
 /** 写入排序偏好；失败静默丢弃（本次运行内的选择仍然生效）。 */
 export function writeAppSortPreference(
   mode: AppSortMode,
-  desc: boolean,
+  directions: AppSortDirections,
   storage: CacheStorage | null = defaultStorage(),
 ): void {
   if (!storage) return;
   try {
-    storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: CACHE_VERSION, mode, desc }));
+    storage.setItem(
+      APP_SORT_CACHE_KEY,
+      JSON.stringify({ v: SORT_CACHE_VERSION, mode, directions }),
+    );
   } catch {
     // 配额不足等：不影响本次排序。
   }

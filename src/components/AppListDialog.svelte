@@ -1,7 +1,7 @@
 <script lang="ts">
   // 应用列表弹窗（app-list-launch）：外壳与设备参数弹窗同款，体区固定「排序 / 搜索 / 刷新」
   // 工具栏与可滚动列表。清单按设备缓存在 store（本次运行内），排序也只保持本次运行。
-  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { DIALOG_FADE, DIALOG_SCALE, dialogScale } from '../lib/motion';
   import {
@@ -11,14 +11,15 @@
     loadDeviceApps,
     openDeviceApp,
     appSortMode,
-    appSortDesc,
+    appSortDirections,
     setAppSort,
     type AppSortMode,
   } from '../lib/store';
+  import type { AppSortDirections } from '../lib/appListCache';
   import { t, resolvedLang } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { tip } from '../lib/tooltip';
-  import type { AppEntry, AppOpenMode } from '../lib/types';
+  import type { AppEntry, AppOpenMode, SortDirection } from '../lib/types';
   import {
     X,
     Maximize2,
@@ -48,12 +49,19 @@
   let feedback = '';
   let notice = '';
   let actionError: unknown = null;
-  let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const sortOptions: { value: AppSortMode; key: 'appList.sort.default' | 'appList.sort.name' | 'appList.sort.package' }[] = [
-    { value: 'default', key: 'appList.sort.default' },
-    { value: 'name', key: 'appList.sort.name' },
-    { value: 'package', key: 'appList.sort.package' },
+  type SortOption = {
+    value: AppSortMode;
+    key: 'appList.sort.default' | 'appList.sort.name' | 'appList.sort.package';
+    /** 默认排序没有方向；按名称 / 按包名各自显示自己保存的方向。 */
+    direction: SortDirection | null;
+  };
+
+  let sortOptions: SortOption[];
+  $: sortOptions = [
+    { value: 'default', key: 'appList.sort.default', direction: null },
+    { value: 'name', key: 'appList.sort.name', direction: $appSortDirections.name },
+    { value: 'package', key: 'appList.sort.package', direction: $appSortDirections.package },
   ];
 
   $: cached = $appLists[deviceId];
@@ -67,8 +75,9 @@
       : $appSortMode === 'name'
         ? $t('appList.sort.name')
         : $t('appList.sort.package');
+  $: currentDirection = sortOptions.find((o) => o.value === $appSortMode)?.direction ?? null;
 
-  $: sorted = sortApps(cached ?? [], $appSortMode, $appSortDesc, $resolvedLang);
+  $: sorted = sortApps(cached ?? [], $appSortMode, $appSortDirections, $resolvedLang);
   $: filtered = keyword.trim()
     ? sorted.filter((a) => {
         const q = keyword.trim().toLowerCase();
@@ -79,7 +88,7 @@
   function sortApps(
     list: AppEntry[],
     mode: AppSortMode,
-    desc: boolean,
+    directions: AppSortDirections,
     lang: string,
   ): AppEntry[] {
     const out = list.slice();
@@ -89,18 +98,20 @@
       sensitivity: 'base',
       numeric: true,
     });
+    const dir = directions[mode] === 'desc' ? -1 : 1;
     out.sort(
-      (a, b) => collator.compare(a[key], b[key]) * (desc ? -1 : 1),
+      (a, b) => collator.compare(a[key], b[key]) * dir,
     );
     return out;
   }
 
   function chooseSort(mode: AppSortMode): void {
+    const next = { ...$appSortDirections };
+    // 再次选择当前方式只翻转它自己的方向；选择另一方式沿用该方式自己保存的方向。
     if (mode !== 'default' && mode === $appSortMode) {
-      setAppSort(mode, !$appSortDesc);
-    } else {
-      setAppSort(mode, false);
+      next[mode] = next[mode] === 'asc' ? 'desc' : 'asc';
     }
+    setAppSort(mode, next);
     sortOpen = false;
     sortTrigger?.focus();
   }
@@ -167,10 +178,6 @@
   }
 
   function close(): void {
-    if (closeTimer) {
-      clearTimeout(closeTimer);
-      closeTimer = null;
-    }
     dispatch('close');
   }
 
@@ -185,6 +192,7 @@
 
   async function refresh(manual = true): Promise<void> {
     actionError = null;
+    feedback = '';
     try {
       await loadDeviceApps(deviceId, manual);
     } catch {
@@ -208,9 +216,7 @@
             ? $t('appList.feedback.started', { name: entry.name })
             : $t('appList.feedback.current', { name: entry.name });
       if (res.notice) notice = errorTextOf(res.notice, $t);
-      if (closeTimer) clearTimeout(closeTimer);
-      // 成功反馈短暂停留后关闭（与产品的「成功即关」一致；留出可读时间）。
-      closeTimer = setTimeout(close, notice ? 1600 : 1000);
+      // 打开成功后弹窗保持：只更新反馈，由用户手动关闭，便于连续打开多个应用。
     } catch (e) {
       actionError = e;
     } finally {
@@ -220,10 +226,6 @@
 
   onMount(() => {
     if (!hasCache) void refresh(false);
-  });
-
-  onDestroy(() => {
-    if (closeTimer) clearTimeout(closeTimer);
   });
 </script>
 
@@ -279,9 +281,9 @@
           >
             <span class="al-sort-value">
               <span class="al-sort-label">{sortLabel}</span>
-              {#if $appSortMode !== 'default'}
+              {#if currentDirection}
                 <span class="al-sort-dir" aria-hidden="true">
-                  {#if $appSortDesc}<ArrowDown />{:else}<ArrowUp />{/if}
+                  {#if currentDirection === 'desc'}<ArrowDown />{:else}<ArrowUp />{/if}
                 </span>
               {/if}
             </span>
@@ -296,15 +298,18 @@
                   type="button"
                   role="option"
                   aria-selected={o.value === $appSortMode}
+                  aria-label={o.direction
+                    ? `${$t(o.key)}, ${$t(o.direction === 'asc' ? 'device.sort.ascending' : 'device.sort.descending')}`
+                    : $t(o.key)}
                   tabindex="-1"
                   on:mousedown|preventDefault
                   on:mousemove={() => (sortActive = i)}
                   on:click={() => chooseSort(o.value)}
                 >
                   <span>{$t(o.key)}</span>
-                  {#if o.value === $appSortMode && $appSortMode !== 'default'}
+                  {#if o.direction}
                     <span class="al-sort-dir" aria-hidden="true">
-                      {#if $appSortDesc}<ArrowDown />{:else}<ArrowUp />{/if}
+                      {#if o.direction === 'desc'}<ArrowDown />{:else}<ArrowUp />{/if}
                     </span>
                   {/if}
                 </button>

@@ -11,6 +11,9 @@ import {
   writeCachedApps,
 } from './appListCache.ts';
 
+const ASC_ASC = { name: 'asc', package: 'asc' };
+const DESC_ASC = { name: 'desc', package: 'asc' };
+
 const APPS = [
   { name: '设置', package: 'com.android.settings', system: true },
   { name: 'F-Droid', package: 'org.fdroid.fdroid', system: false },
@@ -129,8 +132,25 @@ test('returns a miss when storage is unavailable', () => {
 
 test('round-trips the app sort preference', () => {
   const storage = memoryStorage();
-  writeAppSortPreference('name', true, storage);
-  assert.deepEqual(readAppSortPreference(storage), { mode: 'name', desc: true });
+  writeAppSortPreference('name', DESC_ASC, storage);
+  assert.deepEqual(readAppSortPreference(storage), { mode: 'name', directions: DESC_ASC });
+  const raw = JSON.parse(storage.map.get(APP_SORT_CACHE_KEY));
+  assert.equal(raw.v, 2);
+});
+
+test('migrates the v1 direction into the matching mode', () => {
+  const storage = memoryStorage();
+  storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 1, mode: 'name', desc: true }));
+  assert.deepEqual(readAppSortPreference(storage), { mode: 'name', directions: DESC_ASC });
+
+  storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 1, mode: 'package', desc: true }));
+  assert.deepEqual(readAppSortPreference(storage), {
+    mode: 'package',
+    directions: { name: 'asc', package: 'desc' },
+  });
+
+  storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 1, mode: 'name', desc: false }));
+  assert.deepEqual(readAppSortPreference(storage), { mode: 'name', directions: ASC_ASC });
 });
 
 test('rejects an unsupported sort mode and removes it', () => {
@@ -140,17 +160,26 @@ test('rejects an unsupported sort mode and removes it', () => {
   assert.equal(storage.map.has(APP_SORT_CACHE_KEY), false);
 });
 
-test('rejects a sort preference with a non-boolean direction', () => {
+test('rejects a sort preference with an invalid direction', () => {
   const storage = memoryStorage();
   storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 1, mode: 'name', desc: 'yes' }));
   assert.equal(readAppSortPreference(storage), null);
+  storage.setItem(
+    APP_SORT_CACHE_KEY,
+    JSON.stringify({ v: 2, mode: 'name', directions: { name: 'up', package: 'asc' } }),
+  );
+  assert.equal(readAppSortPreference(storage), null);
+  assert.equal(storage.map.has(APP_SORT_CACHE_KEY), false);
 });
 
 test('returns a sort miss for corrupt JSON or unknown version', () => {
   const storage = memoryStorage();
   storage.setItem(APP_SORT_CACHE_KEY, '{oops');
   assert.equal(readAppSortPreference(storage), null);
-  storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 2, mode: 'name', desc: true }));
+  storage.setItem(
+    APP_SORT_CACHE_KEY,
+    JSON.stringify({ v: 3, mode: 'name', directions: DESC_ASC }),
+  );
   assert.equal(readAppSortPreference(storage), null);
 });
 
@@ -167,7 +196,7 @@ test('degrades silently when storage throws for the sort preference', () => {
     },
   };
   assert.equal(readAppSortPreference(storage), null);
-  assert.doesNotThrow(() => writeAppSortPreference('package', false, storage));
+  assert.doesNotThrow(() => writeAppSortPreference('package', ASC_ASC, storage));
   assert.equal(readAppSortPreference(null), null);
-  assert.doesNotThrow(() => writeAppSortPreference('package', false, null));
+  assert.doesNotThrow(() => writeAppSortPreference('package', ASC_ASC, null));
 });

@@ -1012,7 +1012,6 @@
   .al-sort-arrow svg { width: 12px; height: 12px; stroke-width: 2; }
   /* 触发器里的方向箭头不能用 .sel-trigger svg 的绝对定位（那是给右端 chevron 的），否则会叠到同一处。 */
   .al-sort .sel-trigger .al-sort-arrow svg { position: static; right: auto; top: auto; margin-top: 0; transform: none; }
-  .al-sort .sel-list { width: 156px; right: auto; }
   .al-sort .sel-opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .al-sort .sel-opt .al-sort-arrow { width: 13px; height: 13px; }
   .al-sort .sel-opt .al-sort-arrow svg { width: 13px; height: 13px; }
@@ -4461,10 +4460,10 @@
   let appsFeedback = '';
   let appsKeyword = '';
   let appsTimer = null;
-  let appsCloseTimer = null;
   let appsGen = 0;
   let appsSortMode = 'default';
-  let appsSortDesc = false;
+  // 按名称 / 按包名各自记住方向（与设备排序同构）。
+  const appsSortDirs = { name: 'asc', pkg: 'asc' };
   let appsSortOpen = false;
   let appsSortActive = 0;
   const alSortEl = document.getElementById('alSort');
@@ -4482,20 +4481,23 @@
   }
 
   function syncAppsSortUI(syncLabel = true){
-    const dirMode = appsSortMode !== 'default';
     const base = appsSortMode === 'name' ? '按名称' : appsSortMode === 'pkg' ? '按包名' : '默认排序';
+    const arrowOf = v => (appsSortDirs[v] === 'desc' ? 'arrow-down' : 'arrow-up');
     // 方向只由箭头图标表达：文字保持单一可翻译短语，避免拼出「按名称 ↑」这类复合串。
     // 展开菜单时只刷新箭头与选中态，不改写标签 —— 否则英文界面会在展开瞬间回落成中文原文。
     if (syncLabel) alSortEl.querySelector('.al-sort-label').textContent = base;
-    const arrow = dirMode ? `${appsSortDesc ? 'arrow-down' : 'arrow-up'}` : '';
+    const dirArrow = appsSortMode !== 'default' ? arrowOf(appsSortMode) : '';
     const triggerArrow = alSortEl.querySelector('.sel-trigger .al-sort-arrow');
-    triggerArrow.innerHTML = arrow ? `<i data-lucide="${arrow}"></i>` : '';
+    triggerArrow.innerHTML = dirArrow ? `<i data-lucide="${dirArrow}"></i>` : '';
     appsSortOpts().forEach((o, i) => {
       o.id = `alSort-opt-${i}`;
-      const on = (o.dataset.v || '') === appsSortMode;
+      const v = o.dataset.v || '';
+      const on = v === appsSortMode;
       o.setAttribute('aria-selected', on ? 'true' : 'false');
+      // 未选中的可排序方式也显示自己的方向箭头（默认排序没有方向）。
+      const optArrow = v === 'name' || v === 'pkg' ? arrowOf(v) : '';
       const a = o.querySelector('.al-sort-arrow');
-      if (a) a.innerHTML = on && arrow ? `<i data-lucide="${arrow}"></i>` : '';
+      if (a) a.innerHTML = optArrow ? `<i data-lucide="${optArrow}"></i>` : '';
     });
     lucide.createIcons();
     if (window.__tipRefresh) window.__tipRefresh();
@@ -4524,8 +4526,14 @@
   }
 
   function chooseAppsSort(v){
-    if (v === appsSortMode && v !== 'default') appsSortDesc = !appsSortDesc;
-    else { appsSortMode = v || 'default'; appsSortDesc = false; }
+    const mode = v || 'default';
+    if (mode !== 'default' && mode === appsSortMode) {
+      // 再次选择当前方式：只翻转它自己的方向。
+      appsSortDirs[mode] = appsSortDirs[mode] === 'asc' ? 'desc' : 'asc';
+    } else {
+      // 选择另一方式：沿用该方式自己保存的方向。
+      appsSortMode = mode;
+    }
     alSortEl.dataset.v = appsSortMode;
     closeAppsSort();
     syncAppsSortUI();
@@ -4560,7 +4568,7 @@
       if (appsSortMode === 'name' || appsSortMode === 'pkg') {
         const collator = new Intl.Collator(document.documentElement.lang || undefined, { sensitivity: 'base', numeric: true });
         const key = appsSortMode === 'name' ? 'name' : 'pkg';
-        sorted.sort((a, b) => collator.compare(a[key], b[key]) * (appsSortDesc ? -1 : 1));
+        sorted.sort((a, b) => collator.compare(a[key], b[key]) * (appsSortDirs[appsSortMode] === 'desc' ? -1 : 1));
       }
       const kw = appsKeyword.trim().toLowerCase();
       const list = kw
@@ -4620,7 +4628,6 @@
       appsLoading = false;
       if (appsTimer) clearTimeout(appsTimer);
     }
-    if (appsCloseTimer) { clearTimeout(appsCloseTimer); appsCloseTimer = null; }
     closeAppsSort();
     appsDeviceId = id;
     appsExpanded = false;
@@ -4660,12 +4667,7 @@
     renderPreview();
     updatePills();
     renderApps();
-    if (appsCloseTimer) clearTimeout(appsCloseTimer);
-    const id = d.id;
-    // 成功反馈短暂停留后关闭（产品侧成功即关；原型留出可读时间）。
-    appsCloseTimer = setTimeout(() => {
-      if (appsDeviceId === id && appsModal.classList.contains('show')) closeAppsDialog();
-    }, 900);
+    // 打开成功后弹窗保持：只更新反馈，由用户手动关闭。
   }
 
   alRefresh.addEventListener('click', () => {

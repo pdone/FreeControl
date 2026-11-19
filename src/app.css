@@ -3870,10 +3870,6 @@ input.dev-cid-input {
 .al-sort .sel-trigger[aria-expanded="true"] .al-sort-dir svg {
   transform: none;
 }
-.al-sort-list {
-  width: 156px;
-  right: auto;
-}
 .al-sort-list .sel-opt {
   display: flex;
   align-items: center;
