@@ -1044,6 +1044,7 @@
       {@const s = $deviceStatus[d.id] ?? 'unknown'}
       {@const sess = sessionByDevice[d.id]}
       {@const appListReason = appListBlockedReason(d, s, $envStatus)}
+      {@const paramsOn = isOverrideActive(ovById[d.id])}
       <div
         class="dev-card"
         class:compact={compactView}
@@ -1119,13 +1120,6 @@
                     iconOnly
                   />
                 {/each}
-              {:else if isOverrideActive(ovById[d.id])}
-                <!-- 两态标识：只在"有覆盖取值且开关启用"时出现，MUST NOT 带项数
-                     （判据在 store 的 `isOverrideActive`）。禁用态与"一项取值都没填"
-                     都不在此表达 —— 前者只在展开面板的标题里说。 -->
-                <span class="tag soft">
-                  {$t('device.overrideActive')}
-                </span>
               {/if}
             </div>
             {#if !compactView}
@@ -1264,12 +1258,26 @@
                 <ScrollText /> {$t('device.log')}
               </button>
             {/if}
-            <button
-              class="btn sm ghost"
-              on:click|stopPropagation={() => openParams(d.id)}
-            >
-              <SlidersHorizontal /> {$t('device.params')}
-            </button>
+            {#if compactView}
+              <button
+                class="btn sm ghost"
+                class:params-on={paramsOn}
+                aria-label={$t('device.params')}
+                use:tip={paramsOn ? $t('device.overrideActive') : $t('device.paramsTip')}
+                on:click|stopPropagation={() => openParams(d.id)}
+              >
+                <SlidersHorizontal />
+              </button>
+            {:else}
+              <button
+                class="btn sm ghost"
+                class:params-on={paramsOn}
+                use:tip={paramsOn ? $t('device.overrideActive') : null}
+                on:click|stopPropagation={() => openParams(d.id)}
+              >
+                <SlidersHorizontal /> {$t('device.params')}
+              </button>
+            {/if}
             {#if !compactView}
               <button
                 class="btn sm danger"

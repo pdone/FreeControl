@@ -775,6 +775,20 @@
   .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
   .btn.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
   .btn.sm { padding: 7px 11px; font-size: 12.5px; }
+  /* 设备参数已启用的角标：骑在参数按钮右上边框上，2px 卡片底色环把边框线断开，
+     读作挂在边框上的指示灯。判据与原先的标识一致（有取值且开关启用），只换呈现、不占行高。 */
+  .btn.params-on { position: relative; }
+  .btn.params-on::after {
+    content: ''; position: absolute; top: -4px; right: -4px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent-hover); box-shadow: 0 0 0 2px var(--panel);
+    transition: transform .16s ease;
+  }
+  .btn.params-on:hover::after { transform: scale(1.25); }
+  /* 减少动态效果时不放大：提示照常显示，只是不做尺寸变化。 */
+  @media (prefers-reduced-motion: reduce) {
+    .btn.params-on::after { transition: none; }
+    .btn.params-on:hover::after { transform: none; }
+  }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
   /* 带 `hidden` 的按钮必须显式关掉显示：通用 `.hidden`（更靠前、同权重）会被本块的
      `display: inline-flex` 盖掉，`hidden` 就成了摆设（同 `.dev-params.hidden` 那条的由来）。 */
@@ -2931,6 +2945,7 @@
   "连接": "Connect",
   "最后 {0}": "Last {0}",
   "参数": "Parameters",
+  "设置该设备的启动参数": "Set this device's launch parameters",
   "删除": "Delete",
   "应用列表": "APP List",
   "查看并打开该设备上的应用": "Browse and open apps on this device",
@@ -3980,7 +3995,12 @@
       const connectBtn = d.status==='connected'
         ? `<span class="tip-host" data-tip="${connTip}"><button class="btn sm" data-disc="${d.id}"><i data-lucide="zap-off"></i>断开</button></span>`
         : `<span class="tip-host" data-tip="${connTip}"><button class="btn sm primary" data-conn="${d.id}" ${canConnect?'':'disabled'}><i data-lucide="zap"></i>连接</button></span>`;
-      const paramsBtn = `<button class="btn sm ghost" data-ov="${d.id}"><i data-lucide="sliders-horizontal"></i>参数</button>`;
+      /* 参数入口：启用状态落在按钮角标上（判据与原先的标识一致：有取值且开关启用）。 */
+      const paramsActive = oc && ovOn;
+      const paramsTip = paramsActive ? '已启用设备参数' : '';
+      const paramsBtn = `<button class="btn sm ghost${paramsActive?' params-on':''}" data-ov="${d.id}"${paramsTip?` data-tip="${paramsTip}"`:''}><i data-lucide="sliders-horizontal"></i>参数</button>`;
+      /* 简洁密度只留参数图标并保留可访问名称与提示（与产品侧同款）；启用状态同样落在按钮角标上。 */
+      const paramsIconBtn = `<button class="btn sm ghost${paramsActive?' params-on':''}" data-ov="${d.id}" aria-label="参数" data-tip="${paramsActive?'已启用设备参数':'设置该设备的启动参数'}"><i data-lucide="sliders-horizontal"></i></button>`;
       /* 应用列表入口：排在连接 / 断开之后、参数之前。离线的无线设备可用（产品侧点击时先建链），
          离线的 USB 设备不可用；简洁密度只留图标并保留可访问名称。 */
       const appsDisabled = d.type==='usb' && d.status==='offline';
@@ -4003,7 +4023,7 @@
           <div class="dev-actions">
             ${connectBtn}
             ${appsIconBtn}
-            ${paramsBtn}
+            ${paramsIconBtn}
           </div>
         </div>` : `
         <div class="dev-main" data-pick="${d.id}">
@@ -4013,7 +4033,6 @@
             <div class="dev-alias">
               <span class="a-text">${escapeHtml(d.alias)}</span>
               <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名"><i data-lucide="pencil"></i></span>
-              ${oc&&ovOn?`<span class="tag soft">已启用设备参数</span>`:''}
             </div>
             <div class="dev-meta">
               ${kindTag}

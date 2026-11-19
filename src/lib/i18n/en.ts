@@ -526,6 +526,7 @@ export const en: Record<MessageKey, string> = {
   "device.log": "Log",
   "device.logTip": "View this session's output on the Settings page (for troubleshooting)",
   "device.params": "Parameters",
+  "device.paramsTip": "Set this device's launch parameters",
   "device.delete": "Delete",
   "device.deleteTip": "Delete this device (also clears its device parameters)",
   "device.overrideTitle": "Device parameters for \"{alias}\"",

@@ -2586,6 +2586,36 @@ input.dev-cid-input {
   padding: 7px 11px;
   font-size: 12.5px;
 }
+/* 设备参数已启用的角标：骑在参数按钮右上边框上，2px 卡片底色环把边框线断开，
+   读作挂在边框上的指示灯。绝对定位不占布局；悬停只放大、不改按钮与卡片的几何。
+   与原型 launcher-prototype.html 同值（同步类别 ⑬ 呈现更换 + ㉓ 提示）。 */
+.btn.params-on {
+  position: relative;
+}
+.btn.params-on::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 2px var(--panel);
+  transition: transform 0.16s ease;
+}
+.btn.params-on:hover::after {
+  transform: scale(1.25);
+}
+/* 减少动态效果时不放大：提示照常显示，只是不做尺寸变化。 */
+@media (prefers-reduced-motion: reduce) {
+  .btn.params-on::after {
+    transition: none;
+  }
+  .btn.params-on:hover::after {
+    transform: none;
+  }
+}
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
