@@ -2,17 +2,23 @@
 
 <a href="Update.md">中文</a> | English
 
-## v2.5.2
+## v2.6.0
 
 ### New
 
 - Each device card now has APP List: it reads the launchable apps from the phone, supports search and sorting by default order, name or package, and can open an app in the current mirror or in a new window; with no mirror running, Open starts one. The chosen app applies to that launch only and does not overwrite your start-app settings. (#150)
 - Multiple mirror windows can now run for the same device; they take part in disconnecting, logs and window arrangement like any other session.
+- Apps in APP List can be pinned to a Pinned group at the top, and sorted by Recent; pins and each sort direction are remembered across restarts.
 
 ### Improved
 
 - The sidebar page formerly called Advanced is now More, with a circled three-dot icon; same place, same contents.
 - Session output is listed per window in Settings, so multiple sessions of the same device can be viewed and stopped individually; Disconnect on the device card ends all windows for that device.
+- A dialog can be moved by dragging its top bar, and double-clicking that bar toggles maximize and restore; the whole icon row is draggable, and double-clicking it no longer closes the dialog by accident.
+- The connection badge on a device card now sits on the name row; the parameter entry in compact mode is an icon, with a small badge showing whether parameters are enabled, and the parameter and rename buttons now have proper tooltips.
+- APP List now matches the device list width; each sort mode remembers its own direction, and opening an app keeps the dialog open so you can launch the next one.
+- The six dialogs bring back their scale-open animation, with the backdrop fading in in step.
+- The About and update dialog can now be moved by dragging its top bar.
 
 ## v2.5.1
 

@@ -1305,12 +1305,12 @@
         <div class="grid">
           <div class="card">
             <h3>编码与画质</h3>
-            <div class="field"><span class="flabel">视频编码（--video-codec）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="视频编码（--video-codec）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">视频编码（--video-codec）</span><span class="fhelp-p">选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。</span><span class="fhelp-p">选「自动」时按 scrcpy 自身的默认决定。</span></span>
+            <div class="field"><span class="flabel">--video-codec<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--video-codec 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--video-codec</span><span class="fhelp-p">选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。</span><span class="fhelp-p">选「自动」时按 scrcpy 自身的默认决定。</span></span>
             </span></span><div class="sel" data-g="video" data-k="videoCodec" data-t="select" data-v="">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="视频编码（--video-codec）"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
-                <div class="sel-list hidden" role="listbox" aria-label="视频编码（--video-codec）">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="--video-codec"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="--video-codec">
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="" aria-selected="true">自动</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="h264" aria-selected="false">h264</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="h265" aria-selected="false">h265</button>
@@ -1319,32 +1319,32 @@
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="vp9" aria-selected="false">vp9</button>
                 </div>
               </div></div>
-            <div class="field"><span class="flabel">长边分辨率（--max-size）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="长边分辨率（--max-size）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">长边分辨率（--max-size）</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
+            <div class="field"><span class="flabel">--max-size<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--max-size 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--max-size</span><span class="fhelp-p">限制画面宽与高的最大值，另一边按设备比例推算（Flex Display 除外）。</span><span class="fhelp-p">摄像头源下它不裁剪画面，而是用于从摄像头支持的尺寸里挑接近的一档。</span></span>
             </span></span>
               <div class="range-row"><input type="range" min="0" max="2560" step="64" value="0" data-g="video" data-k="maxSize" data-t="range" id="vSize" /><span class="range-val" id="vSizeVal">自动</span></div></div>
-            <div class="field"><span class="flabel">视频码率（--video-bit-rate）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="视频码率（--video-bit-rate）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">视频码率（--video-bit-rate）</span><span class="fhelp-p">视频编码的比特率，scrcpy 默认 8 Mbps。</span><span class="fhelp-p">越高画面越清晰，占用的带宽与解码资源也越多。</span></span>
+            <div class="field"><span class="flabel">--video-bit-rate<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--video-bit-rate 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--video-bit-rate</span><span class="fhelp-p">视频编码的比特率，scrcpy 默认 8 Mbps。</span><span class="fhelp-p">越高画面越清晰，占用的带宽与解码资源也越多。</span></span>
             </span></span>
               <div class="range-row"><input type="range" min="0" max="64" value="0" data-g="video" data-k="bitrate" data-t="range" id="vBitrate" /><span class="range-val" id="vBitrateVal">自动</span></div></div>
-            <div class="field"><span class="flabel">最大帧率（--max-fps）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="最大帧率（--max-fps）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">最大帧率（--max-fps）</span><span class="fhelp-p">限制采集帧率，Android 10 起获得官方支持。</span><span class="fhelp-p">实际帧率随画面变化：静止画面不会跑满上限。</span></span>
+            <div class="field"><span class="flabel">--max-fps<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--max-fps 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--max-fps</span><span class="fhelp-p">限制采集帧率，Android 10 起获得官方支持。</span><span class="fhelp-p">实际帧率随画面变化：静止画面不会跑满上限。</span></span>
             </span></span>
               <div class="range-row"><input type="range" min="0" max="240" value="0" data-g="video" data-k="maxFps" data-t="range" id="vFps" /><span class="range-val" id="vFpsVal">不限制</span></div></div>
-            <div class="field"><span class="flabel">视频编码器（--video-encoder）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="视频编码器（--video-encoder）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">视频编码器（--video-encoder）</span><span class="fhelp-p">指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。</span><span class="fhelp-p">可用 scrcpy --list-encoders 列出设备上可用的编码器。</span></span>
+            <div class="field"><span class="flabel">--video-encoder<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--video-encoder 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--video-encoder</span><span class="fhelp-p">指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。</span><span class="fhelp-p">可用 scrcpy --list-encoders 列出设备上可用的编码器。</span></span>
             </span></span><input type="text" data-g="video" data-k="videoEncoder" data-t="text" value="" placeholder="OMX.qcom.video.encoder.avc" />
               <div class="hint">留空由 scrcpy 自动选择</div></div>
-            <div class="field"><span class="flabel">硬件解码（--hwdec）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="硬件解码（--hwdec）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">硬件解码（--hwdec）</span><span class="fhelp-p">「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。</span><span class="fhelp-p">disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。</span><span class="fhelp-p">与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。</span><span class="fhelp-p">需要 scrcpy 5.0 及以上。</span></span>
+            <div class="field"><span class="flabel">--hwdec<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--hwdec 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--hwdec</span><span class="fhelp-p">「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。</span><span class="fhelp-p">disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。</span><span class="fhelp-p">与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。</span><span class="fhelp-p">需要 scrcpy 5.0 及以上。</span></span>
             </span></span><div class="sel" data-g="video" data-k="hwdec" data-t="select" data-v="">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="硬件解码（--hwdec）"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
-                <div class="sel-list hidden" role="listbox" aria-label="硬件解码（--hwdec）">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="--hwdec"><span class="sel-text">自动</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="--hwdec">
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="" aria-selected="true">自动</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="disabled" aria-selected="false">disabled</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="vaapi" aria-selected="false">vaapi</button>
@@ -1355,28 +1355,28 @@
           </div>
           <div class="card">
             <h3>画面与适配</h3>
-            <div class="field"><span class="flabel">裁剪（--crop W:H:X:Y）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="裁剪（--crop W:H:X:Y）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">裁剪（--crop W:H:X:Y）</span><span class="fhelp-p">在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。</span><span class="fhelp-p">坐标以设备自然方向为基准（手机竖放、平板横放）。</span><span class="fhelp-p">Flex Display 下不生效。</span></span>
+            <div class="field"><span class="flabel">--crop W:H:X:Y<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--crop W:H:X:Y 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--crop W:H:X:Y</span><span class="fhelp-p">在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。</span><span class="fhelp-p">坐标以设备自然方向为基准（手机竖放、平板横放）。</span><span class="fhelp-p">Flex Display 下不生效。</span></span>
             </span></span><input type="text" data-g="video" data-k="crop" data-t="text" placeholder="1224:1440:0:0" /></div>
-            <div class="field"><span class="flabel">旋转角度（--angle）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="旋转角度（--angle）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">旋转角度（--angle）</span><span class="fhelp-p">按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。</span><span class="fhelp-p">只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。</span></span>
+            <div class="field"><span class="flabel">--angle<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--angle 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--angle</span><span class="fhelp-p">按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。</span><span class="fhelp-p">只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。</span></span>
             </span></span><div class="seg" data-g="video" data-k="angle" data-t="seg"><button class="active" data-v="0">0</button><button data-v="90">90</button><button data-v="180">180</button><button data-v="270">270</button></div></div>
-            <div class="field"><span class="flabel">渲染适配（--render-fit）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="渲染适配（--render-fit）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">渲染适配（--render-fit）</span><span class="fhelp-p">控制画面在窗口里的适配方式。</span><span class="fhelp-p">letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。</span></span>
+            <div class="field"><span class="flabel">--render-fit<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--render-fit 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--render-fit</span><span class="fhelp-p">控制画面在窗口里的适配方式。</span><span class="fhelp-p">letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。</span></span>
             </span></span><div class="sel" data-g="video" data-k="renderFit" data-t="select" data-v="letterbox">
-                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="渲染适配（--render-fit）"><span class="sel-text">letterbox</span><i data-lucide="chevron-down"></i></button>
-                <div class="sel-list hidden" role="listbox" aria-label="渲染适配（--render-fit）">
+                <button class="sel-trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="--render-fit"><span class="sel-text">letterbox</span><i data-lucide="chevron-down"></i></button>
+                <div class="sel-list hidden" role="listbox" aria-label="--render-fit">
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="letterbox" aria-selected="true">letterbox</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="stretched" aria-selected="false">stretched</button>
                   <button class="sel-opt" type="button" role="option" tabindex="-1" data-v="unscaled" aria-selected="false">unscaled</button>
                 </div>
               </div></div>
-            <div class="field"><span class="flabel">视频缓冲（--video-buffer）<span class="fhelp">
-              <button class="fhelp-btn" type="button" aria-label="视频缓冲（--video-buffer）的说明"><i data-lucide="circle-help"></i></button>
-              <span class="fhelp-panel"><span class="fhelp-title">视频缓冲（--video-buffer）</span><span class="fhelp-p">在显示前增加一段缓冲，用来吸收网络抖动。</span><span class="fhelp-p">它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。</span></span>
+            <div class="field"><span class="flabel">--video-buffer<span class="fhelp">
+              <button class="fhelp-btn" type="button" aria-label="--video-buffer 的说明"><i data-lucide="circle-help"></i></button>
+              <span class="fhelp-panel"><span class="fhelp-title">--video-buffer</span><span class="fhelp-p">在显示前增加一段缓冲，用来吸收网络抖动。</span><span class="fhelp-p">它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。</span></span>
             </span></span><input type="number" data-g="video" data-k="videoBuffer" data-t="number" value="0" /><div class="hint">单位：毫秒</div></div>
           </div>
         </div>
@@ -2474,7 +2474,6 @@
   "列出摄像头": "List cameras",
   "编码、分辨率、码率、帧率与画面适配。": "Codec, resolution, bitrate, frame rate and fit.",
   "编码与画质": "Codec and quality",
-  "视频编码（--video-codec）": "Video codec (--video-codec)",
   "选择视频编码格式。h264 是 scrcpy 的默认值，延迟最低；h265 画质更好但延迟更高；av1 在现有 Android 设备上的编码器还很罕见。": "Choose the video codec. h264 is the scrcpy default and has the lowest latency; h265 has better quality but higher latency; av1 encoders are still rare on current Android devices.",
   "选「自动」时按 scrcpy 自身的默认决定。": "With Auto, scrcpy uses its own default.",
   "长边分辨率（--max-size）": "Max size (--max-size)",
@@ -2487,11 +2486,9 @@
   "限制采集帧率，Android 10 起获得官方支持。": "Limit the capture frame rate; officially supported since Android 10.",
   "实际帧率随画面变化：静止画面不会跑满上限。": "The actual frame rate varies with the picture; a static screen will not reach the limit.",
   "不限制": "No limit",
-  "视频编码器（--video-encoder）": "Video encoder (--video-encoder)",
   "指定 MediaCodec 视频编码器（可用的编码器名随 --video-codec 的编码格式而定）。": "Specify a MediaCodec video encoder (available encoder names depend on the codec selected with --video-codec).",
   "可用 scrcpy --list-encoders 列出设备上可用的编码器。": "Use scrcpy --list-encoders to list available encoders on the device.",
   "留空由 scrcpy 自动选择": "Empty lets scrcpy choose",
-  "硬件解码（--hwdec）": "Hardware decoding (--hwdec)",
   "「自动」= 不传该 flag：scrcpy 使用第一个可用的硬件解码器，无法解码时回退软件解码。": "Auto = omit the flag: scrcpy uses the first available hardware decoder and falls back to software decoding if needed.",
   "disabled 强制纯软件解码；vaapi 仅 Linux（需系统安装 VA-API 驱动，X11 上还要求 EGL 渲染器）；d3d11va 仅 Windows。显式指定后若硬件解码不可用，scrcpy 直接报错退出。": "disabled forces software decoding; vaapi is Linux only (requires VA-API drivers, and the EGL renderer on X11); d3d11va is Windows only. If hardware decoding is unavailable after an explicit choice, scrcpy exits with an error.",
   "与「后台录制」（--no-window）互斥：该模式隐含 --no-video-playback，而硬件解码要求 video playback；disabled 不受此限。": "Conflicts with Background recording (--no-window): that mode implies --no-video-playback, while hardware decoding requires video playback; disabled is not affected.",
@@ -2502,13 +2499,10 @@
   "在设备端裁剪画面，四个分量的顺序是「宽:高:x:y」，其中 x、y 是裁剪区域左上角的坐标。": "Crop the picture on the device. The four components are width:height:x:y, where x and y are the top-left corner of the crop area.",
   "坐标以设备自然方向为基准（手机竖放、平板横放）。": "Coordinates use the device natural orientation (portrait phone, landscape tablet).",
   "Flex Display 下不生效。": "Not used with Flex Display.",
-  "旋转角度（--angle）": "Angle (--angle)",
   "按给定角度顺时针旋转画面内容，可填任意角度，界面给出 0 / 90 / 180 / 270 四档。": "Rotate the picture clockwise by the given angle; any angle is allowed, and the UI offers 0 / 90 / 180 / 270.",
   "只改变画面呈现，不影响录制文件的方向（录制方向由 --record-orientation 单独决定）。": "Only changes the picture; it does not affect the recorded file direction (set separately with --record-orientation).",
-  "渲染适配（--render-fit）": "Render fit (--render-fit)",
   "控制画面在窗口里的适配方式。": "Controls how the picture fits the window.",
   "letterbox 保持宽高比，多出的区域留边；stretched 拉满窗口、不保持宽高比；unscaled 按像素一比一显示，窗口小于画面时只能看到一部分。": "letterbox keeps the aspect ratio and adds margins; stretched fills the window without preserving the aspect ratio; unscaled shows pixels 1:1, so only part of the picture is visible when the window is smaller.",
-  "视频缓冲（--video-buffer）": "Video buffer (--video-buffer)",
   "在显示前增加一段缓冲，用来吸收网络抖动。": "Add a buffer before display to absorb network jitter.",
   "它以减少卡顿为代价换来画面延迟增加；局域网直连通常不需要。": "It reduces stutter at the cost of higher latency; usually unnecessary on a direct LAN connection.",
   "单位：毫秒": "Unit: milliseconds",
@@ -2870,16 +2864,16 @@
   "帧率（--camera-fps）的说明": "About Frame rate (--camera-fps)",
   "初始缩放（--camera-zoom）的说明": "About Initial zoom (--camera-zoom)",
   "开启闪光灯（--camera-torch）的说明": "About Torch (--camera-torch)",
-  "视频编码（--video-codec）的说明": "About Video codec (--video-codec)",
-  "长边分辨率（--max-size）的说明": "About Max size (--max-size)",
-  "视频码率（--video-bit-rate）的说明": "About Video bit rate (--video-bit-rate)",
-  "最大帧率（--max-fps）的说明": "About Max frame rate (--max-fps)",
-  "视频编码器（--video-encoder）的说明": "About Video encoder (--video-encoder)",
-  "硬件解码（--hwdec）的说明": "About Hardware decoding (--hwdec)",
-  "裁剪（--crop W:H:X:Y）的说明": "About Crop (--crop W:H:X:Y)",
-  "旋转角度（--angle）的说明": "About Angle (--angle)",
-  "渲染适配（--render-fit）的说明": "About Render fit (--render-fit)",
-  "视频缓冲（--video-buffer）的说明": "About Video buffer (--video-buffer)",
+  "--video-codec 的说明": "About --video-codec",
+  "--max-size 的说明": "About --max-size",
+  "--video-bit-rate 的说明": "About --video-bit-rate",
+  "--max-fps 的说明": "About --max-fps",
+  "--video-encoder 的说明": "About --video-encoder",
+  "--hwdec 的说明": "About --hwdec",
+  "--crop W:H:X:Y 的说明": "About --crop W:H:X:Y",
+  "--angle 的说明": "About --angle",
+  "--render-fit 的说明": "About --render-fit",
+  "--video-buffer 的说明": "About --video-buffer",
   "禁用音频转发（--no-audio 开启）的说明": "About Disable audio forwarding (--no-audio on)",
   "音频源（--audio-source）的说明": "About Audio source (--audio-source)",
   "音频编码（--audio-codec）的说明": "About Audio codec (--audio-codec)",
@@ -3329,7 +3323,10 @@
      当前取值与 doc/scrcpy/meson.build 保持一致。
      ============================================================ */
   const SCRCPY_VERSION = '5.0.1';
-  const SCRCPY_DIR     = `%APPDATA%\\FreeControl2\\scrcpy-win64-v${SCRCPY_VERSION}`;
+  // 产品侧目录值展示的是解析后的完整路径，约定路径（%APPDATA%）只出现在 `?` 详情里；
+  // 原型同样拆成两个常量：SCRCPY_DIR 是输入框里的演示完整路径，SCRCPY_DIR_HINT 是详情里的约定目录。
+  const SCRCPY_DIR      = `C:\\Users\\Admin\\AppData\\Roaming\\FreeControl2\\scrcpy-win64-v${SCRCPY_VERSION}`;
+  const SCRCPY_DIR_HINT = `%APPDATA%\\FreeControl2\\scrcpy-win64-v${SCRCPY_VERSION}`;
   const SCRCPY_ZIP     = `scrcpy-win64-v${SCRCPY_VERSION}.zip`;
   // 平台标签在产品里由「操作系统 × 架构」二维查表决定（win64 / linux-x86_64 / …，标签
   // 同时决定目录名与官方资产名），原型是 Windows 基线，故演示常量写死 win64 这一行取值。
@@ -3342,9 +3339,9 @@
      正式实现中：该值由 Tauri 的 getVersion()（取 tauri.conf.json 的构建期版本）下发，
      前端一律通过该 API 读取，页面里不得写版本字面量（见 about-page design D5）。
      ============================================================ */
-  const APP_VERSION = '2.5.1';
+  const APP_VERSION = '2.6.0';
   // 原型演示用的模拟最新版；产品侧由 GitHub 最新正式发行下发，不写死在界面里。
-  const UPDATE_LATEST_VERSION = '2.5.2';
+  const UPDATE_LATEST_VERSION = '2.6.1';
 
   // 每台设备的参数覆盖（仅覆盖的字段）
   const overrides = {};
@@ -5716,11 +5713,11 @@
 
   /* ---- 版本信息统一注入：页面所有版本展示都取自上面那两处版本常量（scrcpy 与应用各一处）---- */
   scrcpyPathEl.value = SCRCPY_DIR;
-  // 目录字段——约定目录文字（产品侧由后端下发的 dirHint 拼成；原型取同一个目录常量）。
+  // 目录字段——约定目录文字（产品侧由后端下发的 dirHint 拼成；原型取 SCRCPY_DIR_HINT）。
   // 它现在住在 `?` 详情的第一句里：字段下方不再有常驻说明（该目录的完整路径已由上面的输入框展示），
   // 句子骨架写在 HTML 里，这里只填路径。
   // 路径输入框里贴的是资源管理器/命令行里的写法（反斜杠），说明文字与产品侧一致用正斜杠。
-  envDirHint.textContent = SCRCPY_DIR.replace(/\\/g, '/');
+  envDirHint.textContent = SCRCPY_DIR_HINT.replace(/\\/g, '/');
   // 状态字段的就绪指示与原因说明：演示态恒为「已就绪 · 与最佳适配一致」，取值一律取自
   // 版本常量，不另写一份字面量（产品侧的就绪文字 = 「已就绪 · scrcpy {installed}（含 adb）」）。
   envStatePill.innerHTML = `<i data-lucide="circle-check"></i>已就绪 · scrcpy ${SCRCPY_VERSION}（含 adb）`;
