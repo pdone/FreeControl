@@ -1100,6 +1100,7 @@
                     role="button"
                     tabindex="0"
                     aria-label={$t('device.renameAria')}
+                    use:tip={$t('device.renameAria')}
                     on:click|stopPropagation={() => startEdit(d)}
                     on:keydown={(e) => e.key === 'Enter' && startEdit(d)}
                   >

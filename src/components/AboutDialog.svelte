@@ -511,47 +511,59 @@
         bind:this={updateViewEl}
       >
         <div class="update-inner" bind:this={updateInnerEl}>
-          <div
-            class="update-icon"
-            class:checking={update.kind === 'checking'}
-            class:ok={update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
-            class:accent={update.kind === 'available' || update.kind === 'downloading'}
-            class:warn={update.kind === 'failed'}
-            aria-hidden="true"
-          >
-            {#if update.kind === 'failed'}
-              <CircleAlert />
-            {:else if update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
-              <CircleCheck />
-            {:else if update.kind === 'checking'}
-              <RefreshCw />
-            {:else}
-              <CloudDownload />
-            {/if}
+          <div class="update-drag-head" data-tauri-drag-region="deep">
+            <div
+              class="update-icon"
+              class:checking={update.kind === 'checking'}
+              class:ok={update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
+              class:accent={update.kind === 'available' || update.kind === 'downloading'}
+              class:warn={update.kind === 'failed'}
+              aria-hidden="true"
+            >
+              {#if update.kind === 'failed'}
+                <CircleAlert />
+              {:else if update.kind === 'upToDate' || update.kind === 'installedNewer' || update.kind === 'ready'}
+                <CircleCheck />
+              {:else if update.kind === 'checking'}
+                <RefreshCw />
+              {:else}
+                <CloudDownload />
+              {/if}
+            </div>
+            <div class="update-title">
+              {#if update.kind === 'checking'}
+                {$t('about.update.checkingTitle')}
+              {:else if update.kind === 'upToDate'}
+                {$t('about.update.upToDateTitle')}
+              {:else if update.kind === 'installedNewer'}
+                {$t('about.update.installedNewerTitle')}
+              {:else if update.kind === 'available'}
+                {$t('about.update.availableTitle', { version: update.latest })}
+              {:else if update.kind === 'downloading'}
+                {$t('about.update.downloadingTitle', { version: update.latest })}
+              {:else if update.kind === 'ready'}
+                {$t('about.update.readyTitle')}
+              {:else}
+                {$t(failureCopy.title)}
+              {/if}
+            </div>
           </div>
 
           {#if update.kind === 'checking'}
-            <div class="update-title">{$t('about.update.checkingTitle')}</div>
             <div class="update-desc">{$t('about.update.checkingDesc')}</div>
           {:else if update.kind === 'upToDate'}
-            <div class="update-title">{$t('about.update.upToDateTitle')}</div>
             <div class="update-desc">{$t('about.update.upToDateDesc', { version: update.current })}</div>
           {:else if update.kind === 'installedNewer'}
-            <div class="update-title">{$t('about.update.installedNewerTitle')}</div>
             <div class="update-desc">
               {$t('about.update.installedNewerDesc', { current: update.current, latest: update.latest })}
             </div>
           {:else if update.kind === 'available'}
-            <div class="update-title">{$t('about.update.availableTitle', { version: update.latest })}</div>
             <div class="update-desc">{$t('about.update.availableDesc')}</div>
           {:else if update.kind === 'downloading'}
-            <div class="update-title">{$t('about.update.downloadingTitle', { version: update.latest })}</div>
             <div class="update-desc">{$t('about.update.downloadingDesc')}</div>
           {:else if update.kind === 'ready'}
-            <div class="update-title">{$t('about.update.readyTitle')}</div>
             <div class="update-desc">{$t('about.update.readyDesc')}</div>
           {:else}
-            <div class="update-title">{$t(failureCopy.title)}</div>
             <div class="update-desc">{$t(failureCopy.desc)}</div>
           {/if}
 

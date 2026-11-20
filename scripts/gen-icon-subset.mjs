@@ -39,6 +39,8 @@ const SUPPLEMENT = [
   'circle-alert', // cfg.icon
   'zap', // 连接按钮：connected ? 'zap-off' : 'zap'
   'zap-off',
+  'pin', // 应用列表固定入口：fixed ? 'pin-off' : 'pin'
+  'pin-off',
 ];
 
 const KEBAB = /^[a-z0-9][a-z0-9-]*$/;

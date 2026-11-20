@@ -121,7 +121,7 @@ export function removeCachedApps(
   drop(storage, appListCacheKey(deviceId));
 }
 
-export type AppSortMode = 'default' | 'name' | 'package';
+export type AppSortMode = 'default' | 'name' | 'package' | 'recent';
 
 export const APP_SORT_CACHE_KEY = 'freecontrol-ui-app-sort';
 
@@ -135,7 +135,7 @@ export interface AppSortPreference {
   directions: AppSortDirections;
 }
 
-const SORT_MODES: readonly string[] = ['default', 'name', 'package'];
+const SORT_MODES: readonly string[] = ['default', 'name', 'package', 'recent'];
 /** 独立于清单缓存的版本：升它不会让设备清单缓存失效。 */
 const SORT_CACHE_VERSION = 2;
 

@@ -31,6 +31,18 @@ import {
   translateNow,
   type MessageKey,
 } from './i18n';
+import {
+  readAppPins,
+  readAppUsage,
+  withAppLaunch,
+  withPin,
+  withoutDevicePins,
+  withoutDeviceUsage,
+  writeAppPins,
+  writeAppUsage,
+  type AppPins,
+  type AppUsage,
+} from './appActivity';
 import { decideCloseAction } from './closeAction';
 import { sortDevices } from './deviceSort';
 import { acceptStatusSequence, reduceDeviceList } from './deviceSnapshot';
@@ -890,6 +902,24 @@ export const appSortDirections = writable<AppSortDirections>(
   sortPreference?.directions ?? { ...DEFAULT_APP_SORT_DIRECTIONS },
 );
 
+/** 固定与打开记录：按设备存放在界面本地存储，启动时读一次。 */
+export const appPins = writable<AppPins>(readAppPins());
+export const appUsage = writable<AppUsage>(readAppUsage());
+
+/** 切换某个应用的固定状态：先更新内存，再回写本地；写入失败保持本次运行内有效。 */
+export function setAppFixed(deviceId: string, pkg: string, fixed: boolean): void {
+  const next = withPin(get(appPins), deviceId, pkg, fixed);
+  appPins.set(next);
+  writeAppPins(next);
+}
+
+/** 一次成功打开：累加该设备该应用的次数并写入最近打开时间。 */
+export function recordAppLaunch(deviceId: string, pkg: string, now = Date.now()): void {
+  const next = withAppLaunch(get(appUsage), deviceId, pkg, now);
+  appUsage.set(next);
+  writeAppUsage(next);
+}
+
 /** 切换排序的唯一入口：同时更新 store 与本地缓存。 */
 export function setAppSort(mode: AppSortMode, directions: AppSortDirections): void {
   appSortMode.set(mode);
@@ -939,7 +969,7 @@ export async function loadDeviceApps(deviceId: string, refresh = false): Promise
   return task;
 }
 
-/** 设备删除时丢弃其内存与本地缓存。 */
+/** 设备删除时丢弃其内存与本地缓存（清单、固定与打开记录）。 */
 export function forgetDeviceApps(deviceId: string): void {
   appLists.update((m) => {
     const next = { ...m };
@@ -947,6 +977,12 @@ export function forgetDeviceApps(deviceId: string): void {
     return next;
   });
   removeCachedApps(deviceId);
+  const pins = withoutDevicePins(get(appPins), deviceId);
+  appPins.set(pins);
+  writeAppPins(pins);
+  const usage = withoutDeviceUsage(get(appUsage), deviceId);
+  appUsage.set(usage);
+  writeAppUsage(usage);
 }
 
 /**
@@ -964,6 +1000,8 @@ export async function openDeviceApp(
     mode,
     args: argsForDevice(deviceId),
   });
+  // 打开成功才记账；失败在 openAppCmd 抛出，走到这里的都已启动。
+  recordAppLaunch(deviceId, packageName);
   applySessions(res.sessions);
   if (res.warning) {
     deviceNotices.update((m) => ({ ...m, [deviceId]: res.warning! }));

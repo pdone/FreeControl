@@ -900,6 +900,8 @@
   /* 顶部对齐：状态切换时图标 / 标题 / 说明始终停在原位，不随内容多少上下漂移。 */
   .about-view-update { height: 100%; display: flex; align-items: flex-start; justify-content: center; padding-top: 14px; }
   .update-inner { width: 100%; max-width: 380px; text-align: center; }
+  /* 更新视图的可拖顶部条：状态图标与标题整行可拖，说明与操作留在正文。 */
+  .update-drag-head { display: block; }
   .update-icon { width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 16px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-hover); }
   .update-icon svg { width: 28px; height: 28px; stroke: currentColor; }
   .update-icon.accent { background: var(--accent-soft); color: var(--accent-hover); }
@@ -1040,8 +1042,16 @@
   .al-search input::placeholder { color: var(--text-faint); }
   .al-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
   .al-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
-  .al-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .al-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+  .al-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .al-pkg { color: var(--text-faint); font-size: 12px; }
+  /* 固定入口：包名后的图标槽位常驻占宽，只在本行 hover / 键盘焦点进入时显形，避免名称与动作按钮位移。 */
+  .al-pin { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-faint); cursor: pointer; opacity: 0; pointer-events: none; transition: .16s; }
+  .al-pin svg { width: 14px; height: 14px; stroke: currentColor; }
+  .al-row:hover .al-pin, .al-row:focus-within .al-pin { opacity: 1; pointer-events: auto; }
+  .al-pin:hover { color: var(--accent-hover); }
+  /* 固定组 / 其余应用的分组标签：仅在两组都非空时渲染，滚随列表。 */
+  .al-group-label { flex: none; align-self: flex-start; padding: 2px 4px 0; color: var(--text-faint); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
   .al-actions { flex: none; display: flex; gap: 6px; }
   .al-actions .btn { padding: 4px 8px; font-size: 12px; }
   .al-state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px 12px; color: var(--text-dim); font-size: 13px; text-align: center; }
@@ -2178,8 +2188,10 @@
            另有 downloadfailed / noasset / writefail 三个失败细分便于逐条验收。 -->
       <div class="about-view about-view-update is-hidden" id="aboutViewUpdate" tabindex="-1" aria-hidden="true" aria-live="polite">
         <div class="update-inner">
-          <div class="update-icon checking" id="updateIcon" aria-hidden="true"><i data-lucide="refresh-cw"></i></div>
-          <div class="update-title" id="updateTitle">正在检查更新…</div>
+          <div class="update-drag-head" data-tauri-drag-region="deep">
+            <div class="update-icon checking" id="updateIcon" aria-hidden="true"><i data-lucide="refresh-cw"></i></div>
+            <div class="update-title" id="updateTitle">正在检查更新…</div>
+          </div>
           <div class="update-desc" id="updateDesc">正在连接更新服务，请稍候</div>
           <div class="update-versions hidden" id="updateVersions">
             <div class="update-ver"><span>当前版本</span><b id="updateCurrent">—</b></div>
@@ -2246,6 +2258,7 @@
           </button>
           <div class="sel-list hidden" id="alSortList" role="listbox" aria-label="应用排序方式">
             <button class="sel-opt" type="button" role="option" data-v="default">默认排序</button>
+            <button class="sel-opt" type="button" role="option" data-v="recent"><span class="al-sort-opt-label">按最近打开</span><span class="al-sort-arrow" aria-hidden="true"></span></button>
             <button class="sel-opt" type="button" role="option" data-v="name"><span class="al-sort-opt-label">按名称</span><span class="al-sort-arrow" aria-hidden="true"></span></button>
             <button class="sel-opt" type="button" role="option" data-v="pkg"><span class="al-sort-opt-label">按包名</span><span class="al-sort-arrow" aria-hidden="true"></span></button>
           </div>
@@ -2297,6 +2310,8 @@
     "minus": ["svg",{},[["path",{"d":"M5 12h14"}]]],
     "monitor": ["svg",{},[["rect",{"width":"20","height":"14","x":"2","y":"3","rx":"2"}],["line",{"x1":"8","x2":"16","y1":"21","y2":"21"}],["line",{"x1":"12","x2":"12","y1":"17","y2":"21"}]]],
     "pencil": ["svg",{},[["path",{"d":"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"}],["path",{"d":"m15 5 4 4"}]]],
+    "pin": ["svg",{},[["path",{"d":"M12 17v5"}],["path",{"d":"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"}]]],
+    "pin-off": ["svg",{},[["path",{"d":"M12 17v5"}],["path",{"d":"M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89"}],["path",{"d":"m2 2 20 20"}],["path",{"d":"M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11"}]]],
     "plus": ["svg",{},[["path",{"d":"M5 12h14"}],["path",{"d":"M12 5v14"}]]],
     "refresh-cw": ["svg",{},[["path",{"d":"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"}],["path",{"d":"M21 3v5h-5"}],["path",{"d":"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"}],["path",{"d":"M8 16H3v5"}]]],
     "rotate-ccw": ["svg",{},[["path",{"d":"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"}],["path",{"d":"M3 3v5h5"}]]],
@@ -2966,6 +2981,11 @@
   "默认排序": "Default order",
   "按名称": "By name",
   "按包名": "By package",
+  "按最近打开": "Recent",
+  "已固定": "Pinned",
+  "全部应用": "All apps",
+  "固定": "Pin",
+  "取消固定": "Unpin",
   "打开": "Open",
   "新窗口打开": "Open in new window",
   "打开：在当前投屏中打开此应用；没有投屏时先启动一个": "Open: launch this app in the existing mirror; start one if none is running",
@@ -4042,7 +4062,7 @@
           <div class="dev-id">
             <div class="dev-alias">
               <span class="a-text">${escapeHtml(d.alias)}</span>
-              <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名"><i data-lucide="pencil"></i></span>
+              <span class="edit" data-edit="${d.id}" role="button" tabindex="0" aria-label="重命名" data-tip="重命名"><i data-lucide="pencil"></i></span>
               ${portEditId===d.id
                 ? `<span class="dev-cid">${escapeHtml(d.ip)}:</span><input class="dev-cid-input" type="number" min="1" max="65535" step="1" value="${d.port}" aria-label="修改端口">`
                 : `<span class="dev-cid">${escapeHtml(d.type==='usb' ? (d.serial||'(待检测)') : `${d.ip}:${d.port}`)}</span>${d.type==='wifi' && d.status==='offline'
@@ -4482,6 +4502,9 @@
     { name:'Tailscale', pkg:'com.tailscale.ipn' }
   ];
   const appsCache = new Map();
+  // 演示口径：固定与打开记录只在本次打开内有效（产品侧落界面本地存储）。
+  const appsPins = new Map();
+  const appsUsage = new Map();
   let appsDeviceId = null;
   let appsExpanded = false;
   let appsLoading = false;
@@ -4491,8 +4514,29 @@
   let appsTimer = null;
   let appsGen = 0;
   let appsSortMode = 'default';
-  // 按名称 / 按包名各自记住方向（与设备排序同构）。
+  // 按名称 / 按包名各自记住方向（与设备排序同构）；按最近打开没有方向。
   const appsSortDirs = { name: 'asc', pkg: 'asc' };
+
+  function appsPinnedSet(id){
+    if (!appsPins.has(id)) appsPins.set(id, new Set());
+    return appsPins.get(id);
+  }
+  function appsUsageMap(id){
+    if (!appsUsage.has(id)) appsUsage.set(id, new Map());
+    return appsUsage.get(id);
+  }
+  function recordAppLaunch(id, pkg){
+    const usage = appsUsageMap(id);
+    const rec = usage.get(pkg) || { last: 0, count: 0 };
+    rec.last = Date.now();
+    rec.count += 1;
+    usage.set(pkg, rec);
+  }
+  function toggleAppPin(id, pkg){
+    const pins = appsPinnedSet(id);
+    if (pins.has(pkg)) pins.delete(pkg);
+    else pins.add(pkg);
+  }
   let appsSortOpen = false;
   let appsSortActive = 0;
   const alSortEl = document.getElementById('alSort');
@@ -4510,12 +4554,12 @@
   }
 
   function syncAppsSortUI(syncLabel = true){
-    const base = appsSortMode === 'name' ? '按名称' : appsSortMode === 'pkg' ? '按包名' : '默认排序';
+    const base = appsSortMode === 'recent' ? '按最近打开' : appsSortMode === 'name' ? '按名称' : appsSortMode === 'pkg' ? '按包名' : '默认排序';
     const arrowOf = v => (appsSortDirs[v] === 'desc' ? 'arrow-down' : 'arrow-up');
     // 方向只由箭头图标表达：文字保持单一可翻译短语，避免拼出「按名称 ↑」这类复合串。
     // 展开菜单时只刷新箭头与选中态，不改写标签 —— 否则英文界面会在展开瞬间回落成中文原文。
     if (syncLabel) alSortEl.querySelector('.al-sort-label').textContent = base;
-    const dirArrow = appsSortMode !== 'default' ? arrowOf(appsSortMode) : '';
+    const dirArrow = appsSortMode === 'name' || appsSortMode === 'pkg' ? arrowOf(appsSortMode) : '';
     const triggerArrow = alSortEl.querySelector('.sel-trigger .al-sort-arrow');
     triggerArrow.innerHTML = dirArrow ? `<i data-lucide="${dirArrow}"></i>` : '';
     appsSortOpts().forEach((o, i) => {
@@ -4523,7 +4567,7 @@
       const v = o.dataset.v || '';
       const on = v === appsSortMode;
       o.setAttribute('aria-selected', on ? 'true' : 'false');
-      // 未选中的可排序方式也显示自己的方向箭头（默认排序没有方向）。
+      // 未选中的可排序方式也显示自己的方向箭头（默认排序与最近打开没有方向）。
       const optArrow = v === 'name' || v === 'pkg' ? arrowOf(v) : '';
       const a = o.querySelector('.al-sort-arrow');
       if (a) a.innerHTML = optArrow ? `<i data-lucide="${optArrow}"></i>` : '';
@@ -4556,11 +4600,14 @@
 
   function chooseAppsSort(v){
     const mode = v || 'default';
-    if (mode !== 'default' && mode === appsSortMode) {
-      // 再次选择当前方式：只翻转它自己的方向。
-      appsSortDirs[mode] = appsSortDirs[mode] === 'asc' ? 'desc' : 'asc';
+    if (mode === 'name' || mode === 'pkg') {
+      // 再次选择按名称 / 按包名：只翻转它自己的方向；按最近打开没有方向，重复选择不改变状态。
+      if (mode === appsSortMode) {
+        appsSortDirs[mode] = appsSortDirs[mode] === 'asc' ? 'desc' : 'asc';
+      } else {
+        appsSortMode = mode;
+      }
     } else {
-      // 选择另一方式：沿用该方式自己保存的方向。
       appsSortMode = mode;
     }
     alSortEl.dataset.v = appsSortMode;
@@ -4593,29 +4640,53 @@
     } else if (appsError && !cached) {
       alList.innerHTML = `<div class="al-state"><span>读取失败</span><span class="al-pkg">${escapeHtml(appsError)}</span><button class="btn ghost sm" type="button" data-al-retry>重试</button></div>`;
     } else if (cached) {
+      const pinSet = appsPinnedSet(appsDeviceId);
+      const usage = appsUsageMap(appsDeviceId);
       const sorted = cached.slice();
-      if (appsSortMode === 'name' || appsSortMode === 'pkg') {
+      if (appsSortMode === 'recent') {
+        // 未打开过的时间按 0 处理：稳定排序会保留它们在清单里的原相对顺序，并整体排在已打开应用之后。
+        sorted.sort((a, b) => (usage.get(b.pkg)?.last || 0) - (usage.get(a.pkg)?.last || 0));
+      } else if (appsSortMode === 'name' || appsSortMode === 'pkg') {
         const collator = new Intl.Collator(document.documentElement.lang || undefined, { sensitivity: 'base', numeric: true });
         const key = appsSortMode === 'name' ? 'name' : 'pkg';
         sorted.sort((a, b) => collator.compare(a[key], b[key]) * (appsSortDirs[appsSortMode] === 'desc' ? -1 : 1));
       }
+      // 固定组始终在最前；组内保持当前排序方式排好的顺序。
+      const pinned = [];
+      const rest = [];
+      sorted.forEach(a => (pinSet.has(a.pkg) ? pinned : rest).push(a));
+      const ordered = pinned.concat(rest);
       const kw = appsKeyword.trim().toLowerCase();
       const list = kw
-        ? sorted.filter(a => a.name.toLowerCase().includes(kw) || a.pkg.toLowerCase().includes(kw))
-        : sorted;
+        ? ordered.filter(a => a.name.toLowerCase().includes(kw) || a.pkg.toLowerCase().includes(kw))
+        : ordered;
       if (!cached.length) {
         alList.innerHTML = `<div class="al-state">没有可启动的应用</div>`;
       } else if (!list.length) {
         alList.innerHTML = `<div class="al-state">没有匹配的应用</div>`;
       } else {
-        alList.innerHTML = list.map(a => `
+        // 两组都非空时插入分组标签；搜索把其中一组过滤空时不渲染任何标签。
+        const firstRest = list.findIndex(a => !pinSet.has(a.pkg));
+        const showGroups = firstRest > 0;
+        alList.innerHTML = list.map((a, i) => {
+          const fixed = pinSet.has(a.pkg);
+          const label = showGroups && i === 0
+            ? '<div class="al-group-label">已固定</div>'
+            : showGroups && i === firstRest
+              ? '<div class="al-group-label">全部应用</div>'
+              : '';
+          return `${label}
           <div class="al-row">
-            <span class="al-name" data-proto-literal>${escapeHtml(a.name)}<span class="al-pkg">（${escapeHtml(a.pkg)}）</span></span>
+            <span class="al-name">
+              <span class="al-name-text" data-proto-literal>${escapeHtml(a.name)}<span class="al-pkg">（${escapeHtml(a.pkg)}）</span></span>
+              <button class="al-pin" type="button" data-al-pin="${escapeHtml(a.pkg)}" aria-pressed="${fixed}" aria-label="${fixed ? '取消固定' : '固定'}"><i data-lucide="${fixed ? 'pin-off' : 'pin'}"></i></button>
+            </span>
             <span class="al-actions">
               <button class="btn ghost sm" type="button" data-al-cur="${escapeHtml(a.pkg)}" data-al-name="${escapeHtml(a.name)}" data-tip="打开：在当前投屏中打开此应用；没有投屏时先启动一个" aria-label="打开"><i data-lucide="monitor"></i>打开</button>
               <button class="btn ghost sm" type="button" data-al-new="${escapeHtml(a.pkg)}" data-al-name="${escapeHtml(a.name)}" data-tip="新窗口打开：使用该设备参数再开一个投屏窗口，并打开此应用" aria-label="新窗口打开"><i data-lucide="app-window"></i>新窗口打开</button>
             </span>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       }
     } else {
       alList.innerHTML = '';
@@ -4692,6 +4763,7 @@
     } else {
       appsFeedback = `已在当前窗口打开「${name}」`;
     }
+    recordAppLaunch(appsDeviceId, pkg);
     renderDeviceList();
     renderPreview();
     updatePills();
@@ -4765,6 +4837,19 @@
     closeAppsDialog();
   });
   alList.addEventListener('click', e => {
+    const pin = e.target.closest('[data-al-pin]');
+    if (pin) {
+      if (appsDeviceId) {
+        toggleAppPin(appsDeviceId, pin.dataset.alPin);
+        renderApps();
+        // 键盘触发后按钮随重排重建：把焦点还给同一应用的固定入口，提示与可访问名称不丢。
+        if (e.detail === 0) {
+          const again = [...alList.querySelectorAll('[data-al-pin]')].find(b => b.dataset.alPin === pin.dataset.alPin);
+          if (again) again.focus({ preventScroll: true });
+        }
+      }
+      return;
+    }
     const retry = e.target.closest('[data-al-retry]');
     if (retry) { loadApps(true); return; }
     const nx = e.target.closest('[data-al-new]');

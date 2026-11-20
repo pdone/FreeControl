@@ -9,14 +9,17 @@
     appLists,
     appListLoading,
     appListErrors,
+    appPins,
+    appUsage,
     loadDeviceApps,
     openDeviceApp,
+    setAppFixed,
     appSortMode,
     appSortDirections,
     setAppSort,
     type AppSortMode,
   } from '../lib/store';
-  import type { AppSortDirections } from '../lib/appListCache';
+  import { sortAppEntries } from '../lib/appSort';
   import { t, resolvedLang } from '../lib/i18n';
   import { errorTextOf } from '../lib/message';
   import { tip } from '../lib/tooltip';
@@ -34,6 +37,8 @@
     Monitor,
     AppWindow,
     AlertTriangle,
+    Pin,
+    PinOff,
   } from 'lucide-svelte';
 
   export let deviceId: string;
@@ -53,14 +58,19 @@
 
   type SortOption = {
     value: AppSortMode;
-    key: 'appList.sort.default' | 'appList.sort.name' | 'appList.sort.package';
-    /** 默认排序没有方向；按名称 / 按包名各自显示自己保存的方向。 */
+    key:
+      | 'appList.sort.default'
+      | 'appList.sort.recent'
+      | 'appList.sort.name'
+      | 'appList.sort.package';
+    /** 默认排序与最近打开没有方向；按名称 / 按包名各自显示自己保存的方向。 */
     direction: SortDirection | null;
   };
 
   let sortOptions: SortOption[];
   $: sortOptions = [
     { value: 'default', key: 'appList.sort.default', direction: null },
+    { value: 'recent', key: 'appList.sort.recent', direction: null },
     { value: 'name', key: 'appList.sort.name', direction: $appSortDirections.name },
     { value: 'package', key: 'appList.sort.package', direction: $appSortDirections.package },
   ];
@@ -73,43 +83,40 @@
   $: sortLabel =
     $appSortMode === 'default'
       ? $t('appList.sort.default')
-      : $appSortMode === 'name'
-        ? $t('appList.sort.name')
-        : $t('appList.sort.package');
+      : $appSortMode === 'recent'
+        ? $t('appList.sort.recent')
+        : $appSortMode === 'name'
+          ? $t('appList.sort.name')
+          : $t('appList.sort.package');
   $: currentDirection = sortOptions.find((o) => o.value === $appSortMode)?.direction ?? null;
 
-  $: sorted = sortApps(cached ?? [], $appSortMode, $appSortDirections, $resolvedLang);
+  $: pinnedSet = new Set($appPins[deviceId] ?? []);
+  $: usage = $appUsage[deviceId] ?? {};
+  $: sorted = sortAppEntries(
+    cached ?? [],
+    $appSortMode,
+    $appSortDirections,
+    $resolvedLang,
+    pinnedSet,
+    usage,
+  );
   $: filtered = keyword.trim()
     ? sorted.filter((a) => {
         const q = keyword.trim().toLowerCase();
         return a.name.toLowerCase().includes(q) || a.package.toLowerCase().includes(q);
       })
     : sorted;
+  $: firstRest = filtered.findIndex((a) => !pinnedSet.has(a.package));
+  $: showGroups = firstRest > 0;
 
-  function sortApps(
-    list: AppEntry[],
-    mode: AppSortMode,
-    directions: AppSortDirections,
-    lang: string,
-  ): AppEntry[] {
-    const out = list.slice();
-    if (mode === 'default') return out;
-    const key: 'name' | 'package' = mode === 'name' ? 'name' : 'package';
-    const collator = new Intl.Collator(lang === 'en' ? 'en' : 'zh-CN', {
-      sensitivity: 'base',
-      numeric: true,
-    });
-    const dir = directions[mode] === 'desc' ? -1 : 1;
-    out.sort(
-      (a, b) => collator.compare(a[key], b[key]) * dir,
-    );
-    return out;
+  function toggleFixed(pkg: string): void {
+    setAppFixed(deviceId, pkg, !($appPins[deviceId] ?? []).includes(pkg));
   }
 
   function chooseSort(mode: AppSortMode): void {
     const next = { ...$appSortDirections };
-    // 再次选择当前方式只翻转它自己的方向；选择另一方式沿用该方式自己保存的方向。
-    if (mode !== 'default' && mode === $appSortMode) {
+    // 再次选择当前方式只翻转它自己的方向；最近打开没有方向，重复选择不改变状态。
+    if ((mode === 'name' || mode === 'package') && mode === $appSortMode) {
       next[mode] = next[mode] === 'asc' ? 'desc' : 'asc';
     }
     setAppSort(mode, next);
@@ -378,11 +385,29 @@
         {:else if cached && filtered.length === 0}
           <div class="al-state">{$t('appList.noMatch')}</div>
         {:else if cached}
-          {#each filtered as entry (entry.package)}
+          {#each filtered as entry, i (entry.package)}
+            {@const fixed = pinnedSet.has(entry.package)}
+            {#if showGroups && i === 0}
+              <div class="al-group-label">{$t('appList.pinnedGroup')}</div>
+            {/if}
+            {#if showGroups && i === firstRest}
+              <div class="al-group-label">{$t('appList.allAppsGroup')}</div>
+            {/if}
             <div class="al-row">
               <span class="al-name">
-                <b>{entry.name}</b>
-                <span class="al-pkg">（{entry.package}）</span>
+                <span class="al-name-text">
+                  <b>{entry.name}</b>
+                  <span class="al-pkg">（{entry.package}）</span>
+                </span>
+                <button
+                  class="al-pin"
+                  type="button"
+                  aria-pressed={fixed}
+                  aria-label={fixed ? $t('appList.unfix') : $t('appList.fix')}
+                  on:click={() => toggleFixed(entry.package)}
+                >
+                  {#if fixed}<PinOff />{:else}<Pin />{/if}
+                </button>
               </span>
               <span class="al-actions">
                 <button

@@ -138,6 +138,14 @@ test('round-trips the app sort preference', () => {
   assert.equal(raw.v, 2);
 });
 
+test('round-trips the recent sort mode', () => {
+  const storage = memoryStorage();
+  writeAppSortPreference('recent', ASC_ASC, storage);
+  assert.deepEqual(readAppSortPreference(storage), { mode: 'recent', directions: ASC_ASC });
+  const raw = JSON.parse(storage.map.get(APP_SORT_CACHE_KEY));
+  assert.equal(raw.v, 2);
+});
+
 test('migrates the v1 direction into the matching mode', () => {
   const storage = memoryStorage();
   storage.setItem(APP_SORT_CACHE_KEY, JSON.stringify({ v: 1, mode: 'name', desc: true }));

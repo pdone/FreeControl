@@ -3477,6 +3477,10 @@ input.dev-cid-input {
   max-width: 380px;
   text-align: center;
 }
+/* 更新视图的可拖顶部条：状态图标与标题整行可拖，说明与操作留在正文。 */
+.update-drag-head {
+  display: block;
+}
 .update-icon {
   width: 56px;
   height: 56px;
@@ -4027,10 +4031,16 @@ input.dev-cid-input {
 .al-name {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.al-name-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
 }
 .al-name b {
   font-weight: 600;
@@ -4038,6 +4048,47 @@ input.dev-cid-input {
 .al-pkg {
   color: var(--text-faint);
   font-size: 12px;
+}
+/* 固定入口：包名后的图标槽位常驻占宽，只在本行 hover / 键盘焦点进入时显形，避免名称与动作按钮位移。 */
+.al-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.16s;
+}
+.al-pin svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+.al-row:hover .al-pin,
+.al-row:focus-within .al-pin {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* 悬停只改颜色，不铺底色。 */
+.al-pin:hover {
+  color: var(--accent-hover);
+}
+/* 固定组 / 其余应用的分组标签：仅在两组都非空时渲染，随列表滚动。 */
+.al-group-label {
+  flex: none;
+  align-self: flex-start;
+  padding: 2px 4px 0;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .al-actions {
   flex: none;
