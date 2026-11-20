@@ -41,19 +41,19 @@
 
 **Devices** — device list and connection control:
 
-<img src="assets/screenshots/en/devices.png" alt="Devices page: device list and connection controls" />
+<img src="assets/screenshots/dark/en/devices.png" alt="Devices page: device list and connection controls" />
 
 **Parameters** — the common option controls:
 
-<img src="assets/screenshots/en/video.png" alt="Video parameter page" />
+<img src="assets/screenshots/dark/en/video.png" alt="Video parameter page" />
 
 **Runtime** — where scrcpy and adb are fetched:
 
-<img src="assets/screenshots/en/environment.png" alt="Runtime page" />
+<img src="assets/screenshots/dark/en/environment.png" alt="Runtime page" />
 
 **Settings** — appearance, fonts, interface language, updates, tray and log settings:
 
-<img src="assets/screenshots/en/settings.png" alt="Settings page: appearance, fonts, interface language, updates, tray and log settings" />
+<img src="assets/screenshots/dark/en/settings.png" alt="Settings page: appearance, fonts, interface language, updates, tray and log settings" />
 
 ## Quick Start
 

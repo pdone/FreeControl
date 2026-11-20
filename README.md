@@ -40,19 +40,19 @@
 
 **设备页** —— 设备清单与连接控制：
 
-<img src="assets/screenshots/devices.png" alt="设备页：设备清单与连接控制" />
+<img src="assets/screenshots/dark/devices.png" alt="设备页：设备清单与连接控制" />
 
 **参数页** —— 常用选项控件：
 
-<img src="assets/screenshots/video.png" alt="视频参数页" />
+<img src="assets/screenshots/dark/video.png" alt="视频参数页" />
 
 **运行环境** —— 获取 scrcpy 与 adb 的入口：
 
-<img src="assets/screenshots/environment.png" alt="运行环境页" />
+<img src="assets/screenshots/dark/environment.png" alt="运行环境页" />
 
 **设置** —— 外观、字体、界面语言、自动更新、托盘与日志设置：
 
-<img src="assets/screenshots/settings.png" alt="设置页：外观、字体、界面语言、自动更新、托盘与日志设置" />
+<img src="assets/screenshots/dark/settings.png" alt="设置页：外观、字体、界面语言、自动更新、托盘与日志设置" />
 
 ## 快速开始
 
