@@ -199,4 +199,4 @@ By default, no: closing the main window quits the app and ends running mirroring
 
 - [scrcpy](https://github.com/Genymobile/scrcpy) — mirroring and device control are entirely its doing; this project is a shell around it.
 - [Tauri](https://tauri.app/), [Svelte](https://svelte.dev/), [Vite](https://vite.dev/), [lucide](https://lucide.dev/) — the app shell and UI.
-- [FreeControl](https://github.com/pdone/FreeControl), its predecessor — this project is a rework built on the interaction lessons from it.
+- [FreeControl Legacy](https://github.com/pdone/FreeControlBackup), its predecessor — this project is a rework built on the interaction lessons from it.
