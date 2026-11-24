@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreeControl API 文档</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f2f4f7;
+    --panel: #ffffff;
+    --panel-2: #f8f9fb;
+    --border: #d9dee6;
+    --text: #1f2430;
+    --text-dim: #5a6377;
+    --text-faint: #8b93a5;
+    --accent: #6366f1;
+    --accent-soft: rgba(99, 102, 241, .12);
+    --code-bg: #eef1f5;
+    --get: #2563eb;
+    --post: #0f8a5f;
+    --danger: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0d11;
+      --panel: #171b22;
+      --panel-2: #1c212b;
+      --border: #353c49;
+      --text: #dcdfe6;
+      --text-dim: #9aa3b2;
+      --text-faint: #6b7382;
+      --accent-soft: rgba(99, 102, 241, .14);
+      --code-bg: #2d323c;
+      --get: #93b4ff;
+      --post: #6fd3a7;
+      --danger: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 28px 20px 44px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { margin-bottom: 18px; }
+  .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; letter-spacing: .01em; }
+  .version { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--text-faint); }
+  .desc { margin: 0; color: var(--text-dim); max-width: 720px; }
+  .spec-link { color: var(--accent); text-decoration: none; font-size: 12.5px; }
+  .spec-link:hover { text-decoration: underline; }
+  .notice {
+    margin: 16px 0 18px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel-2);
+    color: var(--text-faint);
+    font-size: 12px;
+  }
+  .op {
+    margin: 0 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .op-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .method {
+    display: inline-flex;
+    min-width: 54px;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .method.get { color: var(--get); }
+  .method.post { color: var(--post); }
+  .path { font: 600 13px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
+  .summary { color: var(--text-dim); margin-left: auto; font-size: 12.5px; }
+  .op-body { padding: 12px 15px 14px; }
+  .desc-block { color: var(--text-dim); margin: 0 0 12px; white-space: pre-wrap; }
+  .subhead {
+    margin: 14px 0 6px;
+    color: var(--text-faint);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .subhead:first-child { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 6px 8px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { color: var(--text-faint); font-weight: 500; }
+  td code, code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .req { color: var(--danger); font-size: 11px; }
+  .auth { color: var(--text-faint); font-size: 12px; margin-top: 10px; }
+  .status {
+    margin: 36px 0;
+    text-align: center;
+    color: var(--text-faint);
+  }
+  .status.error { color: var(--danger); white-space: pre-wrap; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="head-row">
+      <div>
+        <h1><span id="title">FreeControl API</span><span class="version" id="version"></span></h1>
+        <p class="desc" id="description"></p>
+      </div>
+      <a class="spec-link" href="/api-docs/openapi.json">openapi.json</a>
+    </div>
+  </header>
+  <div class="notice">只读接口文档：不包含访问凭据，也不提供在线调用。</div>
+  <main id="app"><p class="status" id="status">正在加载接口文档…</p></main>
+</div>
+<script>
+(function () {
+  const app = document.getElementById('app');
+  const status = document.getElementById('status');
+
+  function node(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined && text !== null && text !== '') el.textContent = String(text);
+    return el;
+  }
+
+  function schemaType(schema) {
+    if (!schema) return '—';
+    if (schema.$ref) return schema.$ref.split('/').pop();
+    if (schema.type === 'array') return 'array<' + schemaType(schema.items) + '>';
+    if (schema.type) return schema.type + (schema.format ? ' (' + schema.format + ')' : '');
+    if (schema.oneOf) return schema.oneOf.map(schemaType).join(' | ');
+    if (schema.anyOf) return schema.anyOf.map(schemaType).join(' | ');
+    return '—';
+  }
+
+  function table(headers, rows) {
+    const tbl = node('table');
+    const thead = node('thead');
+    const tr = node('tr');
+    for (const h of headers) tr.appendChild(node('th', '', h));
+    thead.appendChild(tr);
+    tbl.appendChild(thead);
+    const tbody = node('tbody');
+    for (const row of rows) {
+      const line = node('tr');
+      for (const cell of row) {
+        const td = node('td');
+        if (cell instanceof Node) td.appendChild(cell);
+        else td.textContent = cell === undefined || cell === null ? '' : String(cell);
+        line.appendChild(td);
+      }
+      tbody.appendChild(line);
+    }
+    tbl.appendChild(tbody);
+    return tbl;
+  }
+
+  function renderOperation(method, path, op) {
+    const card = node('section', 'op');
+    const head = node('div', 'op-head');
+    head.appendChild(node('span', 'method ' + method.toLowerCase(), method.toUpperCase()));
+    head.appendChild(node('code', 'path', path));
+    if (op.summary) head.appendChild(node('span', 'summary', op.summary));
+    card.appendChild(head);
+
+    const body = node('div', 'op-body');
+    if (op.description) body.appendChild(node('p', 'desc-block', op.description));
+
+    const params = Array.isArray(op.parameters) ? op.parameters : [];
+    if (params.length) {
+      body.appendChild(node('div', 'subhead', '参数'));
+      body.appendChild(table(
+        ['名称', '位置', '类型', '说明'],
+        params.map((p) => [
+          p.required ? p.name + ' *' : p.name,
+          p.in || '',
+          schemaType(p.schema),
+          p.description || '',
+        ])
+      ));
+    }
+
+    const responses = op.responses && typeof op.responses === 'object' ? op.responses : {};
+    const statuses = Object.keys(responses);
+    if (statuses.length) {
+      body.appendChild(node('div', 'subhead', '响应'));
+      body.appendChild(table(
+        ['状态', '说明', '响应体'],
+        statuses.map((code) => {
+          const response = responses[code] || {};
+          let bodyType = '—';
+          const content = response.content && response.content['application/json'];
+          if (content && content.schema) bodyType = schemaType(content.schema);
+          return [code, response.description || '', bodyType];
+        })
+      ));
+    }
+
+    if (op.security || (op['x-bearer-auth'] !== false)) {
+      body.appendChild(node('div', 'auth', '设备接口需要 Authorization: Bearer <本次运行凭据>。文档页本身不提供凭据。'));
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  function renderSchemas(schemas) {
+    const names = Object.keys(schemas || {}).sort();
+    if (!names.length) return;
+    const section = node('section', 'op');
+    const head = node('div', 'op-head');
+    head.appendChild(node('code', 'path', '数据模型'));
+    section.appendChild(head);
+    const body = node('div', 'op-body');
+    for (const name of names) {
+      const schema = schemas[name] || {};
+      body.appendChild(node('div', 'subhead', name));
+      const props = schema.properties || {};
+      const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+      const rows = Object.keys(props).map((prop) => [
+        required.has(prop) ? prop + ' *' : prop,
+        schemaType(props[prop]),
+        props[prop] && props[prop].description ? props[prop].description : '',
+      ]);
+      if (rows.length) body.appendChild(table(['字段', '类型', '说明'], rows));
+      else body.appendChild(node('p', 'desc-block', schema.description || '—'));
+    }
+    section.appendChild(body);
+    app.appendChild(section);
+  }
+
+  fetch('/api-docs/openapi.json', { cache: 'no-store' })
+    .then((response) => {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    })
+    .then((spec) => {
+      const info = spec.info || {};
+      document.title = (info.title || 'FreeControl API') + ' · 文档';
+      document.getElementById('title').textContent = info.title || 'FreeControl API';
+      document.getElementById('version').textContent = info.version ? 'v' + info.version : '';
+      document.getElementById('description').textContent = info.description || '';
+      app.textContent = '';
+      const paths = spec.paths && typeof spec.paths === 'object' ? spec.paths : {};
+      for (const path of Object.keys(paths).sort()) {
+        const item = paths[path] || {};
+        for (const method of ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']) {
+          if (item[method]) app.appendChild(renderOperation(method, path, item[method]));
+        }
+      }
+      renderSchemas(spec.components && spec.components.schemas);
+    })
+    .catch((error) => {
+      status.className = 'status error';
+      status.textContent = '接口文档加载失败：' + (error && error.message ? error.message : String(error));
+    });
+})();
+</script>
+</body>
+</html>

@@ -1,20 +1,23 @@
 <script lang="ts">
-  // 「设置」页（spec `app-preferences`）：本程序自身的外观、更新与日志内容。
+  // 「设置」页（spec `app-preferences`）：本程序自身的外观、更新、外部控制与日志内容。
   // 页键 `settings`、入口名「设置」、组件文件名三处一致（页面身份三件套）。
   //
   // 外观两个字段走 setThemeMode / setAccent（改 `config.ui`），视觉由 theme.ts 的订阅立即应用；
   // 自动更新走 setAutoUpdate / setUpdateFrequency（改 `config.update`），上次检查时间由检查包装写入。
   // 两者都复用既有去抖保存，不碰 `defaults.*`。右列是自动更新 + 托盘两张卡叠放，
   // 外观跨其高度；托盘卡只在后端报告可用时渲染（非 Windows 不出现）。
-  // 日志内容由 `SettingsLogCards` 渲染：运行日志参数 / 日志文件同排在前，会话输出独占整行放在页面底部。
-  // 界面语言是本次新增的第三个外观字段：改 `config.ui.language`，由 i18n 订阅立即应用。
+  // 字体与外部控制同排；日志内容由 `SettingsLogCards` 渲染：运行日志参数 / 日志文件同排在前，
+  // 会话输出独占整行放在页面底部。界面语言是本次新增的第三个外观字段：改 `config.ui.language`，
+  // 由 i18n 订阅立即应用。外部控制走独立 `config.externalControl`，服务状态由后端事件同步。
   import {
     config,
     openUpdateDialog,
+    localControlStatus,
     setAccent,
     setAutoUpdate,
     setCloseToTray,
     setCodeFont,
+    setFuyuEnabled,
     setThemeMode,
     setTrayIconStyle,
     setUiFont,
@@ -31,6 +34,8 @@
     normalizeHex,
     type ThemeMode,
   } from '../lib/theme';
+  import { openFuyuProjectPage, openLocalControlDocs } from '../lib/api';
+  import { errorTextOf } from '../lib/message';
   import { DEFAULT_UI_SCALE, SCALES } from '../lib/scale';
   import { segSlide } from '../lib/segSlide';
   import HelpTip from './HelpTip.svelte';
@@ -99,6 +104,39 @@
   $: lastChecked = updatePrefs.lastCheckedAt
     ? formatTimestamp(updatePrefs.lastCheckedAt)
     : '';
+  $: fuyuEnabled = $config?.externalControl?.fuyuEnabled ?? false;
+  $: externalStatus = $localControlStatus;
+  $: externalRunning = fuyuEnabled && externalStatus.status === 'running';
+  $: externalStarting =
+    fuyuEnabled && !externalRunning && externalStatus.status !== 'error';
+  $: externalAddress = externalRunning
+    ? (externalStatus.baseUrl?.replace(/^https?:\/\//, '') ?? '')
+    : '';
+
+  let apiDocsOpenErr: unknown = null;
+  let fuyuOpenErr: unknown = null;
+
+  function onFuyuToggle(e: Event): void {
+    setFuyuEnabled((e.currentTarget as HTMLInputElement).checked);
+  }
+
+  async function openApiDocs(): Promise<void> {
+    apiDocsOpenErr = null;
+    try {
+      await openLocalControlDocs();
+    } catch (e) {
+      apiDocsOpenErr = e;
+    }
+  }
+
+  async function openFuyu(): Promise<void> {
+    fuyuOpenErr = null;
+    try {
+      await openFuyuProjectPage();
+    } catch (e) {
+      fuyuOpenErr = e;
+    }
+  }
 
   function pickPreset(value: string): void {
     setAccent(value);
@@ -301,7 +339,7 @@
     {/if}
   </div>
 
-  <div class="card col2">
+  <div class="card">
     <h3>{$t('settings.fonts.title')}</h3>
     <div class="field">
       <span class="flabel"
@@ -340,6 +378,70 @@
           >{$t('settings.fonts.codePreviewText')}</span
         >
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>{$t('settings.external.title')}</h3>
+    <div class="field">
+      <div class="toggle">
+        <span class="t-label"
+          >{$t('settings.external.fuyu')}<HelpTip
+            title={$t('settings.external.helpTitle')}
+            label={$t('settings.external.helpLabel')}
+          >
+            <span class="fhelp-p">{$t('settings.external.help1')}</span>
+            <span class="fhelp-p">{$t('settings.external.help2')}</span>
+            <span class="fhelp-p">{$t('settings.external.help3')}</span>
+          </HelpTip></span
+        >
+        <label class="switch">
+          <input type="checkbox" checked={fuyuEnabled} on:change={onFuyuToggle} />
+          <span class="slider"></span>
+        </label>
+      </div>
+      {#if externalStarting}
+        <div
+          class="ext-loading"
+          role="status"
+          aria-label={$t('settings.external.starting')}
+        >
+          <span class="ext-spinner" aria-hidden="true"></span>
+        </div>
+      {:else if externalAddress}
+        <div class="ext-line">
+          <span class="ext-addr">{externalAddress}</span>
+          <span class="ext-sep" aria-hidden="true">·</span>
+          <button type="button" class="ext-link" on:click={() => void openApiDocs()}>
+            {$t('settings.external.docs.label')}
+          </button>
+        </div>
+      {/if}
+      {#if apiDocsOpenErr}
+        <div class="hint dl-error">{errorTextOf(apiDocsOpenErr, $t)}</div>
+      {/if}
+    </div>
+
+    <div class="field">
+      <div class="toggle">
+        <span class="t-label"
+          >{$t('settings.external.adapted.label')}<HelpTip
+            title={$t('settings.external.adapted.helpTitle')}
+            label={$t('settings.external.adapted.helpLabel')}
+          >
+            <span class="fhelp-p">{$t('settings.external.adapted.help1')}</span>
+            <span class="fhelp-p">{$t('settings.external.adapted.help2')}</span>
+          </HelpTip></span
+        >
+      </div>
+      <div class="ext-tag-row">
+        <button type="button" class="tag soft ext-tag" on:click={() => void openFuyu()}>
+          {$t('settings.external.adapted.tag')}
+        </button>
+      </div>
+      {#if fuyuOpenErr}
+        <div class="hint dl-error">{errorTextOf(fuyuOpenErr, $t)}</div>
+      {/if}
     </div>
   </div>
 

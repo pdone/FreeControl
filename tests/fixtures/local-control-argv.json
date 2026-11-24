@@ -1,0 +1,662 @@
+{
+  "version": 1,
+  "base": {
+    "video": {
+      "videoCodec": "",
+      "videoEncoder": "",
+      "hwdec": "",
+      "bitrate": 0,
+      "maxSize": 0,
+      "maxFps": 0,
+      "crop": "",
+      "angle": "0",
+      "renderFit": "letterbox",
+      "videoBuffer": 0
+    },
+    "source": {
+      "videoSource": "display",
+      "displayMode": "main",
+      "displayId": 0,
+      "newDisplayRes": "",
+      "newDisplayDpi": "",
+      "noVdDestroy": true,
+      "cameraFacing": "",
+      "cameraSize": "",
+      "cameraFps": "",
+      "cameraZoom": 1,
+      "cameraTorch": false
+    },
+    "audio": {
+      "audioOff": true,
+      "audioSource": "output",
+      "audioCodec": "opus",
+      "audioEncoder": "",
+      "audioDup": false,
+      "audioBitrate": 0,
+      "audioBuffer": 50,
+      "audioOutBuffer": 10
+    },
+    "control": {
+      "noControl": false,
+      "keyboard": "sdk",
+      "noKeyRepeat": false,
+      "mouse": "sdk",
+      "gamepad": "disabled",
+      "shortMod": [],
+      "showTouches": false,
+      "turnScreenOff": false,
+      "screenOffTimeout": 0,
+      "stayAwake": false,
+      "keepActive": false,
+      "powerOffOnClose": false,
+      "clipboardOff": false
+    },
+    "record": {
+      "recordOn": false,
+      "recordPath": "D:/Recordings/session.mp4",
+      "recordFormat": "mp4",
+      "recordOrientation": "0",
+      "noWindow": false,
+      "timeLimit": 0,
+      "pauseOnExit": "false"
+    },
+    "window": {
+      "windowTitle": "",
+      "borderless": false,
+      "fullscreen": false,
+      "alwaysOnTop": false,
+      "aspectLockOff": false,
+      "bgColor": "#222222",
+      "windowWidth": 0,
+      "windowHeight": 0,
+      "windowX": 0,
+      "windowY": 0
+    },
+    "apps": {
+      "startApp": ""
+    },
+    "advanced": {
+      "customArgs": "",
+      "verbosity": "info",
+      "printFps": false,
+      "cleanupOff": false,
+      "port": "27183:27199",
+      "tunnelHost": "localhost"
+    }
+  },
+  "cases": [
+    {
+      "name": "builtin-main",
+      "global": {},
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "builtin-new-display",
+      "global": {
+        "source": {
+          "displayMode": "new"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--new-display",
+        "--no-vd-destroy-content",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "builtin-flex",
+      "global": {
+        "source": {
+          "displayMode": "flex"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--new-display",
+        "--no-vd-destroy-content",
+        "--flex-display",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "builtin-camera",
+      "global": {
+        "source": {
+          "videoSource": "camera"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--video-source=camera",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "all-fields",
+      "global": {
+        "video": {
+          "videoCodec": "h265",
+          "videoEncoder": "venc",
+          "hwdec": "vaapi",
+          "bitrate": 8,
+          "maxSize": 1920,
+          "maxFps": 60,
+          "crop": "1280:720:0:0",
+          "angle": "90",
+          "renderFit": "stretched",
+          "videoBuffer": 100
+        },
+        "source": {
+          "videoSource": "display",
+          "displayMode": "main",
+          "displayId": 2
+        },
+        "audio": {
+          "audioOff": false,
+          "audioSource": "mic",
+          "audioCodec": "aac",
+          "audioEncoder": "aenc",
+          "audioDup": true,
+          "audioBitrate": 128,
+          "audioBuffer": 60,
+          "audioOutBuffer": 20
+        },
+        "control": {
+          "noControl": true,
+          "keyboard": "uhid",
+          "noKeyRepeat": true,
+          "mouse": "aoa",
+          "gamepad": "uhid",
+          "shortMod": [
+            "CTRL",
+            "ALT"
+          ],
+          "showTouches": true,
+          "turnScreenOff": true,
+          "screenOffTimeout": 30,
+          "stayAwake": true,
+          "keepActive": true,
+          "powerOffOnClose": true,
+          "clipboardOff": true
+        },
+        "record": {
+          "recordOn": true,
+          "recordPath": "D:/My Record/a.mp4",
+          "recordFormat": "mkv",
+          "recordOrientation": "1",
+          "timeLimit": 60,
+          "pauseOnExit": "true"
+        },
+        "window": {
+          "windowTitle": "My Phone",
+          "borderless": true,
+          "fullscreen": true,
+          "alwaysOnTop": true,
+          "aspectLockOff": true,
+          "bgColor": "#123456",
+          "windowWidth": 1280,
+          "windowHeight": 720,
+          "windowX": 10,
+          "windowY": 20
+        },
+        "apps": {
+          "startApp": "com.example"
+        },
+        "advanced": {
+          "customArgs": "--foo=\"a b\" --bar=baz",
+          "verbosity": "debug",
+          "printFps": true,
+          "cleanupOff": true,
+          "port": "30000:30001",
+          "tunnelHost": "192.0.2.1"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--video-codec=h265",
+        "--video-encoder=venc",
+        "--hwdec=vaapi",
+        "-b 8M",
+        "-m 1920",
+        "--max-fps=60",
+        "--crop=1280:720:0:0",
+        "--angle=90",
+        "--render-fit=stretched",
+        "--video-buffer=100",
+        "--display-id=2",
+        "--audio-source=mic",
+        "--audio-codec=aac",
+        "--audio-encoder=aenc",
+        "--audio-dup",
+        "--audio-bit-rate=128K",
+        "--audio-buffer=60",
+        "--audio-output-buffer=20",
+        "--no-control",
+        "--keyboard=uhid",
+        "--no-key-repeat",
+        "--mouse=aoa",
+        "--gamepad=uhid",
+        "--shortcut-mod=CTRL,ALT",
+        "--show-touches",
+        "--turn-screen-off",
+        "--screen-off-timeout=30",
+        "--stay-awake",
+        "--keep-active",
+        "--power-off-on-close",
+        "--no-clipboard-autosync",
+        "--record=D:/My Record/a.mp4",
+        "--record-format=mkv",
+        "--record-orientation=1",
+        "--time-limit=60",
+        "--pause-on-exit=true",
+        "--window-title=My Phone",
+        "--window-borderless",
+        "--fullscreen",
+        "--always-on-top",
+        "--no-window-aspect-ratio-lock",
+        "--background-color=#123456",
+        "--window-width=1280",
+        "--window-height=720",
+        "--window-x=10",
+        "--window-y=20",
+        "--start-app=com.example",
+        "--verbosity=debug",
+        "--print-fps",
+        "--no-cleanup",
+        "--port=30000:30001",
+        "--tunnel-host=192.0.2.1",
+        "--foo=a b",
+        "--bar=baz"
+      ]
+    },
+    {
+      "name": "audio-off-skips-other-audio",
+      "global": {
+        "audio": {
+          "audioOff": true,
+          "audioSource": "mic",
+          "audioCodec": "aac",
+          "audioEncoder": "aenc",
+          "audioDup": true,
+          "audioBitrate": 128,
+          "audioBuffer": 60,
+          "audioOutBuffer": 20
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "flex-excludes-fields-not-custom",
+      "global": {
+        "video": {
+          "crop": "1280:720:0:0"
+        },
+        "source": {
+          "displayMode": "flex"
+        },
+        "control": {
+          "noControl": true
+        },
+        "window": {
+          "windowWidth": 1280,
+          "windowHeight": 720
+        },
+        "advanced": {
+          "customArgs": "--crop=9:9:0:0 --no-control"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--new-display",
+        "--no-vd-destroy-content",
+        "--flex-display",
+        "--no-audio",
+        "--crop=9:9:0:0",
+        "--no-control"
+      ]
+    },
+    {
+      "name": "camera-with-flex-value",
+      "global": {
+        "source": {
+          "videoSource": "camera",
+          "displayMode": "flex",
+          "cameraFacing": "back",
+          "cameraSize": "1920x1080",
+          "cameraFps": 60,
+          "cameraZoom": 2,
+          "cameraTorch": true
+        },
+        "control": {
+          "turnScreenOff": true
+        },
+        "video": {
+          "crop": "1:1:0:0"
+        },
+        "window": {
+          "windowWidth": 100,
+          "windowHeight": 200
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--crop=1:1:0:0",
+        "--video-source=camera",
+        "--camera-facing=back",
+        "--camera-size=1920x1080",
+        "--camera-fps=60",
+        "--camera-zoom=2",
+        "--camera-torch",
+        "--no-audio",
+        "--window-width=100",
+        "--window-height=200"
+      ]
+    },
+    {
+      "name": "no-window-drops-hardware-hwdec",
+      "global": {
+        "video": {
+          "hwdec": "vaapi"
+        },
+        "record": {
+          "noWindow": true
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--no-audio",
+        "--no-window"
+      ]
+    },
+    {
+      "name": "no-window-keeps-disabled-hwdec",
+      "global": {
+        "video": {
+          "hwdec": "disabled"
+        },
+        "record": {
+          "noWindow": true
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--hwdec=disabled",
+        "--no-audio",
+        "--no-window"
+      ]
+    },
+    {
+      "name": "new-display-resolution-only",
+      "global": {
+        "source": {
+          "displayMode": "new",
+          "newDisplayRes": "1920x1080",
+          "newDisplayDpi": ""
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--new-display=1920x1080",
+        "--no-vd-destroy-content",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "new-display-dpi-only",
+      "global": {
+        "source": {
+          "displayMode": "new",
+          "newDisplayRes": "",
+          "newDisplayDpi": "160"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--new-display=/160",
+        "--no-vd-destroy-content",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "new-display-invalid-resolution-keeps-dpi",
+      "global": {
+        "source": {
+          "displayMode": "new",
+          "newDisplayRes": "bad",
+          "newDisplayDpi": "160"
+        }
+      },
+      "override": null,
+      "errors": [
+        "source.newDisplayRes"
+      ],
+      "expected": [
+        "--new-display=/160",
+        "--no-vd-destroy-content",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "override-field-removes-global-custom-flag-and-one-value",
+      "global": {
+        "video": {
+          "bitrate": 8
+        },
+        "advanced": {
+          "customArgs": "--max-size 720 --foo value1 value2"
+        }
+      },
+      "override": {
+        "enabled": true,
+        "values": {
+          "video": {
+            "maxSize": 1080
+          }
+        }
+      },
+      "errors": [],
+      "expected": [
+        "-b 8M",
+        "-m 1080",
+        "--no-audio",
+        "--foo",
+        "value1",
+        "value2"
+      ]
+    },
+    {
+      "name": "override-custom-removes-global-field",
+      "global": {
+        "video": {
+          "bitrate": 8,
+          "maxSize": 1920
+        }
+      },
+      "override": {
+        "enabled": true,
+        "values": {
+          "advanced": {
+            "customArgs": "--video-bit-rate=3M"
+          }
+        }
+      },
+      "errors": [],
+      "expected": [
+        "-m 1920",
+        "--no-audio",
+        "--video-bit-rate=3M"
+      ]
+    },
+    {
+      "name": "override-disabled-keeps-global",
+      "global": {
+        "video": {
+          "maxFps": 30
+        }
+      },
+      "override": {
+        "enabled": false,
+        "values": {
+          "video": {
+            "maxFps": 60
+          }
+        }
+      },
+      "errors": [],
+      "expected": [
+        "--max-fps=30",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "override-missing-enabled-is-enabled",
+      "global": {
+        "video": {
+          "maxFps": 30
+        }
+      },
+      "override": {
+        "values": {
+          "video": {
+            "maxFps": 60
+          }
+        }
+      },
+      "errors": [],
+      "expected": [
+        "--max-fps=60",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "custom-tokenization",
+      "global": {
+        "advanced": {
+          "customArgs": "--title \"a b\" 'c d' a\"b c\"d \"\" C:\\Users\\name\\file"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--no-audio",
+        "--title",
+        "a b",
+        "c d",
+        "ab cd",
+        "",
+        "C:\\Users\\name\\file"
+      ]
+    },
+    {
+      "name": "same-side-duplicates-stay",
+      "global": {
+        "advanced": {
+          "customArgs": "--foo=a --foo=b"
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--no-audio",
+        "--foo=a",
+        "--foo=b"
+      ]
+    },
+    {
+      "name": "short-long-dedup",
+      "global": {
+        "video": {
+          "bitrate": 8
+        },
+        "advanced": {
+          "customArgs": "--video-bit-rate=3M -m 720"
+        }
+      },
+      "override": {
+        "enabled": true,
+        "values": {
+          "video": {
+            "bitrate": 4,
+            "maxSize": 1080
+          }
+        }
+      },
+      "errors": [],
+      "expected": [
+        "-b 4M",
+        "-m 1080",
+        "--no-audio"
+      ]
+    },
+    {
+      "name": "invalid-fields-use-existing-error-semantics",
+      "global": {
+        "video": {
+          "videoCodec": "bad",
+          "hwdec": "vaapi",
+          "bitrate": -1,
+          "angle": ""
+        },
+        "source": {
+          "displayId": -1
+        },
+        "window": {
+          "bgColor": "bad",
+          "windowX": -1
+        },
+        "advanced": {
+          "port": "bad",
+          "customArgs": "--foo \"unterminated"
+        }
+      },
+      "override": null,
+      "errors": [
+        "video.hwdec",
+        "video.bitrate",
+        "video.angle",
+        "source.displayId",
+        "window.windowX",
+        "advanced.port",
+        "advanced.customArgs"
+      ],
+      "expected": [
+        "--video-codec=bad",
+        "--no-audio",
+        "--background-color=bad"
+      ]
+    },
+    {
+      "name": "empty-angle-without-error",
+      "global": {
+        "video": {
+          "angle": ""
+        }
+      },
+      "override": null,
+      "errors": [],
+      "expected": [
+        "--angle=",
+        "--no-audio"
+      ]
+    }
+  ]
+}

@@ -97,6 +97,7 @@ let config: AppConfig = {
   },
   update: { autoCheck: false, frequency: 'launch', lastCheckedAt: null },
   tray: { iconStyle: 'color', closeToTray: false },
+  externalControl: { fuyuEnabled: false },
 };
 
 let statusSequence = 1;
@@ -343,6 +344,18 @@ const invoke = async (cmd: string, args?: Record<string, unknown>): Promise<unkn
       return { dir: '/tmp/scrcpy', ready: true, missing: [], version: '3.3.3' };
     case 'list_system_fonts':
       return [];
+    case 'get_local_control_status':
+      return config.externalControl.fuyuEnabled
+        ? {
+            status: 'running',
+            baseUrl: 'http://127.0.0.1:54321',
+            apiDocsUrl: 'http://127.0.0.1:54321/api-docs',
+          }
+        : { status: 'disabled' };
+    case 'open_local_control_docs':
+      return null;
+    case 'open_fuyu_project_page':
+      return null;
     case 'get_proxy_list':
       return { direct: 'https://github.com', proxies: [] };
     case 'plugin:webview|set_webview_zoom':

@@ -31,11 +31,15 @@ serde_json = "1"
 # HTTP 客户端：下载通道走 https，Windows 上用系统 schannel（native-tls），无需额外 C 工具链。
 # 只用 async 客户端：blocking 版既没有 `read_timeout`（停滞预算），也无法中断在途读
 # （「切换通道 / 取消」要立刻生效），见 design D1。
-reqwest = { version = "0.12", default-features = false, features = ["native-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "json"] }
 # async 运行时的同步原语与 `select!` 宏：控制信号用 `Notify` + 原子命令字（design D2），
 # 下载循环用 `select!` 在「数据到达」与「控制信号」之间择一。版本由 tauri 传递决定，
 # 这里只补特性，不引入版本漂移。
-tokio = { version = "1", features = ["sync", "macros"] }
+tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "net", "time"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "json"] }
+async-trait = "0.1"
+rand = "0.8"
+subtle = "2"
 # SHA-256 校验（纯 Rust，无构建依赖）。
 sha2 = "0.10"
 # 解压 scrcpy 发布包（Windows 侧）：官方资产为 deflate 压缩的 zip，仅启用 deflate 以免引入 C 依赖。

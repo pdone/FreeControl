@@ -13,6 +13,7 @@ import type {
   DeviceStatusPayload,
   DiscoveredDevice,
   EnvStatus,
+  LocalControlRuntimeStatus,
   InstallOutcome,
   JoinRequest,
   OpenAppRequest,
@@ -258,3 +259,11 @@ export const setTrayHidden = (hidden: boolean): Promise<void> =>
 export const markAppExiting = (): Promise<void> => invoke('mark_app_exiting');
 /** 托盘「退出」请求（后端发出，前端复用同一次落盘与退出分支）。 */
 export const EVENT_TRAY_QUIT = 'tray-quit-requested';
+
+export const EVENT_LOCAL_CONTROL_STATUS = 'local-control-status';
+export const getLocalControlStatus = (): Promise<LocalControlRuntimeStatus> =>
+  invoke('get_local_control_status');
+export const openLocalControlDocs = (): Promise<void> =>
+  invoke('open_local_control_docs');
+export const openFuyuProjectPage = (): Promise<void> =>
+  invoke('open_fuyu_project_page');

@@ -77,11 +77,13 @@ import {
   bringMainWindowToFront as bringMainWindowToFrontCmd,
   checkAppUpdate,
   getTrayStatus,
+  getLocalControlStatus,
   setTrayIconStyle as setTrayIconStyleCmd,
   setTrayMenuLabels,
   setTrayHidden,
   markAppExiting,
   EVENT_DEVICE_STATUS,
+  EVENT_LOCAL_CONTROL_STATUS,
   EVENT_SESSION_CHANGED,
   EVENT_TRAY_QUIT,
 } from './api';
@@ -102,6 +104,8 @@ import type {
   DeviceStatusPayload,
   DeviceStatusView,
   EnvStatus,
+  ExternalControlPrefs,
+  LocalControlRuntimeStatus,
   OpenAppResult,
   OverrideEntry,
   ProxyList,
@@ -248,6 +252,9 @@ export function setCodeFont(codeFont: string | null): void {
 // 前端不读平台名 —— 设置卡片与关闭决策都以这个信号为判据。
 
 const DEFAULT_TRAY: TrayPrefs = { iconStyle: 'color', closeToTray: false };
+const DEFAULT_EXTERNAL_CONTROL: ExternalControlPrefs = {
+  fuyuEnabled: false,
+};
 
 /** 托盘是否真的可用（Windows 且创建成功才为 true）。 */
 export const trayReady = writable(false);
@@ -275,6 +282,37 @@ export async function initTray(): Promise<void> {
     console.error('读取托盘状态失败', e);
   }
   await syncTrayMenuLabels();
+}
+
+export const localControlStatus = writable<LocalControlRuntimeStatus>({
+  status: 'disabled',
+});
+
+export async function initLocalControl(): Promise<void> {
+  try {
+    await listen<LocalControlRuntimeStatus>(EVENT_LOCAL_CONTROL_STATUS, (e) =>
+      localControlStatus.set(e.payload),
+    );
+    localControlStatus.set(await getLocalControlStatus());
+  } catch (e) {
+    console.error('初始化本地控制状态失败', e);
+  }
+}
+
+function externalControlOf(c: AppConfig | null): ExternalControlPrefs {
+  return c?.externalControl ?? DEFAULT_EXTERNAL_CONTROL;
+}
+
+export function setFuyuEnabled(enabled: boolean): void {
+  config.update((c) =>
+    c
+      ? {
+          ...c,
+          externalControl: { ...externalControlOf(c), fuyuEnabled: enabled },
+        }
+      : c,
+  );
+  scheduleSave();
 }
 
 /**
@@ -1584,6 +1622,7 @@ export async function initApp(): Promise<void> {
   registerFlushOnClose().catch((e) => console.error('注册关窗保存钩子失败', e));
   // 托盘能力与原生菜单文案：与配置读取并行，不阻塞首屏。
   void initTray();
+  void initLocalControl();
   // 托盘「退出」复用关闭流程的退出分支：落盘后再销毁窗口，不另立一套退出逻辑。
   void listen(EVENT_TRAY_QUIT, () => void quitApplication()).catch((e) =>
     console.error('订阅托盘退出事件失败', e),
@@ -1642,6 +1681,7 @@ export async function initApp(): Promise<void> {
       },
       update: DEFAULT_UPDATE,
       tray: DEFAULT_TRAY,
+      externalControl: DEFAULT_EXTERNAL_CONTROL,
     });
   }
   try {

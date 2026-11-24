@@ -21,7 +21,7 @@
     "app:stop": "powershell -NoProfile -Command \"$pids = @(Get-NetTCPConnection -LocalPort 1420 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique); if ($pids.Count -eq 0) { Write-Output '端口 1420 未被占用'; exit 0 }; $pids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction Stop; Write-Output ('已停止占用 1420 的进程：' + $_) }\"",
     "stop": "npm run app:stop",
     "test:rs": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
-    "test:web": "node --experimental-strip-types --test \"src/lib/*.test.mjs\"",
+    "test:web": "node --experimental-strip-types --import ./scripts/register-ts-loader.mjs --test \"src/lib/*.test.mjs\"",
     "verify": "npm run check:version && npm run check:icons && npm run check && npm run test:rs && npm run build",
     "tauri": "tauri"
   },

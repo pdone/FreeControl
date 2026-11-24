@@ -313,8 +313,8 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 16px 18px; }
   .card.col2 { grid-column: span 2; }
-  /* 设置页右列：自动更新与托盘两张卡叠放。子卡按内容高度分配剩余空间 ——
-     与产品 `src/app.css` 的 .card-stack 同款，字体卡位置不因此被顶开。 */
+  /* 设置页右列：自动更新与托盘两张卡叠放；无托盘时只保留自动更新。
+     子卡按内容高度分配剩余空间，与产品 `src/app.css` 的 .card-stack 同款。 */
   .card-stack { display: flex; flex-direction: column; gap: 14px; }
   .card-stack > .card { flex: 1 1 auto; }
   /* 占位块不是 .card，`.card.col2` 的选择器命中不到它；设置页的「会话输出」占位仍要独占整行。 */
@@ -557,6 +557,7 @@
   .slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: var(--text-faint); border-radius: 50%; transition: .18s; }
   .switch input:checked + .slider { background: var(--accent-soft); border-color: var(--accent-hover); }
   .switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent-hover); }
+  .switch input:disabled + .slider { cursor: not-allowed; opacity: .45; filter: grayscale(1); }
 
   .seg { position: relative; display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px; flex-wrap: wrap; }
   .seg button { position: relative; z-index: 1; border: none; background: transparent; color: var(--text-dim); padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; transition: .12s; }
@@ -779,6 +780,19 @@
   .btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
   .btn.danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
   .btn.sm { padding: 7px 11px; font-size: 12.5px; }
+  #fuyuControlLive { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; margin-top: 5px; color: var(--text-dim); font-size: 12.5px; line-height: 1.5; }
+  #fuyuControlLive.hidden { display: none; }
+  #fuyuControlAddress { color: var(--text-dim); font-size: 12.5px; }
+  #fuyuControlLive .ext-sep { color: var(--text-faint); }
+  #apiDocsLink { padding: 0; border: 0; background: none; color: var(--text-dim); font: inherit; font-size: 12.5px; line-height: 1.5; white-space: nowrap; cursor: pointer; }
+  #apiDocsLink::after { content: " ↗"; color: var(--text-faint); }
+  #apiDocsLink:hover { color: var(--text); text-decoration: underline; }
+  #fuyuControlLoading { display: flex; align-items: center; height: 18.75px; margin-top: 5px; }
+  #fuyuControlLoading.hidden { display: none; }
+  #fuyuControlLoading .ext-spinner { width: 12px; height: 12px; border: 2px solid color-mix(in srgb, var(--text-dim) 25%, transparent); border-top-color: var(--text-dim); border-radius: 50%; animation: update-spin 1.1s linear infinite; }
+  #fuyuAdapterTagRow { margin-top: 7.25px; }
+  #fuyuAdapterLink { text-decoration: none; }
+  #fuyuAdapterLink:hover { border-color: var(--accent-hover); }
   /* 设备参数已启用的角标：骑在参数按钮右上边框上，2px 卡片底色环把边框线断开，
      读作挂在边框上的指示灯。判据与原先的标识一致（有取值且开关启用），只换呈现、不占行高。 */
   .btn.params-on { position: relative; }
@@ -1817,7 +1831,7 @@
 
       <!-- ============ 设置（应用自身偏好与日志） ============ -->
       <section class="section" id="sec-settings">
-        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
+        <div class="sec-head"><h2>设置</h2><p>管理本程序自身的外观、更新、外部控制与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。</p></div>
         <div class="grid">
           <div class="card">
             <h3>外观</h3>
@@ -1945,7 +1959,7 @@
 
           <!-- 字体（config ㉜）：列表为固定演示数据，原型不扫描系统字体；预览字体在本机缺失时
                按系统字体回退是预期行为。真实应用的「重新扫描本机字体」在原型里只重新渲染演示列表。 -->
-          <div class="card col2">
+          <div class="card">
             <h3>字体</h3>
             <div class="field">
               <span class="flabel">界面字体<span class="fhelp">
@@ -1976,6 +1990,39 @@
                 </div>
               </div>
               <div class="font-preview"><span class="font-preview-label">预览</span><span id="fontCodePreview" style="font-family: var(--font-mono)">scrcpy -s 0123 · 中文</span></div>
+            </div>
+          </div>
+
+          <div class="card" id="externalControlCard">
+            <h3>外部控制</h3>
+            <div class="field">
+              <div class="toggle">
+                <span class="t-label">启用本地服务<span class="fhelp">
+                  <button class="fhelp-btn" type="button" aria-label="启用本地服务的说明"><i data-lucide="circle-help"></i></button>
+                  <span class="fhelp-panel"><span class="fhelp-title">启用本地服务</span><span class="fhelp-p">启用后，已适配的外部应用可以读取设备列表与连接状态、连接或断开设备；连接会使用设备已保存的参数。</span><span class="fhelp-p">服务仅监听本机，已适配的外部应用会自动发现并连接，无需复制配对信息。</span><span class="fhelp-p">不开放参数编辑、日志读取、更新控制或远程访问。</span></span>
+                </span></span>
+                <label class="switch">
+                  <input type="checkbox" id="fuyuControlToggle" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="hidden" id="fuyuControlRunning">
+                <div class="hidden" id="fuyuControlLoading" role="status" aria-label="正在启动本地服务"><span class="ext-spinner" aria-hidden="true"></span></div>
+                <div class="hidden" id="fuyuControlLive">
+                  <span id="fuyuControlAddress">127.0.0.1:54321</span>
+                  <span class="ext-sep" aria-hidden="true">·</span>
+                  <button type="button" id="apiDocsLink">接口文档</button>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <div class="toggle" id="fuyuAdapterTitle">
+                <span class="t-label">已适配<span class="fhelp">
+                  <button class="fhelp-btn" type="button" aria-label="查看浮屿适配说明"><i data-lucide="circle-help"></i></button>
+                  <span class="fhelp-panel"><span class="fhelp-title">已适配</span><span class="fhelp-p">本地服务已完成浮屿插件适配，浮屿可自动发现并连接本机 FreeControl。</span><span class="fhelp-p">点击浮屿标签可跳转到浮屿项目主页。</span></span>
+                </span></span>
+              </div>
+              <div class="hint" id="fuyuAdapterTagRow"><a class="tag soft" id="fuyuAdapterLink" href="https://github.com/TixXin/Fuyu" target="_blank" rel="noopener noreferrer">浮屿</a></div>
             </div>
           </div>
 
@@ -2707,7 +2754,7 @@
   "兼容性演示": "Compatibility demo",
   "预览非最佳适配版本样式": "Preview the not-best-fit style",
   "原型演示开关：勾选即把顶部运行环境指示切到「非最佳适配版本」的黄色叹号态，并在状态字段里展开「查看原因」的原因说明（正式实现由后端下发的兼容性状态决定）。": "Prototype-only switch: when ticked, the runtime indicator at the top switches to the yellow not-best-fit state and the reason behind View reason expands in the status field (the real app derives this from the compatibility status the backend reports).",
-  "管理本程序自身的外观、更新与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates and logs: theme, fonts, interface scale, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
+  "管理本程序自身的外观、更新、外部控制与日志：主题、字体、界面缩放、自动检查更新，以及会话输出与日志留存。改动即时生效并自动保存，不需要重启。": "Manage the app’s appearance, updates, external control and logs: theme, fonts, interface scale, automatic update checks, session output and log retention. Changes apply immediately and are saved automatically.",
   "界面语言": "Interface language",
   "默认跟随系统语言；切换后立即生效，重启后保留。": "Follows your system language by default. Changes apply immediately and are remembered after restart.",
   "跟随系统": "Follow system",
@@ -2759,6 +2806,19 @@
   "收进托盘后主窗口隐藏，正在进行的投屏继续运行；要彻底退出，请从托盘菜单选择「退出」。": "The window is hidden and mirroring keeps running; choose Quit from the tray menu to exit completely.",
   "直接退出": "Exit",
   "收进托盘": "Minimize to tray",
+  "外部控制": "External control",
+  "启用本地服务": "Enable local service",
+  "启用本地服务的说明": "About Enable local service",
+  "启用后，已适配的外部应用可以读取设备列表与连接状态、连接或断开设备；连接会使用设备已保存的参数。": "When enabled, adapted external apps can read the device list and connection status, and connect or disconnect devices, using each device's saved parameters.",
+  "服务仅监听本机，已适配的外部应用会自动发现并连接，无需复制配对信息。": "The service listens only on this computer. Adapted external apps discover and connect automatically, with no pairing information to copy.",
+  "不开放参数编辑、日志读取、更新控制或远程访问。": "Parameter editing, log access, update controls and remote access are not exposed.",
+  "已适配": "Adapted for",
+  "查看浮屿适配说明": "View Fuyu support details",
+  "本地服务已完成浮屿插件适配，浮屿可自动发现并连接本机 FreeControl。": "The local service is adapted for the Fuyu plugin, which can discover and connect to FreeControl on this computer automatically.",
+  "点击浮屿标签可跳转到浮屿项目主页。": "Select the Fuyu tag to open the Fuyu project homepage.",
+  "浮屿": "Fuyu",
+  "接口文档": "API docs",
+  "正在启动本地服务": "Starting local service",
   "运行日志参数": "Runtime log options",
   "日志级别（--verbosity）": "Log level (--verbosity)",
   "设置 scrcpy 的日志级别，决定会话日志里能看到多详细的过程信息。": "Set the scrcpy log level, which controls how much process detail appears in the session log.",
@@ -6442,6 +6502,31 @@
     document.querySelectorAll('#autoUpdateFrequency button').forEach(x=>x.classList.toggle('active', x===b));
   });
   document.getElementById('settingsCheckUpdate').addEventListener('click', ()=>openUpdateDirect('default'));
+
+  /* 外部控制：原型只演示开关、运行信息与文档入口，不真的启动本地服务。 */
+  (function(){
+    const toggle=document.getElementById('fuyuControlToggle');
+    const running=document.getElementById('fuyuControlRunning');
+    const loading=document.getElementById('fuyuControlLoading');
+    const live=document.getElementById('fuyuControlLive');
+    let startupTimer=null;
+    const syncRunning=()=>{
+      clearTimeout(startupTimer);
+      running.classList.toggle('hidden', !toggle.checked);
+      if(!toggle.checked){
+        loading.classList.add('hidden');
+        live.classList.add('hidden');
+        return;
+      }
+      loading.classList.remove('hidden');
+      live.classList.add('hidden');
+      startupTimer=setTimeout(()=>{
+        loading.classList.add('hidden');
+        live.classList.remove('hidden');
+      }, 650);
+    };
+    toggle.addEventListener('change', syncRunning);
+  })();
 
   /* ===================== 字体（设置页） =====================
      原型只演示两个独立字段的选择方式：列表是固定演示数据，不扫描系统字体、不落盘。

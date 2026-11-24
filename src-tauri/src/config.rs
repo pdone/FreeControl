@@ -463,10 +463,7 @@ impl Ui {
         ) {
             self.language = default_language();
         }
-        if !matches!(
-            self.theme.as_str(),
-            THEME_SYSTEM | THEME_DARK | THEME_LIGHT
-        ) {
+        if !matches!(self.theme.as_str(), THEME_SYSTEM | THEME_DARK | THEME_LIGHT) {
             self.theme = default_theme();
         }
         self.accent = normalize_hex(&self.accent).unwrap_or_else(default_accent);
@@ -582,6 +579,26 @@ where
     Ok(matches!(raw, Some(serde_json::Value::Bool(true))))
 }
 
+/// 上次端口的宽容反序列化：只接受 1..=65535 的数字或数字字符串，其它结构按无记录处理。
+fn deserialize_lossy_port<'de, D>(deserializer: D) -> Result<Option<u16>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(match raw {
+        Some(serde_json::Value::Number(value)) => value
+            .as_u64()
+            .and_then(|value| u16::try_from(value).ok())
+            .filter(|port| *port != 0),
+        Some(serde_json::Value::String(value)) => value
+            .trim()
+            .parse::<u16>()
+            .ok()
+            .filter(|port| *port != 0),
+        _ => None,
+    })
+}
+
 impl Default for TrayPrefs {
     fn default() -> Self {
         TrayPrefs {
@@ -599,6 +616,29 @@ impl TrayPrefs {
             TRAY_ICON_COLOR | TRAY_ICON_WHITE | TRAY_ICON_BLACK
         ) {
             self.icon_style = default_tray_icon();
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalControl {
+    #[serde(default, deserialize_with = "deserialize_lossy_bool")]
+    pub fuyu_enabled: bool,
+    /// 上次成功监听的端口（后端维护，前端只读回传；`None` 表示尚无记录）。
+    #[serde(
+        default,
+        deserialize_with = "deserialize_lossy_port",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_port: Option<u16>,
+}
+
+impl Default for ExternalControl {
+    fn default() -> Self {
+        Self {
+            fuyu_enabled: false,
+            last_port: None,
         }
     }
 }
@@ -711,6 +751,9 @@ pub struct AppConfig {
     /// 托盘偏好。缺字段时取出厂默认；本次只有 Windows 使用，但配置形状保持平台无关。
     #[serde(default)]
     pub tray: TrayPrefs,
+    /// 外部控制偏好。缺字段或非法值时默认关闭。
+    #[serde(default)]
+    pub external_control: ExternalControl,
     /// 主窗口上次退出时的普通几何。缺字段时按「无保存几何」处理，首次启动仍用默认尺寸。
     #[serde(default)]
     pub window: Option<WindowGeometry>,
@@ -739,6 +782,7 @@ impl AppConfig {
             ui: Ui::default(),
             update: Update::default(),
             tray: TrayPrefs::default(),
+            external_control: ExternalControl::default(),
             window: None,
         }
     }
@@ -1020,7 +1064,13 @@ fn temp_path_for(path: &Path) -> PathBuf {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "config.json".to_string());
-    path.with_file_name(format!("{}.{}-{}-{}.tmp", name, std::process::id(), nanos, seq))
+    path.with_file_name(format!(
+        "{}.{}-{}-{}.tmp",
+        name,
+        std::process::id(),
+        nanos,
+        seq
+    ))
 }
 
 /// 启动时清理上次运行残留的临时文件（tasks 5.2：被强杀后不留垃圾）。
@@ -1056,6 +1106,29 @@ where
 {
     let path = config_path(app).map_err(&on_save_error)?;
     update_config_at(&path, &state.config, mutate, on_save_error)
+}
+
+/// 记录本次成功监听的端口；端口不是设备域数据，不递增设备修订号。
+pub(crate) fn remember_local_control_port(app: &AppHandle, port: u16) {
+    if port == 0 {
+        return;
+    }
+    let state = app.state::<AppState>();
+    if state.config.lock().unwrap().external_control.last_port == Some(port) {
+        return;
+    }
+    let result = update_config_file(
+        app,
+        &state,
+        |config| {
+            config.external_control.last_port = Some(port);
+            Ok::<(), String>(())
+        },
+        |error| error,
+    );
+    if let Err(error) = result {
+        crate::logger::warn("config", format!("保存本地服务端口失败：{error}"));
+    }
 }
 
 /// 事务内核（可脱离 Tauri 测试）：同一把锁内读最新值、改副本、落盘、回填。
@@ -1096,6 +1169,9 @@ fn merge_frontend_config(latest: &AppConfig, mut incoming: AppConfig) -> AppConf
     // 前端写入的托盘偏好照常合并；落盘前再归一化一次，防止手工调用命令写入未知样式。
     incoming.tray.normalize();
     merged.tray = incoming.tray;
+    let last_port = merged.external_control.last_port;
+    merged.external_control = incoming.external_control;
+    merged.external_control.last_port = last_port;
     merged
 }
 
@@ -1115,9 +1191,11 @@ pub fn save_config(
     // 前端只拥有这些字段；设备记录、排序偏好、通道、目录与 schema 一律以后端最新值为准。
     // 否则一次去抖保存（可能仍带着旧的设备快照）会把刚保存的排序、时间或删除写回来。
     let retention = config.logging.retention_days();
+    let fuyu_enabled;
     {
         let mut guard = state.config.lock().unwrap();
         let merged = merge_frontend_config(&guard, config);
+        fuyu_enabled = merged.external_control.fuyu_enabled;
         // 设备域未变，修订号保持不变；先落盘再改内存。
         save_config_to_disk(&app, &merged)?;
         *guard = merged;
@@ -1126,6 +1204,13 @@ pub fn save_config(
     // 放在这里而不是另开一条命令，是为了让前端不需要第二条保存通道，
     // 也就不会出现「界面改了、后端不知道」的空档。值没变时 `set_retention` 自己会跳过。
     crate::logger::set_retention(retention);
+    let runtime = app
+        .state::<crate::local_control::LocalControlRuntime>()
+        .inner()
+        .clone();
+    let _ = tauri::async_runtime::spawn(async move {
+        runtime.reconcile(fuyu_enabled).await;
+    });
     Ok(())
 }
 
@@ -1210,7 +1295,10 @@ mod tests {
         assert!(raw.contains(&SCHEMA_VERSION.to_string()));
 
         // 再读一次读到的是同一份默认值（不是反复初始化）。
-        assert_eq!(load_config_from(&path).unwrap().schema_version, SCHEMA_VERSION);
+        assert_eq!(
+            load_config_from(&path).unwrap().schema_version,
+            SCHEMA_VERSION
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1261,10 +1349,12 @@ mod tests {
 
     #[test]
     fn logging_retention_maps_values_and_unknown_falls_back() {
-        let days = |v: &str| Logging {
-            retention: v.to_string(),
-        }
-        .retention_days();
+        let days = |v: &str| {
+            Logging {
+                retention: v.to_string(),
+            }
+            .retention_days()
+        };
 
         assert_eq!(days(RETENTION_7D), Some(7));
         assert_eq!(days(RETENTION_30D), Some(30));
@@ -1272,7 +1362,10 @@ mod tests {
         // 手工改错一个字段不该变成「日志全被删掉」或「再也不清理」
         assert_eq!(days("3d"), Some(DEFAULT_RETENTION_DAYS));
         assert_eq!(days(""), Some(DEFAULT_RETENTION_DAYS));
-        assert_eq!(Logging::default().retention_days(), Some(DEFAULT_RETENTION_DAYS));
+        assert_eq!(
+            Logging::default().retention_days(),
+            Some(DEFAULT_RETENTION_DAYS)
+        );
     }
 
     #[test]
@@ -1283,7 +1376,10 @@ mod tests {
         cfg.logging.retention = RETENTION_FOREVER.to_string();
         save_config_to(&path, &cfg).unwrap();
 
-        assert_eq!(load_config_from(&path).unwrap().logging.retention_days(), None);
+        assert_eq!(
+            load_config_from(&path).unwrap().logging.retention_days(),
+            None
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1359,10 +1455,7 @@ mod tests {
         // 大小写归一：同一颜色不会因写法不同被判成「不是预设」。
         assert_eq!(loaded.ui.accent, "#abcdef");
         assert_eq!(loaded.ui.ui_scale, UI_SCALE_130);
-        assert_eq!(
-            loaded.ui.ui_font.as_deref(),
-            Some("Alibaba PuHuiTi 3.0")
-        );
+        assert_eq!(loaded.ui.ui_font.as_deref(), Some("Alibaba PuHuiTi 3.0"));
         assert_eq!(loaded.ui.code_font.as_deref(), Some("Cascadia Mono"));
 
         // 落盘结构里带 ui 段（不是只在内存里）。
@@ -1492,7 +1585,7 @@ mod tests {
                 ui_scale: DEFAULT_UI_SCALE.to_string(),
                 device_list_density: DEFAULT_DEVICE_DENSITY.to_string(),
                 ui_font: None,
-            code_font: None,
+                code_font: None,
             };
             ui.normalize();
             assert_eq!(ui.accent, DEFAULT_ACCENT, "accent {bad:?} 应退回默认");
@@ -1605,8 +1698,11 @@ mod tests {
             let path = Arc::clone(&path);
             handles.push(thread::spawn(move || {
                 let mut cfg = AppConfig::fresh();
-                cfg.devices
-                    .push(usb(&format!("dev-{}", i), &format!("设备{}", i), &format!("SERIAL{}", i)));
+                cfg.devices.push(usb(
+                    &format!("dev-{}", i),
+                    &format!("设备{}", i),
+                    &format!("SERIAL{}", i),
+                ));
                 // 目标文件可能被另一次 rename 短暂占用而失败，属预期；关键是不产生损坏内容。
                 let _ = save_config_to(&path, &cfg);
             }));
@@ -1640,7 +1736,10 @@ mod tests {
         assert!(!stale.exists(), "残留临时文件应被清掉");
         assert!(path.exists(), "配置文件本身不应被删");
         // 半成品不会被当成配置读进来。
-        assert_eq!(load_config_from(&path).unwrap().schema_version, SCHEMA_VERSION);
+        assert_eq!(
+            load_config_from(&path).unwrap().schema_version,
+            SCHEMA_VERSION
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1650,7 +1749,10 @@ mod tests {
     #[test]
     fn connection_id_follows_device_kind() {
         assert_eq!(usb("", "", "ABC123").connection_id(), "ABC123");
-        assert_eq!(wifi("", "", "192.168.1.5", 5555).connection_id(), "192.168.1.5:5555");
+        assert_eq!(
+            wifi("", "", "192.168.1.5", 5555).connection_id(),
+            "192.168.1.5:5555"
+        );
     }
 
     #[test]
@@ -1682,13 +1784,17 @@ mod tests {
 
         let mut cfg = load_config_from(&path).unwrap();
         cfg.upsert_device(usb("", "主力机", "ABC123")).unwrap();
-        cfg.upsert_device(wifi("", "备用机", "192.168.1.5", 5555)).unwrap();
+        cfg.upsert_device(wifi("", "备用机", "192.168.1.5", 5555))
+            .unwrap();
         save_config_to(&path, &cfg).unwrap();
 
         // 模拟重启：整份配置重新从磁盘读。
         let reloaded = load_config_from(&path).unwrap();
         let ids: Vec<String> = reloaded.devices.iter().map(|d| d.connection_id()).collect();
-        assert_eq!(ids, vec!["ABC123".to_string(), "192.168.1.5:5555".to_string()]);
+        assert_eq!(
+            ids,
+            vec!["ABC123".to_string(), "192.168.1.5:5555".to_string()]
+        );
         assert_eq!(reloaded.devices[0].alias, "主力机");
         assert_eq!(reloaded.devices[0].kind, KIND_USB);
         assert_eq!(reloaded.devices[1].alias, "备用机");
@@ -1736,7 +1842,8 @@ mod tests {
         assert!(cfg.devices.is_empty());
 
         // 只填 IP 时端口取默认 5555，前后空白被裁掉。
-        cfg.upsert_device(wifi("", "平板", " 192.168.1.7 ", 0)).unwrap();
+        cfg.upsert_device(wifi("", "平板", " 192.168.1.7 ", 0))
+            .unwrap();
         assert_eq!(cfg.devices[0].connection_id(), "192.168.1.7:5555");
 
         // 类型非法直接拒绝（避免出现「USB 走 wifi 分支」这种不一致状态）。
@@ -1856,7 +1963,10 @@ mod tests {
         assert_eq!(cfg.device_list.manual_order, vec!["dev-b", "dev-a"]);
         assert_eq!(cfg.device_list.revision, 0);
         assert_eq!(cfg.device_list.directions, SortDirections::default());
-        assert!(cfg.devices.iter().all(|d| d.last_session_started_at.is_none()));
+        assert!(cfg
+            .devices
+            .iter()
+            .all(|d| d.last_session_started_at.is_none()));
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -1869,16 +1979,15 @@ mod tests {
         cfg.device_list.directions.status = "sideways".to_string();
         cfg.device_list.directions.name = SORT_DESC.to_string();
         cfg.device_list.directions.last_connected = "".to_string();
-        cfg.device_list.manual_order = vec![
-            "ghost".to_string(),
-            "b".to_string(),
-            "b".to_string(),
-        ];
+        cfg.device_list.manual_order = vec!["ghost".to_string(), "b".to_string(), "b".to_string()];
 
         cfg.device_list.normalize(&cfg.devices);
 
         assert_eq!(cfg.device_list.sort_mode, SORT_MANUAL);
-        assert_eq!(cfg.device_list.directions.status, SORT_ASC, "未知方向退回默认");
+        assert_eq!(
+            cfg.device_list.directions.status, SORT_ASC,
+            "未知方向退回默认"
+        );
         assert_eq!(cfg.device_list.directions.name, SORT_DESC, "合法方向保留");
         assert_eq!(
             cfg.device_list.directions.last_connected, SORT_DESC,
@@ -1896,7 +2005,10 @@ mod tests {
 
         assert_eq!(cfg.device_list.manual_order, vec![id.clone()]);
         let created = cfg.devices.iter().find(|x| x.id == id).unwrap();
-        assert_eq!(created.last_session_started_at, None, "新设备不得携带历史时间");
+        assert_eq!(
+            created.last_session_started_at, None,
+            "新设备不得携带历史时间"
+        );
     }
 
     #[test]
@@ -1938,7 +2050,9 @@ mod tests {
 
         assert!(cfg.reorder_devices(&[b.clone(), b.clone()]).is_err());
         assert!(cfg.reorder_devices(&[a.clone()]).is_err());
-        assert!(cfg.reorder_devices(&[a.clone(), "ghost".to_string()]).is_err());
+        assert!(cfg
+            .reorder_devices(&[a.clone(), "ghost".to_string()])
+            .is_err());
         assert_eq!(cfg.device_list.sort_mode, SORT_NAME);
 
         cfg.reorder_devices(&[b.clone(), a.clone()]).unwrap();
@@ -1992,7 +2106,10 @@ mod tests {
         save_config_to(&path, &cfg).unwrap();
         let loaded = load_config_from(&path).unwrap();
 
-        assert_eq!(loaded.devices[0].last_session_started_at, Some(1_729_340_000_123));
+        assert_eq!(
+            loaded.devices[0].last_session_started_at,
+            Some(1_729_340_000_123)
+        );
         assert_eq!(loaded.device_list.sort_mode, SORT_STATUS);
         assert_eq!(loaded.device_list.directions.status, SORT_DESC);
         assert_eq!(loaded.device_list.revision, 3);
@@ -2015,14 +2132,16 @@ mod tests {
             |e| e,
         )
         .unwrap();
-        assert_eq!(lock.lock().unwrap().device_list.revision, 0, "纯外观改动不增修订号");
+        assert_eq!(
+            lock.lock().unwrap().device_list.revision,
+            0,
+            "纯外观改动不增修订号"
+        );
 
         update_config_at(
             &path,
             &lock,
-            |cfg| {
-                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
-            },
+            |cfg| cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string()),
             |e| e,
         )
         .unwrap();
@@ -2032,9 +2151,7 @@ mod tests {
         update_config_at(
             &path,
             &lock,
-            |cfg| {
-                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
-            },
+            |cfg| cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string()),
             |e| e,
         )
         .unwrap();
@@ -2050,7 +2167,11 @@ mod tests {
             |e| e,
         )
         .unwrap();
-        assert_eq!(lock.lock().unwrap().device_list.revision, 2, "方向变化属于设备域");
+        assert_eq!(
+            lock.lock().unwrap().device_list.revision,
+            2,
+            "方向变化属于设备域"
+        );
 
         update_config_at(
             &path,
@@ -2062,7 +2183,11 @@ mod tests {
             |e| e,
         )
         .unwrap();
-        assert_eq!(lock.lock().unwrap().device_list.revision, 2, "同方向不重复递增");
+        assert_eq!(
+            lock.lock().unwrap().device_list.revision,
+            2,
+            "同方向不重复递增"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -2097,7 +2222,10 @@ mod tests {
         }
 
         assert_eq!(lock.lock().unwrap().defaults, serde_json::json!(16));
-        assert_eq!(load_config_from(&path).unwrap().defaults, serde_json::json!(16));
+        assert_eq!(
+            load_config_from(&path).unwrap().defaults,
+            serde_json::json!(16)
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -2114,9 +2242,7 @@ mod tests {
         let result = update_config_at(
             &path,
             &lock,
-            |cfg| {
-                cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string())
-            },
+            |cfg| cfg.set_sort_mode(SORT_STATUS).map_err(|e| e.to_string()),
             |e| e,
         );
 
@@ -2134,6 +2260,7 @@ mod tests {
         latest.device_list.revision = 7;
         latest.channels.proxies = vec!["https://kept.example/".to_string()];
         latest.scrcpy_dir = Some("C:/kept".to_string());
+        latest.external_control.last_port = Some(54321);
         latest.window = Some(WindowGeometry {
             width: 1280,
             height: 800,
@@ -2163,6 +2290,8 @@ mod tests {
         });
         incoming.tray.icon_style = TRAY_ICON_BLACK.to_string();
         incoming.tray.close_to_tray = true;
+        incoming.external_control.fuyu_enabled = true;
+        incoming.external_control.last_port = Some(11111);
         incoming.migrations = serde_json::json!({ "inputModeDefaults": true });
 
         let merged = merge_frontend_config(&latest, incoming);
@@ -2172,17 +2301,32 @@ mod tests {
         assert_eq!(merged.devices[0].last_session_started_at, Some(42));
         assert_eq!(merged.device_list.sort_mode, SORT_NAME);
         assert_eq!(merged.device_list.revision, 7);
-        assert_eq!(merged.channels.proxies, vec!["https://kept.example/".to_string()]);
+        assert_eq!(
+            merged.channels.proxies,
+            vec!["https://kept.example/".to_string()]
+        );
         assert_eq!(merged.scrcpy_dir.as_deref(), Some("C:/kept"));
-        assert_eq!(merged.window, latest.window, "窗口几何归后端所有，前端保存不得覆盖");
+        assert_eq!(
+            merged.window, latest.window,
+            "窗口几何归后端所有，前端保存不得覆盖"
+        );
         assert!(merged.overrides.is_empty(), "已删设备的覆盖不得复活");
-        assert_eq!(merged.defaults["video"]["bitrate"], 8, "前端拥有的字段照常合并");
+        assert_eq!(
+            merged.defaults["video"]["bitrate"], 8,
+            "前端拥有的字段照常合并"
+        );
         assert_eq!(
             merged.migrations["inputModeDefaults"], true,
             "前端拥有的迁移标记照常合并"
         );
         assert_eq!(merged.tray.icon_style, TRAY_ICON_BLACK);
         assert!(merged.tray.close_to_tray);
+        assert!(merged.external_control.fuyu_enabled);
+        assert_eq!(
+            merged.external_control.last_port,
+            Some(54321),
+            "端口归后端所有，前端保存不得覆盖"
+        );
     }
 
     #[test]
@@ -2231,6 +2375,48 @@ mod tests {
         let raw = fs::read_to_string(&path).unwrap();
         assert!(raw.contains("\"tray\""));
         assert!(raw.contains("\"iconStyle\": \"white\""));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn frontend_save_reconciles_local_control_preference() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/config.rs");
+        let raw = std::fs::read_to_string(path).unwrap();
+        assert!(raw.contains("runtime.reconcile(fuyu_enabled).await"));
+        assert!(raw.contains("merged.external_control = incoming.external_control"));
+    }
+
+    #[test]
+    fn external_control_defaults_lossy_and_round_trips() {
+        let dir = unique_temp_dir("external-control");
+        fs::create_dir_all(&dir).unwrap();
+        let path = config_path_in(&dir);
+
+        fs::write(&path, r#"{"devices":[]}"#).unwrap();
+        let defaults = load_config_from(&path).unwrap();
+        assert!(!defaults.external_control.fuyu_enabled);
+        assert_eq!(defaults.external_control.last_port, None);
+
+        fs::write(
+            &path,
+            r#"{"devices":[],"externalControl":{"fuyuEnabled":"yes","lastPort":"not-a-port"}}"#,
+        )
+        .unwrap();
+        let lossy = load_config_from(&path).unwrap();
+        assert!(!lossy.external_control.fuyu_enabled);
+        assert_eq!(lossy.external_control.last_port, None);
+
+        let mut cfg = AppConfig::fresh();
+        cfg.external_control.fuyu_enabled = true;
+        cfg.external_control.last_port = Some(54321);
+        save_config_to(&path, &cfg).unwrap();
+        let loaded = load_config_from(&path).unwrap();
+        assert!(loaded.external_control.fuyu_enabled);
+        assert_eq!(loaded.external_control.last_port, Some(54321));
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("\"fuyuEnabled\": true"));
+        assert!(raw.contains("\"lastPort\": 54321"));
+
         let _ = fs::remove_dir_all(&dir);
     }
 

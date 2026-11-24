@@ -1714,6 +1714,30 @@ fn connect_blocking(app: &AppHandle, request: ConnectRequest) -> Result<ConnectR
     })
 }
 
+/// 用设备已保存的参数连接（本地 HTTP 入口专用）。
+///
+/// 外部入口不接受前端拼装的 argv；这里按当前配置重新解析，走与界面连接相同的会话启动路径。
+pub fn connect_saved(app: &AppHandle, device_id: &str) -> Result<ConnectResult, UserError> {
+    let state = app.state::<AppState>();
+    let device = find_device(&state, device_id)?;
+    let args = {
+        let config = state.config.lock().unwrap();
+        crate::local_control::params::resolve_args(&config, device_id)
+    };
+    let started = start_session(app, &device, args, false)?;
+    let sessions = session_infos(&state);
+    publish_sessions(app, &sessions);
+    device::publish_status(app);
+    Ok(ConnectResult {
+        outcomes: vec![outcome_ok(&device, started.time_warning)],
+        sessions,
+        degraded: started.reused,
+        warning: started.reused.then(|| {
+            UserMessage::new(codes::SESSION_WINDOW_ARRANGEMENT_DEGRADED)
+        }),
+    })
+}
+
 /// 全部连接（tasks 9.2）：逐台尝试，**离线设备由后端直接跳过**（不会去拉起进程）。
 #[tauri::command]
 pub async fn connect_all(
@@ -1775,6 +1799,23 @@ fn disconnect_blocking(
     let state = app.state::<AppState>();
     if active_records(&state, device_id).is_empty() {
         return Err(UserError::new(codes::SESSION_NO_SESSION));
+    }
+    stop_sessions_of_device(app, device_id)
+        .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;
+    let sessions = session_infos(&state);
+    publish_sessions(app, &sessions);
+    device::publish_status(app);
+    Ok(sessions)
+}
+
+/// 断开一台设备的全部会话（本地 HTTP 入口专用）。
+///
+/// 与界面断开不同：没有运行会话时按幂等成功处理，不返回「没有会话」。
+pub fn disconnect_saved(app: &AppHandle, device_id: &str) -> Result<Vec<SessionInfo>, UserError> {
+    let state = app.state::<AppState>();
+    find_device(&state, device_id)?;
+    if active_records(&state, device_id).is_empty() {
+        return Ok(session_infos(&state));
     }
     stop_sessions_of_device(app, device_id)
         .map_err(|e| UserError::new(codes::SESSION_STOP_FAILED).with_detail(e))?;

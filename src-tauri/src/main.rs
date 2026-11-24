@@ -3,25 +3,26 @@
 // 移除本行会让发布产物多出一个空控制台窗口，且编译、单测、出包全都不会失败。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod scrcpy;
-mod config;
-mod apps;
-mod device;
-mod wireless;
-mod assets;
 mod app_update;
+mod apps;
+mod assets;
+mod config;
+mod device;
 mod download;
-mod session;
-mod links;
-mod logger;
-mod shell;
-mod ui_message;
-mod window_icon;
-mod window_state;
-mod webview_env;
 mod fonts;
 mod instance;
+mod links;
+mod local_control;
+mod logger;
+mod scrcpy;
+mod session;
+mod shell;
 mod tray;
+mod ui_message;
+mod webview_env;
+mod window_icon;
+mod window_state;
+mod wireless;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -142,10 +143,7 @@ fn bring_main_window_to_front(app: tauri::AppHandle) -> Result<(), String> {
     // 用户主动收进托盘后，会话结束不应把窗口重新弹出；前端照常调用，
     // 由 Rust 侧按同一份隐藏态拒绝，避免前后端各存一份判据。
     if tray::user_hidden() {
-        logger::info(
-            "app",
-            "主窗口已收进托盘（最后一个设备已断开），跳过前台化",
-        );
+        logger::info("app", "主窗口已收进托盘（最后一个设备已断开），跳过前台化");
         return Ok(());
     }
     present_main_window(&app, "最后一个设备已断开")
@@ -164,9 +162,7 @@ pub(crate) fn present_main_window<R: tauri::Runtime>(
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "未找到主窗口".to_string())?;
-    window
-        .show()
-        .map_err(|e| format!("显示主窗口失败：{e}"))?;
+    window.show().map_err(|e| format!("显示主窗口失败：{e}"))?;
     // 真正显示后才清除隐藏态：显示失败时下一次自动前台化仍应被抑制。
     tray::clear_user_hidden();
     if let Err(e) = window.unminimize() {
@@ -297,8 +293,7 @@ fn main() {
                 // 清理上次运行可能残留的临时文件：下载临时目录（tasks 4.3）与写配置的临时文件（tasks 5.2）。
                 download::cleanup_stale_staging(&root);
                 // 自定义目录的临时目录建在它的父目录下（与目标同卷），启动时一并清理。
-                if let Ok(effective) =
-                    scrcpy::resolve_scrcpy_dir(&root, cfg.scrcpy_dir.as_deref())
+                if let Ok(effective) = scrcpy::resolve_scrcpy_dir(&root, cfg.scrcpy_dir.as_deref())
                 {
                     if let Some(parent) = effective.parent() {
                         if parent != root {
@@ -307,6 +302,8 @@ fn main() {
                     }
                 }
                 config::cleanup_stale_tmp(&root);
+                local_control::credentials::cleanup_stale(&root);
+                local_control::discovery::cleanup_stale(&root);
                 // 应用更新：未应用的待更新包与替换时的旧版本备份只在本次运行内有效。
                 app_update::cleanup_stale(&handle);
             }
@@ -340,6 +337,14 @@ fn main() {
             if let Some(window) = app.get_webview_window("main") {
                 window_state::restore(&window, cfg.window);
             }
+            let local_control_root = config::app_data_root(&handle).ok();
+            let credential_path = local_control_root
+                .as_ref()
+                .map(|root| local_control::credentials::path_in(root));
+            let discovery_path = local_control_root
+                .as_ref()
+                .map(|root| local_control::discovery::path_in(root));
+            let fuyu_enabled = cfg.external_control.fuyu_enabled;
             app.manage(AppState {
                 config: Mutex::new(cfg),
                 pending: Mutex::new(None),
@@ -351,6 +356,15 @@ fn main() {
                 app_update_plan: Mutex::new(None),
                 app_update_pending: Mutex::new(None),
                 app_update_ctl: Mutex::new(None),
+            });
+            let local_control = local_control::LocalControlRuntime::new(
+                handle.clone(),
+                credential_path,
+                discovery_path,
+            );
+            app.manage(local_control.clone());
+            let _ = tauri::async_runtime::spawn(async move {
+                local_control.reconcile(fuyu_enabled).await;
             });
             // 兜底之二：自进程启动起算的绝对上限（见 `spawn_reveal_fallback`）。
             spawn_reveal_fallback(
@@ -416,6 +430,9 @@ fn main() {
             tray::set_tray_menu_labels,
             tray::set_tray_hidden,
             instance::mark_app_exiting,
+            local_control::runtime::get_local_control_status,
+            local_control::runtime::open_local_control_docs,
+            local_control::runtime::open_fuyu_project_page,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -434,6 +451,7 @@ fn main() {
             }
             // 会话由本应用持有：退出前结束它们，否则会留下无人管理、也无人能断开的投屏窗口。
             if let tauri::RunEvent::Exit = event {
+                local_control::shutdown(&handle);
                 session::shutdown_all(handle);
                 // 必须在进程结束前摘掉：Tauri 在本次事件后直接 `process::exit`，托管状态不会
                 // 析构，漏掉这一步会在通知区留下需要鼠标划过才消失的残留图标。
@@ -550,6 +568,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn exit_event_stops_local_control_before_sessions() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/main.rs");
+        let raw = std::fs::read_to_string(path).unwrap();
+        let local = raw.find("local_control::shutdown(&handle)").unwrap();
+        let sessions = raw.find("session::shutdown_all(handle)").unwrap();
+        assert!(local < sessions, "本地控制必须先于会话清理停止");
+        for command in ["local_control::runtime::get_local_control_status"] {
+            assert!(raw.contains(command), "缺少本地控制命令注册：{command}");
+        }
+    }
+
     /// 能力声明必须授予自绘标题栏用到的三条窗口命令：`start-dragging` / `minimize` / `toggle-maximize`。
     ///
     /// 三者都**不在** `core:default` 里（该默认集只有窗口的只读命令 + 双击最大化的那条内部命令），
@@ -652,7 +682,8 @@ mod tests {
             sizes.push(size);
 
             let len = u32::from_le_bytes(raw[entry + 8..entry + 12].try_into().unwrap()) as usize;
-            let offset = u32::from_le_bytes(raw[entry + 12..entry + 16].try_into().unwrap()) as usize;
+            let offset =
+                u32::from_le_bytes(raw[entry + 12..entry + 16].try_into().unwrap()) as usize;
             let payload = &raw[offset..offset + len];
 
             if size < 256 {
@@ -664,11 +695,7 @@ mod tests {
                     &payload[..4]
                 );
             } else {
-                assert_eq!(
-                    &payload[..8],
-                    b"\x89PNG\r\n\x1a\n",
-                    "256 层应保留 PNG 压缩"
-                );
+                assert_eq!(&payload[..8], b"\x89PNG\r\n\x1a\n", "256 层应保留 PNG 压缩");
             }
         }
 

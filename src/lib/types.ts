@@ -351,6 +351,21 @@ export interface TrayPrefs {
   closeToTray: boolean;
 }
 
+export interface ExternalControlPrefs {
+  fuyuEnabled: boolean;
+  /** 上次成功监听的端口；由后端维护，前端只读回传。 */
+  lastPort?: number;
+}
+
+export type LocalControlServiceStatus = 'disabled' | 'starting' | 'running' | 'error';
+
+export interface LocalControlRuntimeStatus {
+  status: LocalControlServiceStatus;
+  message?: string;
+  baseUrl?: string;
+  apiDocsUrl?: string;
+}
+
 export interface AppConfig {
   schemaVersion: number;
   /** 自定义 scrcpy 运行环境目录（绝对路径）；`null` 表示使用约定目录。 */
@@ -369,6 +384,7 @@ export interface AppConfig {
   ui: UiPrefs;
   update: UpdatePrefs;
   tray: TrayPrefs;
+  externalControl: ExternalControlPrefs;
   /**
    * 主窗口上次退出时的普通几何（物理像素）；后端拥有并维护，前端只读回显，
    * 保存配置时不参与合并。缺省表示尚无保存几何。
