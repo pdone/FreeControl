@@ -50,9 +50,9 @@
 
 <img src="assets/screenshots/dark/environment.png" alt="运行环境页" />
 
-**设置** —— 外观、字体、界面语言、自动更新、托盘与日志设置：
+**设置** —— 外观、字体、界面语言、外部控制、自动更新、托盘与日志设置：
 
-<img src="assets/screenshots/dark/settings.png" alt="设置页：外观、字体、界面语言、自动更新、托盘与日志设置" />
+<img src="assets/screenshots/dark/settings.png" alt="设置页：外观、字体、界面语言、外部控制、自动更新、托盘与日志设置" />
 
 ## 快速开始
 

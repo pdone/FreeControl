@@ -51,9 +51,9 @@
 
 <img src="assets/screenshots/dark/en/environment.png" alt="Runtime page" />
 
-**Settings** — appearance, fonts, interface language, updates, tray and log settings:
+**Settings** — appearance, fonts, interface language, external control, updates, tray and log settings:
 
-<img src="assets/screenshots/dark/en/settings.png" alt="Settings page: appearance, fonts, interface language, updates, tray and log settings" />
+<img src="assets/screenshots/dark/en/settings.png" alt="Settings page: appearance, fonts, interface language, external control, updates, tray and log settings" />
 
 ## Quick Start
 

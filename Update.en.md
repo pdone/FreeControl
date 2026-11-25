@@ -2,6 +2,13 @@
 
 <a href="Update.md">中文</a> | English
 
+## v2.7.0
+
+### New
+
+- Settings now has an External Control card: turn on Enable local service and adapted external apps (such as the Fuyu plugin) can discover and connect to FreeControl on this computer, read device status, and connect or disconnect devices using each device's saved parameters. The service listens only on this computer and is off by default, and the switch takes effect immediately with no pairing information to copy.
+- While the service is running, the card shows the local address and an API docs link to the read-only device interface reference in your browser; the address stays the same across restarts whenever possible.
+
 ## v2.6.0
 
 ### New
